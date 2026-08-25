@@ -1,0 +1,43 @@
+---
+# sudo — limita passwd_timeout (padrão de fábrica do sudo: 5 minutos,
+# `man sudoers`), como rede de segurança para `become: true` disparado
+# a partir de um terminal sem ninguém acompanhando (ex.: um agente/IA
+# rodando comandos de diagnóstico na própria máquina, um script
+# esquecido). Mesmo com `--ask-become-pass` (ansible.cfg — ver a seção
+# "Privilégio: sudo + --ask-become-pass" do README) garantindo uma
+# senha de retaguarda, o `pam_fprintd` (primeiro na cadeia de
+# /etc/pam.d/sudo, antes do pam_unix) ainda é tentado primeiro e tem
+# seu próprio tempo de espera por um toque no sensor — que nunca chega
+# num terminal oculto — antes de cair pra senha. `passwd_timeout` limita
+# quanto tempo isso pode ficar pendurado.
+#
+# 1 minuto ainda é tempo de sobra pra quem está de verdade no teclado
+# (olhar a tela, tocar no leitor); para qualquer contexto oculto, limita
+# o travamento a isso em vez dos 5 minutos de fábrica. Não elimina o
+# problema de raiz — só o quão caro ele fica — porque não tem como o
+# sudo/PAM distinguir "tem alguém aqui" de "não tem"; quem chama um
+# comando que pode precisar de `become` sem um humano por perto deveria
+# preferir `-n` explicitamente (falha na hora) em vez de depender só
+# deste limite.
+#
+# `mode: "0440"` e `validate: visudo -cf %s`: exigência do próprio
+# sudo — um arquivo em /etc/sudoers.d/ gravável por grupo/outros, ou
+# com erro de sintaxe, é ignorado ou (pior) quebra o sudo inteiro no
+# sistema; visudo valida antes de substituir o arquivo de verdade.
+#
+# Uso: ansible-playbook site.yml --ask-become-pass --tags sudo (ou
+# `just sudo`).
+- name: sudo — passwd_timeout
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: "Instalar /etc/sudoers.d/omarchy-setup-passwd-timeout"
+      ansible.builtin.copy:
+        content: |
+          Defaults passwd_timeout={{ sudo_passwd_timeout_minutes }}
+        dest: /etc/sudoers.d/omarchy-setup-passwd-timeout
+        mode: "0440"
+        validate: "visudo -cf %s"
+      become: true

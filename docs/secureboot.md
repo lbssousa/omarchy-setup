@@ -3,10 +3,10 @@
 Guia de uso do `playbooks/secureboot.yml`. Diferente de todo o resto
 deste repositório, **este playbook não faz parte de `just setup`** —
 mexe em firmware/boot, então só roda se você chamar explicitamente
-`just secureboot` (ou `ansible-playbook playbooks/secureboot.yml
---ask-become-pass`). Veja o cabeçalho do próprio playbook para a
-versão comentada linha a linha; este documento é o passo a passo de
-uso.
+`just secureboot` (ou
+`ansible-playbook playbooks/secureboot.yml --ask-become-pass`).
+Veja o cabeçalho do próprio playbook para a versão comentada linha a
+linha; este documento é o passo a passo de uso.
 
 ## Por que existe
 

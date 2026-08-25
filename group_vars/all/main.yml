@@ -330,3 +330,10 @@ printer_l4160_hostname: EPSONE0321F.local
 printer_l4160_device_uri: "ipp://{{ printer_l4160_hostname }}:631/ipp/print"
 printer_l4160_error_policy: abort-job
 printer_l4160_set_default: true
+
+# Tamanho de texto do shell do Omarchy (barra do quickshell) + terminais
+# (playbooks/text-size.yml), em px — mesma unidade aceita por
+# `omarchy display text size`. O playbook sempre reseta o fator de
+# escala do GTK logo depois, então esse valor NÃO se propaga para
+# outros apps GTK (nem, por extensão, para navegadores web).
+omarchy_text_size_px: 20

@@ -112,6 +112,43 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    lá, o `gcr-ssh-agent` (aqui do pacote `gcr-4`) é mascarado para não
    competir pela mesma variável.
 
+3. **Podman rootless** (`playbooks/podman.yml`, tag `podman`) — instala
+   o Podman via pacman. O pacote `podman` do Arch já resolve
+   praticamente toda a base necessária para rootless funcionar de cara,
+   como dependência obrigatória (conferido em `pacman -Si podman`/`-Sp
+   containers-common` antes de escrever o playbook): `passt` (rede
+   rootless padrão do Podman 5+), `containers-common` → `netavark` +
+   `aardvark-dns` (rede em modo bridge) e um
+   `registries.conf.d/00-shortnames.conf` já mapeando nomes curtos
+   comuns de distro (`ubuntu`, `debian`, `fedora`, `archlinux`,
+   `tumbleweed`...) para o registry completo — o suficiente para o
+   Distrobox puxar imagens sem nenhuma configuração extra de
+   `unqualified-search-registries`, então este playbook não mexe em
+   `/etc/containers/registries.conf`. O que de fato precisa de atenção
+   manual: uma faixa subuid/subgid para o usuário (o `useradd` do Arch
+   já aloca uma para contas normais, mas o playbook garante uma —
+   sem sobrescrever uma já existente — para contas que não passaram por
+   esse fluxo), e uma checagem final (`podman info`) confirmando que o
+   rootless está mesmo ativo. cgroups v2 delegation e
+   `kernel.unprivileged_userns_clone` já vêm habilitados por padrão no
+   Arch/Omarchy atual — nada a fazer aí.
+
+   **Fora do escopo, de propósito**: `loginctl enable-linger` (mantém
+   containers rootless rodando sem sessão ativa) não é ligado
+   automaticamente — é uma escolha de política que cabe a quem for
+   rodar containers como serviços de longa duração, não uma
+   pré-condição para rootless funcionar interativamente.
+4. **Distrobox** (`playbooks/distrobox.yml`, tag `distrobox`) — instala
+   o distrobox via pacman. Depende do Podman (playbook anterior);
+   `site.yml` importa os dois nessa ordem, então rodar sem
+   `--tags`/`--skip-tags` já garante a sequência certa sozinho — mas
+   como este playbook também pode ser rodado isolado
+   (`--tags distrobox`), ele falha cedo com orientação se não encontrar
+   o Podman, em vez de deixar o pacman instalar o distrobox e só
+   descobrir o problema no primeiro `distrobox create`. Nada além do
+   pacote é instalado: cada container/distro é criado sob demanda pelo
+   próprio usuário, não faz sentido este playbook decidir isso por ele.
+
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
 ## Pré-requisitos
@@ -155,7 +192,9 @@ Para rodar só uma automação:
 ```bash
 just ptbr       # localização pt-BR
 just bitwarden  # Bitwarden
-# ou: ansible-playbook site.yml --ask-become-pass --tags <ptbr|bitwarden>
+just podman     # Podman rootless
+just distrobox  # Distrobox (depende do Podman)
+# ou: ansible-playbook site.yml --ask-become-pass --tags <ptbr|bitwarden|podman|distrobox>
 ```
 
 O playbook é idempotente — rodar de novo é seguro e só aplica o que
@@ -169,10 +208,12 @@ ainda não estiver no estado desejado.
 | `site.yml`                  | Índice: importa cada `playbooks/*.yml` com sua tag                 |
 | `playbooks/ptbr.yml`        | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`)  |
 | `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |
+| `playbooks/podman.yml`      | Podman rootless (tag `podman`)                                     |
+| `playbooks/distrobox.yml`   | Distrobox — depende do Podman (tag `distrobox`)                    |
 | `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d) — compartilhado pelos playbooks acima |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`)               |
+| `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`) |
 
 ## Créditos
 

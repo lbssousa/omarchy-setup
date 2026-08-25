@@ -27,3 +27,11 @@ ptbr: _ensure-collections
 # Run only the Bitwarden playbook.
 bitwarden: _ensure-collections
     ansible-playbook site.yml --ask-become-pass --tags bitwarden
+
+# Run only the Podman (rootless) playbook.
+podman: _ensure-collections
+    ansible-playbook site.yml --ask-become-pass --tags podman
+
+# Run only the Distrobox playbook.
+distrobox: _ensure-collections
+    ansible-playbook site.yml --ask-become-pass --tags distrobox

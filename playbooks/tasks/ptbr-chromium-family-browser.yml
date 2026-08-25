@@ -1,0 +1,107 @@
+---
+# Um navegador da família Chromium por vez — chamado em loop por
+# playbooks/ptbr.yml (tag ptbr-chromium, lista
+# ptbr_chromium_family_config_dirs), var `browser_config_dir` =
+# caminho relativo a ~/.config (ex.: "BraveSoftware/Brave-Origin").
+#
+# Mesma lógica pra qualquer um deles (todos seguem a convenção
+# multi-perfil do próprio Chromium, <config_dir>/Default/Preferences):
+# intl.accept_languages/selected_languages ficam congelados em
+# "en-US,en" desde a criação do perfil (perfil criado antes do LANG
+# virar pt_BR — mesma classe de bug do Firefox, ver cabeçalho de
+# ptbr.yml), e é isso que sites como o WhatsApp Web usam
+# (Accept-Language/navigator.language) pra escolher o idioma da
+# página. Corrigido forçando esses dois campos no Preferences
+# diretamente (não existe policy oficial reconhecida pra isso — ver
+# cabeçalho de ptbr.yml), só se o navegador estiver FECHADO (senão ele
+# sobrescreve a edição ao sair).
+#
+# "Fechado" é detectado pelo SingletonLock do PRÓPRIO PERFIL (não
+# pgrep): todo processo Chromium-family cria um symlink
+# <config_dir>/SingletonLock enquanto está rodando com aquele
+# --user-data-dir, e remove ao sair normalmente — mesmo mecanismo que
+# o próprio Chromium usa pra detectar "já tem uma instância aberta
+# neste perfil". Mais confiável que `pgrep -x <nome>`: o binário
+# instalado nem sempre é o processo real (confirmado nesta máquina:
+# `brave-origin` é só um wrapper shell em cima de um binário com nome
+# diferente) — teria que acertar o nome de processo certo pra cada
+# fork/variante, e o SingletonLock já resolve isso sozinho, igual pra
+# todos.
+#
+# `tags: [ptbr-chromium]` repetido em TODA tarefa deste arquivo, e não
+# só no include_tasks que o chama (playbooks/ptbr.yml) — confirmado
+# nesta máquina (ansible-core 2.21.3) que tag só no include_tasks
+# externo, quando ele tem `loop`, faz o `--tags ptbr-chromium` mostrar
+# "included: ... (item=X)" pra cada iteração mas pular TODAS as
+# tarefas de dentro em silêncio (ok= conta só o include em si, sem
+# erro, sem "skipping" nenhum — bug sutil, quase impossível de notar
+# sem comparar o Preferences antes/depois).
+- name: "[{{ browser_config_dir }}] Localizar o Preferences do perfil Default"
+  ansible.builtin.stat:
+    path: "{{ ansible_facts.env.HOME }}/.config/{{ browser_config_dir }}/Default/Preferences"
+  register: browser_prefs_stat
+  tags: [ptbr-chromium]
+
+- name: "[{{ browser_config_dir }}] Verificar se está rodando (SingletonLock do perfil)"
+  ansible.builtin.stat:
+    path: "{{ ansible_facts.env.HOME }}/.config/{{ browser_config_dir }}/SingletonLock"
+  register: browser_lock_stat
+  when: browser_prefs_stat.stat.exists
+  tags: [ptbr-chromium]
+
+- name: "[{{ browser_config_dir }}] Carregar o Preferences atual"
+  ansible.builtin.set_fact:
+    browser_prefs_current: "{{ lookup('file', ansible_facts.env.HOME + '/.config/' + browser_config_dir + '/Default/Preferences') | from_json }}"
+  when:
+    - browser_prefs_stat.stat.exists
+    - not browser_lock_stat.stat.exists
+  tags: [ptbr-chromium]
+
+- name: "[{{ browser_config_dir }}] Forçar intl.accept_languages/selected_languages={{ ptbr_chromium_accept_languages }}"
+  ansible.builtin.copy:
+    content: >-
+      {{
+        (browser_prefs_current
+          | combine({'intl': {'accept_languages': ptbr_chromium_accept_languages,
+                               'selected_languages': ptbr_chromium_accept_languages}}, recursive=True)
+          | to_json)
+      }}
+    dest: "{{ ansible_facts.env.HOME }}/.config/{{ browser_config_dir }}/Default/Preferences"
+    mode: "0600"
+  register: browser_prefs_patched
+  when:
+    - browser_prefs_stat.stat.exists
+    - not browser_lock_stat.stat.exists
+  tags: [ptbr-chromium]
+
+- name: "[{{ browser_config_dir }}] Avisar sobre web apps já usados antes desta correção"
+  ansible.builtin.debug:
+    msg: >-
+      [{{ browser_config_dir }}] intl.accept_languages/selected_languages
+      atualizados. Web apps NUNCA abertos antes neste navegador vão
+      abrir em pt-BR normalmente. Um que você já tenha usado (ex.:
+      WhatsApp Web já logado) pode continuar em inglês: o idioma fica
+      cacheado no IndexedDB/Service Worker do próprio site,
+      independente do Accept-Language novo. Se acontecer, limpe
+      manualmente os dados desse site (cadeado da barra de endereço →
+      dados do site → Limpar dados) — evite fazer isso
+      automaticamente aqui, pois derrubaria sessões já logadas.
+  when:
+    - browser_prefs_stat.stat.exists
+    - not browser_lock_stat.stat.exists
+    - browser_prefs_patched is defined and browser_prefs_patched is changed
+  tags: [ptbr-chromium]
+
+- name: "[{{ browser_config_dir }}] Avisar se estiver rodando (Preferences não tocado)"
+  ansible.builtin.debug:
+    msg: >-
+      {{ browser_config_dir }} está rodando (perfil em
+      ~/.config/{{ browser_config_dir }}) — editar o Preferences agora
+      seria sobrescrito quando ele fechar. Feche todas as janelas
+      (inclusive web apps do omarchy-launch-webapp) e rode de novo
+      `just ptbr` (ou `ansible-playbook playbooks/ptbr.yml --tags
+      ptbr-chromium`).
+  when:
+    - browser_prefs_stat.stat.exists
+    - browser_lock_stat.stat.exists
+  tags: [ptbr-chromium]

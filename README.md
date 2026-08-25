@@ -228,60 +228,18 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
 7. **Secure Boot (Limine + sbctl)** (`playbooks/secureboot.yml`, tag
    `secureboot`) — **não faz parte de `site.yml`/`just setup`**, de
    propósito: mexe em firmware/boot, então só roda se chamado
-   explicitamente (`just secureboot`, ou
-   `ansible-playbook playbooks/secureboot.yml --ask-become-pass`).
-
-   Baseado em duas fontes: as discussões do próprio Omarchy no GitHub
+   explicitamente (`just secureboot`). Instala o `sbctl`, cria as
+   chaves e configura o `limine-entry-tool` para manter o binário do
+   Limine sempre assinado (mecanismo nativo dele, não reimplementado
+   aqui), e matricula as chaves no firmware quando o Setup Mode for
+   detectado — em duas execuções, com uma ida ao BIOS no meio (trocar
+   o estado do Secure Boot no firmware não dá para automatizar).
+   Baseado nas discussões do Omarchy no GitHub
    ([basecamp/omarchy#5306](https://github.com/basecamp/omarchy/discussions/5306),
-   [#7462](https://github.com/basecamp/omarchy/discussions/7462)) e o
-   script equivalente em
+   [#7462](https://github.com/basecamp/omarchy/discussions/7462)) e em
    [lbssousa/nix-config](https://github.com/lbssousa/nix-config)
-   (`scripts/setup-secureboot.sh`, para NixOS/Limine). O processo
-   manual descrito nas discussões do GitHub (extrair o binário do
-   cache do pacman, `limine enroll-config` manual, `sbctl sign -s`, em
-   ordem estrita, repetido a cada kernel novo) acabou não sendo
-   necessário: o código-fonte do `limine-entry-tool`
-   (`limine-mkinitcpio-hook`, já instalado no Omarchy) mostra que,
-   uma vez que o sbctl tenha chaves criadas, **qualquer operação do
-   limine-entry-tool já re-assina o binário do Limine sozinha**
-   (`enroll_config()` chama `sb_sign()` incondicionalmente) — inclusive
-   a triggada pelo hook de atualização de kernel do pacman. Do
-   nix-config, vieram a ordem assinar-antes-de-matricular chaves, a
-   detecção de Setup Mode lendo a variável EFI diretamente (mais
-   robusta que só o texto do `sbctl status`), e o desbloqueio de
-   variáveis EFI marcadas imutáveis que alguns firmwares aplicam mesmo
-   em Setup Mode.
-
-   Fluxo em duas execuções, com um reboot no meio — trocar o estado do
-   Secure Boot no firmware exige entrar no BIOS manualmente, nada
-   dentro do Linux consegue fazer isso pelo usuário:
-   1. **1ª execução** (Secure Boot desligado, fora do Setup Mode):
-      instala o `sbctl`, cria as chaves, liga
-      `ENABLE_ENROLL_LIMINE_CONFIG`/`ENABLE_VERIFICATION` em
-      `/etc/default/limine` e `hash_mismatch_panic: yes` em
-      `limine.conf`, roda `limine-update` (que já assina o binário
-      pelo mecanismo acima). Detecta que o firmware não está em Setup
-      Mode e para aí, com instruções (BIOS → Secure Boot → limpar as
-      chaves existentes).
-   2. **2ª execução** (depois de reiniciar em Setup Mode): detecta o
-      Setup Mode e matricula as chaves (`sbctl enroll-keys
-      --microsoft`). Depois, reinicie de novo e ligue o Secure Boot no
-      BIOS.
-
-   Validado nesta máquina (só a parte sem `become`, sem alterar nada):
-   confirma Limine + limine-entry-tool presentes, nenhum `splash` no
-   cmdline (não aplicável aqui, mas checado — Plymouth quebra o boot
-   com Secure Boot segundo a discussão #5306), e o firmware
-   corretamente detectado como fora do Setup Mode agora — exatamente o
-   estado em que o playbook deveria parar e pedir para entrar no BIOS,
-   sem tentar matricular nada.
-
-   Avisos que o playbook não pode resolver sozinho: `splash` no
-   cmdline (Plymouth) é incompatível com esta configuração de Secure
-   Boot — o playbook avisa, mas não remove nada. Se a máquina usa LUKS
-   com desbloqueio automático via TPM2, ligar o Secure Boot muda o
-   PCR7 e quebra esse desbloqueio até re-matricular o TPM2 (a senha
-   continua funcionando como fallback nesse meio tempo).
+   (`scripts/setup-secureboot.sh`). **Passo a passo completo, avisos e
+   troubleshooting em [`docs/secureboot.md`](docs/secureboot.md).**
 
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
@@ -353,6 +311,9 @@ just secureboot
 # ou: ansible-playbook playbooks/secureboot.yml --ask-become-pass
 ```
 
+Passo a passo completo (as duas execuções, as idas ao BIOS, avisos e
+como reverter se o boot falhar): [`docs/secureboot.md`](docs/secureboot.md).
+
 ## Estrutura
 
 | Arquivo/Diretório          | Papel                                                              |
@@ -366,6 +327,7 @@ just secureboot
 | `playbooks/distrobox.yml`   | Distrobox — depende do Podman (tag `distrobox`)                    |
 | `playbooks/libfprint.yml`   | libfprint goodix538d — build em container + instalação em /usr/local (tag `libfprint`) |
 | `playbooks/secureboot.yml`  | Secure Boot (Limine + sbctl) — **fora de site.yml**, roda isolado (tag `secureboot`) |
+| `docs/secureboot.md`        | Passo a passo de uso do `just secureboot` (avisos, troubleshooting) |
 | `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d, distrobox.ini, shim de pkg-config) — compartilhado pelos playbooks acima |
 | `playbooks/templates/`      | Templates Jinja2 (`ansible.builtin.template`) — precisam ficar aqui, não em `files/`, ou o módulo não os acha |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |

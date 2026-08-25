@@ -1,0 +1,148 @@
+---
+# Chave pública GPG da Yubikey — importa, atribui confiança plena e
+# configura o git pra assinar commits/tags com ela. NÃO faz parte de
+# site.yml/`just setup`, de propósito: depende de um token físico
+# estar conectado no momento da execução, então roda isolado, via
+# `ansible-playbook playbooks/yubikey-gpg.yml --ask-become-pass` (ou
+# `just gpg-yubikey`).
+#
+# 1. Importar a chave pública (fetch): usa o comando `fetch` do próprio
+#    `gpg --card-edit`, que lê a URL gravada no cartão OpenPGP da
+#    Yubikey ("URL of public key", configurada previamente com
+#    `gpg --card-edit` → `url`) e importa a chave pública de lá para o
+#    keyring local do usuário — sem precisar saber o fingerprint/URL
+#    de antemão nem depender de um keyserver específico (funciona com
+#    qualquer URL que o gpg suporte: HTTPS, HKP etc., o que estiver
+#    gravado no cartão). Testado nesta máquina: a Yubikey aqui aponta
+#    para keys.openpgp.org, mas o playbook não hardcoda isso em lugar
+#    nenhum — só delega pro próprio `fetch`.
+#
+#    Só a chave PÚBLICA sai do cartão — a privada nunca sai da
+#    Yubikey, nem passa perto disso; o `gpg --card-status` já basta
+#    pro GnuPG saber que as operações de assinatura/decriptação/
+#    autenticação daquele fingerprint devem ser roteadas pro cartão
+#    (stub de chave secreta), independente deste playbook.
+#
+#    `--command-fd 0` + `--batch`: scripta a REPL interativa do
+#    `gpg --card-edit` (`fetch` seguido de `quit`) sem precisar de
+#    tty — `--batch` sozinho evita o `gpg: cannot open '/dev/tty'` que
+#    aparece rodando via Ansible/scripts (confirmado testando ao vivo
+#    nesta máquina). `--status-fd 1` é quem torna a saída
+#    script-friendly: linhas `[GNUPG:] ...` de máquina, sem depender
+#    de idioma — usadas no `changed_when` (`IMPORT_OK <razão>`, onde
+#    razão "0" é "nada mudou" e qualquer outro valor é uma mudança
+#    real; ver `doc/DETAILS` do próprio GnuPG). Cuidado testado e
+#    confirmado nesta máquina: `LC_ALL=C` (o mesmo truque usado em
+#    playbooks/bitwarden.yml para saída do pacman) NÃO funciona aqui —
+#    o nome do titular do cartão tem acento, e forçar locale C
+#    corrompe a codificação UTF-8 da resposta do gpg, derrubando o
+#    próprio Ansible ("Refusing to deserialize an invalid UTF8
+#    string"). `--status-fd` evita o problema todo: não tem texto
+#    traduzido nem acentuado pra corromper.
+#
+# 2. Confiança plena (ultimate): extrai a fingerprint da "Signature
+#    key" do `gpg --card-status` (a chave primária do cartão,
+#    capacidade [S] — é ela, não as subchaves de autenticação/
+#    criptografia, que assina commits) e atribui ownertrust "ultimate"
+#    (`gpg --import-ownertrust`, código "6" — é assim que se marca uma
+#    chave como sua própria, sem precisar confirmar interativamente
+#    "Really use this key?" cada vez que ela for usada). A checagem de
+#    idempotência usa `gpg -k --with-colons` (formato estável,
+#    de-máquina, nunca traduzido — o campo de confiança vem como "u"
+#    quando já é ultimate) em vez de tentar interpretar a mensagem
+#    humana do `--import-ownertrust` (que também pode ser traduzida).
+#
+# 3. Assinatura no git: configura `user.signingkey` (a mesma
+#    fingerprint do passo 2), `commit.gpgsign` e `tag.gpgsign` no git
+#    global (`~/.gitconfig`) via `community.general.git_config`
+#    (idempotente, não precisa de `ansible.builtin.command`/regex pra
+#    ler o estado atual). Roda mesmo que a chave já estivesse
+#    importada antes (não depende do `fetch` ter mudado algo) — só
+#    depende de haver cartão conectado pra extrair a fingerprint.
+#
+# De propósito, NUNCA usa `become: true` em nenhuma tarefa de GPG ou
+# git — keyring GPG (~/.gnupg) e config do git (~/.gitconfig) são
+# dado pessoal do usuário, nunca deveriam ser tocados como root. A
+# única parte privilegiada é garantir o pacote `gnupg` instalado.
+#
+# De propósito também não mexe em `pcscd`/driver CCID (pacotes
+# `pcsclite`/`ccid`): testado nesta máquina que o próprio `scdaemon` do
+# GnuPG fala com o leitor da Yubikey via driver CCID interno dele, sem
+# precisar do `pcscd` rodando — só entraria em cena para outras coisas
+# (WebAuthn no navegador, PIV/SSH via smartcard), fora do escopo deste
+# playbook.
+- name: Chave pública GPG da Yubikey — importar, confiar, assinar no git
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Garantir que o gnupg está instalado
+      community.general.pacman:
+        name: gnupg
+        state: present
+      become: true
+
+    - name: Verificar se há um cartão OpenPGP (Yubikey) conectado
+      ansible.builtin.command: gpg --card-status
+      register: yubikey_gpg_card_check
+      changed_when: false
+      failed_when: false
+
+    - name: Importar a chave pública gravada no cartão (gpg --card-edit fetch)
+      ansible.builtin.shell: |
+        printf 'fetch\nquit\n' | gpg --batch --command-fd 0 --status-fd 1 --card-edit
+      register: yubikey_gpg_fetch
+      changed_when: (yubikey_gpg_fetch.stdout | regex_search('IMPORT_OK [1-9]')) is not none
+      when: yubikey_gpg_card_check.rc == 0
+
+    - name: Extrair a fingerprint da chave de assinatura do cartão
+      ansible.builtin.set_fact:
+        yubikey_gpg_signing_key: "{{ (yubikey_gpg_card_check.stdout | regex_search('Signature key\\s*\\.*:\\s*([0-9A-F ]+)', '\\1') | first) | replace(' ', '') }}"
+      when: yubikey_gpg_card_check.rc == 0
+
+    - name: Verificar a confiança (ownertrust) atual da chave importada
+      ansible.builtin.command: "gpg -k --with-colons {{ yubikey_gpg_signing_key }}"
+      register: yubikey_gpg_trust_check
+      changed_when: false
+      when: yubikey_gpg_card_check.rc == 0
+
+    - name: "Atribuir confiança plena (ultimate) à chave da Yubikey"
+      ansible.builtin.shell: "echo '{{ yubikey_gpg_signing_key }}:6:' | gpg --import-ownertrust"
+      changed_when: true
+      when:
+        - yubikey_gpg_card_check.rc == 0
+        - "'pub:u:' not in yubikey_gpg_trust_check.stdout"
+
+    - name: "Configurar o git para assinar commits/tags com a chave da Yubikey ({{ yubikey_gpg_signing_key | default('?') }})"
+      when: yubikey_gpg_card_check.rc == 0
+      block:
+        - name: "git config --global user.signingkey"
+          community.general.git_config:
+            name: user.signingkey
+            value: "{{ yubikey_gpg_signing_key }}"
+            scope: global
+            state: present
+
+        - name: "git config --global commit.gpgsign true"
+          community.general.git_config:
+            name: commit.gpgsign
+            value: "true"
+            scope: global
+            state: present
+
+        - name: "git config --global tag.gpgsign true"
+          community.general.git_config:
+            name: tag.gpgsign
+            value: "true"
+            scope: global
+            state: present
+
+    - name: Avisar se nenhuma Yubikey/cartão OpenPGP foi encontrado (nenhuma ação tomada)
+      ansible.builtin.debug:
+        msg: >-
+          Nenhum cartão OpenPGP encontrado (gpg --card-status falhou)
+          — conecte a Yubikey e rode de novo. Nenhuma chave foi
+          importada, nenhuma confiança foi atribuída, e a assinatura
+          de commits/tags no git não foi configurada.
+      when: yubikey_gpg_card_check.rc != 0

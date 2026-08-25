@@ -88,3 +88,56 @@ gcr_ssh_agent_units:
 # 100000:65536 é o mesmo intervalo padrão que o useradd já usa.
 podman_subuid_start: 100000
 podman_subuid_count: 65536
+
+# libfprint (goodix538d) — builda o fork em um container distrobox
+# (ambiente de build isolado, sem instalar toolchain no host) e instala
+# em /usr/local (playbooks/libfprint.yml). Repositório/branch do fork.
+libfprint_container_name: libfprint-build
+libfprint_distrobox_ini_file: "{{ playbook_dir }}/files/libfprint-build.ini"
+libfprint_repo: https://github.com/lbssousa/libfprint.git
+libfprint_ref: goodix-538d-sigfm-gtls
+libfprint_checkout_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d"
+libfprint_stage_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-stage"
+
+# Onde a lib cai no host. Diferente do bluefin-distrobox-libfprint
+# (Fedora Atomic, /usr somente leitura, libdir "lib64"): aqui /usr já é
+# gravável e o Arch usa "lib" (lib64 é só um symlink de compatibilidade
+# para lib) — confirmado em /usr/lib64 -> lib nesta máquina.
+libfprint_usrlocal_prefix: /usr/local
+libfprint_usrlocal_libdir: "{{ libfprint_usrlocal_prefix }}/lib"
+
+# Dependências de runtime no host (o container só tem o toolchain de
+# build — a lib compilada roda no host, via fprintd, então essas libs
+# precisam existir lá também). Nomes de pacote Arch; a maioria já vem
+# via outras automações/apps, mas declaramos explicitamente para este
+# playbook funcionar sozinho numa máquina limpa.
+libfprint_runtime_deps:
+  - opencv
+  - openssl
+  - glib2
+  - libgusb
+  - libgudev
+  - pixman
+
+# O meson.build do fork pede um pacote pkg-config chamado "opencv4"
+# (>= 4.5.0) para o matcher SIGFM — nome que o Homebrew usava
+# (opencv@4) no bluefin-distrobox-libfprint, mas que o Arch não tem
+# mais: o pacote oficial `opencv` já é a série 5.x (pkg-config
+# "opencv5"), e a série 4.x só existe no AUR (opencv4, ~50 dependências
+# de build incluindo Java/Qt6/VTK, só para satisfazer esse nome — build
+# de mais de uma hora por uma checagem de versão). Testado e confirmado
+# nesta máquina: a API que o SIGFM realmente usa (core, imgproc,
+# imgcodecs, features2d/flann) compila sem alterações contra o opencv5
+# do Arch — só o *nome* do pacote pkg-config e da lib "features2d"
+# mudaram (virou "features"). Este .pc é um shim: redireciona a busca
+# por "opencv4" para o opencv5 real, linkando só os módulos que o
+# libfprint de fato usa (não os ~60 módulos do opencv5.pc genérico,
+# alguns dos quais — cvv/viz/hdf — têm symbols quebrados nesta
+# instalação do Arch por causa de suas dependências opcionais
+# Qt6/VTK/HDF5, e derrubam a geração do typelib/GIR se entrarem no
+# link). Fica em $HOME (compartilhado com o container) e é referenciado
+# via PKG_CONFIG_PATH só durante o build — não é instalado no sistema.
+# Se o Arch mudar de versão major do opencv de novo no futuro, este
+# shim precisa ser atualizado (nomes de include dir/módulos podem
+# mudar outra vez).
+libfprint_opencv4_shim_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/libfprint-pkgconfig-shim"

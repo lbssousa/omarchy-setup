@@ -148,6 +148,53 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    descobrir o problema no primeiro `distrobox create`. Nada além do
    pacote é instalado: cada container/distro é criado sob demanda pelo
    próprio usuário, não faz sentido este playbook decidir isso por ele.
+5. **libfprint (goodix538d)** (`playbooks/libfprint.yml`, tag
+   `libfprint`) — compila e instala em `/usr/local` o fork
+   [lbssousa/libfprint](https://github.com/lbssousa/libfprint) (driver
+   `goodixtls53xd`, leitor Goodix 27c6:538d), seguindo o modelo do
+   repositório irmão
+   [lbssousa/bluefin-distrobox-libfprint](https://github.com/lbssousa/bluefin-distrobox-libfprint)
+   (Fedora Atomic), mas simplificado agora que `/usr` é gravável e o
+   host é Arch, não um sistema imutável — sem Homebrew (o `opencv`
+   vira só mais um pacote pacman) e sem relabeling de SELinux (Arch não
+   tem). Ainda assim, a pedido, **builda num container distrobox**
+   (`libfprint-build`, imagem `archlinux`) em vez de instalar o
+   toolchain de build (meson, gcc, headers de desenvolvimento) no host:
+   isso continua fazendo sentido fora de um sistema imutável, só que
+   por um motivo diferente — manter esses pacotes só-de-build isolados
+   e descartáveis (`just libfprint-destroy-container`), sem poluir o
+   sistema principal. Confirmado nesta máquina que o distrobox **não**
+   compartilha `/usr` do host com o container (só `$HOME`) — por isso o
+   playbook ainda faz o *stage* da instalação (`DESTDIR=...`) e copia
+   para o host manualmente, e ainda usa um drop-in do
+   `fprintd.service` com `LD_LIBRARY_PATH=/usr/local/lib` (o pacote
+   oficial `fprintd` já traz o `libfprint` oficial como dependência,
+   mesmo soname, sem o driver — o `LD_LIBRARY_PATH` garante prioridade
+   para a build em `/usr/local` só para o `fprintd`, sem mudar a
+   resolução de bibliotecas do sistema inteiro).
+
+   **Achado testando de verdade** (não estava no bluefin original): o
+   `meson.build` do fork pede um pacote pkg-config chamado `opencv4`
+   (série 4.x) — nome que o Arch não tem mais (o pacote oficial
+   `opencv` já é a série 5.x, `opencv5`; a série 4.x só existe no AUR,
+   com ~50 dependências de build incluindo Java/Qt6/VTK, só para
+   satisfazer esse nome). Testado e confirmado: a API que o matcher
+   SIGFM realmente usa (core, imgproc, imgcodecs, features2d/flann)
+   compila sem alterações contra o `opencv5` do Arch — só o nome do
+   pacote pkg-config (e da lib `features2d`, que virou `features`)
+   mudaram. O playbook cria um `.pc` *shim* redirecionando `opencv4`
+   para o `opencv5` real, linkando só os módulos que o libfprint
+   realmente usa — não os ~60 do `opencv5.pc` genérico, dos quais
+   alguns (`cvv`/`viz`/`hdf`) têm símbolos quebrados nesta instalação
+   do Arch (dependem de Qt6/VTK/HDF5 incompletos) e derrubavam a
+   geração do GIR/typelib se entrassem no link. O shim não é instalado
+   no sistema, só referenciado via `PKG_CONFIG_PATH` durante o build.
+
+   Build validado de ponta a ponta nesta máquina (menos as etapas
+   privilegiadas finais, que pedem senha de sudo interativa): as 154
+   targets do meson compilam limpo, `ldd` resolve tudo, e
+   `fprint-list-supported-devices` lista `27c6:538d` entre os
+   dispositivos suportados.
 
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
@@ -160,6 +207,9 @@ Mais automações devem ser adicionadas a este repositório com o tempo.
   (pacote `pacman`) disponíveis — nenhum AUR helper (`yay`/`paru`) é
   necessário, o playbook builda o AUR sozinho. `git` e `fakeroot` são
   padrão em qualquer instalação do Omarchy (`omarchy-base.packages`).
+- O playbook do libfprint precisa do Podman + Distrobox já configurados
+  (`--tags podman,distrobox` antes, ou simplesmente rode `just setup`
+  sem filtrar tags — `site.yml` já garante essa ordem).
 - `sudo` com senha interativa (`locale.gen`, `locale.conf` e a
   instalação/remoção de pacotes via pacman pedem confirmação).
 
@@ -194,7 +244,8 @@ just ptbr       # localização pt-BR
 just bitwarden  # Bitwarden
 just podman     # Podman rootless
 just distrobox  # Distrobox (depende do Podman)
-# ou: ansible-playbook site.yml --ask-become-pass --tags <ptbr|bitwarden|podman|distrobox>
+just libfprint  # libfprint goodix538d (depende do Podman + Distrobox)
+# ou: ansible-playbook site.yml --ask-become-pass --tags <ptbr|bitwarden|podman|distrobox|libfprint>
 ```
 
 O playbook é idempotente — rodar de novo é seguro e só aplica o que
@@ -210,10 +261,11 @@ ainda não estiver no estado desejado.
 | `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |
 | `playbooks/podman.yml`      | Podman rootless (tag `podman`)                                     |
 | `playbooks/distrobox.yml`   | Distrobox — depende do Podman (tag `distrobox`)                    |
-| `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d) — compartilhado pelos playbooks acima |
+| `playbooks/libfprint.yml`   | libfprint goodix538d — build em container + instalação em /usr/local (tag `libfprint`) |
+| `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d, distrobox.ini, shim de pkg-config) — compartilhado pelos playbooks acima |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`) |
+| `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`) |
 
 ## Créditos
 
@@ -231,3 +283,9 @@ ainda não estiver no estado desejado.
 - Estrutura do repositório (playbooks modulares, tags, `site.yml`
   como índice) espelhada de
   [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup).
+- Processo de build do libfprint (goodix538d) e a estratégia de
+  container de build espelhados de
+  [lbssousa/bluefin-distrobox-libfprint](https://github.com/lbssousa/bluefin-distrobox-libfprint),
+  adaptados para uma instalação nativa (sem Homebrew, sem SELinux) e
+  com um shim de compatibilidade opencv4→opencv5 próprio deste
+  repositório.

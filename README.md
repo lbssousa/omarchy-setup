@@ -226,7 +226,26 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    `fprint-list-supported-devices` lista `27c6:538d` entre os
    dispositivos suportados.
 
-7. **Secure Boot (Limine + sbctl)** (`playbooks/secureboot.yml`, tag
+7. **Impressora EPSON L4160** (`playbooks/printer.yml`, tag `printer`) —
+   modelo copiado do repositório irmão
+   [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup)
+   (`playbooks/printer.yml`): instala CUPS, Avahi e `nss-mdns` via
+   pacman (não vêm por padrão numa instalação limpa do Omarchy,
+   diferente do Bluefin) e cria a fila `L4160` em modo *driverless*
+   (`lpadmin -m everywhere`, suporte nativo a IPP Everywhere), sem
+   instalar o driver ESC/P-R da Epson — aqui não por limitação de
+   sistema imutável (Arch tem `/usr` gravável e o driver existe no
+   AUR), mas porque o driverless já foi validado com esta impressora
+   especificamente no repositório original, e dispensa qualquer pacote
+   extra. Estrutura da fila (URI resolvida por hostname mDNS, em vez de
+   `dnssd://`/`implicitclass://`; `printer-error-policy=abort-job`)
+   inspirada em [lbssousa/nix-config](https://github.com/lbssousa/nix-config)
+   (`modules/system/hardware/printing.nix`). Ajuste
+   `printer_l4160_hostname` em `group_vars/all/main.yml` se a
+   impressora for trocada/renomeada na rede. Pule com
+   `--skip-tags printer` em máquinas sem essa impressora.
+
+8. **Secure Boot (Limine + sbctl)** (`playbooks/secureboot.yml`, tag
    `secureboot`) — **não faz parte de `site.yml`/`just setup`**, de
    propósito: mexe em firmware/boot, então só roda se chamado
    explicitamente (`just secureboot`). Instala o `sbctl`, cria as
@@ -242,7 +261,7 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    (`scripts/setup-secureboot.sh`). **Passo a passo completo, avisos e
    troubleshooting em [`docs/secureboot.md`](docs/secureboot.md).**
 
-8. **Chave pública GPG da Yubikey + assinatura no git**
+9. **Chave pública GPG da Yubikey + assinatura no git**
    (`playbooks/yubikey-gpg.yml`, tag `gpg-yubikey`) — **não faz parte
    de `site.yml`/`just setup`**, também de propósito: depende de um
    token físico conectado no momento da execução, então só roda se
@@ -258,7 +277,7 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    git são dado pessoal do usuário) — a única parte privilegiada é
    garantir o pacote `gnupg` instalado.
 
-9. **Chaves SSH residentes da Yubikey** (`playbooks/yubikey-ssh.yml`,
+10. **Chaves SSH residentes da Yubikey** (`playbooks/yubikey-ssh.yml`,
    tag `ssh-yubikey`) — mesma lógica de ficar fora de
    `site.yml`/`just setup` (`just ssh-yubikey`). "Residente" aqui é
    terminologia FIDO2/CTAP2 (discoverable credential) — mecanismo
@@ -402,7 +421,8 @@ just bitwarden  # Bitwarden
 just podman     # Podman rootless
 just distrobox  # Distrobox (depende do Podman)
 just libfprint  # libfprint goodix538d (depende do Podman + Distrobox)
-# ou: ansible-playbook site.yml --ask-become-pass --tags <nvidia|ptbr|bitwarden|podman|distrobox|libfprint>
+just printer    # Impressora EPSON L4160 (CUPS driverless)
+# ou: ansible-playbook site.yml --ask-become-pass --tags <nvidia|ptbr|bitwarden|podman|distrobox|libfprint|printer>
 ```
 
 O playbook é idempotente — rodar de novo é seguro e só aplica o que
@@ -447,6 +467,7 @@ just ssh-yubikey
 | `playbooks/podman.yml`      | Podman rootless (tag `podman`)                                     |
 | `playbooks/distrobox.yml`   | Distrobox — depende do Podman (tag `distrobox`)                    |
 | `playbooks/libfprint.yml`   | libfprint goodix538d — build em container + instalação em /usr/local (tag `libfprint`) |
+| `playbooks/printer.yml`     | Impressora EPSON L4160 — fila CUPS driverless/IPP Everywhere (tag `printer`) |
 | `playbooks/hypr-scrolling-resize.yml` | Hyprland — SUPER+[ / SUPER+SHIFT+[ redimensionam a coluna focada no layout scrolling (tag `hypr-scrolling-resize`) |
 | `playbooks/secureboot.yml`  | Secure Boot (Limine + sbctl) — **fora de site.yml**, roda isolado (tag `secureboot`) |
 | `docs/secureboot.md`        | Passo a passo de uso do `just secureboot` (avisos, troubleshooting) |
@@ -457,7 +478,7 @@ just ssh-yubikey
 | `playbooks/tasks/`          | Tasks reaproveitadas via `include_tasks` (ex.: idioma de cada navegador Chromium-family, chamada em loop por `ptbr.yml`) |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just hypr-scrolling-resize`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`, `just ssh-yubikey`) |
+| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just printer`, `just hypr-scrolling-resize`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`, `just ssh-yubikey`) |
 
 ## Créditos
 

@@ -66,6 +66,10 @@ libfprint: _ensure-collections
 hypr-scrolling-resize: _ensure-collections
     ansible-playbook site.yml --tags hypr-scrolling-resize
 
+# Set up the EPSON L4160 printer queue (CUPS driverless/IPP Everywhere).
+printer: _ensure-collections
+    ansible-playbook site.yml --tags printer --ask-become-pass
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

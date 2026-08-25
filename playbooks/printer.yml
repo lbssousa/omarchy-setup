@@ -1,0 +1,86 @@
+---
+# Impressora EPSON L4160 — fila CUPS driverless (IPP Everywhere).
+#
+# Modelo copiado do repositório irmão lbssousa/bluefin-initial-setup
+# (playbooks/printer.yml), com uma diferença de motivação: lá, o modo
+# driverless era praticamente obrigatório — o filtro CUPS do driver
+# ESC/P-R da Epson não tem como ser alcançado pelo cupsd fora de /usr,
+# que é somente leitura em sistemas ostree (Fedora Atomic/Bluefin).
+# Aqui, em Arch/Omarchy, /usr é gravável e o driver
+# `epson-inkjet-printer-escpr` existe no AUR — mas o modo driverless
+# continua sendo a escolha certa mesmo assim: dispensa qualquer pacote
+# de driver (nada de AUR só para isto), e o suporte nativo do CUPS a
+# "IPP Everywhere" (`lpadmin -m everywhere`) já foi validado com esta
+# impressora especificamente no repositório original.
+#
+# Estrutura da fila inspirada em lbssousa/nix-config
+# (modules/system/hardware/printing.nix): URI de rede resolvida por
+# hostname mDNS (em vez de dnssd:///implicitclass://, que podem ser
+# instáveis) e printer-error-policy=abort-job, para que uma falha de
+# filtro em um job não trave a fila inteira.
+#
+# CUPS + Avahi + nss-mdns não vêm por padrão numa instalação limpa do
+# Omarchy (diferente do Bluefin, que já parte de uma imagem desktop
+# completa) — este playbook instala e habilita os três antes de
+# configurar a fila.
+- name: Impressora EPSON L4160 (driverless)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Instalar CUPS, Avahi e nss-mdns via pacman
+      community.general.pacman:
+        name:
+          - cups
+          - avahi
+          - nss-mdns
+        state: present
+      become: true
+
+    - name: Habilitar e iniciar o CUPS (socket) e o Avahi
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - cups.socket
+        - avahi-daemon.service
+      become: true
+
+    - name: Garantir que o CUPS (lpadmin) está disponível
+      ansible.builtin.command: which lpadmin
+      register: lpadmin_check
+      changed_when: false
+
+    - name: Impressora EPSON L4160 (driverless)
+      become: true
+      block:
+        - name: Verificar a fila de impressão atual da L4160
+          ansible.builtin.command: "lpstat -v {{ printer_l4160_name }}"
+          register: l4160_current
+          changed_when: false
+          failed_when: false
+
+        - name: Configurar a fila da L4160 via IPP Everywhere (driverless)
+          ansible.builtin.command: >-
+            lpadmin -p {{ printer_l4160_name }} -E
+            -v {{ printer_l4160_device_uri }}
+            -m everywhere
+            -L "{{ printer_l4160_location }}"
+            -D "{{ printer_l4160_description }}"
+            -o printer-error-policy={{ printer_l4160_error_policy }}
+          changed_when: printer_l4160_device_uri not in l4160_current.stdout
+
+        - name: Verificar a impressora padrão atual do sistema
+          ansible.builtin.command: lpstat -d
+          register: default_printer_current
+          changed_when: false
+          failed_when: false
+
+        - name: Definir a L4160 como impressora padrão do sistema
+          ansible.builtin.command: "lpadmin -d {{ printer_l4160_name }}"
+          changed_when: true
+          when:
+            - printer_l4160_set_default
+            - printer_l4160_name not in default_printer_current.stdout

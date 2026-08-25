@@ -242,18 +242,38 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    (`scripts/setup-secureboot.sh`). **Passo a passo completo, avisos e
    troubleshooting em [`docs/secureboot.md`](docs/secureboot.md).**
 
-8. **Chave pública GPG da Yubikey** (`playbooks/yubikey-gpg.yml`, tag
-   `gpg-yubikey`) — **não faz parte de `site.yml`/`just setup`**,
-   também de propósito: depende de um token físico conectado no
-   momento da execução, então só roda se chamado explicitamente
-   (`just gpg-yubikey`). Usa o comando `fetch` do próprio
-   `gpg --card-edit`, que lê a URL gravada no cartão OpenPGP da
-   Yubikey e importa a chave pública de lá para o keyring do usuário —
-   sem hardcodar fingerprint/keyserver em lugar nenhum, funciona com
-   qualquer URL que o gpg suporte. Só a chave pública sai do cartão; a
-   privada nunca sai da Yubikey. Nunca roda como root (chave GPG é
-   dado pessoal do usuário) — a única parte privilegiada é garantir o
-   pacote `gnupg` instalado.
+8. **Chave pública GPG da Yubikey + assinatura no git**
+   (`playbooks/yubikey-gpg.yml`, tag `gpg-yubikey`) — **não faz parte
+   de `site.yml`/`just setup`**, também de propósito: depende de um
+   token físico conectado no momento da execução, então só roda se
+   chamado explicitamente (`just gpg-yubikey`). Usa o comando `fetch`
+   do próprio `gpg --card-edit`, que lê a URL gravada no cartão
+   OpenPGP da Yubikey e importa a chave pública de lá para o keyring
+   do usuário — sem hardcodar fingerprint/keyserver em lugar nenhum,
+   funciona com qualquer URL que o gpg suporte. Atribui confiança
+   plena (ultimate) à chave importada e configura o git
+   (`user.signingkey`, `commit.gpgsign`, `tag.gpgsign`) pra assinar
+   commits/tags com ela. Só a chave pública sai do cartão; a privada
+   nunca sai da Yubikey. Nunca roda como root (chave GPG e config do
+   git são dado pessoal do usuário) — a única parte privilegiada é
+   garantir o pacote `gnupg` instalado.
+
+9. **Chaves SSH residentes da Yubikey** (`playbooks/yubikey-ssh.yml`,
+   tag `ssh-yubikey`) — mesma lógica de ficar fora de
+   `site.yml`/`just setup` (`just ssh-yubikey`). "Residente" aqui é
+   terminologia FIDO2/CTAP2 (discoverable credential) — mecanismo
+   totalmente separado do applet OpenPGP do item 8 (chip diferente da
+   Yubikey). O playbook só prepara o terreno (instala `libfido2`,
+   garante `~/.ssh`) — baixar as chaves em si é feito por você,
+   rodando `ssh-keygen -K` no seu próprio terminal depois. Não dá pra
+   automatizar esse último passo via Ansible: baixar uma chave
+   residente sempre exige o PIN FIDO2, e o prompt do `ssh-keygen`
+   ("Enter PIN for authenticator:") sai por stderr comum, sem o
+   bypass de `/dev/tty` que `sudo`/`gpg` usam — rodado via Ansible, a
+   tarefa ficaria travada pra sempre esperando um PIN que nunca
+   chegaria, sem mostrar prompt nenhum (confirmado testando). Nunca
+   roda como root além da instalação do pacote — chave SSH é dado
+   pessoal do usuário.
 
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
@@ -402,12 +422,15 @@ just secureboot
 Passo a passo completo (as duas execuções, as idas ao BIOS, avisos e
 como reverter se o boot falhar): [`docs/secureboot.md`](docs/secureboot.md).
 
-**A chave GPG da Yubikey também é à parte** — depende do token físico
-conectado no momento da execução:
+**A chave GPG e as chaves SSH residentes da Yubikey também são à
+parte** — dependem do token físico conectado no momento da execução:
 
 ```bash
 just gpg-yubikey
 # ou: ansible-playbook playbooks/yubikey-gpg.yml --ask-become-pass
+
+just ssh-yubikey
+# ou: ansible-playbook playbooks/yubikey-ssh.yml --ask-become-pass
 ```
 
 ## Estrutura
@@ -424,14 +447,17 @@ just gpg-yubikey
 | `playbooks/podman.yml`      | Podman rootless (tag `podman`)                                     |
 | `playbooks/distrobox.yml`   | Distrobox — depende do Podman (tag `distrobox`)                    |
 | `playbooks/libfprint.yml`   | libfprint goodix538d — build em container + instalação em /usr/local (tag `libfprint`) |
+| `playbooks/hypr-scrolling-resize.yml` | Hyprland — SUPER+MINUS/SUPER+EQUAL também redimensionam a coluna no layout scrolling (tag `hypr-scrolling-resize`) |
 | `playbooks/secureboot.yml`  | Secure Boot (Limine + sbctl) — **fora de site.yml**, roda isolado (tag `secureboot`) |
 | `docs/secureboot.md`        | Passo a passo de uso do `just secureboot` (avisos, troubleshooting) |
-| `playbooks/yubikey-gpg.yml` | Chave pública GPG da Yubikey — **fora de site.yml**, roda isolado (tag `gpg-yubikey`) |
+| `playbooks/yubikey-gpg.yml` | Chave pública GPG da Yubikey + assinatura no git — **fora de site.yml**, roda isolado (tag `gpg-yubikey`) |
+| `playbooks/yubikey-ssh.yml` | Chaves SSH residentes (FIDO2) da Yubikey — **fora de site.yml**, roda isolado (tag `ssh-yubikey`) |
 | `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d, distrobox.ini, shim de pkg-config) — compartilhado pelos playbooks acima |
 | `playbooks/templates/`      | Templates Jinja2 (`ansible.builtin.template`) — precisam ficar aqui, não em `files/`, ou o módulo não os acha |
+| `playbooks/tasks/`          | Tasks reaproveitadas via `include_tasks` (ex.: idioma de cada navegador Chromium-family, chamada em loop por `ptbr.yml`) |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`) |
+| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just hypr-scrolling-resize`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`, `just ssh-yubikey`) |
 
 ## Créditos
 

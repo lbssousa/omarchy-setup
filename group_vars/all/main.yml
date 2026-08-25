@@ -316,3 +316,17 @@ secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 # "]" tem um problema de rollover/ghosting de hardware com SUPER — ver
 # comentário completo no playbook.
 hypr_scrolling_colresize_step: 0.1
+
+# Impressora EPSON L4160 — fila CUPS driverless (IPP Everywhere), modelo
+# copiado de lbssousa/bluefin-initial-setup (playbooks/printer.yml).
+# printer_l4160_hostname é o mesmo hostname mDNS usado lá e em
+# lbssousa/nix-config (modules/system/hardware/printing.nix, deviceUri
+# socket://); confirme com `avahi-resolve --name EPSONE0321F.local` ou
+# `lpinfo -v` se a impressora tiver sido trocada/renomeada na rede.
+printer_l4160_name: L4160
+printer_l4160_location: "Wi-Fi"
+printer_l4160_description: "EPSON L4160 Series"
+printer_l4160_hostname: EPSONE0321F.local
+printer_l4160_device_uri: "ipp://{{ printer_l4160_hostname }}:631/ipp/print"
+printer_l4160_error_policy: abort-job
+printer_l4160_set_default: true

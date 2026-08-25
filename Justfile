@@ -47,3 +47,9 @@ libfprint: _ensure-collections
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build
+
+# Secure Boot (Limine + sbctl). Deliberately NOT part of `setup` — run
+# explicitly, twice, with a firmware reboot in between (see the
+# playbook's own header for the full two-step flow).
+secureboot: _ensure-collections
+    ansible-playbook playbooks/secureboot.yml --ask-become-pass

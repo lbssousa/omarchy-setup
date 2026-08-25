@@ -16,3 +16,11 @@
 - name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial
   ansible.builtin.import_playbook: playbooks/bitwarden.yml
   tags: [bitwarden]
+
+- name: Podman (rootless)
+  ansible.builtin.import_playbook: playbooks/podman.yml
+  tags: [podman]
+
+- name: Distrobox
+  ansible.builtin.import_playbook: playbooks/distrobox.yml
+  tags: [distrobox]

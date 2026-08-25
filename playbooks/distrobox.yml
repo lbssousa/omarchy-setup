@@ -1,0 +1,42 @@
+---
+# Distrobox — depende do Podman (playbooks/podman.yml), então este
+# playbook falha cedo com orientação se o Podman não estiver disponível
+# em vez de deixar o pacman instalar o distrobox e só descobrir o
+# problema no primeiro `distrobox create`. Em site.yml, o playbook do
+# Podman é importado antes deste, então rodar `ansible-playbook
+# site.yml` (sem `--tags`/`--skip-tags`) já garante a ordem certa
+# sozinho; o pre_task abaixo só entra em jogo se este playbook for
+# rodado isolado (`--tags distrobox`) numa máquina onde o Podman nunca
+# foi configurado.
+#
+# `distrobox` (`pacman -Si`) depende só de `bash` e `hicolor-icon-theme`
+# — não precisa de configuração própria além de já ter um motor de
+# containers (Podman ou Docker) funcionando; cada container/distro é
+# criado sob demanda pelo próprio usuário (`distrobox create`), não faz
+# sentido este playbook decidir isso por ele.
+- name: Distrobox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    - name: Garantir que o Podman está disponível
+      ansible.builtin.command: podman --version
+      register: distrobox_podman_check
+      changed_when: false
+      failed_when: false
+
+    - name: Falhar com orientação se o Podman não for encontrado
+      ansible.builtin.fail:
+        msg: >-
+          Podman não encontrado. O distrobox depende dele — rode
+          primeiro `ansible-playbook site.yml --ask-become-pass --tags
+          podman` (ou `just podman`).
+      when: distrobox_podman_check.rc != 0
+
+  tasks:
+    - name: Instalar o distrobox via pacman
+      community.general.pacman:
+        name: distrobox
+        state: present
+      become: true

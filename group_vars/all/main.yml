@@ -80,3 +80,11 @@ bitwarden_ssh_agent_units:
 gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
+
+# Podman rootless (playbooks/podman.yml) — faixa subuid/subgid usada
+# apenas se o usuário ainda não tiver uma (o shadow-utils do Arch já
+# aloca uma automaticamente na criação de usuários "normais" via
+# useradd, então isto é só uma rede de segurança, não o caminho comum).
+# 100000:65536 é o mesmo intervalo padrão que o useradd já usa.
+podman_subuid_start: 100000
+podman_subuid_count: 65536

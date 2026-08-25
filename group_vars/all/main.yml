@@ -337,3 +337,8 @@ printer_l4160_set_default: true
 # escala do GTK logo depois, então esse valor NÃO se propaga para
 # outros apps GTK (nem, por extensão, para navegadores web).
 omarchy_text_size_px: 20
+
+# Caps Lock via keyd (playbooks/capslock.yml, tap=Esc / hold=Ctrl /
+# Shift+CapsLock=CapsLock literal). Ver o cabeçalho do playbook para a
+# ponderação entre keyd e kanata (lbssousa/bluefin-initial-setup).
+keyd_config_dest: /etc/keyd/default.conf

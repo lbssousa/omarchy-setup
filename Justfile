@@ -75,6 +75,10 @@ printer: _ensure-collections
 text-size: _ensure-collections
     ansible-playbook site.yml --tags text-size
 
+# Remap Caps Lock via keyd (tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock).
+capslock: _ensure-collections
+    ansible-playbook site.yml --tags capslock --ask-become-pass
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

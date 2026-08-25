@@ -1,0 +1,78 @@
+---
+# Caps Lock remapeado a nível evdev via keyd (tap=Esc, hold=Ctrl,
+# Shift+Caps Lock=Caps Lock literal) — funciona igual em TTY e Wayland,
+# ao contrário de setxkbmap/GNOME "Origens de entrada" (X11/compositor
+# only, não alcança o TTY).
+#
+# Duas soluções ponderadas antes de escolher esta:
+#
+#   1. kanata, como em lbssousa/bluefin-initial-setup
+#      (playbooks/capslock.yml, portado de lbssousa/nix-config) — mais
+#      flexível (fork + tap-hold-press), mas NÃO está nos repositórios
+#      oficiais do Arch. Lá ele é instalado via Homebrew, que já estava
+#      pré-instalado no Bluefin/Fedora Atomic por outros motivos; este
+#      repositório não usa Homebrew em lugar nenhum (o próprio
+#      libfprint.yml abandonou Homebrew deliberadamente "agora que o
+#      host é Arch, não um sistema imutável" — mesmo raciocínio vale
+#      aqui). O pacote do Homebrew também não vem com unidade systemd
+#      pronta — o bluefin precisou escrever uma `.service` própria na
+#      mão.
+#   2. keyd, sugerido em uma discussão do Omarchy no GitHub
+#      (basecamp/omarchy#1383) — está em extra/keyd nos repositórios
+#      oficiais do Arch (`pacman -S keyd`, sem AUR nem Homebrew), e o
+#      pacote já traz sua própria unidade systemd (`keyd.service`),
+#      sem precisar escrever nada do zero. Escolhido por isso.
+#
+# `capslock = overload(control, esc)`: ativa o layer "control"
+# (predefinido pelo keyd) enquanto a tecla é segurada; um toque isolado
+# (sem outra tecla no meio) emite Esc. O layer `[shift]` (também
+# predefinido) recebe uma sobreposição só para `capslock`, restaurando
+# o Caps Lock literal quando combinado com Shift — mesmo mecanismo do
+# exemplo oficial do keyd (`man keyd`, "Tapping both shift keys will
+# activate capslock"), confirmado na documentação
+# (github.com/rvaiya/keyd, docs/keyd.scdoc) antes de escrever este
+# playbook. Ver playbooks/files/keyd-default.conf para o config
+# completo e comentado.
+#
+# Sequência de pânico se um config ruim travar o teclado:
+# backspace+esc+enter (mata o keyd).
+- name: Caps Lock via keyd (evdev, tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Caps Lock via keyd
+      become: true
+      block:
+        - name: Instalar o keyd via pacman
+          community.general.pacman:
+            name: keyd
+            state: present
+
+        - name: Garantir que /etc/keyd existe
+          ansible.builtin.file:
+            path: "{{ keyd_config_dest | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Instalar o config do Caps Lock
+          ansible.builtin.copy:
+            src: keyd-default.conf
+            dest: "{{ keyd_config_dest }}"
+            mode: "0644"
+          notify: restart keyd
+
+        - name: Habilitar e iniciar o serviço do keyd
+          ansible.builtin.systemd:
+            name: keyd
+            enabled: true
+            state: started
+
+  handlers:
+    - name: restart keyd
+      ansible.builtin.systemd:
+        name: keyd
+        state: restarted
+      become: true
+      listen: restart keyd

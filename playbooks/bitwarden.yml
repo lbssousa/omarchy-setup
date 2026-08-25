@@ -32,6 +32,23 @@
 # fakeroot e git são pré-requisitos de build do makepkg, mas já fazem
 # parte do conjunto base do Omarchy (omarchy-base.packages) — não
 # precisam ser instalados aqui.
+#
+# Depois de instalado (por qualquer uma das duas origens — o app é o
+# mesmo), o playbook também liga o SSH_AUTH_SOCK padrão da sessão ao
+# socket do agente SSH do Bitwarden, replicando a automação equivalente
+# de lbssousa/bluefin-initial-setup (playbooks/bitwarden.yml de lá),
+# com um ajuste: aqui a instalação é nativa (pacman/AUR, sem sandbox
+# Flatpak), então o socket vive direto em `~/.bitwarden-ssh-agent.sock`
+# — não em `~/.var/app/com.bitwarden.desktop/...`, caminho que só
+# existe dentro do sandbox do Flatpak. Confirmado pela documentação
+# oficial (bitwarden.com/help/ssh-agent). O mecanismo é o mesmo dos
+# dois repositórios: `SSH_AUTH_SOCK` é exportado estaticamente via
+# `~/.config/environment.d/` (lido pelo systemd --user inteiro, então
+# alcança IDEs abertos pela sessão) e dinamicamente via um `.path` unit
+# que reage à criação do socket (`~/.config/systemd/user/`), já que o
+# Bitwarden só cria o socket depois de aberto/desbloqueado — o
+# `gcr-ssh-agent` (pacote gcr-4, presente por padrão no Omarchy) é
+# mascarado para não competir pela mesma variável.
 - name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial, conforme a versão mais recente
   hosts: localhost
   connection: local
@@ -132,3 +149,55 @@
             - name: Instalar o pacote buildado
               ansible.builtin.shell: "pacman -U --noconfirm {{ bitwarden_aur_build_dir }}/*.pkg.tar.zst"
               become: true
+
+    - name: Agente SSH do Bitwarden — SSH_AUTH_SOCK padrão da sessão
+      block:
+        - name: Criar ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+            state: directory
+            mode: "0755"
+
+        - name: Configurar SSH_AUTH_SOCK estático para IDEs e apps da sessão
+          ansible.builtin.copy:
+            src: 20-bitwarden-ssh-agent.conf
+            dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-bitwarden-ssh-agent.conf"
+            mode: "0644"
+            force: false
+
+        - name: Criar ~/.config/systemd/user
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+            state: directory
+            mode: "0755"
+
+        - name: Instalar as unidades systemd --user do agente SSH do Bitwarden
+          ansible.builtin.copy:
+            src: "{{ item }}"
+            dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
+            mode: "0644"
+            force: false
+          loop: "{{ bitwarden_ssh_agent_units }}"
+          notify: reload systemd --user
+
+        - name: Mascarar o gcr-ssh-agent (evita disputa por SSH_AUTH_SOCK)
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            scope: user
+            masked: true
+          loop: "{{ gcr_ssh_agent_units }}"
+
+        - name: Habilitar o path unit do agente SSH do Bitwarden
+          ansible.builtin.systemd:
+            name: bitwarden-ssh-agent.path
+            scope: user
+            daemon_reload: true
+            enabled: true
+            state: started
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user

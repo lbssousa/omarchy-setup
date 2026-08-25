@@ -54,3 +54,27 @@ bitwarden_aur_runtime_deps:
   - libxss
   - libnss_nis
   - nss
+
+# Agente SSH do Bitwarden — instalação nativa (pacman/AUR, sem sandbox
+# Flatpak), então o socket vive direto em $HOME, não em
+# ~/.var/app/com.bitwarden.desktop/... como no
+# lbssousa/bluefin-initial-setup (que instala via Flatpak). Confirmado
+# pela documentação oficial (bitwarden.com/help/ssh-agent) — o próprio
+# app expõe BITWARDEN_SSH_AUTH_SOCK como variável de override, caso o
+# caminho padrão mude no futuro. Unidades systemd --user instaladas em
+# ~/.config/systemd/user/ e camada estática em ~/.config/environment.d/
+# (mesmo mecanismo do bluefin-initial-setup, só com o caminho do socket
+# adaptado).
+bitwarden_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.bitwarden-ssh-agent.sock"
+bitwarden_ssh_agent_units:
+  - bitwarden-ssh-agent.path
+  - bitwarden-ssh-agent-env.service
+
+# gcr-ssh-agent (pacote gcr-4) compete pela variável SSH_AUTH_SOCK da
+# sessão: seu socket unit reexporta SSH_AUTH_SOCK via
+# `systemctl --user set-environment` sempre que é ativado por socket
+# (WantedBy=sockets.target, habilitado por padrão) — precisa ficar
+# mascarado para o agente do Bitwarden prevalecer.
+gcr_ssh_agent_units:
+  - gcr-ssh-agent.socket
+  - gcr-ssh-agent.service

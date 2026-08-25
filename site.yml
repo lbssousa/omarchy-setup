@@ -12,3 +12,7 @@
 - name: Localização pt-BR (locale, pastas pessoais, Firefox)
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]
+
+- name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial
+  ansible.builtin.import_playbook: playbooks/bitwarden.yml
+  tags: [bitwarden]

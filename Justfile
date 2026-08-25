@@ -23,3 +23,7 @@ setup: _ensure-collections
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections
     ansible-playbook site.yml --ask-become-pass --tags ptbr
+
+# Run only the Bitwarden playbook.
+bitwarden: _ensure-collections
+    ansible-playbook site.yml --ask-become-pass --tags bitwarden

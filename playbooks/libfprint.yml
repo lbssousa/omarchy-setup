@@ -201,14 +201,24 @@
             - "{{ libfprint_usrlocal_prefix }}/share"
 
         - name: Copiar biblioteca, headers, pkgconfig e gir/typelib para /usr/local
-          ansible.builtin.copy:
-            src: "{{ libfprint_stage_dir }}{{ libfprint_usrlocal_prefix }}/{{ item }}/"
-            dest: "{{ libfprint_usrlocal_prefix }}/{{ item }}/"
-            remote_src: true
+          # `ansible.builtin.copy` (remote_src=true) descarta symlinks ao
+          # copiar um diretório — copia só o alvo (libfprint-2.so.2.0.0),
+          # sem os links libfprint-2.so{,.2}. O SONAME que o fprintd.service
+          # procura via LD_LIBRARY_PATH é exatamente "libfprint-2.so.2"; sem
+          # o link, o linker dinâmico ignora /usr/local/lib e cai de volta
+          # no libfprint-2.so.2 do pacote oficial (sem o driver
+          # goodixtls53xd), e o fprintd para de ver o leitor. `cp -a`
+          # preserva os links.
+          ansible.builtin.command:
+            cmd: >-
+              cp -a
+              {{ libfprint_stage_dir }}{{ libfprint_usrlocal_prefix }}/{{ item }}/.
+              {{ libfprint_usrlocal_prefix }}/{{ item }}/
           loop:
             - lib
             - include
             - share
+          changed_when: true
 
         - name: Instalar a regra udev
           ansible.builtin.copy:

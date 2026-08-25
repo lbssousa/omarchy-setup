@@ -18,7 +18,8 @@
 # (as tarefas deste playbook não têm um terminal/tty anexado — ficaria
 # pendurado esperando uma senha que nunca chega). Em vez disso, cada
 # etapa privilegiada é feita pelo próprio Ansible, com `become: true`
-# (a mesma senha de `--ask-become-pass` usada no resto do repositório):
+# (sudo + --ask-become-pass, igual ao resto do repositório — ver
+# ansible.cfg):
 #   1. instala via pacman as dependências de runtime do bitwarden-bin
 #      (evitando o `--syncdeps`/sudo interno do makepkg);
 #   2. clona/atualiza o repositório AUR do bitwarden-bin (git puro, sem
@@ -49,6 +50,17 @@
 # Bitwarden só cria o socket depois de aberto/desbloqueado — o
 # `gcr-ssh-agent` (pacote gcr-4, presente por padrão no Omarchy) é
 # mascarado para não competir pela mesma variável.
+#
+# Por fim, o playbook reaproveita `SUPER + SHIFT + SLASH` — o atalho
+# padrão do Omarchy para "Passwords", que vem pré-configurado para o
+# 1Password em
+# /usr/share/omarchy/default/hypr/bindings/applications.lua — e o
+# redireciona para o Bitwarden, já que este setup não instala o
+# 1Password. A edição acontece em `~/.config/hypr/bindings.lua` (o
+# arquivo que o próprio Omarchy reserva para overrides pessoais de
+# keybinding, nunca nos arquivos default do pacote `omarchy`, que são
+# sobrescritos em atualizações), via `ansible.builtin.blockinfile` com
+# marcadores — preserva qualquer outra customização que já esteja lá.
 - name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial, conforme a versão mais recente
   hosts: localhost
   connection: local
@@ -57,11 +69,17 @@
   tasks:
     - name: Descobrir a versão do bitwarden no repositório oficial
       ansible.builtin.command: "pacman -Si {{ bitwarden_official_package }}"
+      environment:
+        LC_ALL: C
       register: bitwarden_official_info
       changed_when: false
       failed_when: false
 
     - name: Extrair a versão do pacote oficial
+      # LC_ALL=C acima garante "Version" em inglês: o pacman traduz os
+      # nomes dos campos ("Versão" etc.) conforme o locale do sistema, e
+      # esse select('match', 'Version') quebraria (lista vazia) em
+      # qualquer locale não-inglês.
       ansible.builtin.set_fact:
         bitwarden_official_version: >-
           {{ (bitwarden_official_info.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
@@ -110,6 +128,8 @@
       block:
         - name: Verificar a versão do bitwarden-bin já instalada (se houver)
           ansible.builtin.command: "pacman -Qi {{ bitwarden_aur_package }}"
+          environment:
+            LC_ALL: C
           register: bitwarden_aur_installed
           changed_when: false
           failed_when: false
@@ -195,9 +215,44 @@
             enabled: true
             state: started
 
+    - name: "Keybinding do Bitwarden ({{ bitwarden_hypr_keybind }}, herdado do atalho padrão do 1Password)"
+      block:
+        - name: Criar ~/.config/hypr
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+            state: directory
+            mode: "0755"
+
+        - name: Criar ~/.config/hypr/bindings.lua a partir do padrão do Omarchy, se ainda não existir
+          ansible.builtin.copy:
+            src: /usr/share/omarchy/default/hypr/bindings.lua
+            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            remote_src: true
+            force: false
+            mode: "0644"
+
+        - name: "Rebindar {{ bitwarden_hypr_keybind }} de 1Password (padrão do Omarchy) para o Bitwarden"
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/bitwarden.yml — keybinding do Bitwarden)"
+            block: |
+              hl.unbind("{{ bitwarden_hypr_keybind }}")
+              o.bind("{{ bitwarden_hypr_keybind }}", "Bitwarden", { launch = "bitwarden", focus = "^Bitwarden$" })
+          register: bitwarden_hypr_binding
+          notify: reload Hyprland
+
   handlers:
     - name: reload systemd --user
       ansible.builtin.systemd:
         daemon_reload: true
         scope: user
       listen: reload systemd --user
+
+    - name: reload Hyprland
+      # Só existe efeito se estivermos rodando dentro de uma sessão
+      # Hyprland de verdade (o caso comum deste repo); fora dela não há
+      # o que recarregar, e o bind já vale a partir do próximo login.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland

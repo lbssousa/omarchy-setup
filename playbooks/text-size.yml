@@ -1,0 +1,49 @@
+---
+# Tamanho de texto do shell do Omarchy (barra do quickshell) + terminais,
+# SEM escalar os demais apps GTK (Nautilus, diálogos nativos, etc.) —
+# nem, por extensão, afeta navegadores web, que não usam esse fator do
+# GTK para renderizar página.
+#
+# O comando oficial `omarchy display text size <px>` mexe nos três ao
+# mesmo tempo (a própria descrição dele diz "omarchy shell, GTK apps,
+# and terminals" — ver `cat $(which omarchy-display-text-size)`):
+#   - ~/.config/omarchy/shell.toml [font] base-size (barra/menu/painéis
+#     do quickshell — sobrevive a troca de tema, é um override "de
+#     máquina" lido por Commons/Color.qml e Commons/Style.qml do shell)
+#   - gsettings org.gnome.desktop.interface text-scaling-factor (GTK)
+#   - o tamanho de fonte de cada config de terminal existente
+#     (foot.ini, alacritty.toml, kitty.conf, ghostty/config)
+#
+# Este playbook chama o mesmo comando (reaproveita a detecção de quais
+# terminais existem, os sinais de reload de cada um, etc. — não vale a
+# pena reimplementar isso), mas sempre reseta o fator do GTK logo
+# depois, deixando só a barra e os terminais maiores. Idempotente nos
+# dois sentidos: só chama `omarchy-display-text-size` quando o tamanho
+# atual (lido do próprio comando) difere do desejado — reexecutá-lo
+# sem necessidade dispararia de novo o factor do GTK (que acabamos de
+# resetar) e a notificação "reinicie o foot" — e só reseta o fator do
+# GTK quando há de fato um override em dconf (leitura vazia = já no
+# padrão do schema).
+- name: "Tamanho de texto — barra do quickshell + terminais (sem escalar GTK)"
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Verificar o tamanho de texto atual (shell/GTK/terminais)
+      ansible.builtin.command: omarchy-display-text-size
+      register: omarchy_text_size_current
+      changed_when: false
+
+    - name: "Definir o tamanho de texto do shell + terminais para {{ omarchy_text_size_px }}px"
+      ansible.builtin.command: "omarchy-display-text-size {{ omarchy_text_size_px }}"
+      when: '("text size: " ~ omarchy_text_size_px ~ " px") not in omarchy_text_size_current.stdout'
+
+    - name: Verificar se o fator de escala de texto do GTK tem override
+      ansible.builtin.command: dconf read /org/gnome/desktop/interface/text-scaling-factor
+      register: gtk_text_scaling_current
+      changed_when: false
+
+    - name: Resetar o fator de escala de texto do GTK (volta ao padrão do schema, 1.0)
+      ansible.builtin.command: gsettings reset org.gnome.desktop.interface text-scaling-factor
+      when: gtk_text_scaling_current.stdout | trim | length > 0

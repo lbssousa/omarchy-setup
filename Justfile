@@ -70,6 +70,11 @@ hypr-scrolling-resize: _ensure-collections
 printer: _ensure-collections
     ansible-playbook site.yml --tags printer --ask-become-pass
 
+# Scale up shell bar + terminal text size without scaling GTK apps.
+# No privileged tasks -- no --ask-become-pass.
+text-size: _ensure-collections
+    ansible-playbook site.yml --tags text-size
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

@@ -121,15 +121,19 @@ Mais automações devem ser adicionadas a este repositório com o tempo.
 - `sudo` com senha interativa (`locale.gen`, `locale.conf` e a
   instalação/remoção de pacotes via pacman pedem confirmação).
 
-`ansible` **não** precisa estar pré-instalado: `just setup` instala via
-pacman automaticamente se faltar, junto da collection
-`community.general` (que fornece o módulo de pacman usado aqui).
+Nem `just` nem `ansible` precisam estar pré-instalados: `./bootstrap.sh`
+instala o `just` via pacman se faltar (o único pré-requisito para
+conseguir rodar as receitas do Justfile — sem ele não dá nem para
+chegar até elas); a partir daí, `just setup` instala o `ansible`
+sozinho, junto da collection `community.general` (que fornece o módulo
+de pacman usado aqui).
 
 ## Uso
 
 ```bash
 git clone https://github.com/lbssousa/omarchy-setup.git
 cd omarchy-setup
+./bootstrap.sh   # instala o `just`, se ainda não tiver — só precisa rodar uma vez
 just setup
 ```
 
@@ -156,6 +160,7 @@ ainda não estiver no estado desejado.
 
 | Arquivo/Diretório          | Papel                                                              |
 |-----------------------------|---------------------------------------------------------------------|
+| `bootstrap.sh`              | Instala o `just` via pacman, se faltar (rode uma vez, antes de tudo) |
 | `site.yml`                  | Índice: importa cada `playbooks/*.yml` com sua tag                 |
 | `playbooks/ptbr.yml`        | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`)  |
 | `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |

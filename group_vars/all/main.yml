@@ -10,11 +10,12 @@ ptbr_language_fallback: "pt_BR:pt:en"
 
 # Nomes traduzidos oficiais do xdg-user-dirs (projeto freedesktop.org)
 # para pt_BR. "Downloads" não muda — é a tradução real do projeto, não
-# um esquecimento. Só os 8 nomes reconhecidos por
-# `xdg-user-dirs-update --set` entram aqui; XDG_PROJECTS_DIR (entrada
-# extra do Omarchy em /etc/xdg/user-dirs.defaults) fica de fora por não
-# ser um nome padrão do xdg-user-dirs — veja o cabeçalho de
-# playbooks/ptbr.yml.
+# um esquecimento. Os 8 primeiros são os nomes padrão do xdg-user-dirs;
+# PROJECTS é uma entrada extra do próprio Omarchy (declarada em
+# /etc/xdg/user-dirs.defaults, fora do padrão upstream) — apesar de o
+# manual do `xdg-user-dirs-update --set` listar só os 8 nomes padrão
+# como NAME aceito, testamos e ele aceita qualquer nome presente em
+# user-dirs.dirs (inclusive PROJECTS) sem reclamar, então incluímos.
 ptbr_xdg_user_dirs:
   - { name: DESKTOP, translated: "Área de Trabalho" }
   - { name: DOWNLOAD, translated: "Downloads" }
@@ -24,6 +25,7 @@ ptbr_xdg_user_dirs:
   - { name: MUSIC, translated: "Música" }
   - { name: PICTURES, translated: "Imagens" }
   - { name: VIDEOS, translated: "Vídeos" }
+  - { name: PROJECTS, translated: "Projetos" }
 
 # Firefox — pacote de idioma pt-BR (repositório [extra] do Arch,
 # acompanha a versão do pacote firefox).

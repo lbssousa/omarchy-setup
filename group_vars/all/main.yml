@@ -63,6 +63,53 @@ ptbr_xdg_user_dirs:
 # acompanha a versão do pacote firefox).
 ptbr_firefox_i18n_package: firefox-i18n-pt-br
 
+# Firefox — política RequestedLocale (policies.json), força o idioma
+# em qualquer perfil (novo ou já existente — só o pacote de idioma não
+# alcança um perfil criado antes do LANG virar pt_BR). en-US como
+# fallback caso o pacote de idioma pt-BR alguma hora suma.
+ptbr_firefox_requested_locale:
+  - pt-BR
+  - en-US
+
+# Chromium e variantes — lista de idiomas
+# (intl.accept_languages/selected_languages no Preferences de cada
+# perfil Default) usada pelos web apps do Omarchy (omarchy-launch-webapp
+# usa o navegador padrão do sistema se ele já for
+# chrome/brave/edge/opera/vivaldi/helium, senão cai em chromium.desktop
+# — ou seja, qualquer membro dessa família pode ser "o" navegador dos
+# web apps, dependendo do padrão escolhido). É o que sites como o
+# WhatsApp Web usam (Accept-Language/navigator.language) pra escolher o
+# idioma da página — diferente do idioma dos menus do próprio
+# navegador, que segue o LANG do sistema a cada início. "pt" genérico
+# incluído entre pt-BR e en-US pro caso de um site só reconhecer "pt" e
+# não "pt-BR" especificamente; en-US/en como fallback final.
+ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
+
+# Chromium e variantes — diretórios de perfil (relativos a ~/.config)
+# de cada navegador da família a corrigir, um por vez, via
+# playbooks/tasks/ptbr-chromium-family-browser.yml (loop chamado por
+# ptbr.yml). Todos seguem a mesma convenção multi-perfil do próprio
+# Chromium (<diretório>/Default/Preferences) — cada entrada só age se
+# esse arquivo existir (navegador nunca instalado/aberto = nada a
+# fazer). Confirmados nesta máquina: chromium e
+# BraveSoftware/Brave-Origin (o navegador padrão trocou de Chromium
+# pra Brave Origin ao longo do uso deste repositório — o bug se repetiu
+# idêntico no novo perfil). google-chrome/microsoft-edge/vivaldi seguem
+# a mesma convenção — bem documentada, mas não testados nesta máquina.
+# Opera e Helium ficaram de fora de propósito: o Opera historicamente
+# NÃO usa essa convenção (perfil direto em ~/.config/opera, sem
+# subpasta Default), e não temos como confirmar o layout do Helium —
+# adicionar um navegador aqui sem confirmar o caminho do perfil real
+# só resulta num item que nunca faz nada (stat.exists sempre falso),
+# sem erro nenhum pra avisar que está errado.
+ptbr_chromium_family_config_dirs:
+  - chromium
+  - BraveSoftware/Brave-Browser
+  - BraveSoftware/Brave-Origin
+  - google-chrome
+  - microsoft-edge
+  - vivaldi
+
 # LibreOffice Fresh — mesmo mecanismo do Firefox: pacote de idioma
 # separado no [extra], só instalado se o libreoffice-fresh estiver
 # presente. Atenção ao nome: "libreoffice-fresh-pt" é português europeu

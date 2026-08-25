@@ -1,6 +1,6 @@
 ---
 # Localização pt-BR — deixa o sistema o mais próximo possível de
-# totalmente em português do Brasil, cobrindo seis frentes independentes
+# totalmente em português do Brasil, cobrindo sete frentes independentes
 # (cada uma com sua sub-tag, para rodar ou pular isoladamente):
 #
 #   - locale.gen + /etc/locale.conf (tag ptbr-locale): gera o locale
@@ -41,13 +41,77 @@
 #     via pacman, se o Firefox estiver instalado (senão pula, sem
 #     falhar — o instalador do Omarchy permite escolher outro navegador
 #     padrão, ex.: Chromium). Com LANG=pt_BR.UTF-8 e o pacote de idioma
-#     instalado, o Firefox escolhe pt-BR sozinho no próximo perfil —
-#     mesmo mecanismo de qualquer Firefox empacotado por distro Linux.
-#     De propósito, não mexemos em about:config nem em políticas
-#     corporativas (policies.json): dependeria do layout interno do
-#     pacote firefox do Arch, é frágil a atualizações, e sobrescreveria
-#     silenciosamente uma escolha de idioma que o usuário já tenha
+#     instalado, o Firefox escolhe pt-BR sozinho — mas só num PERFIL
+#     NOVO, negociado no primeiro start. Se o perfil já existir de
+#     antes (ex.: Firefox aberto antes de rodar `just ptbr`/antes do
+#     LANG virar pt_BR — exatamente o caso comum, já que o Firefox
+#     costuma ser o primeiro app aberto numa instalação nova), o idioma
+#     já escolhido fica preso nesse perfil pra sempre; instalar o
+#     pacote de idioma depois não muda nada retroativamente (confirmado
+#     nesta máquina: perfil criado antes do LANG/pacote de idioma,
+#     Firefox continuou em inglês mesmo com os dois já presentes).
+#     Por isso, além do pacote, este playbook também define
+#     `RequestedLocale` (política oficial do Firefox — ver
+#     mozilla.github.io/policy-templates — reconhecida no schema
+#     embutido do binário, `omni.ja`/`libxul.so`, confirmado nesta
+#     máquina) em `/usr/lib/firefox/distribution/policies.json`, com
+#     fallback pra en-US caso o pacote de idioma alguma hora suma. Essa
+#     política força o idioma em QUALQUER perfil, novo ou existente —
+#     o comentário antigo desta seção evitava mexer em policies.json
+#     achando que sobrescreveria uma escolha manual do usuário
+#     silenciosamente; na prática o problema real é o oposto (perfil
+#     nunca chegou a negociar pt-BR nenhuma vez), e a tarefa faz um
+#     merge no JSON existente (preserva qualquer outra política já
+#     configurada, ex.: as que o próprio Omarchy grava nesse arquivo
+#     pra aceleração de vídeo/Wayland) em vez de substituir o arquivo
+#     inteiro.
 #     feito manualmente no navegador.
+#
+#   - Chromium e variantes (tag ptbr-chromium): os web apps do Omarchy
+#     (omarchy-launch-webapp, ex.: WhatsApp, Discord, Google
+#     Maps/Photos/Contacts/Messages, YouTube, Basecamp, X) sempre caem
+#     num navegador da família Chromium — o script só usa o padrão do
+#     sistema se ele já for chrome/brave/edge/opera/vivaldi/helium,
+#     senão força chromium.desktop; ou seja, TROCAR o navegador padrão
+#     entre membros dessa família (confirmado nesta máquina: Firefox →
+#     Chromium → Brave Origin, ao longo de duas idas e vindas) muda
+#     qual perfil é usado, mas o bug é o mesmo em todos. Diferente de
+#     Firefox/LibreOffice, não é pacote de idioma faltando: nenhum
+#     deles tem um separado no Arch. O problema é
+#     `intl.accept_languages`/`intl.selected_languages`, no Preferences
+#     do perfil Default de cada um (ex.:
+#     ~/.config/chromium/Default/Preferences,
+#     ~/.config/BraveSoftware/Brave-Origin/Default/Preferences) — usado
+#     por sites (Accept-Language/navigator.language, ex.: WhatsApp Web)
+#     pra escolher o idioma da página, congelado em "en-US,en" desde a
+#     criação do perfil (mesma classe de bug do Firefox acima: perfil
+#     criado antes do LANG virar pt_BR, nunca renegocia sozinho —
+#     confirmado nesta máquina, em dois perfis diferentes: Chromium e
+#     Brave Origin). Não existe policy oficial reconhecida nestes
+#     builds pra isso (procuramos ApplicationLocaleValue/AcceptLanguage*
+#     nas strings do binário do Chromium — não aparece; é Windows-only
+#     no Chrome oficial), então a tarefa (delegada por
+#     tasks/ptbr-chromium-family-browser.yml, em loop pra cada
+#     navegador de ptbr_chromium_family_config_dirs) edita o Preferences
+#     do perfil diretamente — só se aquele navegador estiver FECHADO
+#     (senão ele sobrescreve a edição ao sair; detectado pelo
+#     SingletonLock do próprio perfil, não por `pgrep` — ver comentário
+#     no topo do arquivo de tasks, explica por que). Confirmado com curl
+#     (Accept-Language: pt-BR devolve `lang="pt"` no HTML do
+#     web.whatsapp.com, en-US devolve `lang="en"`) e com o Chromium real
+#     (perfil --incognito novo, sem dado de site nenhum, abre em pt-BR
+#     depois desta tarefa). ATENÇÃO: um site já aberto antes da correção
+#     (ex.: WhatsApp Web com sessão logada) pode continuar em inglês
+#     mesmo depois — o idioma que a PWA já negociou fica cacheado no
+#     IndexedDB/localStorage/Service Worker dela, dentro do perfil
+#     daquele navegador especificamente, e HTTP/Accept-Language novo não
+#     invalida esse cache sozinho (confirmado nesta máquina: janela já
+#     aberta continuou em inglês após a tarefa, só uma nova sessão sem
+#     esse cache abriu em pt-BR). Pra sites já usados antes de rodar
+#     esta tarefa, é preciso um "Limpar dados do site" manual (cadeado
+#     da barra de endereço → dados do site → Limpar dados) — este
+#     playbook não automatiza isso, porque apagaria a sessão logada
+#     (ex.: derrubaria o WhatsApp Web pareado com o celular).
 #
 #   - LibreOffice Fresh (tag ptbr-libreoffice): mesmo mecanismo do
 #     Firefox — instala `libreoffice-fresh-pt-br` via pacman, e só se o
@@ -85,7 +149,10 @@
 # Nautilus, Evince etc. —, GTK, KDE/kdenlive, obs-studio): esses seguem
 # o LANG do sistema sozinhos, sem pacote de idioma separado — só
 # Firefox, Thunderbird, LibreOffice e o GIMP (help) fazem esse split no
-# Arch, e dos quatro só Firefox e LibreOffice estão neste setup.
+# Arch, e dos quatro só Firefox e LibreOffice estão neste setup. O
+# A família Chromium é um caso à parte: não faz esse split (nenhum tem
+# pacote de idioma), mas cada um fica preso em inglês do mesmo jeito
+# por causa do Preferences do perfil — daí a frente dedicada acima.
 #
 # Depois de rodar a parte de locale, é preciso logout (ou reboot) para o
 # LANG novo valer na sessão gráfica inteira (Hyprland, apps já abertos)
@@ -188,15 +255,79 @@
           become: true
           when: firefox_check.rc == 0
 
+        - name: Verificar se o policies.json do Firefox já existe
+          ansible.builtin.stat:
+            path: /usr/lib/firefox/distribution/policies.json
+          register: firefox_policies_stat
+          when: firefox_check.rc == 0
+
+        - name: Carregar o policies.json atual (ou um objeto vazio, se não existir/estiver corrompido)
+          when: firefox_check.rc == 0
+          block:
+            - name: Tentar parsear o policies.json atual
+              ansible.builtin.set_fact:
+                firefox_policies_current: >-
+                  {{
+                    (lookup('file', '/usr/lib/firefox/distribution/policies.json') | from_json)
+                    if firefox_policies_stat.stat.exists
+                    else {'policies': {}}
+                  }}
+          rescue:
+            # Cobre um bug já visto nesta máquina (ansible-core 2.21.3):
+            # `to_nice_json + "\n"` numa content: >- escreve o "\n"
+            # LITERAL (backslash + n, 2 bytes) em vez de um newline de
+            # verdade — JSON inválido, from_json falha em toda execução
+            # seguinte ("Extra data"). Corrigido abaixo (sem mais
+            # `+ "\n"`), mas um policies.json já corrompido por uma
+            # execução anterior com o bug antigo continuaria quebrando
+            # pra sempre sem isso: tratado como vazio (perde qualquer
+            # policy que só existisse nesse arquivo corrompido — ex.:
+            # as que o próprio Omarchy grava pra aceleração de
+            # vídeo/Wayland) e a tarefa seguinte já sobrescreve com
+            # conteúdo válido.
+            - name: policies.json existente não é JSON válido — tratar como vazio
+              ansible.builtin.set_fact:
+                firefox_policies_current: { "policies": {} }
+
+            - name: Avisar sobre o policies.json corrompido
+              ansible.builtin.debug:
+                msg: >-
+                  /usr/lib/firefox/distribution/policies.json existe mas
+                  não é JSON válido — tratado como vazio e será
+                  sobrescrito agora com um conteúdo novo e válido.
+                  Qualquer outra policy que só existisse nesse arquivo
+                  (ex.: as que o próprio Omarchy grava pra aceleração de
+                  vídeo/Wayland) foi perdida.
+
+        - name: "Forçar RequestedLocale={{ ptbr_firefox_requested_locale }} no policies.json (perfis novos e existentes)"
+          ansible.builtin.copy:
+            content: >-
+              {{
+                (firefox_policies_current
+                  | combine({'policies': {'RequestedLocale': ptbr_firefox_requested_locale}}, recursive=True)
+                  | to_nice_json)
+              }}
+            dest: /usr/lib/firefox/distribution/policies.json
+            mode: "0644"
+          become: true
+          when: firefox_check.rc == 0
+
         - name: Avisar se o Firefox não estiver instalado (nenhuma ação tomada)
           ansible.builtin.debug:
             msg: >-
               Firefox não encontrado via pacman — pacote de idioma
-              {{ ptbr_firefox_i18n_package }} não instalado. Sem efeito
-              se o navegador padrão desta máquina for outro (ex.:
-              Chromium).
+              {{ ptbr_firefox_i18n_package }} não instalado, e
+              policies.json não foi tocado. Sem efeito se o navegador
+              padrão desta máquina for outro (ex.: Chromium).
           when: firefox_check.rc != 0
       tags: [ptbr-firefox]
+
+    - name: "Chromium e variantes — idioma dos web apps ({{ ptbr_chromium_accept_languages }})"
+      ansible.builtin.include_tasks: tasks/ptbr-chromium-family-browser.yml
+      loop: "{{ ptbr_chromium_family_config_dirs }}"
+      loop_control:
+        loop_var: browser_config_dir
+      tags: [ptbr-chromium]
 
     - name: LibreOffice — pacote de idioma pt-BR
       block:

@@ -1,19 +1,32 @@
 ---
 # Setup de um desktop Omarchy recém-instalado — índice das automações.
 # Cada uma é um playbook próprio em playbooks/, importado abaixo via
-# import_playbook, o que faz todas rodarem dentro do mesmo
-# `--ask-become-pass`.
+# import_playbook, o que faz todas rodarem sob a mesma escalação de
+# privilégio: sudo (padrão) com `--ask-become-pass` — digite sua senha
+# uma vez no início, ela serve de retaguarda se o fingerprint reader
+# (habilitado como login do sudo, fora deste repositório) não
+# cooperar. Veja a seção "Privilégio: sudo + --ask-become-pass" do
+# README para o porquê (inclui duas tentativas anteriores que não
+# deram certo).
 #
 # Rode só uma automação com `--tags <tag>`, ou pule uma com
 # `--skip-tags <tag>`. Veja o comentário de cada playbooks/*.yml para
 # detalhes.
 #
 # Uso: ansible-playbook site.yml --ask-become-pass
+- name: "sudo — passwd_timeout"
+  ansible.builtin.import_playbook: playbooks/sudo.yml
+  tags: [sudo]
+
+- name: polkitd — ExpirationSeconds (memória da autenticação de privilégio)
+  ansible.builtin.import_playbook: playbooks/polkit.yml
+  tags: [polkit]
+
 - name: NVIDIA (driver proprietário)
   ansible.builtin.import_playbook: playbooks/nvidia.yml
   tags: [nvidia]
 
-- name: Localização pt-BR (locale, pastas pessoais, Firefox)
+- name: Localização pt-BR (locale, pastas pessoais, apps e man pages)
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]
 

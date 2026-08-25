@@ -1,8 +1,9 @@
 ---
 # Secure Boot (Limine + sbctl) — NÃO faz parte de site.yml/`just setup`,
-# de propósito: roda isolado, via `ansible-playbook playbooks/secureboot.yml
-# --ask-become-pass` (ou `just secureboot`). Mexe em firmware/boot —
-# o tipo de automação que não deveria rodar sem intenção explícita a
+# de propósito: roda isolado, via `ansible-playbook
+# playbooks/secureboot.yml --ask-become-pass` (ou `just secureboot`).
+# Mexe em firmware/boot
+# — o tipo de automação que não deveria rodar sem intenção explícita a
 # cada `just setup`.
 #
 # Baseado em duas fontes, citadas ao longo dos comentários abaixo:
@@ -113,7 +114,8 @@
       when: secureboot_splash_check.rc == 0
 
     - name: Verificar se o sbctl já tem chaves configuradas
-      ansible.builtin.command: sbctl setup --print-state --json
+      ansible.builtin.command: sbctl status --json
+      become: true
       register: secureboot_sbctl_state
       changed_when: false
 

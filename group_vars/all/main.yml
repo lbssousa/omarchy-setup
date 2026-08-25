@@ -1,4 +1,36 @@
 ---
+# Timeout do become da conexão local (padrão do Ansible: 10s,
+# ansible_local_become_success_timeout — ver
+# ansible/plugins/connection/local.py). Com `auth sufficient
+# pam_fprintd.so` antes do pam_unix em /etc/pam.d/sudo, o pam_fprintd é
+# tentado primeiro em toda tarefa privilegiada, e tem seu próprio tempo
+# de espera por um toque no sensor antes de cair pro prompt de senha —
+# folga real vista no journal, bem acima de 10s. Enquanto isso, o
+# Ansible já está de olho no relógio dele mesmo, esperando aparecer o
+# marcador de sucesso OU o padrão de prompt de senha na saída
+# capturada do `sudo`; se os 10s de fábrica vencerem antes do
+# pam_fprintd desistir e cair pro pam_unix, o Ansible derruba a tarefa
+# como "Timed out waiting for become success or become password
+# prompt" — mesmo com a senha certa já em mãos (`--ask-become-pass`),
+# porque o prompt de senha nem chegou a aparecer pra ele reagir. 60s dá
+# folga de sobra pro pam_fprintd terminar de desistir sozinho.
+ansible_local_become_success_timeout: 60
+
+# sudo (playbooks/sudo.yml) — limite de espera pelo prompt de
+# autenticação (passwd_timeout, minutos), rede de segurança contra
+# `become: true` disparado a partir de um terminal sem ninguém
+# acompanhando (ver ansible.cfg). Padrão de fábrica do sudo é 5; 1 ainda
+# dá tempo de sobra pra quem está de verdade no teclado.
+sudo_passwd_timeout_minutes: 1
+
+# polkitd (playbooks/polkit.yml) — janela de "memória" das
+# autenticações de privilégio via polkit (pkexec e outras ferramentas
+# gráficas da área de trabalho — não o `become: true` deste
+# repositório, que usa sudo; ver ansible.cfg), em segundos. Padrão de
+# fábrica do polkitd é 300 (5 min); 1800 (30 min) dá mais fôlego sem
+# virar NOPASSWD permanente — ainda expira.
+polkit_expiration_seconds: 1800
+
 # Localização pt-BR (playbooks/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"

@@ -8,9 +8,10 @@ do irmão [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-i
 os pacotes são instalados direto via pacman.
 
 Cada automação é um playbook próprio em `playbooks/`, importado por
-`site.yml` via `ansible.builtin.import_playbook` — todas rodam dentro
-do mesmo `--ask-become-pass`, mas cada uma tem sua própria tag: rode só
-uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`. Exceção:
+`site.yml` via `ansible.builtin.import_playbook` — todas rodam sob a
+mesma escalação de privilégio (sudo, ver ansible.cfg), mas cada
+uma tem sua própria tag: rode só uma com `--tags <tag>`, ou pule uma
+com `--skip-tags <tag>`. Exceção:
 `playbooks/secureboot.yml` **não** é importado em `site.yml` — mexe em
 firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
 
@@ -120,7 +121,7 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    que o Ansible não tem como responder sem travar —, o playbook nunca
    deixa o processo de build lidar com privilégios sozinho. Em vez
    disso, cada etapa privilegiada roda
-   via `become: true` (a mesma senha de `--ask-become-pass`): as
+   via `become: true` (sudo, igual ao resto do repositório): as
    dependências de runtime do bitwarden-bin são instaladas via pacman
    *antes* do build (evitando o `--syncdeps` do makepkg), o repositório
    AUR é só clonado com `git` (sem privilégio nenhum), o `makepkg
@@ -241,6 +242,19 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    (`scripts/setup-secureboot.sh`). **Passo a passo completo, avisos e
    troubleshooting em [`docs/secureboot.md`](docs/secureboot.md).**
 
+8. **Chave pública GPG da Yubikey** (`playbooks/yubikey-gpg.yml`, tag
+   `gpg-yubikey`) — **não faz parte de `site.yml`/`just setup`**,
+   também de propósito: depende de um token físico conectado no
+   momento da execução, então só roda se chamado explicitamente
+   (`just gpg-yubikey`). Usa o comando `fetch` do próprio
+   `gpg --card-edit`, que lê a URL gravada no cartão OpenPGP da
+   Yubikey e importa a chave pública de lá para o keyring do usuário —
+   sem hardcodar fingerprint/keyserver em lugar nenhum, funciona com
+   qualquer URL que o gpg suporte. Só a chave pública sai do cartão; a
+   privada nunca sai da Yubikey. Nunca roda como root (chave GPG é
+   dado pessoal do usuário) — a única parte privilegiada é garantir o
+   pacote `gnupg` instalado.
+
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
 ## Pré-requisitos
@@ -261,8 +275,10 @@ Mais automações devem ser adicionadas a este repositório com o tempo.
 - O playbook do Secure Boot só cobre Limine + `limine-entry-tool`
   (`limine-mkinitcpio-hook`) — falha cedo, sem mexer em nada, se o
   bootloader for outro (GRUB, systemd-boot).
-- `sudo` com senha interativa (`locale.gen`, `locale.conf` e a
-  instalação/remoção de pacotes via pacman pedem confirmação).
+- `sudo` e um usuário no grupo `wheel` (o padrão do instalador do
+  Omarchy) — é o que autentica `locale.gen`, `locale.conf` e a
+  instalação/remoção de pacotes via pacman. Veja "Privilégio: sudo +
+  --ask-become-pass" logo abaixo.
 
 Nem `just` nem `ansible` precisam estar pré-instalados: `./bootstrap.sh`
 instala o `just` via pacman se faltar (o único pré-requisito para
@@ -270,6 +286,75 @@ conseguir rodar as receitas do Justfile — sem ele não dá nem para
 chegar até elas); a partir daí, `just setup` instala o `ansible`
 sozinho, junto da collection `community.general` (que fornece o módulo
 de pacman usado aqui).
+
+### Privilégio: sudo + --ask-become-pass
+
+Toda tarefa privilegiada (`become: true`) usa `sudo` no padrão de
+fábrica do Ansible — por isso todo comando abaixo passa
+`--ask-become-pass`: ele pede sua senha **uma vez**, no início da
+execução, e a mantém na memória do processo do Ansible pra alimentar o
+`sudo` sempre que ele pedir.
+
+Essa senha serve de **retaguarda**, não de método principal: o
+fingerprint reader (goodix538d, via
+[`playbooks/libfprint.yml`](playbooks/libfprint.yml)), habilitado como
+login do `sudo` fora deste repositório
+(`auth sufficient pam_fprintd.so` em `/etc/pam.d/sudo`, antes do
+`pam_unix`), continua sendo tentado primeiro em toda tarefa
+privilegiada — silenciosamente, sem nenhum aviso na tela (o Ansible
+bufferiza toda a conversa do `become` internamente e só mostra o
+conteúdo se a tarefa falhar; isso é assim para qualquer
+`become_method`, não é peculiaridade do `sudo`). Se o dedo resolver
+sozinho, ótimo; se não, a senha já fornecida cobre o resto sem travar
+nem falhar — **desde que o Ansible espere tempo suficiente**: por
+padrão, a conexão local só aguarda 10s (`ansible_local_become_success_timeout`)
+pelo marcador de sucesso OU pelo prompt de senha aparecer na saída
+capturada do `sudo`. O `pam_fprintd`, tentado primeiro, tem seu próprio
+tempo de espera por um toque no sensor antes de desistir e cair pro
+`pam_unix` — visto no journal bem acima de 10s. Se os 10s do Ansible
+vencerem primeiro, ele derruba a tarefa como "Timed out waiting for
+become success or become password prompt" (`UNREACHABLE`) mesmo com a
+senha certa em mãos, porque o prompt nunca chegou a aparecer pra ele
+reagir. `ansible_local_become_success_timeout: 60` em
+`group_vars/all/main.yml` dá folga de sobra pro `pam_fprintd` terminar
+de desistir sozinho antes de cobrar essa senha.
+
+Duas tentativas anteriores não deram certo, registradas em
+`ansible.cfg` porque o motivo de cada uma importa:
+
+- **`become_method = community.general.run0`** (fala com o `polkit`
+  em vez do PAM do `sudo`), tentando fugir do fingerprint-no-sudo de
+  vez: revertido porque cada tarefa do Ansible sobe um processo `run0`
+  novo, e a autorização temporária do polkit nunca chega a ser
+  reaproveitada entre processos diferentes — confirmado no journal,
+  uma autenticação completa por tarefa, não por sessão.
+  [`playbooks/polkit.yml`](playbooks/polkit.yml) (tag `polkit`)
+  continua existindo, só que agora ajuda outras ferramentas gráficas
+  baseadas em polkit (pkexec e afins), não o `become` deste
+  repositório.
+- **`become_flags = -H`** (tirando "-S -n", sem `--ask-become-pass`):
+  teoria de que "-S" seria incompatível com um módulo PAM interativo
+  como o `pam_fprintd`. Também revertido — sem "-S" nem senha
+  pré-fornecida, o `sudo` fica sem NENHUMA retaguarda se o fingerprint
+  falhar. Resultado real, visto no journal:
+  `pam_unix(sudo:auth): conversation failed` toda vez que o
+  `pam_fprintd` não autenticava sozinho — inclusive por um bug à
+  parte (`fprintd: ... Device was already claimed`, um claim anterior
+  do sensor ficando pendurado) — sem senha nenhuma disponível pra
+  cobrir, a tarefa simplesmente falhava, sem prompt visível nenhum.
+
+**Cuidado com terminais ocultos/sem ninguém acompanhando**: mesmo com
+uma senha de retaguarda pronta, o `pam_fprintd` ainda é tentado
+*primeiro* e tem seu próprio tempo de espera por um toque no sensor
+antes de cair pra senha — tempo que nunca passa se não há ninguém ali
+(um script cron, um agente de IA rodando comandos na própria máquina).
+Quem chama `ansible-playbook`/`sudo` sem um humano por perto deveria
+usar `ansible_become_flags=-H -n` (ou `sudo -n` direto) pra falhar na
+hora em vez de pendurar. Como rede de segurança para quem esquecer
+disso, [`playbooks/sudo.yml`](playbooks/sudo.yml) (tag `sudo`) baixa o
+`passwd_timeout` do sudo (padrão de fábrica: 5 minutos, `man sudoers`)
+para 1 minuto — não elimina o travamento, só limita quanto tempo ele
+dura.
 
 ## Uso
 
@@ -301,7 +386,10 @@ just libfprint  # libfprint goodix538d (depende do Podman + Distrobox)
 ```
 
 O playbook é idempotente — rodar de novo é seguro e só aplica o que
-ainda não estiver no estado desejado.
+ainda não estiver no estado desejado. Escalação de privilégio é via
+`sudo` com `--ask-become-pass` — veja "Privilégio: sudo +
+--ask-become-pass" acima: digite sua senha uma vez, no início da
+execução.
 
 **Secure Boot é à parte** — não entra em `just setup` nem em
 `ansible-playbook site.yml`, precisa ser chamado explicitamente:
@@ -314,12 +402,22 @@ just secureboot
 Passo a passo completo (as duas execuções, as idas ao BIOS, avisos e
 como reverter se o boot falhar): [`docs/secureboot.md`](docs/secureboot.md).
 
+**A chave GPG da Yubikey também é à parte** — depende do token físico
+conectado no momento da execução:
+
+```bash
+just gpg-yubikey
+# ou: ansible-playbook playbooks/yubikey-gpg.yml --ask-become-pass
+```
+
 ## Estrutura
 
 | Arquivo/Diretório          | Papel                                                              |
 |-----------------------------|---------------------------------------------------------------------|
 | `bootstrap.sh`              | Instala o `just` via pacman, se faltar (rode uma vez, antes de tudo) |
 | `site.yml`                  | Índice: importa cada `playbooks/*.yml` com sua tag                 |
+| `playbooks/sudo.yml`        | passwd_timeout do sudo — rede de segurança contra terminal oculto (tag `sudo`) |
+| `playbooks/polkit.yml`      | ExpirationSeconds do polkitd — memória de outras ferramentas gráficas (tag `polkit`) |
 | `playbooks/nvidia.yml`      | Driver NVIDIA proprietário, conforme a GPU (tag `nvidia`)          |
 | `playbooks/ptbr.yml`        | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`)  |
 | `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |
@@ -328,11 +426,12 @@ como reverter se o boot falhar): [`docs/secureboot.md`](docs/secureboot.md).
 | `playbooks/libfprint.yml`   | libfprint goodix538d — build em container + instalação em /usr/local (tag `libfprint`) |
 | `playbooks/secureboot.yml`  | Secure Boot (Limine + sbctl) — **fora de site.yml**, roda isolado (tag `secureboot`) |
 | `docs/secureboot.md`        | Passo a passo de uso do `just secureboot` (avisos, troubleshooting) |
+| `playbooks/yubikey-gpg.yml` | Chave pública GPG da Yubikey — **fora de site.yml**, roda isolado (tag `gpg-yubikey`) |
 | `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d, distrobox.ini, shim de pkg-config) — compartilhado pelos playbooks acima |
 | `playbooks/templates/`      | Templates Jinja2 (`ansible.builtin.template`) — precisam ficar aqui, não em `files/`, ou o módulo não os acha |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just secureboot`) |
+| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`) |
 
 ## Créditos
 

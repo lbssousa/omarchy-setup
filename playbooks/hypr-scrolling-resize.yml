@@ -1,62 +1,65 @@
 ---
-# Hyprland — corrige o redimensionamento de coluna no layout "scrolling"
-# (SUPER+L alterna a workspace ativa entre dwindle e scrolling — ver
-# omarchy-hyprland-workspace-layout-toggle).
+# Hyprland — atalhos dedicados para redimensionar a coluna focada no layout
+# "scrolling" (SUPER+L alterna a workspace ativa entre dwindle e scrolling —
+# ver omarchy-hyprland-workspace-layout-toggle).
 #
-# Sintoma: com duas janelas lado a lado no "scrolling", a da direita
-# não passa de resize algum além do que já está visível na tela —
-# tentar redimensioná-la além disso não tem efeito nenhum.
-#
-# Causa: os binds de redimensionar do próprio Omarchy
-# (/usr/share/omarchy/default/hypr/bindings/tiling.lua — SUPER+MINUS
-# "Expand window left", SUPER+EQUAL "Shrink window left", e as
-# variantes ALT/CTRL "a little"/"a lot") usam só o dispatcher genérico
-# de resize do Hyprland (hl.dsp.window.resize), pensado pro layout
-# "dwindle". Esse dispatcher não conhece o modelo de fita horizontal
-# infinita do "scrolling": ele prende o crescimento da janela aos
-# pixels já visíveis no monitor, em vez de alargar a coluna e deixar a
-# camada rolar pra revelar o resto. Confirmado nesta máquina: com o
-# dispatcher específico do layout (colresize, abaixo), a coluna focada
-# cresceu de 941px para 1651px numa tela de 1920px — passando do que
-# cabia na tela, coisa que o resize genérico nunca conseguia.
-#
-# Correção: o "scrolling" tem seu próprio dispatcher de layout,
+# Contexto: o "scrolling" tem seu próprio dispatcher de layout,
 # hl.dsp.layout("colresize <±fração>") — fração da largura do monitor,
 # [0.1-1.0] (ver
-# https://wiki.hypr.land/Configuring/Layouts/Scrolling-Layout/). Este
-# playbook faz SUPER+MINUS/SUPER+EQUAL disparar OS DOIS dispatchers na
-# mesma tecla (só é possível com uma função Lua como dispatcher — ver
-# "Multiple binds to one key" em
-# https://wiki.hypr.land/Configuring/Basics/Binds/): o resize genérico
-# de sempre (preserva o comportamento atual no dwindle/master) e o
-# colresize (o que resolve o bug no scrolling). No dwindle/master, o
-# colresize é uma mensagem de layout não reconhecida — confirmado
-# nesta máquina que o Hyprland só loga um erro (`Unknown dwindle
-# layoutmsg: colresize ...`) e ignora, sem quebrar o resize genérico
-# que roda na mesma função.
+# https://wiki.hypr.land/Configuring/Layouts/Scrolling-Layout/). Ele
+# redimensiona a coluna inteira (não uma borda específica: quem cresce
+# visualmente na tela é definido pelo `direction` do workspace, não pela
+# tecla apertada) — não existe um "shrink right"/"expand right" nativo
+# simétrico ao "shrink left"/"expand left" do dwindle.
 #
-# code:20/code:21 (keycode físico, não os símbolos MINUS/EQUAL) porque
-# é assim que o Omarchy já bindava essas teclas originalmente — mantém
-# o alvo físico correto independente do layout de teclado (ex.: pt-BR
-# vs en-US), sem precisar redescobrir a que símbolo cada keycode
-# resolve.
+# O dispatcher genérico de resize do Hyprland (hl.dsp.window.resize, usado
+# pelos binds padrão do Omarchy em SUPER+MINUS/SUPER+EQUAL — ver
+# /usr/share/omarchy/default/hypr/bindings/tiling.lua) não conhece o modelo
+# de fita horizontal infinita do "scrolling": ele prende o crescimento aos
+# pixels já visíveis no monitor. Por isso este playbook usa binds NOVOS e
+# dedicados, só com colresize, em vez de sobrepor os binds padrão do
+# Omarchy (como uma versão anterior deste playbook fazia).
 #
-# Direção: o Omarchy original associa EQUAL a "Shrink" e MINUS a
-# "Expand" — backwards em relação à convenção comum de teclado
-# (EQUAL/"+" aumenta, MINUS/"-" diminui, ex.: zoom no navegador).
-# Reportado como confuso no uso real (SUPER+EQUAL "diminuindo" em vez
-# de aumentar); este playbook TROCA qual keycode recebe qual
-# comportamento (mantendo os sinais x/colresize de cada comportamento
-# como estão — só troca QUEM dispara QUAL), então agora SUPER+EQUAL
-# cresce a coluna/janela e SUPER+MINUS encolhe, nos dois layouts.
+# Escolha das teclas (revisada após depuração ao vivo nesta máquina):
+# toda combinação de modificador com MINUS/EQUAL já está ocupada pelos
+# binds padrão do Omarchy (expand/shrink left/up/down, em 3 intensidades
+# cada — confirmado com `omarchy menu keybindings --print`).
+#
+# A tentativa original usava code:34 ("[") e code:35 ("]") — o keycode
+# físico, não os símbolos BRACKETLEFT/BRACKETRIGHT, mesma lógica do
+# Omarchy pro MINUS/EQUAL. Só que, testado ao vivo nesta máquina
+# (teclado ABNT2):
+#   - code:34 não corresponde a NENHUMA tecla física real aqui — o
+#     ABNT2 insere a tecla de acento "´" nessa fileira (entre P e "["),
+#     deslocando os códigos: a tecla física rotulada "[" na verdade
+#     envia code:35 (confirmado varrendo code:28 a code:49 e observando
+#     qual disparava ao apertar "[").
+#   - a tecla física "]" tem um problema de rollover/ghosting de
+#     hardware: SUPER+"]" nunca chega a ser reportado ao Hyprland como
+#     evento (nenhum code na faixa 28-49 disparou ao apertá-la) — não é
+#     um problema de configuração, o teclado simplesmente não reporta
+#     essa combinação de teclas simultâneas.
+#
+# Por isso os dois sentidos (encolher/crescer) usam a MESMA tecla física
+# — a posição de "[", code:35 nesta máquina — diferenciados por SHIFT,
+# em vez de uma tecla dedicada por sentido. Esse padrão (mesma tecla +
+# SHIFT muda o sentido/intensidade) já é usado pelo próprio Omarchy nos
+# binds de MINUS/EQUAL (ALT = "a little", CTRL = "a lot", SHIFT = eixo
+# vertical em vez de horizontal).
+#
+# No dwindle/master, colresize é uma mensagem de layout não reconhecida:
+# confirmado nesta máquina que o Hyprland só loga um erro (`Unknown dwindle
+# layoutmsg: colresize ...`) e ignora — os binds ficam inertes fora do
+# scrolling, o que é o comportamento esperado (são específicos desse
+# layout).
 #
 # Escrito em ~/.config/hypr/bindings.lua (arquivo que o próprio Omarchy
-# reserva para overrides pessoais, nunca nos arquivos default do
-# pacote omarchy, que são sobrescritos em atualizações), via
+# reserva para overrides pessoais, nunca nos arquivos default do pacote
+# omarchy, que são sobrescritos em atualizações), via
 # ansible.builtin.blockinfile com marcadores — preserva qualquer outra
 # customização que já esteja lá (ex.: o bind do Bitwarden, de
 # playbooks/bitwarden.yml, no mesmo arquivo).
-- name: "Hyprland — resize de coluna no layout scrolling (SUPER+MINUS/SUPER+EQUAL)"
+- name: "Hyprland — redimensionar coluna no layout scrolling (SUPER+[ / SUPER+SHIFT+[)"
   hosts: localhost
   connection: local
   gather_facts: true
@@ -76,26 +79,23 @@
         force: false
         mode: "0644"
 
-    - name: "Rebindar SUPER+EQUAL=cresce / SUPER+MINUS=encolhe, com colresize (±{{ hypr_scrolling_colresize_step }})"
+    - name: "Bindar SUPER+[ / SUPER+SHIFT+[ para colresize (±{{ hypr_scrolling_colresize_step }}) no layout scrolling"
       ansible.builtin.blockinfile:
         path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
         marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/hypr-scrolling-resize.yml — resize de coluna no scrolling)"
         block: |
-          -- Was: SUPER + EQUAL (code:21) → "Shrink window left" (generic resize only).
-          -- Swapped with code:20 below: EQUAL now grows (convenção +/-).
-          hl.unbind("SUPER + code:21")
-          hl.bind("SUPER + code:21", function()
-            hl.dispatch(hl.dsp.window.resize({ x = -100, y = 0, relative = true }))
-            hl.dispatch(hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
-          end, { description = "Expand window left / grow column" })
-
-          -- Was: SUPER + MINUS (code:20) → "Expand window left" (generic resize only).
-          -- Swapped with code:21 above: MINUS now shrinks (convenção +/-).
-          hl.unbind("SUPER + code:20")
-          hl.bind("SUPER + code:20", function()
-            hl.dispatch(hl.dsp.window.resize({ x = 100, y = 0, relative = true }))
-            hl.dispatch(hl.dsp.layout("colresize -{{ hypr_scrolling_colresize_step }}"))
-          end, { description = "Shrink window left / shrink column" })
+          -- code:35 = keycode físico da tecla "[" no teclado ABNT2 desta
+          -- máquina (confirmado empiricamente: code:34, que seria "[" num
+          -- teclado ANSI/US padrão, não corresponde a nada aqui — o ABNT2
+          -- insere a tecla de acento "´" nessa fileira e desloca os
+          -- códigos). A tecla física "]" tem um problema de
+          -- rollover/ghosting do teclado: SUPER+"]" nunca é reportado ao
+          -- Hyprland (testado em toda a faixa code:28-49, sem nenhuma
+          -- correspondência) — por isso os dois sentidos usam a MESMA
+          -- tecla física, diferenciados por SHIFT, em vez de uma tecla
+          -- dedicada por sentido.
+          o.bind("SUPER + code:35", "Shrink column (scrolling)", hl.dsp.layout("colresize -{{ hypr_scrolling_colresize_step }}"))
+          o.bind("SUPER + SHIFT + code:35", "Grow column (scrolling)", hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
       register: hypr_scrolling_resize_binding
       notify: reload Hyprland
 

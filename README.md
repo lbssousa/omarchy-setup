@@ -94,6 +94,19 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    root), e só a instalação final do pacote já buildado (`pacman -U`)
    usa `become: true` de novo.
 
+   Depois de instalado, o playbook também liga o `SSH_AUTH_SOCK`
+   padrão da sessão ao agente SSH do Bitwarden — importado de
+   [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup)
+   (mesmo mecanismo: `~/.config/environment.d/` para a camada estática
+   + um `.path` unit systemd --user que reage à criação do socket),
+   mas com o caminho do socket ajustado para uma instalação nativa
+   (pacman/AUR, sem sandbox Flatpak): `~/.bitwarden-ssh-agent.sock`
+   direto na home, e não `~/.var/app/com.bitwarden.desktop/...` (que só
+   existe dentro do sandbox do Flatpak) — confirmado pela
+   [documentação oficial](https://bitwarden.com/help/ssh-agent/). Como
+   lá, o `gcr-ssh-agent` (aqui do pacote `gcr-4`) é mascarado para não
+   competir pela mesma variável.
+
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
 ## Pré-requisitos
@@ -146,6 +159,7 @@ ainda não estiver no estado desejado.
 | `site.yml`                  | Índice: importa cada `playbooks/*.yml` com sua tag                 |
 | `playbooks/ptbr.yml`        | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`)  |
 | `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |
+| `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d) — compartilhado pelos playbooks acima |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
 | `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`)               |
@@ -158,6 +172,11 @@ ainda não estiver no estado desejado.
 - Comparação de versões oficial × AUR do Bitwarden via `vercmp`
   (pacman) e a [AUR RPC interface](https://aur.archlinux.org/rpc/) do
   Arch User Repository.
+- Configuração do agente SSH do Bitwarden (environment.d + unidades
+  systemd --user + máscara do gcr-ssh-agent) importada de
+  [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup),
+  com o caminho do socket adaptado para instalação nativa conforme a
+  [documentação oficial](https://bitwarden.com/help/ssh-agent/).
 - Estrutura do repositório (playbooks modulares, tags, `site.yml`
   como índice) espelhada de
   [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup).

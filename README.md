@@ -447,7 +447,7 @@ just ssh-yubikey
 | `playbooks/podman.yml`      | Podman rootless (tag `podman`)                                     |
 | `playbooks/distrobox.yml`   | Distrobox — depende do Podman (tag `distrobox`)                    |
 | `playbooks/libfprint.yml`   | libfprint goodix538d — build em container + instalação em /usr/local (tag `libfprint`) |
-| `playbooks/hypr-scrolling-resize.yml` | Hyprland — SUPER+MINUS/SUPER+EQUAL também redimensionam a coluna no layout scrolling (tag `hypr-scrolling-resize`) |
+| `playbooks/hypr-scrolling-resize.yml` | Hyprland — SUPER+[ / SUPER+SHIFT+[ redimensionam a coluna focada no layout scrolling (tag `hypr-scrolling-resize`) |
 | `playbooks/secureboot.yml`  | Secure Boot (Limine + sbctl) — **fora de site.yml**, roda isolado (tag `secureboot`) |
 | `docs/secureboot.md`        | Passo a passo de uso do `just secureboot` (avisos, troubleshooting) |
 | `playbooks/yubikey-gpg.yml` | Chave pública GPG da Yubikey + assinatura no git — **fora de site.yml**, roda isolado (tag `gpg-yubikey`) |

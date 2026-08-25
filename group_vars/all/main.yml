@@ -308,10 +308,11 @@ secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 
 # Hyprland — redimensionamento de coluna no layout "scrolling"
-# (playbooks/hypr-scrolling-resize.yml). Fração da largura do monitor
-# que SUPER+MINUS/SUPER+EQUAL somam/subtraem da coluna focada
-# (hl.dsp.layout("colresize ±N")) a cada toque — mesma faixa aceita
-# pelo próprio Hyprland pro column_width, [0.1-1.0]. 0.1 casa
-# aproximadamente com o "sentimento" do resize genérico de 100px que
-# essas teclas já disparavam (relative=true) numa tela de ~1920px.
+# (playbooks/hypr-scrolling-resize.yml). Fração da largura do monitor que
+# SUPER+[ (encolhe) / SUPER+SHIFT+[ (expande) somam/subtraem da coluna
+# focada (hl.dsp.layout("colresize ±N")) a cada toque — mesma faixa
+# aceita pelo próprio Hyprland pro column_width, [0.1-1.0]. As duas
+# direções ficam na mesma tecla física (code:35 nesta máquina) porque
+# "]" tem um problema de rollover/ghosting de hardware com SUPER — ver
+# comentário completo no playbook.
 hypr_scrolling_colresize_step: 0.1

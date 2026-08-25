@@ -61,8 +61,8 @@ distrobox: _ensure-collections
 libfprint: _ensure-collections
     ansible-playbook site.yml --tags libfprint --ask-become-pass
 
-# Hyprland: make SUPER+MINUS/SUPER+EQUAL also resize the current column
-# on the scrolling layout. No privileged tasks -- no --ask-become-pass.
+# Hyprland: bind SUPER+[ / SUPER+SHIFT+[ to resize the focused column on
+# the scrolling layout. No privileged tasks -- no --ask-become-pass.
 hypr-scrolling-resize: _ensure-collections
     ansible-playbook site.yml --tags hypr-scrolling-resize
 

@@ -72,6 +72,16 @@ bitwarden_ssh_agent_units:
   - bitwarden-ssh-agent.path
   - bitwarden-ssh-agent-env.service
 
+# Keybinding do Bitwarden — reaproveita o atalho padrão do Omarchy para
+# "Passwords" (o.bind("SUPER + SHIFT + SLASH", "Passwords", { omarchy =
+# "1password" }) em
+# /usr/share/omarchy/default/hypr/bindings/applications.lua), já que
+# este setup não instala o 1Password. Precisa de hl.unbind() antes do
+# novo o.bind() (mesma combinação de teclas) — ver o próprio
+# ~/.config/hypr/bindings.lua padrão do Omarchy, que documenta esse
+# padrão para substituir um bind default.
+bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
+
 # gcr-ssh-agent (pacote gcr-4) compete pela variável SSH_AUTH_SOCK da
 # sessão: seu socket unit reexporta SSH_AUTH_SOCK via
 # `systemctl --user set-environment` sempre que é ativado por socket

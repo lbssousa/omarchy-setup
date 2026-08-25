@@ -45,3 +45,7 @@
 - name: libfprint (goodix538d) — build em container distrobox + instalação em /usr/local
   ansible.builtin.import_playbook: playbooks/libfprint.yml
   tags: [libfprint]
+
+- name: "Hyprland — resize de coluna no layout scrolling"
+  ansible.builtin.import_playbook: playbooks/hypr-scrolling-resize.yml
+  tags: [hypr-scrolling-resize]

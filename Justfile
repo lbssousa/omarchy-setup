@@ -61,6 +61,11 @@ distrobox: _ensure-collections
 libfprint: _ensure-collections
     ansible-playbook site.yml --tags libfprint --ask-become-pass
 
+# Hyprland: make SUPER+MINUS/SUPER+EQUAL also resize the current column
+# on the scrolling layout. No privileged tasks -- no --ask-become-pass.
+hypr-scrolling-resize: _ensure-collections
+    ansible-playbook site.yml --tags hypr-scrolling-resize
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build
@@ -75,3 +80,9 @@ secureboot: _ensure-collections
 # Deliberately NOT part of `setup` -- needs the Yubikey plugged in.
 gpg-yubikey: _ensure-collections
     ansible-playbook playbooks/yubikey-gpg.yml --ask-become-pass
+
+# Download the Yubikey's resident (discoverable) FIDO2 SSH keys
+# (ssh-keygen -K). Deliberately NOT part of `setup` -- needs the
+# Yubikey plugged in, and a PIN/touch prompt on the real terminal.
+ssh-yubikey: _ensure-collections
+    ansible-playbook playbooks/yubikey-ssh.yml --ask-become-pass

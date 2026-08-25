@@ -1,0 +1,134 @@
+---
+# Bitwarden (cliente desktop) — instala preferencialmente o pacote
+# bitwarden-bin do AUR, e só usa o pacote oficial do Arch
+# (extra/bitwarden) se ele não estiver mais desatualizado em relação ao
+# AUR. Isso é decidido dinamicamente a cada execução, comparando as
+# duas versões via `vercmp` (a mesma lógica de comparação que o próprio
+# pacman usa) — não é uma escolha fixa neste arquivo. No dia em que o
+# pacote oficial for atualizado (e passar a ser igual ou mais novo que
+# o do AUR), este playbook volta a preferi-lo sozinho, sem precisar
+# editar nada aqui — inclusive desinstalando o bitwarden-bin nesse
+# caso, já que os dois pacotes se conflitam (não dá para ter os dois
+# instalados ao mesmo tempo).
+#
+# Por que não rodar `yay -S bitwarden-bin` direto: yay/makepkg
+# precisam de root (via sudo) tanto para sincronizar dependências em
+# falta quanto para instalar o pacote final, e esse sudo interno do yay
+# pediria uma senha interativa que o Ansible não tem como responder
+# (as tarefas deste playbook não têm um terminal/tty anexado — ficaria
+# pendurado esperando uma senha que nunca chega). Em vez disso, cada
+# etapa privilegiada é feita pelo próprio Ansible, com `become: true`
+# (a mesma senha de `--ask-become-pass` usada no resto do repositório):
+#   1. instala via pacman as dependências de runtime do bitwarden-bin
+#      (evitando o `--syncdeps`/sudo interno do makepkg);
+#   2. clona/atualiza o repositório AUR do bitwarden-bin (git puro, sem
+#      privilégio nenhum — um pacote do AUR é só um PKGBUILD);
+#   3. builda com `makepkg --nodeps` como usuário normal (nunca como
+#      root: makepkg recusa rodar como root, e com razão — o script de
+#      build roda arbitrariamente);
+#   4. instala o pacote já buildado com `pacman -U`, de novo com
+#      become: true.
+#
+# fakeroot e git são pré-requisitos de build do makepkg, mas já fazem
+# parte do conjunto base do Omarchy (omarchy-base.packages) — não
+# precisam ser instalados aqui.
+- name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial, conforme a versão mais recente
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Descobrir a versão do bitwarden no repositório oficial
+      ansible.builtin.command: "pacman -Si {{ bitwarden_official_package }}"
+      register: bitwarden_official_info
+      changed_when: false
+      failed_when: false
+
+    - name: Extrair a versão do pacote oficial
+      ansible.builtin.set_fact:
+        bitwarden_official_version: >-
+          {{ (bitwarden_official_info.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+      when: bitwarden_official_info.rc == 0
+
+    - name: Descobrir a versão do bitwarden-bin no AUR
+      ansible.builtin.uri:
+        url: "{{ bitwarden_aur_rpc_url }}"
+        return_content: true
+      register: bitwarden_aur_info
+
+    - name: Extrair a versão do pacote AUR
+      ansible.builtin.set_fact:
+        bitwarden_aur_version: "{{ bitwarden_aur_info.json.results[0].Version }}"
+
+    - name: Comparar a versão do AUR com a do repositório oficial
+      ansible.builtin.command: "vercmp {{ bitwarden_aur_version }} {{ bitwarden_official_version | default('0') }}"
+      register: bitwarden_vercmp
+      changed_when: false
+      when: bitwarden_official_version is defined
+
+    - name: "Decidir a origem do pacote: oficial só se não estiver mais desatualizado que o AUR"
+      ansible.builtin.set_fact:
+        bitwarden_source: >-
+          {{ 'official'
+             if (bitwarden_official_version is defined and (bitwarden_vercmp.stdout | int) <= 0)
+             else 'aur' }}
+
+    - name: "Instalar via pacman (repositório oficial, versão {{ bitwarden_official_version | default('?') }})"
+      when: bitwarden_source == 'official'
+      block:
+        - name: Remover o bitwarden-bin do AUR, se instalado (conflita com o pacote oficial)
+          community.general.pacman:
+            name: "{{ bitwarden_aur_package }}"
+            state: absent
+          become: true
+
+        - name: Instalar o Bitwarden via pacman
+          community.general.pacman:
+            name: "{{ bitwarden_official_package }}"
+            state: present
+          become: true
+
+    - name: "Instalar via AUR (bitwarden-bin, versão {{ bitwarden_aur_version }})"
+      when: bitwarden_source == 'aur'
+      block:
+        - name: Verificar a versão do bitwarden-bin já instalada (se houver)
+          ansible.builtin.command: "pacman -Qi {{ bitwarden_aur_package }}"
+          register: bitwarden_aur_installed
+          changed_when: false
+          failed_when: false
+
+        - name: Extrair a versão já instalada do bitwarden-bin
+          ansible.builtin.set_fact:
+            bitwarden_aur_installed_version: >-
+              {{ (bitwarden_aur_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+          when: bitwarden_aur_installed.rc == 0
+
+        - name: Build + instalação (só roda se estiver faltando ou desatualizado)
+          when: bitwarden_aur_installed.rc != 0 or bitwarden_aur_installed_version != bitwarden_aur_version
+          block:
+            - name: Remover o pacote oficial, se instalado (conflita com o bitwarden-bin)
+              community.general.pacman:
+                name: "{{ bitwarden_official_package }}"
+                state: absent
+              become: true
+
+            - name: Instalar as dependências de runtime do bitwarden-bin
+              community.general.pacman:
+                name: "{{ bitwarden_aur_runtime_deps }}"
+                state: present
+              become: true
+
+            - name: Clonar/atualizar o repositório AUR do bitwarden-bin
+              ansible.builtin.git:
+                repo: "{{ bitwarden_aur_git_url }}"
+                dest: "{{ bitwarden_aur_build_dir }}"
+                update: true
+
+            - name: Buildar o pacote (makepkg, sem checar dependências e sem privilégio de root)
+              ansible.builtin.command: makepkg --nodeps --noconfirm --force
+              args:
+                chdir: "{{ bitwarden_aur_build_dir }}"
+
+            - name: Instalar o pacote buildado
+              ansible.builtin.shell: "pacman -U --noconfirm {{ bitwarden_aur_build_dir }}/*.pkg.tar.zst"
+              become: true

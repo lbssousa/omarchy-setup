@@ -28,3 +28,29 @@ ptbr_xdg_user_dirs:
 # Firefox — pacote de idioma pt-BR (repositório [extra] do Arch,
 # acompanha a versão do pacote firefox).
 ptbr_firefox_i18n_package: firefox-i18n-pt-br
+
+# Bitwarden (playbooks/bitwarden.yml) — instala preferencialmente o
+# bitwarden-bin do AUR (repositório oficial do Arch costuma ficar meses
+# atrás), voltando a usar o pacote oficial sozinho quando ele deixar de
+# estar desatualizado em relação ao AUR (decidido em tempo de execução,
+# via `vercmp` — veja o cabeçalho do playbook).
+bitwarden_official_package: bitwarden
+bitwarden_aur_package: bitwarden-bin
+bitwarden_aur_git_url: "https://aur.archlinux.org/{{ bitwarden_aur_package }}.git"
+bitwarden_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ bitwarden_aur_package }}"
+bitwarden_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ bitwarden_aur_package }}"
+
+# Dependências de runtime do bitwarden-bin que não vêm garantidas pelo
+# conjunto base do Omarchy — instaladas via pacman antes do build, para
+# o makepkg nunca precisar chamar `sudo` sozinho (veja o cabeçalho do
+# playbook). org.freedesktop.secrets (o outro dep do bitwarden-bin) é a
+# exceção: já é satisfeito pelo gnome-keyring, que faz parte do
+# omarchy-base.packages — não precisa ser instalado aqui.
+bitwarden_aur_runtime_deps:
+  - alsa-lib
+  - gtk3
+  - libnotify
+  - libxtst
+  - libxss
+  - libnss_nis
+  - nss

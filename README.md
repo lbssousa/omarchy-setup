@@ -69,6 +69,30 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    — ambos já são perguntados pelo próprio instalador do Omarchy
    (`install/provisioning/setup-form.sh`), então mexer neles aqui seria
    redundante (ou pior, conflitante com uma escolha já feita).
+2. **Bitwarden** (`playbooks/bitwarden.yml`, tag `bitwarden`) — instala
+   o cliente desktop do Bitwarden, escolhendo a origem do pacote
+   **dinamicamente a cada execução**: prefere `bitwarden-bin` do AUR
+   (o pacote oficial do Arch, `extra/bitwarden`, costuma ficar meses
+   atrás da versão do AUR), mas volta a usar o pacote oficial sozinho
+   assim que ele deixar de estar desatualizado em relação ao AUR — a
+   decisão é feita comparando as duas versões via `vercmp` (a mesma
+   lógica do próprio pacman), não uma escolha fixa no playbook. Os dois
+   pacotes se conflitam (não dá pra ter os dois instalados ao mesmo
+   tempo); o playbook desinstala o outro automaticamente ao trocar de
+   origem.
+
+   Como o `makepkg` chamaria `sudo` internamente para sincronizar
+   dependências em falta — e esse `sudo` pediria uma senha interativa
+   que o Ansible não tem como responder sem travar —, o playbook nunca
+   deixa o processo de build lidar com privilégios sozinho. Em vez
+   disso, cada etapa privilegiada roda
+   via `become: true` (a mesma senha de `--ask-become-pass`): as
+   dependências de runtime do bitwarden-bin são instaladas via pacman
+   *antes* do build (evitando o `--syncdeps` do makepkg), o repositório
+   AUR é só clonado com `git` (sem privilégio nenhum), o `makepkg
+   --nodeps` builda como usuário normal (makepkg recusa rodar como
+   root), e só a instalação final do pacote já buildado (`pacman -U`)
+   usa `become: true` de novo.
 
 Mais automações devem ser adicionadas a este repositório com o tempo.
 
@@ -77,8 +101,12 @@ Mais automações devem ser adicionadas a este repositório com o tempo.
 - Um desktop [Omarchy](https://omarchy.org/) (ou qualquer Arch Linux
   com pacman, `locale-gen`/`localectl`, systemd e `xdg-user-dirs`
   disponíveis — nenhuma automação aqui é específica do Hyprland em si).
+  O playbook do Bitwarden também espera `git`, `fakeroot` e `makepkg`
+  (pacote `pacman`) disponíveis — nenhum AUR helper (`yay`/`paru`) é
+  necessário, o playbook builda o AUR sozinho. `git` e `fakeroot` são
+  padrão em qualquer instalação do Omarchy (`omarchy-base.packages`).
 - `sudo` com senha interativa (`locale.gen`, `locale.conf` e a
-  instalação de pacotes via pacman pedem confirmação).
+  instalação/remoção de pacotes via pacman pedem confirmação).
 
 `ansible` **não** precisa estar pré-instalado: `just setup` instala via
 pacman automaticamente se faltar, junto da collection
@@ -100,12 +128,12 @@ ansible-galaxy collection install -r requirements.yml
 ansible-playbook site.yml --ask-become-pass
 ```
 
-Para rodar só a localização pt-BR (hoje é a única automação, mas o
-padrão vale para as que vierem depois):
+Para rodar só uma automação:
 
 ```bash
-just ptbr
-# ou: ansible-playbook site.yml --ask-become-pass --tags ptbr
+just ptbr       # localização pt-BR
+just bitwarden  # Bitwarden
+# ou: ansible-playbook site.yml --ask-become-pass --tags <ptbr|bitwarden>
 ```
 
 O playbook é idempotente — rodar de novo é seguro e só aplica o que
@@ -113,19 +141,23 @@ ainda não estiver no estado desejado.
 
 ## Estrutura
 
-| Arquivo/Diretório         | Papel                                                            |
-|----------------------------|-------------------------------------------------------------------|
-| `site.yml`                 | Índice: importa cada `playbooks/*.yml` com sua tag               |
-| `playbooks/ptbr.yml`       | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`) |
-| `group_vars/all/main.yml`  | Variáveis públicas de todas as automações                        |
-| `requirements.yml`         | Collections Ansible necessárias (`community.general`)            |
-| `Justfile`                 | Atalhos (`just setup`, `just ptbr`)                               |
+| Arquivo/Diretório          | Papel                                                              |
+|-----------------------------|---------------------------------------------------------------------|
+| `site.yml`                  | Índice: importa cada `playbooks/*.yml` com sua tag                 |
+| `playbooks/ptbr.yml`        | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`)  |
+| `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |
+| `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
+| `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
+| `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`)               |
 
 ## Créditos
 
 - Nomes traduzidos oficiais das pastas pessoais em pt_BR: projeto
   [xdg-user-dirs](https://www.freedesktop.org/wiki/Software/xdg-user-dirs/)
   (freedesktop.org).
+- Comparação de versões oficial × AUR do Bitwarden via `vercmp`
+  (pacman) e a [AUR RPC interface](https://aur.archlinux.org/rpc/) do
+  Arch User Repository.
 - Estrutura do repositório (playbooks modulares, tags, `site.yml`
   como índice) espelhada de
   [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup).

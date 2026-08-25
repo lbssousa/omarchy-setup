@@ -31,6 +31,32 @@ ptbr_xdg_user_dirs:
 # acompanha a versão do pacote firefox).
 ptbr_firefox_i18n_package: firefox-i18n-pt-br
 
+# LibreOffice Fresh — mesmo mecanismo do Firefox: pacote de idioma
+# separado no [extra], só instalado se o libreoffice-fresh estiver
+# presente. Atenção ao nome: "libreoffice-fresh-pt" é português europeu
+# (Portugal) — o pacote certo para pt-BR é "libreoffice-fresh-pt-br".
+ptbr_libreoffice_i18n_package: libreoffice-fresh-pt-br
+
+# Man pages traduzidas para pt-BR (projeto man-pages-l10n, empacotado
+# como man-pages-pt_br no [extra]). Diferente de Firefox/LibreOffice,
+# não é condicional a nenhum pacote específico: complementa as poucas
+# páginas pt_BR que alguns pacotes (util-linux, shadow, procps-ng...)
+# já trazem embutidas por conta própria, cobrindo o grosso do manual
+# (chamadas de sistema, biblioteca C, páginas de visão geral) que só
+# esse pacote dedicado traduz.
+ptbr_man_pages_package: man-pages-pt_br
+
+# OCR (tesseract) — usado pelo omarchy-capture-text
+# (SUPER+SHIFT+... "Extrair texto"), que só reconhece inglês por padrão
+# (tesseract-data-eng, do omarchy-base.packages). tesseract-data-por
+# adiciona o modelo em português; OMARCHY_OCR_LANGS (lido pelo próprio
+# script via `${OMARCHY_OCR_LANGS:-eng}`) é setado para os dois
+# idiomas juntos (sintaxe "+", nativa do tesseract) para reconhecer
+# tanto texto em pt-BR quanto em inglês na mesma captura, sem precisar
+# escolher previamente.
+ptbr_tesseract_data_package: tesseract-data-por
+ptbr_ocr_langs: "por+eng"
+
 # Bitwarden (playbooks/bitwarden.yml) — instala preferencialmente o
 # bitwarden-bin do AUR (repositório oficial do Arch costuma ficar meses
 # atrás), voltando a usar o pacote oficial sozinho quando ele deixar de

@@ -1,6 +1,6 @@
 ---
 # Localização pt-BR — deixa o sistema o mais próximo possível de
-# totalmente em português do Brasil, cobrindo três frentes independentes
+# totalmente em português do Brasil, cobrindo seis frentes independentes
 # (cada uma com sua sub-tag, para rodar ou pular isoladamente):
 #
 #   - locale.gen + /etc/locale.conf (tag ptbr-locale): gera o locale
@@ -49,14 +49,49 @@
 #     silenciosamente uma escolha de idioma que o usuário já tenha
 #     feito manualmente no navegador.
 #
+#   - LibreOffice Fresh (tag ptbr-libreoffice): mesmo mecanismo do
+#     Firefox — instala `libreoffice-fresh-pt-br` via pacman, e só se o
+#     `libreoffice-fresh` estiver instalado. Cuidado ao ler o nome dos
+#     pacotes no repositório: existe também um `libreoffice-fresh-pt`
+#     (português europeu/Portugal) — não é o mesmo pacote, nem
+#     intercambiável para pt-BR.
+#
+#   - Man pages (tag ptbr-man-pages): instala `man-pages-pt_br`
+#     (projeto man-pages-l10n) incondicionalmente — não depende de
+#     nenhum app específico, só do `man-db` (que já vem no conjunto
+#     base do Omarchy). Algumas páginas pt_BR já aparecem em
+#     `/usr/share/man/pt_BR` mesmo sem esse pacote (util-linux,
+#     procps-ng, shadow, xz... embutem as suas próprias), mas é
+#     cobertura pontual de cada projeto; este pacote é quem traduz o
+#     grosso do manual (chamadas de sistema, biblioteca C, páginas de
+#     visão geral do man2/man3/man7).
+#
+#   - OCR (tag ptbr-ocr): o `omarchy-capture-text` (captura de tela com
+#     reconhecimento de texto, via tesseract) só reconhece inglês por
+#     padrão — `tesseract-data-eng` é o único pacote de dados do
+#     omarchy-base.packages, e o script lê `${OMARCHY_OCR_LANGS:-eng}`.
+#     Só age se o `tesseract` estiver instalado (está, por vir no
+#     conjunto base do Omarchy): instala `tesseract-data-por` e
+#     exporta `OMARCHY_OCR_LANGS=por+eng` (sintaxe "+", nativa do
+#     tesseract, para reconhecer os dois idiomas na mesma captura sem
+#     escolher um previamente) via `~/.config/environment.d/`, mesmo
+#     mecanismo estático usado por playbooks/bitwarden.yml para
+#     variáveis de sessão.
+#
 # Nenhuma tarefa aqui mexe em layout de teclado nem fuso horário — ambos
 # já são perguntados pelo instalador do Omarchy
-# (install/provisioning/setup-form.sh).
+# (install/provisioning/setup-form.sh). Também não mexemos em apps que
+# já trazem tradução pt_BR embutida no próprio pacote (todo o GNOME —
+# Nautilus, Evince etc. —, GTK, KDE/kdenlive, obs-studio): esses seguem
+# o LANG do sistema sozinhos, sem pacote de idioma separado — só
+# Firefox, Thunderbird, LibreOffice e o GIMP (help) fazem esse split no
+# Arch, e dos quatro só Firefox e LibreOffice estão neste setup.
 #
 # Depois de rodar a parte de locale, é preciso logout (ou reboot) para o
 # LANG novo valer na sessão gráfica inteira (Hyprland, apps já abertos)
-# — veja o aviso final da primeira etapa.
-- name: Localização pt-BR (locale, pastas pessoais, Firefox)
+# — veja o aviso final da primeira etapa. O mesmo vale para
+# OMARCHY_OCR_LANGS (environment.d só é lido no login).
+- name: Localização pt-BR (locale, pastas pessoais, apps e man pages)
   hosts: localhost
   connection: local
   gather_facts: true
@@ -162,3 +197,71 @@
               Chromium).
           when: firefox_check.rc != 0
       tags: [ptbr-firefox]
+
+    - name: LibreOffice — pacote de idioma pt-BR
+      block:
+        - name: Verificar se o LibreOffice Fresh está instalado
+          ansible.builtin.command: pacman -Q libreoffice-fresh
+          register: libreoffice_check
+          changed_when: false
+          failed_when: false
+
+        - name: Instalar o pacote de idioma pt-BR do LibreOffice Fresh
+          community.general.pacman:
+            name: "{{ ptbr_libreoffice_i18n_package }}"
+            state: present
+          become: true
+          when: libreoffice_check.rc == 0
+
+        - name: Avisar se o LibreOffice Fresh não estiver instalado (nenhuma ação tomada)
+          ansible.builtin.debug:
+            msg: >-
+              libreoffice-fresh não encontrado via pacman — pacote de
+              idioma {{ ptbr_libreoffice_i18n_package }} não instalado.
+          when: libreoffice_check.rc != 0
+      tags: [ptbr-libreoffice]
+
+    - name: Man pages em pt-BR
+      community.general.pacman:
+        name: "{{ ptbr_man_pages_package }}"
+        state: present
+      become: true
+      tags: [ptbr-man-pages]
+
+    - name: "OCR (omarchy-capture-text) — dados tesseract em pt-BR + OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}"
+      block:
+        - name: Verificar se o tesseract está instalado
+          ansible.builtin.command: pacman -Q tesseract
+          register: tesseract_check
+          changed_when: false
+          failed_when: false
+
+        - name: Instalar os dados de OCR em português (tesseract-data-por)
+          community.general.pacman:
+            name: "{{ ptbr_tesseract_data_package }}"
+            state: present
+          become: true
+          when: tesseract_check.rc == 0
+
+        - name: Criar ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+            state: directory
+            mode: "0755"
+          when: tesseract_check.rc == 0
+
+        - name: "Configurar OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }} para o omarchy-capture-text"
+          ansible.builtin.copy:
+            content: "OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}\n"
+            dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-omarchy-ocr-langs.conf"
+            mode: "0644"
+          when: tesseract_check.rc == 0
+
+        - name: Avisar se o tesseract não estiver instalado (nenhuma ação tomada)
+          ansible.builtin.debug:
+            msg: >-
+              tesseract não encontrado via pacman — dados de OCR em
+              português não instalados, OMARCHY_OCR_LANGS não
+              configurado.
+          when: tesseract_check.rc != 0
+      tags: [ptbr-ocr]

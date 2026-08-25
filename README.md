@@ -35,23 +35,28 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
      traduzidos oficiais do
      [xdg-user-dirs](https://www.freedesktop.org/wiki/Software/xdg-user-dirs/)
      em pt_BR (Área de Trabalho, Downloads, Modelos, Público,
-     Documentos, Música, Imagens, Vídeos), só para as pastas que já
-     estiverem habilitadas — se Área de Trabalho/Modelos/Público
-     estiverem desabilitadas (`XDG_*_DIR="$HOME/"`, como costuma ser
-     preferência pessoal), permanecem desabilitadas. O comando
-     `xdg-user-dirs-update`, sozinho, **nunca** renomeia pastas já
-     existentes — ele só cria as que ainda não têm entrada em
-     `user-dirs.dirs`; quem faz esse rename (com diálogo de
-     confirmação) é o `xdg-user-dirs-gtk-update`, uma ferramenta
-     gráfica que não dá para rodar de forma não interativa. Este
-     playbook replica manualmente o mesmo mecanismo (`mv` +
-     `xdg-user-dirs-update --set`), sem diálogo, mas com a mesma
-     garantia de segurança: só renomeia se a pasta de origem existir e
-     a de destino ainda não existir — idempotente, seguro rodar de
-     novo. `XDG_PROJECTS_DIR` (entrada extra do Omarchy em
-     `/etc/xdg/user-dirs.defaults`, fora do padrão do xdg-user-dirs)
-     fica de fora do escopo, por não ser um dos 8 nomes canônicos
-     aceitos por `--set`.
+     Documentos, Música, Imagens, Vídeos), **incluindo** `~/Projects`
+     → `~/Projetos` (`XDG_PROJECTS_DIR`, entrada extra do Omarchy em
+     `/etc/xdg/user-dirs.defaults`, fora do padrão upstream do
+     xdg-user-dirs — mas testamos e `xdg-user-dirs-update --set` aceita
+     esse nome sem reclamar, apesar do manual só listar os 8 nomes
+     padrão), só para as pastas que já estiverem habilitadas — se Área
+     de Trabalho/Modelos/Público estiverem desabilitadas
+     (`XDG_*_DIR="$HOME/"`, como costuma ser preferência pessoal),
+     permanecem desabilitadas. O comando `xdg-user-dirs-update`,
+     sozinho, **nunca** renomeia pastas já existentes — ele só cria as
+     que ainda não têm entrada em `user-dirs.dirs`; quem faz esse
+     rename (com diálogo de confirmação) é o
+     `xdg-user-dirs-gtk-update`, uma ferramenta gráfica que não dá para
+     rodar de forma não interativa. Este playbook replica manualmente
+     o mesmo mecanismo (`mv` + `xdg-user-dirs-update --set`), sem
+     diálogo, e só renomeia se a pasta ainda não estiver com o nome
+     traduzido — idempotente, seguro rodar de novo. Uma pasta
+     desabilitada é gravada em `user-dirs.dirs` como `"$HOME/"` literal
+     (com barra final); a comparação normaliza essa barra antes de
+     decidir se a pasta está desabilitada — sem isso, o playbook tenta
+     mover `$HOME` para dentro de si mesmo (bug corrigido depois do
+     primeiro uso real deste playbook).
    - **Firefox** (`ptbr-firefox`) — instala o pacote
      `firefox-i18n-pt-br` via pacman, **se o Firefox estiver
      instalado** (senão pula, sem falhar — o instalador do Omarchy

@@ -14,22 +14,28 @@
 #     Configurações do GNOME.
 #
 #   - xdg-user-dirs (tag ptbr-xdg-user-dirs): renomeia as pastas
-#     pessoais (~/Downloads, ~/Documents, etc.) para os nomes
-#     traduzidos oficiais do xdg-user-dirs em pt_BR, só para as pastas
-#     que já estiverem habilitadas (XDG_*_DIR != $HOME — se Área de
-#     Trabalho/Modelos/Público estiverem desabilitadas, como costuma
-#     ser preferência pessoal, permanecem desabilitadas). O comando
+#     pessoais (~/Downloads, ~/Documents, etc., incluindo
+#     XDG_PROJECTS_DIR — entrada extra do Omarchy em
+#     /etc/xdg/user-dirs.defaults, fora do padrão upstream do
+#     xdg-user-dirs, mas aceita normalmente por `--set`) para os nomes
+#     traduzidos em pt_BR, só para as pastas que já estiverem
+#     habilitadas (XDG_*_DIR != $HOME — se Área de Trabalho/Modelos/
+#     Público estiverem desabilitadas, como costuma ser preferência
+#     pessoal, permanecem desabilitadas). O comando
 #     `xdg-user-dirs-update`, sozinho, NUNCA renomeia pastas já
 #     existentes — ele só cria as que ainda não têm entrada em
 #     user-dirs.dirs; quem faz esse rename (com diálogo de confirmação)
 #     é o `xdg-user-dirs-gtk-update`, uma ferramenta gráfica que não dá
 #     para rodar de forma não interativa. Este playbook replica
 #     manualmente o mesmo mecanismo (mv + `xdg-user-dirs-update --set`),
-#     sem diálogo, mas com a mesma garantia de segurança: só renomeia
-#     se a pasta de origem existir e a de destino ainda não existir.
-#     XDG_PROJECTS_DIR (entrada extra do Omarchy em
-#     /etc/xdg/user-dirs.defaults, fora do padrão do xdg-user-dirs)
-#     fica de fora — `--set` só aceita os 8 nomes canônicos do projeto.
+#     sem diálogo, e só renomeia se a pasta ainda não estiver com o
+#     nome traduzido (idempotente entre execuções — não tenta renomear
+#     de novo numa máquina já localizada). Atenção: uma pasta
+#     desabilitada é gravada em user-dirs.dirs como
+#     "$HOME/" literal (com barra final) — a comparação abaixo precisa
+#     normalizar essa barra, senão confunde "desabilitada" com
+#     "diferente do nome traduzido" e tenta mover $HOME para dentro de
+#     si mesmo.
 #
 #   - Firefox (tag ptbr-firefox): instala o pacote firefox-i18n-pt-br
 #     via pacman, se o Firefox estiver instalado (senão pula, sem
@@ -110,17 +116,25 @@
           changed_when: false
 
         - name: Renomear as pastas já habilitadas e atualizar user-dirs.dirs
+          vars:
+            # xdg-user-dir ecoa o valor cru de user-dirs.dirs: uma pasta
+            # desabilitada está gravada literalmente como "$HOME/", com
+            # barra final — sem normalizar isso, a comparação abaixo
+            # nunca reconhece o caso "desabilitada" e tenta mover $HOME
+            # para dentro de si mesmo (mv: cannot move '/home/x/' to a
+            # subdirectory of itself).
+            current_path: "{{ result.stdout | regex_replace('/+$', '') }}"
+            desired_path: "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
           ansible.builtin.shell: >-
-            mv "{{ result.stdout }}" "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}" &&
-            xdg-user-dirs-update --set {{ result.item.name }}
-            "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
+            mv "{{ current_path }}" "{{ desired_path }}" &&
+            xdg-user-dirs-update --set {{ result.item.name }} "{{ desired_path }}"
           loop: "{{ xdg_current.results }}"
           loop_control:
             loop_var: result
             label: "{{ result.item.name }}"
           when:
-            - result.stdout != ansible_facts.env.HOME
-            - result.stdout != ansible_facts.env.HOME ~ '/' ~ result.item.translated
+            - current_path != (ansible_facts.env.HOME | regex_replace('/+$', ''))
+            - current_path != desired_path
           changed_when: true
       tags: [ptbr-xdg-user-dirs]
 

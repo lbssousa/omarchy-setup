@@ -1,0 +1,14 @@
+---
+# Setup de um desktop Omarchy recém-instalado — índice das automações.
+# Cada uma é um playbook próprio em playbooks/, importado abaixo via
+# import_playbook, o que faz todas rodarem dentro do mesmo
+# `--ask-become-pass`.
+#
+# Rode só uma automação com `--tags <tag>`, ou pule uma com
+# `--skip-tags <tag>`. Veja o comentário de cada playbooks/*.yml para
+# detalhes.
+#
+# Uso: ansible-playbook site.yml --ask-become-pass
+- name: Localização pt-BR (locale, pastas pessoais, Firefox)
+  ansible.builtin.import_playbook: playbooks/ptbr.yml
+  tags: [ptbr]

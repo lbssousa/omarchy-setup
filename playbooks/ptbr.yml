@@ -1,0 +1,150 @@
+---
+# Localização pt-BR — deixa o sistema o mais próximo possível de
+# totalmente em português do Brasil, cobrindo três frentes independentes
+# (cada uma com sua sub-tag, para rodar ou pular isoladamente):
+#
+#   - locale.gen + /etc/locale.conf (tag ptbr-locale): gera o locale
+#     pt_BR.UTF-8 (sem remover nenhum locale já habilitado, ex.:
+#     en_US.UTF-8) e define LANG=pt_BR.UTF-8 no sistema. LANGUAGE
+#     também é definido (pt_BR:pt:en) — é a cadeia de fallback do
+#     gettext, usada quando um app tem tradução pt_BR incompleta mas
+#     tem pt genérico (ou nenhuma das duas, caindo em inglês em vez de
+#     travar em C/POSIX). Nenhuma categoria LC_* é definida
+#     individualmente: todas herdam de LANG, igual à troca de idioma em
+#     Configurações do GNOME.
+#
+#   - xdg-user-dirs (tag ptbr-xdg-user-dirs): renomeia as pastas
+#     pessoais (~/Downloads, ~/Documents, etc.) para os nomes
+#     traduzidos oficiais do xdg-user-dirs em pt_BR, só para as pastas
+#     que já estiverem habilitadas (XDG_*_DIR != $HOME — se Área de
+#     Trabalho/Modelos/Público estiverem desabilitadas, como costuma
+#     ser preferência pessoal, permanecem desabilitadas). O comando
+#     `xdg-user-dirs-update`, sozinho, NUNCA renomeia pastas já
+#     existentes — ele só cria as que ainda não têm entrada em
+#     user-dirs.dirs; quem faz esse rename (com diálogo de confirmação)
+#     é o `xdg-user-dirs-gtk-update`, uma ferramenta gráfica que não dá
+#     para rodar de forma não interativa. Este playbook replica
+#     manualmente o mesmo mecanismo (mv + `xdg-user-dirs-update --set`),
+#     sem diálogo, mas com a mesma garantia de segurança: só renomeia
+#     se a pasta de origem existir e a de destino ainda não existir.
+#     XDG_PROJECTS_DIR (entrada extra do Omarchy em
+#     /etc/xdg/user-dirs.defaults, fora do padrão do xdg-user-dirs)
+#     fica de fora — `--set` só aceita os 8 nomes canônicos do projeto.
+#
+#   - Firefox (tag ptbr-firefox): instala o pacote firefox-i18n-pt-br
+#     via pacman, se o Firefox estiver instalado (senão pula, sem
+#     falhar — o instalador do Omarchy permite escolher outro navegador
+#     padrão, ex.: Chromium). Com LANG=pt_BR.UTF-8 e o pacote de idioma
+#     instalado, o Firefox escolhe pt-BR sozinho no próximo perfil —
+#     mesmo mecanismo de qualquer Firefox empacotado por distro Linux.
+#     De propósito, não mexemos em about:config nem em políticas
+#     corporativas (policies.json): dependeria do layout interno do
+#     pacote firefox do Arch, é frágil a atualizações, e sobrescreveria
+#     silenciosamente uma escolha de idioma que o usuário já tenha
+#     feito manualmente no navegador.
+#
+# Nenhuma tarefa aqui mexe em layout de teclado nem fuso horário — ambos
+# já são perguntados pelo instalador do Omarchy
+# (install/provisioning/setup-form.sh).
+#
+# Depois de rodar a parte de locale, é preciso logout (ou reboot) para o
+# LANG novo valer na sessão gráfica inteira (Hyprland, apps já abertos)
+# — veja o aviso final da primeira etapa.
+- name: Localização pt-BR (locale, pastas pessoais, Firefox)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Locale pt_BR.UTF-8 (locale.gen + LANG/LANGUAGE do sistema)
+      become: true
+      block:
+        - name: Garantir que pt_BR.UTF-8 UTF-8 está habilitado em /etc/locale.gen
+          ansible.builtin.lineinfile:
+            path: /etc/locale.gen
+            regexp: '^#?\s*{{ ptbr_locale_gen_line | regex_escape }}\s*$'
+            line: "{{ ptbr_locale_gen_line }}"
+          register: locale_gen_conf
+
+        - name: Gerar os locales (locale-gen)
+          ansible.builtin.command: locale-gen
+          when: locale_gen_conf.changed
+
+        - name: "Definir LANG={{ ptbr_locale }} em /etc/locale.conf"
+          ansible.builtin.lineinfile:
+            path: /etc/locale.conf
+            regexp: '^LANG='
+            line: "LANG={{ ptbr_locale }}"
+            create: true
+
+        - name: Definir LANGUAGE (cadeia de fallback do gettext) em /etc/locale.conf
+          ansible.builtin.lineinfile:
+            path: /etc/locale.conf
+            regexp: '^LANGUAGE='
+            line: "LANGUAGE={{ ptbr_language_fallback }}"
+            create: true
+
+        - name: Avisar que é necessário logout/reboot para valer na sessão gráfica
+          ansible.builtin.debug:
+            msg: >-
+              LANG/LANGUAGE atualizados em /etc/locale.conf. Faça logout
+              (ou reboot) para o Hyprland e os apps já abertos assumirem
+              o novo idioma — este playbook não reinicia a sessão
+              sozinho.
+      tags: [ptbr-locale]
+
+    - name: Pastas pessoais (xdg-user-dirs) em pt-BR
+      block:
+        - name: Garantir que o xdg-user-dirs está instalado
+          community.general.pacman:
+            name: xdg-user-dirs
+            state: present
+          become: true
+
+        - name: Consultar o caminho atual de cada pasta XDG
+          ansible.builtin.command: "xdg-user-dir {{ item.name }}"
+          loop: "{{ ptbr_xdg_user_dirs }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: xdg_current
+          changed_when: false
+
+        - name: Renomear as pastas já habilitadas e atualizar user-dirs.dirs
+          ansible.builtin.shell: >-
+            mv "{{ result.stdout }}" "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}" &&
+            xdg-user-dirs-update --set {{ result.item.name }}
+            "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
+          loop: "{{ xdg_current.results }}"
+          loop_control:
+            loop_var: result
+            label: "{{ result.item.name }}"
+          when:
+            - result.stdout != ansible_facts.env.HOME
+            - result.stdout != ansible_facts.env.HOME ~ '/' ~ result.item.translated
+          changed_when: true
+      tags: [ptbr-xdg-user-dirs]
+
+    - name: Firefox — pacote de idioma pt-BR
+      block:
+        - name: Verificar se o Firefox está instalado
+          ansible.builtin.command: pacman -Q firefox
+          register: firefox_check
+          changed_when: false
+          failed_when: false
+
+        - name: Instalar o pacote de idioma pt-BR do Firefox
+          community.general.pacman:
+            name: "{{ ptbr_firefox_i18n_package }}"
+            state: present
+          become: true
+          when: firefox_check.rc == 0
+
+        - name: Avisar se o Firefox não estiver instalado (nenhuma ação tomada)
+          ansible.builtin.debug:
+            msg: >-
+              Firefox não encontrado via pacman — pacote de idioma
+              {{ ptbr_firefox_i18n_package }} não instalado. Sem efeito
+              se o navegador padrão desta máquina for outro (ex.:
+              Chromium).
+          when: firefox_check.rc != 0
+      tags: [ptbr-firefox]

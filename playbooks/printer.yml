@@ -53,6 +53,23 @@
       register: lpadmin_check
       changed_when: false
 
+    - name: "Verificar se a impressora responde por mDNS ({{ printer_l4160_hostname }})"
+      ansible.builtin.command: "getent hosts {{ printer_l4160_hostname }}"
+      register: printer_l4160_resolve
+      changed_when: false
+      failed_when: false
+
+    - name: Falhar com orientação se a impressora não responder na rede
+      ansible.builtin.fail:
+        msg: >-
+          "{{ printer_l4160_hostname }}" não respondeu via mDNS
+          (`getent hosts` não encontrou o hostname). Confira se a L4160
+          está ligada e conectada ao Wi-Fi — impressoras Epson entram em
+          modo de espera e podem levar alguns segundos pra voltar a
+          responder ao mDNS — e rode de novo. Se o hostname mudou,
+          ajuste printer_l4160_hostname em group_vars/all/main.yml.
+      when: printer_l4160_resolve.rc != 0
+
     - name: Impressora EPSON L4160 (driverless)
       become: true
       block:

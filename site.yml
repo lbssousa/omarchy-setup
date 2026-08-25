@@ -24,3 +24,7 @@
 - name: Distrobox
   ansible.builtin.import_playbook: playbooks/distrobox.yml
   tags: [distrobox]
+
+- name: libfprint (goodix538d) — build em container distrobox + instalação em /usr/local
+  ansible.builtin.import_playbook: playbooks/libfprint.yml
+  tags: [libfprint]

@@ -35,3 +35,11 @@ podman: _ensure-collections
 # Run only the Distrobox playbook.
 distrobox: _ensure-collections
     ansible-playbook site.yml --ask-become-pass --tags distrobox
+
+# Build and install libfprint (goodix538d). Requires podman + distrobox.
+libfprint: _ensure-collections
+    ansible-playbook site.yml --ask-become-pass --tags libfprint
+
+# Remove the libfprint build container (keeps the installed driver).
+libfprint-destroy-container:
+    distrobox rm -f libfprint-build

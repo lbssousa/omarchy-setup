@@ -167,3 +167,27 @@ nvidia_without_gsp_packages:
 # escreve; o Ansible só os mantém idempotentes daqui pra frente.
 nvidia_modprobe_conf_dest: /etc/modprobe.d/nvidia.conf
 nvidia_mkinitcpio_conf_dest: /etc/mkinitcpio.conf.d/nvidia.conf
+
+# Secure Boot (Limine + sbctl, playbooks/secureboot.yml — NÃO incluído
+# em site.yml/just setup, roda isolado de propósito). Veja o cabeçalho
+# do playbook para a análise completa; resumo das fontes usadas:
+#   - /usr/share/doc/limine-entry-tool/README.md e
+#     /usr/lib/limine/limine-common-functions (código-fonte real) —
+#     confirmam que, uma vez que o sbctl tenha chaves criadas,
+#     `limine-update`/qualquer operação do limine-entry-tool já
+#     re-assina o binário do Limine sozinho (enroll_config() chama
+#     sb_sign() incondicionalmente) — não precisa de hook próprio deste
+#     repositório para manter a assinatura em dia após atualizações de
+#     kernel, diferente do processo manual descrito nas discussões do
+#     GitHub do Omarchy (basecamp/omarchy#5306, #7462), que parecem
+#     anteceder essa ferramenta.
+#   - lbssousa/nix-config (scripts/setup-secureboot.sh) — padrão
+#     assinar-antes-de-matricular, detecção robusta de Setup Mode via
+#     efivars (não só texto do sbctl), e o desbloqueio de efivars
+#     imutáveis (chattr -i) que alguns firmwares aplicam mesmo em Setup
+#     Mode.
+secureboot_esp_path: /boot
+secureboot_limine_binary: "{{ secureboot_esp_path }}/EFI/limine/limine_x64.efi"
+secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
+secureboot_default_limine_conf: /etc/default/limine
+secureboot_kernel_cmdline_file: /etc/kernel/cmdline

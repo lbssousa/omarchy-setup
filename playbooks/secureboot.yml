@@ -1,0 +1,225 @@
+---
+# Secure Boot (Limine + sbctl) — NÃO faz parte de site.yml/`just setup`,
+# de propósito: roda isolado, via `ansible-playbook playbooks/secureboot.yml
+# --ask-become-pass` (ou `just secureboot`). Mexe em firmware/boot —
+# o tipo de automação que não deveria rodar sem intenção explícita a
+# cada `just setup`.
+#
+# Baseado em duas fontes, citadas ao longo dos comentários abaixo:
+#   1. Discussões do próprio Omarchy no GitHub — basecamp/omarchy#5306
+#      ("Omarchy Secure Boot + Windows Dual Boot Setup guide") e #7462
+#      ("Secure Boot on Omarchy 4"). O processo manual descrito lá
+#      (extrair o binário do cache do pacman, rodar `limine
+#      enroll-config` manualmente, assinar com `sbctl sign -s`, tudo em
+#      ordem estrita, e repetir isso a cada atualização de kernel)
+#      parece ser de ANTES do pacote `limine-mkinitcpio-hook`
+#      (`limine-entry-tool`) ganhar suporte nativo a Secure Boot — o
+#      código-fonte instalado nesta máquina
+#      (/usr/lib/limine/limine-common-functions,
+#      /usr/share/doc/limine-entry-tool/README.md) mostra que
+#      `enroll_config()` já chama `sb_sign()` (= `sbctl sign`)
+#      incondicionalmente sempre que o sbctl tem chaves configuradas —
+#      ou seja, uma vez que as chaves existam, qualquer operação do
+#      limine-entry-tool (inclusive a triggada pelo hook pacman de
+#      atualização de kernel, /etc/pacman.d/hooks/90-mkinitcpio-install.hook)
+#      já re-assina o binário do Limine sozinha. Este playbook usa esse
+#      mecanismo nativo em vez de reimplementar o processo manual.
+#   2. lbssousa/nix-config (scripts/setup-secureboot.sh) — mesmo
+#      raciocínio de fundo (Limine não usa shim/MOK; só o binário do
+#      Limine precisa de assinatura PE, kernel/initrd são protegidos
+#      por checksum embutido no binário via `limine enroll-config`),
+#      mas para NixOS. Porta-se para cá: a ordem
+#      assinar-antes-de-matricular chaves (se a assinatura falhar, o
+#      firmware não é tocado), a detecção de Setup Mode lendo a
+#      variável EFI `SetupMode` diretamente (mais robusta que só
+#      texto do `sbctl status`), e o desbloqueio de variáveis EFI
+#      marcadas imutáveis (`chattr -i`) que alguns firmwares aplicam
+#      mesmo em Setup Mode.
+#
+# Fluxo em duas etapas (dois reboots), sem jeito de automatizar mais
+# que isso — trocar o estado do Secure Boot no firmware exige entrar
+# no BIOS manualmente, nenhum software de dentro do Linux consegue
+# fazer isso pelo usuário:
+#   1ª execução (com Secure Boot desligado, fora do Setup Mode, como
+#   está agora): instala o sbctl, cria as chaves, configura o
+#   limine-entry-tool para embutir o checksum do limine.conf e manter
+#   o binário assinado, roda `limine-update` (que já assina o binário
+#   via o mecanismo nativo acima). Detecta que o firmware NÃO está em
+#   Setup Mode e para aí, com instruções de como entrar em Setup Mode
+#   (BIOS → Secure Boot → limpar/apagar as chaves existentes).
+#   2ª execução (depois de reiniciar e entrar em Setup Mode): detecta
+#   o Setup Mode e matricula as chaves no firmware
+#   (`sbctl enroll-keys --microsoft`). Depois disso, reinicie de novo e
+#   ligue o Secure Boot no BIOS.
+#
+# Cuidados que valem a pena conhecer antes de rodar:
+#   - "hash_mismatch_panic: yes" em limine.conf (que este playbook
+#     habilita) faz o boot travar se o checksum do kernel/initrd não
+#     bater — é a proteção de integridade real do Secure Boot aqui,
+#     mas significa que editar manualmente qualquer arquivo de boot
+#     sem passar pelo limine-entry-tool depois quebra o boot.
+#   - Plymouth (`splash` no cmdline) é incompatível com Secure Boot
+#     nessa configuração, segundo a discussão #5306 do Omarchy — este
+#     playbook checa e avisa se `splash` estiver presente, mas não
+#     remove nada sozinho (fora do escopo pedido).
+#   - Se esta máquina usa LUKS com desbloqueio automático via TPM2
+#     (PCR 7 = estado do Secure Boot), ligar o Secure Boot pela
+#     primeira vez muda o PCR7 e quebra esse desbloqueio automático até
+#     re-matricular o TPM2 — o fallback de senha continua funcionando
+#     (systemd-cryptenroll padrão), então não é um risco de ficar
+#     trancado para fora, só um lembrete.
+- name: Secure Boot (Limine + sbctl)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Verificar se o bootloader é o Limine com limine-entry-tool
+      ansible.builtin.command: pacman -Qi limine limine-mkinitcpio-hook
+      register: secureboot_limine_check
+      changed_when: false
+      failed_when: false
+
+    - name: Falhar se o bootloader não for Limine + limine-entry-tool
+      ansible.builtin.fail:
+        msg: >-
+          Este playbook só cobre Limine + limine-entry-tool
+          (limine-mkinitcpio-hook) — o mecanismo de assinatura
+          automática que ele usa (enroll_config/sb_sign) é específico
+          dessa ferramenta. Não se aplica a GRUB/systemd-boot.
+      when: secureboot_limine_check.rc != 0
+
+  tasks:
+    - name: Instalar o sbctl
+      community.general.pacman:
+        name: sbctl
+        state: present
+      become: true
+
+    - name: Checar se "splash" está no cmdline do kernel (incompatível com Secure Boot aqui)
+      ansible.builtin.command: "grep -l splash {{ secureboot_default_limine_conf }} {{ secureboot_kernel_cmdline_file }}"
+      register: secureboot_splash_check
+      changed_when: false
+      failed_when: false
+
+    - name: Avisar se "splash" estiver presente
+      ansible.builtin.debug:
+        msg: >-
+          "splash" encontrado em {{ secureboot_splash_check.stdout_lines }}.
+          Segundo basecamp/omarchy#5306, Plymouth (splash) quebra o boot
+          com Secure Boot ligado nesta configuração — considere remover
+          antes de ligar o Secure Boot no firmware. Este playbook não
+          remove isso sozinho.
+      when: secureboot_splash_check.rc == 0
+
+    - name: Verificar se o sbctl já tem chaves configuradas
+      ansible.builtin.command: sbctl setup --print-state --json
+      register: secureboot_sbctl_state
+      changed_when: false
+
+    - name: Criar as chaves do sbctl (só se ainda não existirem)
+      ansible.builtin.command: sbctl create-keys
+      become: true
+      when: "'\"installed\": true' not in secureboot_sbctl_state.stdout"
+
+    - name: Habilitar o embutimento do checksum do limine.conf e a verificação de integridade
+      ansible.builtin.lineinfile:
+        path: "{{ secureboot_default_limine_conf }}"
+        regexp: "^{{ item.key }}="
+        line: "{{ item.key }}={{ item.value }}"
+      loop:
+        - { key: ENABLE_ENROLL_LIMINE_CONFIG, value: "yes" }
+        - { key: ENABLE_VERIFICATION, value: "yes" }
+      become: true
+      register: secureboot_limine_default_conf
+
+    - name: Fazer um mismatch de checksum travar o boot (hash_mismatch_panic)
+      ansible.builtin.lineinfile:
+        path: "{{ secureboot_limine_conf }}"
+        regexp: "^hash_mismatch_panic:"
+        line: "hash_mismatch_panic: yes"
+      become: true
+      register: secureboot_limine_conf_edit
+
+    - name: Aplicar (limine-update) — reconstrói e assina o binário do Limine
+      ansible.builtin.command: limine-update
+      become: true
+      changed_when: true
+
+    - name: Mostrar o estado atual do sbctl (chaves, binários assinados)
+      ansible.builtin.command: sbctl status
+      register: secureboot_sbctl_status
+      changed_when: false
+      failed_when: false
+
+    - name: Mostrar o resultado do sbctl status
+      ansible.builtin.debug:
+        var: secureboot_sbctl_status.stdout_lines
+
+    - name: Mostrar quais binários EFI ainda não estão assinados
+      ansible.builtin.command: sbctl verify
+      register: secureboot_sbctl_verify
+      changed_when: false
+      failed_when: false
+
+    - name: Mostrar o resultado do sbctl verify
+      ansible.builtin.debug:
+        var: secureboot_sbctl_verify.stdout_lines
+
+    # -----------------------------------------------------------------
+    # Detectar Setup Mode direto na variável EFI (não só no texto do
+    # sbctl status) — mesma abordagem do lbssousa/nix-config, mais
+    # robusta a variações de locale/versão do sbctl.
+    # -----------------------------------------------------------------
+    - name: Ler a variável EFI SetupMode
+      ansible.builtin.shell: >-
+        od -An -t u1 -j4 -N1
+        /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c
+        | tr -d ' '
+      register: secureboot_setup_mode_byte
+      changed_when: false
+      failed_when: false
+
+    - name: "Avisar e parar: firmware não está em Setup Mode"
+      ansible.builtin.debug:
+        msg: >-
+          Firmware NÃO está em Setup Mode (SetupMode={{ secureboot_setup_mode_byte.stdout | default('?') }}) —
+          as chaves foram criadas e o binário do Limine já está
+          assinado, mas ainda não dá para matricular as chaves no
+          firmware. Para continuar: reinicie, entre no BIOS/UEFI, vá em
+          Secure Boot e limpe/apague as chaves existentes (isso ativa o
+          Setup Mode), salve e reinicie de novo — depois rode este
+          playbook mais uma vez para matricular as chaves e receber as
+          instruções finais.
+      when: secureboot_setup_mode_byte.stdout != "1"
+
+    - name: Matricular as chaves no firmware (só quando em Setup Mode)
+      when: secureboot_setup_mode_byte.stdout == "1"
+      become: true
+      block:
+        - name: Desbloquear variáveis EFI marcadas imutáveis (alguns firmwares fazem isso mesmo em Setup Mode)
+          ansible.builtin.shell: >-
+            chattr -i /sys/firmware/efi/efivars/PK-* /sys/firmware/efi/efivars/KEK-*
+            /sys/firmware/efi/efivars/db-* /sys/firmware/efi/efivars/dbx-* 2>/dev/null || true
+          changed_when: false
+
+        - name: "sbctl enroll-keys --microsoft (inclui as chaves da Microsoft, para drivers/firmware assinados por ela)"
+          ansible.builtin.command: sbctl enroll-keys --microsoft
+          register: secureboot_enroll_result
+
+        - name: Mostrar o resultado da matrícula
+          ansible.builtin.debug:
+            var: secureboot_enroll_result.stdout_lines
+
+        - name: Avisar sobre os próximos passos
+          ansible.builtin.debug:
+            msg: >-
+              Chaves matriculadas no firmware. Próximos passos: reinicie,
+              entre no BIOS/UEFI e LIGUE o Secure Boot, salve e reinicie
+              de novo. Depois, confira com `sbctl status` (deve mostrar
+              "Secure Boot: enabled") e `bootctl status`. Se esta
+              máquina usa LUKS com desbloqueio automático via TPM2, o
+              PCR7 mudou — rode `sudo systemd-cryptenroll --tpm2-device=auto
+              --tpm2-pcrs=0+2+7 /dev/<partição-luks>` de novo para
+              restaurar o desbloqueio automático (a senha continua
+              funcionando como fallback nesse meio tempo).

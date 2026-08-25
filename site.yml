@@ -57,3 +57,7 @@
 - name: "Tamanho de texto — barra do quickshell + terminais (sem escalar GTK)"
   ansible.builtin.import_playbook: playbooks/text-size.yml
   tags: [text-size]
+
+- name: "Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)"
+  ansible.builtin.import_playbook: playbooks/capslock.yml
+  tags: [capslock]

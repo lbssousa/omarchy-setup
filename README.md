@@ -14,7 +14,34 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
 
 ## O que este playbook faz
 
-1. **Localização pt-BR** (`playbooks/ptbr.yml`, tag `ptbr`) — deixa o
+1. **NVIDIA (driver proprietário)** (`playbooks/nvidia.yml`, tag
+   `nvidia`) — instala o driver certo conforme a GPU detectada,
+   reaproveitando as mesmas ferramentas de hardware do próprio
+   instalador do Omarchy (`omarchy-hw-nvidia-gsp` /
+   `omarchy-hw-nvidia-without-gsp`, em `/usr/share/omarchy/bin`) em vez
+   de reimplementar a lógica de faixa de device ID PCI aqui:
+   - **GSP** (Turing ou mais novo): `nvidia-open-dkms` +
+     `nvidia-utils` + `lib32-nvidia-utils` + `libva-nvidia-driver`.
+   - **Sem GSP** (Maxwell/Pascal/Volta): `nvidia-580xx-dkms` +
+     `nvidia-580xx-utils` + `lib32-nvidia-580xx-utils` — a série
+     580.xxx, confirmada nesta máquina (GeForce MX230, GP108/Pascal).
+   - **Nenhuma GPU NVIDIA compatível**: pula, sem falhar — mesmo
+     comportamento do instalador do Omarchy.
+
+   Diferente do resto deste repositório (que roda em qualquer Arch com
+   pacman), este playbook depende de ferramentas do próprio Omarchy —
+   é específico dele. Além do pacote, também instala os headers do
+   kernel em uso (necessários para o dkms compilar o módulo — mesma
+   detecção do instalador do Omarchy,
+   `pacman -Qqs '^linux(-zen|-lts|-hardened|-t2|-ptl)?$'`) e replica os
+   dois ajustes de early KMS que o instalador também aplica
+   (`/etc/modprobe.d/nvidia.conf` com `nvidia_drm modeset=1` e
+   `/etc/mkinitcpio.conf.d/nvidia.conf` com os módulos no initramfs),
+   reconstruindo o initramfs (`mkinitcpio -P`) só quando esse segundo
+   arquivo muda de fato — o Ansible mantém os dois idempotentes daqui
+   pra frente. Roda antes da localização pt-BR em `site.yml` — sem
+   dependência real entre os dois, só por preferência de ordem.
+2. **Localização pt-BR** (`playbooks/ptbr.yml`, tag `ptbr`) — deixa o
    sistema o mais próximo possível de totalmente em português do
    Brasil, em três frentes independentes (sub-tags, cada uma
    selecionável isoladamente):
@@ -74,7 +101,7 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    — ambos já são perguntados pelo próprio instalador do Omarchy
    (`install/provisioning/setup-form.sh`), então mexer neles aqui seria
    redundante (ou pior, conflitante com uma escolha já feita).
-2. **Bitwarden** (`playbooks/bitwarden.yml`, tag `bitwarden`) — instala
+3. **Bitwarden** (`playbooks/bitwarden.yml`, tag `bitwarden`) — instala
    o cliente desktop do Bitwarden, escolhendo a origem do pacote
    **dinamicamente a cada execução**: prefere `bitwarden-bin` do AUR
    (o pacote oficial do Arch, `extra/bitwarden`, costuma ficar meses
@@ -112,7 +139,7 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    lá, o `gcr-ssh-agent` (aqui do pacote `gcr-4`) é mascarado para não
    competir pela mesma variável.
 
-3. **Podman rootless** (`playbooks/podman.yml`, tag `podman`) — instala
+4. **Podman rootless** (`playbooks/podman.yml`, tag `podman`) — instala
    o Podman via pacman. O pacote `podman` do Arch já resolve
    praticamente toda a base necessária para rootless funcionar de cara,
    como dependência obrigatória (conferido em `pacman -Si podman`/`-Sp
@@ -138,7 +165,7 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    automaticamente — é uma escolha de política que cabe a quem for
    rodar containers como serviços de longa duração, não uma
    pré-condição para rootless funcionar interativamente.
-4. **Distrobox** (`playbooks/distrobox.yml`, tag `distrobox`) — instala
+5. **Distrobox** (`playbooks/distrobox.yml`, tag `distrobox`) — instala
    o distrobox via pacman. Depende do Podman (playbook anterior);
    `site.yml` importa os dois nessa ordem, então rodar sem
    `--tags`/`--skip-tags` já garante a sequência certa sozinho — mas
@@ -148,7 +175,7 @@ uma com `--tags <tag>`, ou pule uma com `--skip-tags <tag>`.
    descobrir o problema no primeiro `distrobox create`. Nada além do
    pacote é instalado: cada container/distro é criado sob demanda pelo
    próprio usuário, não faz sentido este playbook decidir isso por ele.
-5. **libfprint (goodix538d)** (`playbooks/libfprint.yml`, tag
+6. **libfprint (goodix538d)** (`playbooks/libfprint.yml`, tag
    `libfprint`) — compila e instala em `/usr/local` o fork
    [lbssousa/libfprint](https://github.com/lbssousa/libfprint) (driver
    `goodixtls53xd`, leitor Goodix 27c6:538d), seguindo o modelo do
@@ -210,6 +237,9 @@ Mais automações devem ser adicionadas a este repositório com o tempo.
 - O playbook do libfprint precisa do Podman + Distrobox já configurados
   (`--tags podman,distrobox` antes, ou simplesmente rode `just setup`
   sem filtrar tags — `site.yml` já garante essa ordem).
+- O playbook do NVIDIA depende de ferramentas do próprio Omarchy
+  (`omarchy-hw-nvidia-gsp`/`omarchy-hw-nvidia-without-gsp`,
+  `/usr/share/omarchy/bin`) — não roda num Arch qualquer, só Omarchy.
 - `sudo` com senha interativa (`locale.gen`, `locale.conf` e a
   instalação/remoção de pacotes via pacman pedem confirmação).
 
@@ -240,12 +270,13 @@ ansible-playbook site.yml --ask-become-pass
 Para rodar só uma automação:
 
 ```bash
+just nvidia     # driver NVIDIA proprietário
 just ptbr       # localização pt-BR
 just bitwarden  # Bitwarden
 just podman     # Podman rootless
 just distrobox  # Distrobox (depende do Podman)
 just libfprint  # libfprint goodix538d (depende do Podman + Distrobox)
-# ou: ansible-playbook site.yml --ask-become-pass --tags <ptbr|bitwarden|podman|distrobox|libfprint>
+# ou: ansible-playbook site.yml --ask-become-pass --tags <nvidia|ptbr|bitwarden|podman|distrobox|libfprint>
 ```
 
 O playbook é idempotente — rodar de novo é seguro e só aplica o que
@@ -257,6 +288,7 @@ ainda não estiver no estado desejado.
 |-----------------------------|---------------------------------------------------------------------|
 | `bootstrap.sh`              | Instala o `just` via pacman, se faltar (rode uma vez, antes de tudo) |
 | `site.yml`                  | Índice: importa cada `playbooks/*.yml` com sua tag                 |
+| `playbooks/nvidia.yml`      | Driver NVIDIA proprietário, conforme a GPU (tag `nvidia`)          |
 | `playbooks/ptbr.yml`        | Localização pt-BR — locale, pastas pessoais, Firefox (tag `ptbr`)  |
 | `playbooks/bitwarden.yml`   | Bitwarden — AUR `bitwarden-bin` ou oficial, conforme a versão (tag `bitwarden`) |
 | `playbooks/podman.yml`      | Podman rootless (tag `podman`)                                     |
@@ -265,7 +297,7 @@ ainda não estiver no estado desejado.
 | `playbooks/files/`          | Arquivos estáticos copiados como estão (unidades systemd, environment.d, distrobox.ini, shim de pkg-config) — compartilhado pelos playbooks acima |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`) |
+| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`) |
 
 ## Créditos
 
@@ -289,3 +321,8 @@ ainda não estiver no estado desejado.
   adaptados para uma instalação nativa (sem Homebrew, sem SELinux) e
   com um shim de compatibilidade opencv4→opencv5 próprio deste
   repositório.
+- Detecção de GPU/GSP e a configuração de early KMS do driver NVIDIA
+  reaproveitam as ferramentas (`omarchy-hw-nvidia-gsp`,
+  `omarchy-hw-nvidia-without-gsp`) e o mesmo processo do instalador do
+  [Omarchy](https://omarchy.org/) (`install/hardware/nvidia.sh`), só
+  reescritos em Ansible para ficarem idempotentes/reexecutáveis.

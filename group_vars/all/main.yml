@@ -141,3 +141,29 @@ libfprint_runtime_deps:
 # shim precisa ser atualizado (nomes de include dir/módulos podem
 # mudar outra vez).
 libfprint_opencv4_shim_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/libfprint-pkgconfig-shim"
+
+# NVIDIA (driver proprietário, playbooks/nvidia.yml) — os pacotes são
+# escolhidos dinamicamente pela GPU detectada, via
+# omarchy-hw-nvidia-gsp/omarchy-hw-nvidia-without-gsp (ferramentas do
+# próprio Omarchy em /usr/share/omarchy/bin) — evita reimplementar a
+# lógica de faixa de device ID PCI aqui. Testado nesta máquina (GeForce
+# MX230, GP108/Pascal, sem GSP): resolve para a série 580xx pedida.
+nvidia_kernel_pkg_regex: '^linux(-zen|-lts|-hardened|-t2|-ptl)?$'
+
+# Turing ou mais novo (device id PCI >= 0x1e00).
+nvidia_gsp_packages:
+  - nvidia-open-dkms
+  - nvidia-utils
+  - lib32-nvidia-utils
+  - libva-nvidia-driver
+
+# Maxwell/Pascal/Volta (0x1340–0x1dff) — inclui a MX230 desta máquina.
+nvidia_without_gsp_packages:
+  - nvidia-580xx-dkms
+  - nvidia-580xx-utils
+  - lib32-nvidia-580xx-utils
+
+# Early KMS — mesmos dois arquivos que o instalador do Omarchy também
+# escreve; o Ansible só os mantém idempotentes daqui pra frente.
+nvidia_modprobe_conf_dest: /etc/modprobe.d/nvidia.conf
+nvidia_mkinitcpio_conf_dest: /etc/mkinitcpio.conf.d/nvidia.conf

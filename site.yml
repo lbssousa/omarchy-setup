@@ -9,6 +9,10 @@
 # detalhes.
 #
 # Uso: ansible-playbook site.yml --ask-become-pass
+- name: NVIDIA (driver proprietário)
+  ansible.builtin.import_playbook: playbooks/nvidia.yml
+  tags: [nvidia]
+
 - name: Localização pt-BR (locale, pastas pessoais, Firefox)
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]

@@ -20,6 +20,10 @@ _ensure-collections: _ensure-ansible
 setup: _ensure-collections
     ansible-playbook site.yml --ask-become-pass
 
+# Run only the NVIDIA playbook.
+nvidia: _ensure-collections
+    ansible-playbook site.yml --ask-become-pass --tags nvidia
+
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections
     ansible-playbook site.yml --ask-become-pass --tags ptbr

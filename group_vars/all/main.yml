@@ -257,6 +257,14 @@ libfprint_runtime_deps:
 # mudar outra vez).
 libfprint_opencv4_shim_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/libfprint-pkgconfig-shim"
 
+# Regra udev (playbooks/libfprint.yml) que desliga o autosuspend USB do
+# leitor — diagnosticado em 2026-08-27 nesta máquina como a causa raiz do
+# desbloqueio por digital parando de funcionar depois de a tela ficar
+# bloqueada por muito tempo. Ver o comentário completo na task "Instalar
+# regra udev — desabilitar autosuspend USB do leitor" do playbook.
+libfprint_goodix_usb_vendor_id: "27c6"
+libfprint_goodix_usb_product_id: "538d"
+
 # NVIDIA (driver proprietário, playbooks/nvidia.yml) — os pacotes são
 # escolhidos dinamicamente pela GPU detectada, via
 # omarchy-hw-nvidia-gsp/omarchy-hw-nvidia-without-gsp (ferramentas do

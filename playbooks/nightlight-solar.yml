@@ -1,0 +1,136 @@
+---
+# Luz noturna (hyprsunset) sincronizada com o nascer/pôr do sol reais, em
+# vez de dois horários fixos escolhidos à mão.
+#
+# hyprsunset (vem no omarchy-base.packages, não precisa de AUR) só entende
+# horários fixos (HH:MM) nos blocos `profile` do seu config
+# (~/.config/hypr/hyprsunset.conf) — não existe suporte nativo a
+# "nascer/pôr do sol" (não documentado em `hyprsunset --help`, `man
+# hyprsunset` não existe no pacote, nem no upstream,
+# github.com/hyprwm/hyprsunset). Confirmado testando nesta máquina antes de
+# escrever este playbook.
+#
+# A solução: um script (~/.local/bin/nightlight-solar-sync, template em
+# playbooks/templates/nightlight-solar-sync.sh.j2) que resolve a
+# localização — reaproveita ~/.local/state/omarchy/settings/weather.json se
+# a localização do clima do Omarchy (`omarchy weather location --set`) já
+# estiver definida, senão cai para geolocalização por IP
+# (nightlight_solar_geoip_url, ip-api.com) — consulta a API pública Open-Meteo
+# (api.open-meteo.com, sem chave) pelo nascer/pôr do sol de HOJE nessa
+# localização, e reescreve hyprsunset.conf com dois blocos `profile`:
+# identidade (sem filtro) no nascer do sol, temperatura
+# nightlight_solar_night_temperature no pôr do sol — mesmo valor (4000K) que
+# `omarchy-toggle-nightlight` usa, pra ficar visualmente idêntico ao toggle
+# manual da barra. Reescrito, reinicia o hyprsunset (`omarchy restart
+# hyprsunset`) pra aplicar na hora.
+#
+# Como o nascer/pôr do sol muda todo dia, um timer systemd --user
+# (nightlight-solar-sync.timer, WantedBy=timers.target — não depende de
+# root nem de crontab) reexecuta o script diariamente
+# (nightlight_solar_oncalendar) e também ~2min após todo login
+# (OnStartupSec, cobre a máquina ter ficado desligada no horário
+# agendado). O hyprsunset em si é ligado via `o.launch_on_start("hyprsunset")`
+# em ~/.config/hypr/autostart.lua (mesmo mecanismo sugerido no comentário do
+# próprio hyprsunset.conf padrão do Omarchy) em vez de habilitar a unidade
+# systemd --user que o pacote já traz (hyprsunset.service, hoje
+# `disabled`): é o padrão que o Omarchy documenta para autostart de apps
+# extras, e evita ter dois caminhos concorrentes decidindo se o hyprsunset
+# deve estar rodando.
+#
+# Sem tarefas privilegiadas além de garantir hyprsunset/jq instalados
+# (ambos já vêm por padrão no omarchy-base.packages — pacman só confirma) —
+# tudo o resto é `~/.local`, `~/.config` e systemd --user.
+- name: "Luz noturna sincronizada ao nascer/pôr do sol (hyprsunset + timer systemd --user)"
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Garantir hyprsunset e jq instalados via pacman
+      community.general.pacman:
+        name:
+          - hyprsunset
+          - jq
+        state: present
+      become: true
+
+    - name: Criar ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Criar ~/.config/systemd/user
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        state: directory
+        mode: "0755"
+
+    - name: Instalar o script de sincronização (nightlight-solar-sync)
+      ansible.builtin.template:
+        src: nightlight-solar-sync.sh.j2
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin/nightlight-solar-sync"
+        mode: "0755"
+
+    - name: Instalar a unidade systemd --user (service)
+      ansible.builtin.copy:
+        src: nightlight-solar-sync.service
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/nightlight-solar-sync.service"
+        mode: "0644"
+      notify: reload systemd --user
+
+    - name: Instalar a unidade systemd --user (timer)
+      ansible.builtin.template:
+        src: nightlight-solar-sync.timer.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/nightlight-solar-sync.timer"
+        mode: "0644"
+      notify: reload systemd --user
+
+    - name: Habilitar e iniciar o timer diário do nightlight-solar-sync
+      ansible.builtin.systemd:
+        name: nightlight-solar-sync.timer
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started
+
+    - name: Criar ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
+
+    - name: Criar ~/.config/hypr/autostart.lua a partir do template do Omarchy, se ainda não existir
+      # ATENÇÃO: a fonte certa é /etc/skel (o placeholder real que o
+      # instalador do Omarchy copia pra a home do usuário), NÃO
+      # /usr/share/omarchy/default/hypr/autostart.lua — esse outro é um
+      # arquivo interno diferente (o loader `hl.on("hyprland.start", ...)`
+      # com a sequência de boot do próprio Omarchy), carregado à parte via
+      # require("default.hypr.autostart") em
+      # /usr/share/omarchy/default/hypr/omarchy.lua. Confirmado com `diff`
+      # entre os dois antes de escrever esta task: têm o mesmo nome de
+      # arquivo, mas conteúdo (e propósito) totalmente diferentes.
+      ansible.builtin.copy:
+        src: /etc/skel/.config/hypr/autostart.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: Ligar o hyprsunset automaticamente com o Hyprland
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/nightlight-solar.yml — autostart do hyprsunset)"
+        block: |
+          o.launch_on_start("hyprsunset")
+
+    - name: Sincronizar agora (nascer/pôr do sol de hoje) e iniciar o hyprsunset
+      ansible.builtin.command: "{{ ansible_facts.env.HOME }}/.local/bin/nightlight-solar-sync"
+      changed_when: true
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user

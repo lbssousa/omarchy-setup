@@ -79,6 +79,12 @@ text-size: _ensure-collections
 capslock: _ensure-collections
     ansible-playbook site.yml --tags capslock --ask-become-pass
 
+# Sync the night light (hyprsunset) to today's real sunrise/sunset, via a
+# daily systemd --user timer. Only privileged task is confirming
+# hyprsunset/jq installed (both ship in omarchy-base.packages already).
+nightlight-solar: _ensure-collections
+    ansible-playbook site.yml --tags nightlight-solar --ask-become-pass
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

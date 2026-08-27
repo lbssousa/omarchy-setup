@@ -342,3 +342,31 @@ omarchy_text_size_px: 20
 # Shift+CapsLock=CapsLock literal). Ver o cabeçalho do playbook para a
 # ponderação entre keyd e kanata (lbssousa/bluefin-initial-setup).
 keyd_config_dest: /etc/keyd/default.conf
+
+# Luz noturna sincronizada com o nascer/pôr do sol (playbooks/nightlight-solar.yml)
+# — porta pra este repositório de uma configuração aplicada manualmente
+# nesta máquina antes de virar playbook. hyprsunset só entende horários
+# fixos (HH:MM) nos blocos `profile` do seu config; não existe suporte
+# nativo a "nascer/pôr do sol" (não documentado em `hyprsunset --help` nem
+# no upstream, github.com/hyprwm/hyprsunset). Ver o cabeçalho do playbook
+# para a arquitetura completa (script + timer systemd --user).
+#
+# Temperatura K aplicada à noite — mesmo valor do ON_TEMP hardcoded em
+# `omarchy-toggle-nightlight` (binário do próprio Omarchy), pra a luz
+# noturna automática ficar visualmente idêntica ao toggle manual da barra.
+nightlight_solar_night_temperature: 4000
+
+# Fallback de geolocalização por IP, usado só quando
+# ~/.local/state/omarchy/settings/weather.json (localização do clima do
+# Omarchy, `omarchy weather location --set`) ainda não foi definida. HTTP
+# simples de propósito: o tier grátis do ip-api.com não serve HTTPS (só
+# retorna 403) — a resposta é geolocalização grosseira (nível de cidade),
+# suficiente pra calcular nascer/pôr do sol.
+nightlight_solar_geoip_url: "http://ip-api.com/json/"
+
+# Horário diário (systemd OnCalendar) em que o timer recalcula o
+# nascer/pôr do sol de hoje e reescreve o hyprsunset.conf — precisa ser
+# diário porque o horário muda a cada dia. OnStartupSec=2min (fixo no
+# template do timer) cobre o caso de a máquina ter ficado desligada nesse
+# horário.
+nightlight_solar_oncalendar: "*-*-* 00:05:00"

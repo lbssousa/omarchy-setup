@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily sync of hyprsunset sunrise/sunset profiles
+
+[Timer]
+OnCalendar={{ nightlight_solar_oncalendar }}
+OnStartupSec=2min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

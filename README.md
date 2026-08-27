@@ -471,6 +471,7 @@ just ssh-yubikey
 | `playbooks/hypr-scrolling-resize.yml` | Hyprland — SUPER+[ / SUPER+SHIFT+[ redimensionam a coluna focada no layout scrolling (tag `hypr-scrolling-resize`) |
 | `playbooks/text-size.yml` | Tamanho de texto da barra do quickshell + terminais, sem escalar apps GTK (tag `text-size`) |
 | `playbooks/capslock.yml` | Caps Lock via keyd — tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock literal (tag `capslock`) |
+| `playbooks/nightlight-solar.yml` | Luz noturna (hyprsunset) sincronizada ao nascer/pôr do sol real via timer systemd --user diário (tag `nightlight-solar`) |
 | `playbooks/secureboot.yml`  | Secure Boot (Limine + sbctl) — **fora de site.yml**, roda isolado (tag `secureboot`) |
 | `docs/secureboot.md`        | Passo a passo de uso do `just secureboot` (avisos, troubleshooting) |
 | `playbooks/yubikey-gpg.yml` | Chave pública GPG da Yubikey + assinatura no git — **fora de site.yml**, roda isolado (tag `gpg-yubikey`) |
@@ -480,7 +481,7 @@ just ssh-yubikey
 | `playbooks/tasks/`          | Tasks reaproveitadas via `include_tasks` (ex.: idioma de cada navegador Chromium-family, chamada em loop por `ptbr.yml`) |
 | `group_vars/all/main.yml`   | Variáveis públicas de todas as automações                          |
 | `requirements.yml`          | Collections Ansible necessárias (`community.general`)              |
-| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just printer`, `just hypr-scrolling-resize`, `just text-size`, `just capslock`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`, `just ssh-yubikey`) |
+| `Justfile`                  | Atalhos (`just setup`, `just nvidia`, `just ptbr`, `just bitwarden`, `just podman`, `just distrobox`, `just libfprint`, `just printer`, `just hypr-scrolling-resize`, `just text-size`, `just capslock`, `just nightlight-solar`, `just sudo`, `just polkit`, `just secureboot`, `just gpg-yubikey`, `just ssh-yubikey`) |
 
 ## Créditos
 

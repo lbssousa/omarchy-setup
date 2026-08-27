@@ -1,0 +1,6 @@
+[Unit]
+Description=Sync hyprsunset profiles to today's sunrise/sunset times
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/nightlight-solar-sync

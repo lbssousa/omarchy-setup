@@ -1,0 +1,62 @@
+#!/bin/bash
+# Managed by playbooks/nightlight-solar.yml (omarchy-setup) — regenerates
+# ~/.config/hypr/hyprsunset.conf with today's actual sunrise/sunset times
+# for the configured (or IP-detected) location, then restarts hyprsunset so
+# it picks up the new schedule. Meant to run once a day via the
+# nightlight-solar-sync.timer systemd --user unit (also installed by the
+# same playbook) — hyprsunset itself only understands fixed HH:MM profile
+# times, not "sunrise"/"sunset", and those shift daily.
+set -euo pipefail
+
+CONF="$HOME/.config/hypr/hyprsunset.conf"
+WEATHER_LOC="$HOME/.local/state/omarchy/settings/weather.json"
+
+lat=""
+lon=""
+
+if [[ -f "$WEATHER_LOC" ]]; then
+  lat=$(jq -r '.latitude // empty' "$WEATHER_LOC" 2>/dev/null || true)
+  lon=$(jq -r '.longitude // empty' "$WEATHER_LOC" 2>/dev/null || true)
+fi
+
+if [[ -z "$lat" || -z "$lon" ]]; then
+  # {{ nightlight_solar_geoip_url }}'s free tier only serves plain HTTP; the
+  # response is just coarse (city-level) geolocation, fine for sunrise/sunset
+  # math. Only used as a fallback when `omarchy weather location --set`
+  # hasn't been run.
+  geo=$(curl -fsS --max-time 5 "{{ nightlight_solar_geoip_url }}" || true)
+  lat=$(jq -r '.lat // empty' <<<"$geo" 2>/dev/null || true)
+  lon=$(jq -r '.lon // empty' <<<"$geo" 2>/dev/null || true)
+fi
+
+if [[ -z "$lat" || -z "$lon" ]]; then
+  echo "nightlight-solar-sync: could not determine location" >&2
+  exit 1
+fi
+
+sun=$(curl -fsS --max-time 5 "https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=sunrise,sunset&timezone=auto")
+
+sunrise=$(jq -r '.daily.sunrise[0]' <<<"$sun" | cut -dT -f2)
+sunset=$(jq -r '.daily.sunset[0]' <<<"$sun" | cut -dT -f2)
+
+if [[ -z "$sunrise" || -z "$sunset" || "$sunrise" == "null" || "$sunset" == "null" ]]; then
+  echo "nightlight-solar-sync: could not determine sunrise/sunset" >&2
+  exit 1
+fi
+
+cat >"$CONF" <<EOF
+# Managed by nightlight-solar-sync (~/.local/bin/nightlight-solar-sync).
+# Regenerated daily from today's sunrise/sunset for lat=${lat}, lon=${lon}.
+# Manual edits here are overwritten on the next sync.
+profile {
+    time = ${sunrise}
+    identity = true
+}
+
+profile {
+    time = ${sunset}
+    temperature = {{ nightlight_solar_night_temperature }}
+}
+EOF
+
+omarchy restart hyprsunset

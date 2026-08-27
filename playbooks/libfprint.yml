@@ -228,6 +228,31 @@
             mode: "0644"
           notify: reload udev rules
 
+        - name: "Instalar regra udev — desabilitar autosuspend USB do leitor {{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }}"
+          # Diagnosticado nesta máquina em 2026-08-27: desbloqueio por
+          # digital parava de funcionar depois da tela ficar bloqueada por
+          # muito tempo. journalctl mostrou o autosuspend USB padrão do
+          # kernel (power/control=auto, ~2s de delay) suspendendo o sensor
+          # entre os polls de digital do lock screen; o driver goodix538d
+          # buildado por este playbook não sobrevive de forma confiável a
+          # esse ciclo de suspend/resume — depois de acumular alguns "Invalid
+          # ACK command"/"Invalid protocol command" (journalctl -u fprintd),
+          # as tentativas de verify passam a falhar na hora em vez de esperar
+          # o toque, o lock screen entra num loop martelando o fprintd (~2
+          # sessões PAM/minuto em uso normal viram ~220/minuto quando isso
+          # acontece — journalctl -g "Starting pam session") e o fprintd
+          # chega a travar (SIGSEGV) — até o lock screen desistir da digital
+          # e cair pra senha. Ver o cabeçalho do template para os detalhes
+          # completos e como confirmar.
+          ansible.builtin.template:
+            src: 71-goodix-no-autosuspend.rules.j2
+            dest: /etc/udev/rules.d/71-goodix-no-autosuspend.rules
+            mode: "0644"
+          notify:
+            - reload udev rules
+            - trigger udev rule for goodix fingerprint reader
+            - restart fprintd
+
         - name: Criar o diretório de drop-in do fprintd.service
           ansible.builtin.file:
             path: /etc/systemd/system/fprintd.service.d
@@ -248,6 +273,20 @@
       ansible.builtin.command: udevadm control --reload-rules
       changed_when: false
       listen: reload udev rules
+
+    - name: trigger udev rule for goodix fingerprint reader
+      # `udevadm control --reload-rules` só recarrega as regras em si; sem
+      # isso, uma regra nova só passaria a valer no próximo (re)plug do
+      # dispositivo (ou reboot) — o leitor de digital é interno e nunca é
+      # replugado. `udevadm trigger` reemite um evento "change" para o
+      # dispositivo já conectado, aplicando ATTR{power/control}="on" na
+      # hora. Escopado por idVendor/subsistema para não reemitir eventos em
+      # todo o resto do sistema à toa.
+      ansible.builtin.command: >-
+        udevadm trigger --subsystem-match=usb
+        --attr-match=idVendor={{ libfprint_goodix_usb_vendor_id }}
+      changed_when: false
+      listen: trigger udev rule for goodix fingerprint reader
 
     - name: reload systemd
       ansible.builtin.systemd:

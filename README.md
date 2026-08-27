@@ -226,6 +226,29 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
    `fprint-list-supported-devices` lista `27c6:538d` entre os
    dispositivos suportados.
 
+   **Bug diagnosticado em 2026-08-27**: o desbloqueio por digital parava
+   de funcionar depois de a tela ficar bloqueada por muito tempo,
+   caindo pra senha. Causa raiz, achada em `journalctl`: o autosuspend
+   USB padrão do kernel (`power/control=auto`, ~2s de delay) suspende o
+   sensor entre os polls periódicos de digital do lock screen; o
+   driver goodix538d não sobrevive de forma confiável a esse ciclo de
+   suspend/resume — ao longo de uma sessão bloqueada longa o sensor
+   acumula erros de dessincronia de protocolo (`Invalid ACK command`/
+   `Invalid protocol command` em `journalctl -u fprintd`), os verifies
+   passam a falhar na hora em vez de esperar o toque, o lock screen
+   entra num loop martelando o fprintd (`journalctl -g "Starting pam
+   session"` mostrou o ritmo pular de ~2 sessões PAM/minuto pra
+   ~220/minuto) e o fprintd chega a travar (SIGSEGV,
+   `coredumpctl list fprintd`) — até o lock screen desistir da digital.
+   Corrigido com uma regra udev
+   (`ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="27c6",
+   ATTR{idProduct}=="538d", TEST=="power/control",
+   ATTR{power/control}="on"`) que mantém o sensor sempre ligado,
+   removendo o gatilho — mesma automação já rodada nesta máquina,
+   agora idempotente via `playbooks/libfprint.yml` (não precisa
+   recompilar nada pra reaplicar, só a parte de instalação privilegiada
+   no host).
+
 7. **Impressora EPSON L4160** (`playbooks/printer.yml`, tag `printer`) —
    modelo copiado do repositório irmão
    [lbssousa/bluefin-initial-setup](https://github.com/lbssousa/bluefin-initial-setup)

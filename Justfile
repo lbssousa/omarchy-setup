@@ -75,15 +75,17 @@ printer: _ensure-collections
 text-size: _ensure-collections
     ansible-playbook site.yml --tags text-size
 
-# Remap Caps Lock via keyd (tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock).
-capslock: _ensure-collections
-    ansible-playbook site.yml --tags capslock --ask-become-pass
-
 # Sync the night light (hyprsunset) to today's real sunrise/sunset, via a
 # daily systemd --user timer. Only privileged task is confirming
 # hyprsunset/jq installed (both ship in omarchy-base.packages already).
 nightlight-solar: _ensure-collections
     ansible-playbook site.yml --tags nightlight-solar --ask-become-pass
+
+# Remap Caps Lock via keyd (tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock).
+# Also moves the Omarchy Compose key off Caps Lock (to Menu) first --
+# needed for Shift+CapsLock to work at all.
+capslock: _ensure-collections
+    ansible-playbook site.yml --tags capslock --ask-become-pass
 
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:

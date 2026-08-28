@@ -58,10 +58,10 @@
   ansible.builtin.import_playbook: playbooks/text-size.yml
   tags: [text-size]
 
-- name: "Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)"
-  ansible.builtin.import_playbook: playbooks/capslock.yml
-  tags: [capslock]
-
 - name: "Luz noturna sincronizada ao nascer/pôr do sol (hyprsunset + timer systemd --user)"
   ansible.builtin.import_playbook: playbooks/nightlight-solar.yml
   tags: [nightlight-solar]
+
+- name: "Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)"
+  ansible.builtin.import_playbook: playbooks/capslock.yml
+  tags: [capslock]

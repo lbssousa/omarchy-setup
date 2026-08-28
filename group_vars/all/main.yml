@@ -347,8 +347,18 @@ printer_l4160_set_default: true
 omarchy_text_size_px: 20
 
 # Caps Lock via keyd (playbooks/capslock.yml, tap=Esc / hold=Ctrl /
-# Shift+CapsLock=CapsLock literal). Ver o cabeçalho do playbook para a
-# ponderação entre keyd e kanata (lbssousa/bluefin-initial-setup).
+# Shift+CapsLock=CapsLock literal). Tecla que recebe o Compose do
+# Omarchy no lugar do Caps Lock (padrão do Omarchy é `compose:caps`) —
+# precisa ser uma tecla que NÃO seja modificador de hardware (Ctrl/Alt/
+# Win ficam com o keycode físico amarrado ao modifier_map do XKB
+# independente do símbolo atribuído, então continuam funcionando como
+# modificador AO MESMO TEMPO que Compose — testado e descartado com
+# `rctrl` nesta máquina). "menu" (tecla Menu/Aplicativo, KEY_COMPOSE no
+# kernel — já é a tecla "de fábrica" pra isso) funciona limpo. Ajuste
+# pra outra opção de `compose:` (ver `grep '^  compose:'
+# /usr/share/X11/xkb/rules/base.lst`) se a tecla Menu não existir no
+# teclado, sempre preferindo uma tecla que não seja modificador.
+capslock_compose_key: menu
 keyd_config_dest: /etc/keyd/default.conf
 
 # Luz noturna sincronizada com o nascer/pôr do sol (playbooks/nightlight-solar.yml)

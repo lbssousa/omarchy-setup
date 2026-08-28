@@ -229,21 +229,13 @@
           notify: reload udev rules
 
         - name: "Instalar regra udev — desabilitar autosuspend USB do leitor {{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }}"
-          # Diagnosticado nesta máquina em 2026-08-27: desbloqueio por
-          # digital parava de funcionar depois da tela ficar bloqueada por
-          # muito tempo. journalctl mostrou o autosuspend USB padrão do
-          # kernel (power/control=auto, ~2s de delay) suspendendo o sensor
-          # entre os polls de digital do lock screen; o driver goodix538d
-          # buildado por este playbook não sobrevive de forma confiável a
-          # esse ciclo de suspend/resume — depois de acumular alguns "Invalid
-          # ACK command"/"Invalid protocol command" (journalctl -u fprintd),
-          # as tentativas de verify passam a falhar na hora em vez de esperar
-          # o toque, o lock screen entra num loop martelando o fprintd (~2
-          # sessões PAM/minuto em uso normal viram ~220/minuto quando isso
-          # acontece — journalctl -g "Starting pam session") e o fprintd
-          # chega a travar (SIGSEGV) — até o lock screen desistir da digital
-          # e cair pra senha. Ver o cabeçalho do template para os detalhes
-          # completos e como confirmar.
+          # Tentativa de correção em 2026-08-27 (mantida por ser inofensiva,
+          # mas NÃO é a causa raiz — descartada por evidência: o bug voltou a
+          # ocorrer horas depois, já com power/control=on o tempo todo). A
+          # causa raiz de verdade é uma dessincronia de protocolo no driver
+          # goodix538d em si — ver o comentário da task "Instalar o watchdog
+          # de dessincronia do fprintd" logo abaixo para os detalhes e a
+          # mitigação de fato usada.
           ansible.builtin.template:
             src: 71-goodix-no-autosuspend.rules.j2
             dest: /etc/udev/rules.d/71-goodix-no-autosuspend.rules
@@ -252,6 +244,47 @@
             - reload udev rules
             - trigger udev rule for goodix fingerprint reader
             - restart fprintd
+
+        - name: Instalar o watchdog de dessincronia do fprintd
+          # Causa raiz de verdade (achada em 2026-08-27, depois da tentativa
+          # de autosuspend acima falhar): o driver goodix538d desincroniza o
+          # protocolo com o MCU do sensor depois de um cancel de verify — o
+          # comando FDT_DOWN ("esperar dedo", 0x32) já enviado ao MCU não
+          # pode ser "desenviado"; sua resposta chega tarde, depois que o
+          # próximo comando já está em voo, e o cmd não bate mais
+          # (`Invalid ACK command`/`Invalid protocol command` em
+          # `journalctl -u fprintd`) — o processo fprintd fica com esse
+          # estado quebrado pelo resto da vida dele, os verifies passam a
+          # falhar na hora em vez de esperar o toque, e o lock screen do
+          # Omarchy (sem nenhum backoff, ver
+          # /usr/share/omarchy/shell/plugins/lock/Service.qml,
+          # fingerprintRetryTimer de 250ms fixos) entra num loop martelando
+          # o fprintd por HORAS até alguém digitar a senha manualmente.
+          #
+          # O fork lbssousa/libfprint (branch goodix-538d-sigfm-gtls, commit
+          # 4d9acb0, já buildado no /usr/local desta máquina) tenta corrigir
+          # isso mandando o MCU pra idle (comando 0x70) no cancel — só que
+          # faz isso da mesma forma fire-and-forget que causou o bug
+          # original: a resposta do PRÓPRIO 0x70 chega tarde e colide com o
+          # comando seguinte (`Invalid ACK command: 0x70`, visto nesta
+          # máquina horas depois do fix já estar instalado). O bug só migrou
+          # de comando; corrigir de vez pediria rastrear respostas atrasadas
+          # por geração/sequência (não comando a comando) no driver — fora
+          # do escopo deste repositório de configuração.
+          #
+          # Mitigação: um serviço que segue `journalctl -u fprintd -f`
+          # (só o log novo, `-n0`, pra não reagir a avisos antigos ao
+          # iniciar) e reinicia o fprintd assim que vir esses avisos — o
+          # mesmo `systemctl restart fprintd` que já resolvia manualmente,
+          # só que automático e na hora (segundos), em vez de esperar até
+          # horas de martelamento até alguém digitar a senha.
+          ansible.builtin.copy:
+            src: fprintd-desync-watchdog.service
+            dest: /etc/systemd/system/fprintd-desync-watchdog.service
+            mode: "0644"
+          notify:
+            - reload systemd
+            - enable and start fprintd-desync-watchdog
 
         - name: Criar o diretório de drop-in do fprintd.service
           ansible.builtin.file:
@@ -269,9 +302,15 @@
             - restart fprintd
 
   handlers:
+    # Handlers não herdam o `become: true` do bloco que os notifica (esse
+    # bloco cobre só as próprias tasks) — cada um precisa do seu próprio
+    # `become: true` para as ações abaixo, que mexem em recursos do sistema
+    # (udev, systemd), rodarem com privilégio de verdade em vez de falhar
+    # silenciosamente sem root.
     - name: reload udev rules
       ansible.builtin.command: udevadm control --reload-rules
       changed_when: false
+      become: true
       listen: reload udev rules
 
     - name: trigger udev rule for goodix fingerprint reader
@@ -286,15 +325,27 @@
         udevadm trigger --subsystem-match=usb
         --attr-match=idVendor={{ libfprint_goodix_usb_vendor_id }}
       changed_when: false
+      become: true
       listen: trigger udev rule for goodix fingerprint reader
 
     - name: reload systemd
       ansible.builtin.systemd:
         daemon_reload: true
+      become: true
       listen: reload systemd
 
     - name: restart fprintd
       ansible.builtin.systemd:
         name: fprintd.service
         state: restarted
+      become: true
       listen: restart fprintd
+
+    - name: enable and start fprintd-desync-watchdog
+      ansible.builtin.systemd:
+        name: fprintd-desync-watchdog.service
+        daemon_reload: true
+        enabled: true
+        state: restarted
+      become: true
+      listen: enable and start fprintd-desync-watchdog

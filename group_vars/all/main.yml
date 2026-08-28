@@ -1,53 +1,21 @@
 ---
-# Timeout do become da conexão local (padrão do Ansible: 10s,
-# ansible_local_become_success_timeout — ver
-# ansible/plugins/connection/local.py). Com `auth sufficient
-# pam_fprintd.so` antes do pam_unix em /etc/pam.d/sudo, o pam_fprintd é
-# tentado primeiro em toda tarefa privilegiada, e tem seu próprio tempo
-# de espera por um toque no sensor antes de cair pro prompt de senha —
-# folga real vista no journal, bem acima de 10s. Enquanto isso, o
-# Ansible já está de olho no relógio dele mesmo, esperando aparecer o
-# marcador de sucesso OU o padrão de prompt de senha na saída
-# capturada do `sudo`; se os 10s de fábrica vencerem antes do
-# pam_fprintd desistir e cair pro pam_unix, o Ansible derruba a tarefa
-# como "Timed out waiting for become success or become password
-# prompt" — mesmo com a senha certa já em mãos (`--ask-become-pass`),
-# porque o prompt de senha nem chegou a aparecer pra ele reagir. 60s dá
-# folga de sobra pro pam_fprintd terminar de desistir sozinho.
+# Local connection become timeout. The fingerprint reader is tried before
+# the sudo password on every privileged task, and can take longer than
+# Ansible's 10s default to give up and fall back.
 ansible_local_become_success_timeout: 60
 
-# sudo (playbooks/sudo.yml) — limite de espera pelo prompt de
-# autenticação (passwd_timeout, minutos), rede de segurança contra
-# `become: true` disparado a partir de um terminal sem ninguém
-# acompanhando (ver ansible.cfg). Padrão de fábrica do sudo é 5; 1 ainda
-# dá tempo de sobra pra quem está de verdade no teclado.
+# sudo prompt timeout (minutes) — guards against `become: true` left
+# hanging in an unattended terminal.
 sudo_passwd_timeout_minutes: 1
 
-# polkitd (playbooks/polkit.yml) — janela de "memória" das
-# autenticações de privilégio via polkit (pkexec e outras ferramentas
-# gráficas da área de trabalho — não o `become: true` deste
-# repositório, que usa sudo; ver ansible.cfg), em segundos. Padrão de
-# fábrica do polkitd é 300 (5 min); 1800 (30 min) dá mais fôlego sem
-# virar NOPASSWD permanente — ainda expira.
+# polkit authentication cache window (seconds), for pkexec/graphical tools.
 polkit_expiration_seconds: 1800
 
-# Localização pt-BR (playbooks/ptbr.yml)
+# pt-BR localization (playbooks/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"
-
-# Cadeia de fallback do gettext: tenta pt_BR, cai para pt genérico, e só
-# então cai para inglês (em vez de C/POSIX) se um app não tiver nenhuma
-# tradução em português.
 ptbr_language_fallback: "pt_BR:pt:en"
 
-# Nomes traduzidos oficiais do xdg-user-dirs (projeto freedesktop.org)
-# para pt_BR. "Downloads" não muda — é a tradução real do projeto, não
-# um esquecimento. Os 8 primeiros são os nomes padrão do xdg-user-dirs;
-# PROJECTS é uma entrada extra do próprio Omarchy (declarada em
-# /etc/xdg/user-dirs.defaults, fora do padrão upstream) — apesar de o
-# manual do `xdg-user-dirs-update --set` listar só os 8 nomes padrão
-# como NAME aceito, testamos e ele aceita qualquer nome presente em
-# user-dirs.dirs (inclusive PROJECTS) sem reclamar, então incluímos.
 ptbr_xdg_user_dirs:
   - { name: DESKTOP, translated: "Área de Trabalho" }
   - { name: DOWNLOAD, translated: "Downloads" }
@@ -59,49 +27,18 @@ ptbr_xdg_user_dirs:
   - { name: VIDEOS, translated: "Vídeos" }
   - { name: PROJECTS, translated: "Projetos" }
 
-# Firefox — pacote de idioma pt-BR (repositório [extra] do Arch,
-# acompanha a versão do pacote firefox).
 ptbr_firefox_i18n_package: firefox-i18n-pt-br
-
-# Firefox — política RequestedLocale (policies.json), força o idioma
-# em qualquer perfil (novo ou já existente — só o pacote de idioma não
-# alcança um perfil criado antes do LANG virar pt_BR). en-US como
-# fallback caso o pacote de idioma pt-BR alguma hora suma.
 ptbr_firefox_requested_locale:
   - pt-BR
   - en-US
 
-# Chromium e variantes — lista de idiomas
-# (intl.accept_languages/selected_languages no Preferences de cada
-# perfil Default) usada pelos web apps do Omarchy (omarchy-launch-webapp
-# usa o navegador padrão do sistema se ele já for
-# chrome/brave/edge/opera/vivaldi/helium, senão cai em chromium.desktop
-# — ou seja, qualquer membro dessa família pode ser "o" navegador dos
-# web apps, dependendo do padrão escolhido). É o que sites como o
-# WhatsApp Web usam (Accept-Language/navigator.language) pra escolher o
-# idioma da página — diferente do idioma dos menus do próprio
-# navegador, que segue o LANG do sistema a cada início. "pt" genérico
-# incluído entre pt-BR e en-US pro caso de um site só reconhecer "pt" e
-# não "pt-BR" especificamente; en-US/en como fallback final.
+# Accept-Language for Chromium-family web apps (affects page content
+# language, not the browser's own UI language).
 ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
 
-# Chromium e variantes — diretórios de perfil (relativos a ~/.config)
-# de cada navegador da família a corrigir, um por vez, via
-# playbooks/tasks/ptbr-chromium-family-browser.yml (loop chamado por
-# ptbr.yml). Todos seguem a mesma convenção multi-perfil do próprio
-# Chromium (<diretório>/Default/Preferences) — cada entrada só age se
-# esse arquivo existir (navegador nunca instalado/aberto = nada a
-# fazer). Confirmados nesta máquina: chromium e
-# BraveSoftware/Brave-Origin (o navegador padrão trocou de Chromium
-# pra Brave Origin ao longo do uso deste repositório — o bug se repetiu
-# idêntico no novo perfil). google-chrome/microsoft-edge/vivaldi seguem
-# a mesma convenção — bem documentada, mas não testados nesta máquina.
-# Opera e Helium ficaram de fora de propósito: o Opera historicamente
-# NÃO usa essa convenção (perfil direto em ~/.config/opera, sem
-# subpasta Default), e não temos como confirmar o layout do Helium —
-# adicionar um navegador aqui sem confirmar o caminho do perfil real
-# só resulta num item que nunca faz nada (stat.exists sempre falso),
-# sem erro nenhum pra avisar que está errado.
+# Profile directories (relative to ~/.config) fixed by
+# playbooks/tasks/ptbr-chromium-family-browser.yml. Opera and Helium are
+# excluded: unconfirmed profile layout on this machine.
 ptbr_chromium_family_config_dirs:
   - chromium
   - BraveSoftware/Brave-Browser
@@ -110,49 +47,23 @@ ptbr_chromium_family_config_dirs:
   - microsoft-edge
   - vivaldi
 
-# LibreOffice Fresh — mesmo mecanismo do Firefox: pacote de idioma
-# separado no [extra], só instalado se o libreoffice-fresh estiver
-# presente. Atenção ao nome: "libreoffice-fresh-pt" é português europeu
-# (Portugal) — o pacote certo para pt-BR é "libreoffice-fresh-pt-br".
+# "libreoffice-fresh-pt" is European Portuguese; pt-BR needs the -br suffix.
 ptbr_libreoffice_i18n_package: libreoffice-fresh-pt-br
-
-# Man pages traduzidas para pt-BR (projeto man-pages-l10n, empacotado
-# como man-pages-pt_br no [extra]). Diferente de Firefox/LibreOffice,
-# não é condicional a nenhum pacote específico: complementa as poucas
-# páginas pt_BR que alguns pacotes (util-linux, shadow, procps-ng...)
-# já trazem embutidas por conta própria, cobrindo o grosso do manual
-# (chamadas de sistema, biblioteca C, páginas de visão geral) que só
-# esse pacote dedicado traduz.
 ptbr_man_pages_package: man-pages-pt_br
 
-# OCR (tesseract) — usado pelo omarchy-capture-text
-# (SUPER+SHIFT+... "Extrair texto"), que só reconhece inglês por padrão
-# (tesseract-data-eng, do omarchy-base.packages). tesseract-data-por
-# adiciona o modelo em português; OMARCHY_OCR_LANGS (lido pelo próprio
-# script via `${OMARCHY_OCR_LANGS:-eng}`) é setado para os dois
-# idiomas juntos (sintaxe "+", nativa do tesseract) para reconhecer
-# tanto texto em pt-BR quanto em inglês na mesma captura, sem precisar
-# escolher previamente.
+# OCR languages for omarchy-capture-text (tesseract "+" syntax).
 ptbr_tesseract_data_package: tesseract-data-por
 ptbr_ocr_langs: "por+eng"
 
-# Bitwarden (playbooks/bitwarden.yml) — instala preferencialmente o
-# bitwarden-bin do AUR (repositório oficial do Arch costuma ficar meses
-# atrás), voltando a usar o pacote oficial sozinho quando ele deixar de
-# estar desatualizado em relação ao AUR (decidido em tempo de execução,
-# via `vercmp` — veja o cabeçalho do playbook).
+# Bitwarden (playbooks/bitwarden.yml) — prefers the AUR package, which
+# tracks upstream releases faster than the official Arch package.
 bitwarden_official_package: bitwarden
 bitwarden_aur_package: bitwarden-bin
 bitwarden_aur_git_url: "https://aur.archlinux.org/{{ bitwarden_aur_package }}.git"
 bitwarden_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ bitwarden_aur_package }}"
 bitwarden_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ bitwarden_aur_package }}"
 
-# Dependências de runtime do bitwarden-bin que não vêm garantidas pelo
-# conjunto base do Omarchy — instaladas via pacman antes do build, para
-# o makepkg nunca precisar chamar `sudo` sozinho (veja o cabeçalho do
-# playbook). org.freedesktop.secrets (o outro dep do bitwarden-bin) é a
-# exceção: já é satisfeito pelo gnome-keyring, que faz parte do
-# omarchy-base.packages — não precisa ser instalado aqui.
+# Runtime deps not already covered by the Omarchy base package set.
 bitwarden_aur_runtime_deps:
   - alsa-lib
   - gtk3
@@ -162,51 +73,28 @@ bitwarden_aur_runtime_deps:
   - libnss_nis
   - nss
 
-# Agente SSH do Bitwarden — instalação nativa (pacman/AUR, sem sandbox
-# Flatpak), então o socket vive direto em $HOME, não em
-# ~/.var/app/com.bitwarden.desktop/... como no
-# lbssousa/bluefin-initial-setup (que instala via Flatpak). Confirmado
-# pela documentação oficial (bitwarden.com/help/ssh-agent) — o próprio
-# app expõe BITWARDEN_SSH_AUTH_SOCK como variável de override, caso o
-# caminho padrão mude no futuro. Unidades systemd --user instaladas em
-# ~/.config/systemd/user/ e camada estática em ~/.config/environment.d/
-# (mesmo mecanismo do bluefin-initial-setup, só com o caminho do socket
-# adaptado).
 bitwarden_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.bitwarden-ssh-agent.sock"
 bitwarden_ssh_agent_units:
   - bitwarden-ssh-agent.path
   - bitwarden-ssh-agent-env.service
 
-# Keybinding do Bitwarden — reaproveita o atalho padrão do Omarchy para
-# "Passwords" (o.bind("SUPER + SHIFT + SLASH", "Passwords", { omarchy =
-# "1password" }) em
-# /usr/share/omarchy/default/hypr/bindings/applications.lua), já que
-# este setup não instala o 1Password. Precisa de hl.unbind() antes do
-# novo o.bind() (mesma combinação de teclas) — ver o próprio
-# ~/.config/hypr/bindings.lua padrão do Omarchy, que documenta esse
-# padrão para substituir um bind default.
+# Reuses Omarchy's default "Passwords" keybinding (originally bound to
+# 1Password, which this setup doesn't install).
 bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
 
-# gcr-ssh-agent (pacote gcr-4) compete pela variável SSH_AUTH_SOCK da
-# sessão: seu socket unit reexporta SSH_AUTH_SOCK via
-# `systemctl --user set-environment` sempre que é ativado por socket
-# (WantedBy=sockets.target, habilitado por padrão) — precisa ficar
-# mascarado para o agente do Bitwarden prevalecer.
+# gcr-ssh-agent competes for SSH_AUTH_SOCK and must be masked for
+# Bitwarden's own agent to take over.
 gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
 
-# Podman rootless (playbooks/podman.yml) — faixa subuid/subgid usada
-# apenas se o usuário ainda não tiver uma (o shadow-utils do Arch já
-# aloca uma automaticamente na criação de usuários "normais" via
-# useradd, então isto é só uma rede de segurança, não o caminho comum).
-# 100000:65536 é o mesmo intervalo padrão que o useradd já usa.
+# Podman rootless (playbooks/podman.yml) — subuid/subgid range, same
+# default useradd already allocates.
 podman_subuid_start: 100000
 podman_subuid_count: 65536
 
-# libfprint (goodix538d) — builda o fork em um container distrobox
-# (ambiente de build isolado, sem instalar toolchain no host) e instala
-# em /usr/local (playbooks/libfprint.yml). Repositório/branch do fork.
+# libfprint (goodix538d, playbooks/libfprint.yml) — built in a distrobox
+# container, installed to /usr/local on the host.
 libfprint_container_name: libfprint-build
 libfprint_distrobox_ini_file: "{{ playbook_dir }}/files/libfprint-build.ini"
 libfprint_repo: https://github.com/lbssousa/libfprint.git
@@ -214,18 +102,11 @@ libfprint_ref: goodix-538d-sigfm-gtls
 libfprint_checkout_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d"
 libfprint_stage_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-stage"
 
-# Onde a lib cai no host. Diferente do bluefin-distrobox-libfprint
-# (Fedora Atomic, /usr somente leitura, libdir "lib64"): aqui /usr já é
-# gravável e o Arch usa "lib" (lib64 é só um symlink de compatibilidade
-# para lib) — confirmado em /usr/lib64 -> lib nesta máquina.
 libfprint_usrlocal_prefix: /usr/local
 libfprint_usrlocal_libdir: "{{ libfprint_usrlocal_prefix }}/lib"
 
-# Dependências de runtime no host (o container só tem o toolchain de
-# build — a lib compilada roda no host, via fprintd, então essas libs
-# precisam existir lá também). Nomes de pacote Arch; a maioria já vem
-# via outras automações/apps, mas declaramos explicitamente para este
-# playbook funcionar sozinho numa máquina limpa.
+# Runtime deps for the built library on the host (the container only
+# needs the build toolchain).
 libfprint_runtime_deps:
   - opencv
   - openssl
@@ -234,103 +115,50 @@ libfprint_runtime_deps:
   - libgudev
   - pixman
 
-# O meson.build do fork pede um pacote pkg-config chamado "opencv4"
-# (>= 4.5.0) para o matcher SIGFM — nome que o Homebrew usava
-# (opencv@4) no bluefin-distrobox-libfprint, mas que o Arch não tem
-# mais: o pacote oficial `opencv` já é a série 5.x (pkg-config
-# "opencv5"), e a série 4.x só existe no AUR (opencv4, ~50 dependências
-# de build incluindo Java/Qt6/VTK, só para satisfazer esse nome — build
-# de mais de uma hora por uma checagem de versão). Testado e confirmado
-# nesta máquina: a API que o SIGFM realmente usa (core, imgproc,
-# imgcodecs, features2d/flann) compila sem alterações contra o opencv5
-# do Arch — só o *nome* do pacote pkg-config e da lib "features2d"
-# mudaram (virou "features"). Este .pc é um shim: redireciona a busca
-# por "opencv4" para o opencv5 real, linkando só os módulos que o
-# libfprint de fato usa (não os ~60 módulos do opencv5.pc genérico,
-# alguns dos quais — cvv/viz/hdf — têm symbols quebrados nesta
-# instalação do Arch por causa de suas dependências opcionais
-# Qt6/VTK/HDF5, e derrubam a geração do typelib/GIR se entrarem no
-# link). Fica em $HOME (compartilhado com o container) e é referenciado
-# via PKG_CONFIG_PATH só durante o build — não é instalado no sistema.
-# Se o Arch mudar de versão major do opencv de novo no futuro, este
-# shim precisa ser atualizado (nomes de include dir/módulos podem
-# mudar outra vez).
+# pkg-config shim: the driver's meson.build looks for "opencv4", which
+# Arch no longer ships (current package is opencv5, API-compatible for
+# the modules this driver actually uses). Only used during the build via
+# PKG_CONFIG_PATH, never installed system-wide.
 libfprint_opencv4_shim_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/libfprint-pkgconfig-shim"
 
-# Regra udev (playbooks/libfprint.yml) que desliga o autosuspend USB do
-# leitor — diagnosticado em 2026-08-27 nesta máquina como a causa raiz do
-# desbloqueio por digital parando de funcionar depois de a tela ficar
-# bloqueada por muito tempo. Ver o comentário completo na task "Instalar
-# regra udev — desabilitar autosuspend USB do leitor" do playbook.
+# udev rule disabling USB autosuspend for the fingerprint reader. Kept
+# even though it didn't fix the real bug (see fprintd_desync_* below) —
+# harmless and may still help.
 libfprint_goodix_usb_vendor_id: "27c6"
 libfprint_goodix_usb_product_id: "538d"
 
-# NVIDIA (driver proprietário, playbooks/nvidia.yml) — os pacotes são
-# escolhidos dinamicamente pela GPU detectada, via
-# omarchy-hw-nvidia-gsp/omarchy-hw-nvidia-without-gsp (ferramentas do
-# próprio Omarchy em /usr/share/omarchy/bin) — evita reimplementar a
-# lógica de faixa de device ID PCI aqui. Testado nesta máquina (GeForce
-# MX230, GP108/Pascal, sem GSP): resolve para a série 580xx pedida.
+# NVIDIA (playbooks/nvidia.yml) — package choice depends on GPU
+# generation, detected via Omarchy's own helper scripts.
 nvidia_kernel_pkg_regex: '^linux(-zen|-lts|-hardened|-t2|-ptl)?$'
 
-# Turing ou mais novo (device id PCI >= 0x1e00).
+# Turing or newer.
 nvidia_gsp_packages:
   - nvidia-open-dkms
   - nvidia-utils
   - lib32-nvidia-utils
   - libva-nvidia-driver
 
-# Maxwell/Pascal/Volta (0x1340–0x1dff) — inclui a MX230 desta máquina.
+# Maxwell/Pascal/Volta.
 nvidia_without_gsp_packages:
   - nvidia-580xx-dkms
   - nvidia-580xx-utils
   - lib32-nvidia-580xx-utils
 
-# Early KMS — mesmos dois arquivos que o instalador do Omarchy também
-# escreve; o Ansible só os mantém idempotentes daqui pra frente.
 nvidia_modprobe_conf_dest: /etc/modprobe.d/nvidia.conf
 nvidia_mkinitcpio_conf_dest: /etc/mkinitcpio.conf.d/nvidia.conf
 
-# Secure Boot (Limine + sbctl, playbooks/secureboot.yml — NÃO incluído
-# em site.yml/just setup, roda isolado de propósito). Veja o cabeçalho
-# do playbook para a análise completa; resumo das fontes usadas:
-#   - /usr/share/doc/limine-entry-tool/README.md e
-#     /usr/lib/limine/limine-common-functions (código-fonte real) —
-#     confirmam que, uma vez que o sbctl tenha chaves criadas,
-#     `limine-update`/qualquer operação do limine-entry-tool já
-#     re-assina o binário do Limine sozinho (enroll_config() chama
-#     sb_sign() incondicionalmente) — não precisa de hook próprio deste
-#     repositório para manter a assinatura em dia após atualizações de
-#     kernel, diferente do processo manual descrito nas discussões do
-#     GitHub do Omarchy (basecamp/omarchy#5306, #7462), que parecem
-#     anteceder essa ferramenta.
-#   - lbssousa/nix-config (scripts/setup-secureboot.sh) — padrão
-#     assinar-antes-de-matricular, detecção robusta de Setup Mode via
-#     efivars (não só texto do sbctl), e o desbloqueio de efivars
-#     imutáveis (chattr -i) que alguns firmwares aplicam mesmo em Setup
-#     Mode.
+# Secure Boot (Limine + sbctl, playbooks/secureboot.yml — not part of
+# `just setup`, run explicitly).
 secureboot_esp_path: /boot
 secureboot_limine_binary: "{{ secureboot_esp_path }}/EFI/limine/limine_x64.efi"
 secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 
-# Hyprland — redimensionamento de coluna no layout "scrolling"
-# (playbooks/hypr-scrolling-resize.yml). Fração da largura do monitor que
-# SUPER+[ (encolhe) / SUPER+SHIFT+[ (expande) somam/subtraem da coluna
-# focada (hl.dsp.layout("colresize ±N")) a cada toque — mesma faixa
-# aceita pelo próprio Hyprland pro column_width, [0.1-1.0]. As duas
-# direções ficam na mesma tecla física (code:35 nesta máquina) porque
-# "]" tem um problema de rollover/ghosting de hardware com SUPER — ver
-# comentário completo no playbook.
+# Hyprland scrolling-layout column resize step (playbooks/hypr-scrolling-resize.yml).
 hypr_scrolling_colresize_step: 0.1
 
-# Impressora EPSON L4160 — fila CUPS driverless (IPP Everywhere), modelo
-# copiado de lbssousa/bluefin-initial-setup (playbooks/printer.yml).
-# printer_l4160_hostname é o mesmo hostname mDNS usado lá e em
-# lbssousa/nix-config (modules/system/hardware/printing.nix, deviceUri
-# socket://); confirme com `avahi-resolve --name EPSONE0321F.local` ou
-# `lpinfo -v` se a impressora tiver sido trocada/renomeada na rede.
+# EPSON L4160 printer (playbooks/printer.yml) — driverless CUPS queue.
 printer_l4160_name: L4160
 printer_l4160_location: "Wi-Fi"
 printer_l4160_description: "EPSON L4160 Series"
@@ -339,52 +167,20 @@ printer_l4160_device_uri: "ipp://{{ printer_l4160_hostname }}:631/ipp/print"
 printer_l4160_error_policy: abort-job
 printer_l4160_set_default: true
 
-# Tamanho de texto do shell do Omarchy (barra do quickshell) + terminais
-# (playbooks/text-size.yml), em px — mesma unidade aceita por
-# `omarchy display text size`. O playbook sempre reseta o fator de
-# escala do GTK logo depois, então esse valor NÃO se propaga para
-# outros apps GTK (nem, por extensão, para navegadores web).
+# Shell bar + terminal text size (playbooks/text-size.yml), px. GTK scale
+# factor is always reset afterward, so this doesn't affect other apps.
 omarchy_text_size_px: 20
 
-# Caps Lock via keyd (playbooks/capslock.yml, tap=Esc / hold=Ctrl /
-# Shift+CapsLock=CapsLock literal). Tecla que recebe o Compose do
-# Omarchy no lugar do Caps Lock (padrão do Omarchy é `compose:caps`) —
-# precisa ser uma tecla que NÃO seja modificador de hardware (Ctrl/Alt/
-# Win ficam com o keycode físico amarrado ao modifier_map do XKB
-# independente do símbolo atribuído, então continuam funcionando como
-# modificador AO MESMO TEMPO que Compose — testado e descartado com
-# `rctrl` nesta máquina). "menu" (tecla Menu/Aplicativo, KEY_COMPOSE no
-# kernel — já é a tecla "de fábrica" pra isso) funciona limpo. Ajuste
-# pra outra opção de `compose:` (ver `grep '^  compose:'
-# /usr/share/X11/xkb/rules/base.lst`) se a tecla Menu não existir no
-# teclado, sempre preferindo uma tecla que não seja modificador.
+# Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
+# from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep
+# acting as modifiers even after their symbol changes; "menu" doesn't have
+# that problem and is the natural Compose key already).
 capslock_compose_key: menu
 keyd_config_dest: /etc/keyd/default.conf
 
-# Luz noturna sincronizada com o nascer/pôr do sol (playbooks/nightlight-solar.yml)
-# — porta pra este repositório de uma configuração aplicada manualmente
-# nesta máquina antes de virar playbook. hyprsunset só entende horários
-# fixos (HH:MM) nos blocos `profile` do seu config; não existe suporte
-# nativo a "nascer/pôr do sol" (não documentado em `hyprsunset --help` nem
-# no upstream, github.com/hyprwm/hyprsunset). Ver o cabeçalho do playbook
-# para a arquitetura completa (script + timer systemd --user).
-#
-# Temperatura K aplicada à noite — mesmo valor do ON_TEMP hardcoded em
-# `omarchy-toggle-nightlight` (binário do próprio Omarchy), pra a luz
-# noturna automática ficar visualmente idêntica ao toggle manual da barra.
+# Night light synced to real sunrise/sunset (playbooks/nightlight-solar.yml).
+# hyprsunset only supports fixed HH:MM profile times, so a daily timer
+# recomputes them.
 nightlight_solar_night_temperature: 4000
-
-# Fallback de geolocalização por IP, usado só quando
-# ~/.local/state/omarchy/settings/weather.json (localização do clima do
-# Omarchy, `omarchy weather location --set`) ainda não foi definida. HTTP
-# simples de propósito: o tier grátis do ip-api.com não serve HTTPS (só
-# retorna 403) — a resposta é geolocalização grosseira (nível de cidade),
-# suficiente pra calcular nascer/pôr do sol.
 nightlight_solar_geoip_url: "http://ip-api.com/json/"
-
-# Horário diário (systemd OnCalendar) em que o timer recalcula o
-# nascer/pôr do sol de hoje e reescreve o hyprsunset.conf — precisa ser
-# diário porque o horário muda a cada dia. OnStartupSec=2min (fixo no
-# template do timer) cobre o caso de a máquina ter ficado desligada nesse
-# horário.
 nightlight_solar_oncalendar: "*-*-* 00:05:00"

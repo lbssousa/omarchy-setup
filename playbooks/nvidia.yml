@@ -1,99 +1,70 @@
 ---
-# NVIDIA (driver proprietário) — instala o pacote certo conforme a GPU
-# detectada, reaproveitando as mesmas ferramentas de hardware que o
-# próprio instalador do Omarchy usa (`omarchy-hw-nvidia-gsp` /
-# `omarchy-hw-nvidia-without-gsp`, em /usr/share/omarchy/bin), em vez
-# de reimplementar a lógica de faixa de device ID PCI aqui:
-#   - GSP (Turing ou mais novo, device id >= 0x1e00):
-#     nvidia-open-dkms + nvidia-utils + lib32-nvidia-utils +
-#     libva-nvidia-driver.
-#   - Sem GSP (Maxwell/Pascal/Volta, 0x1340–0x1dff):
-#     nvidia-580xx-dkms + nvidia-580xx-utils + lib32-nvidia-580xx-utils
-#     — a série 580.xxx pedida, confirmada nesta máquina (GeForce
-#     MX230, GP108/Pascal).
-#   - Nenhuma GPU NVIDIA (ou uma anterior a Maxwell): pula, sem falhar
-#     — mesmo comportamento do instalador do Omarchy ("No compatible
-#     driver for your NVIDIA GPU").
-# Como depende de ferramentas do próprio Omarchy (não só do Arch em
-# geral), este playbook é específico do Omarchy — diferente do resto
-# deste repositório, que roda em qualquer Arch com pacman.
-#
-# Além do pacote, replica os dois ajustes de boot que o instalador do
-# Omarchy também aplica (e que o Ansible mantém idempotentes daqui pra
-# frente):
-#   - /etc/modprobe.d/nvidia.conf (nvidia_drm modeset=1)
-#   - /etc/mkinitcpio.conf.d/nvidia.conf (early KMS: nvidia,
-#     nvidia_modeset, nvidia_uvm, nvidia_drm no initramfs)
-# reconstruindo o initramfs (`mkinitcpio -P`) só quando esse segundo
-# arquivo muda de fato — não a cada execução.
-#
-# Também instala os headers do kernel em uso (o dkms precisa deles para
-# compilar o módulo), com a mesma detecção do instalador do Omarchy:
-# `pacman -Qqs '^linux(-zen|-lts|-hardened|-t2|-ptl)?$'` acha o pacote
-# do kernel instalado e pede "<pacote>-headers".
-#
-# Fica antes do playbook de localização pt-BR em site.yml, a pedido —
-# sem dependência real entre os dois, só ordem de execução.
-- name: NVIDIA (driver proprietário)
+# NVIDIA (proprietary driver) — installs the right package for the
+# detected GPU, reusing Omarchy's own hardware-detection tools
+# (omarchy-hw-nvidia-gsp / omarchy-hw-nvidia-without-gsp) instead of
+# reimplementing PCI device ID ranges. Also replicates the boot tweaks
+# the Omarchy installer applies (early KMS via modprobe + mkinitcpio) and
+# installs the matching kernel headers for dkms. Depends on Omarchy's own
+# tools, unlike the rest of this repo, which only needs Arch + pacman.
+- name: NVIDIA (proprietary driver)
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Detectar se a GPU tem firmware GSP (Turing ou mais novo)
+    - name: Detect GSP firmware support (Turing or newer)
       ansible.builtin.command: omarchy-hw-nvidia-gsp
       register: nvidia_gsp_check
       changed_when: false
       failed_when: false
 
-    - name: Detectar se a GPU é Maxwell/Pascal/Volta (sem GSP)
+    - name: Detect Maxwell/Pascal/Volta (no GSP)
       ansible.builtin.command: omarchy-hw-nvidia-without-gsp
       register: nvidia_without_gsp_check
       changed_when: false
       failed_when: false
 
-    - name: Decidir os pacotes a instalar conforme a GPU
+    - name: Pick the packages to install for this GPU
       ansible.builtin.set_fact:
         nvidia_packages: >-
           {{ nvidia_gsp_packages
              if nvidia_gsp_check.rc == 0
              else (nvidia_without_gsp_packages if nvidia_without_gsp_check.rc == 0 else []) }}
 
-    - name: Avisar e pular se não houver GPU NVIDIA compatível
+    - name: Warn and skip if no compatible NVIDIA GPU was found
       ansible.builtin.debug:
         msg: >-
-          Nenhuma GPU NVIDIA compatível detectada (ou nenhuma GPU
-          NVIDIA presente) — nada a instalar. Veja
+          No compatible NVIDIA GPU detected — nothing to install. See
           https://wiki.archlinux.org/title/NVIDIA.
       when: nvidia_packages | length == 0
 
-    - name: NVIDIA (driver + configuração de boot)
+    - name: NVIDIA (driver + boot configuration)
       when: nvidia_packages | length > 0
       become: true
       block:
-        - name: Descobrir o pacote do kernel em uso
+        - name: Find the running kernel package
           ansible.builtin.command: "pacman -Qqs '{{ nvidia_kernel_pkg_regex }}'"
           register: nvidia_kernel_pkg
           changed_when: false
 
-        - name: Instalar os headers do kernel em uso
+        - name: Install the matching kernel headers
           community.general.pacman:
             name: "{{ nvidia_kernel_pkg.stdout_lines | first }}-headers"
             state: present
 
-        - name: Instalar o driver NVIDIA
+        - name: Install the NVIDIA driver
           community.general.pacman:
             name: "{{ nvidia_packages }}"
             state: present
 
-        - name: Habilitar early KMS via modprobe (nvidia_drm modeset=1)
+        - name: Enable early KMS via modprobe (nvidia_drm modeset=1)
           ansible.builtin.copy:
             content: |
               options nvidia_drm modeset=1
             dest: "{{ nvidia_modprobe_conf_dest }}"
             mode: "0644"
 
-        - name: Habilitar early KMS via mkinitcpio (módulos no initramfs)
+        - name: Enable early KMS via mkinitcpio (initramfs modules)
           ansible.builtin.copy:
             content: |
               MODULES+=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
@@ -101,21 +72,21 @@
             mode: "0644"
           register: nvidia_mkinitcpio_conf
 
-        - name: Reconstruir o initramfs (mkinitcpio -P)
+        - name: Rebuild the initramfs (mkinitcpio -P)
           ansible.builtin.command: mkinitcpio -P
           when: nvidia_mkinitcpio_conf.changed
 
-        - name: Verificar se o driver já está carregado
+        - name: Check whether the driver is already loaded
           ansible.builtin.command: nvidia-smi --query-gpu=name --format=csv,noheader
           register: nvidia_smi_check
           changed_when: false
           failed_when: false
           become: false
 
-        - name: Avisar se for preciso reiniciar para o driver carregar
+        - name: Warn if a reboot is needed for the driver to load
           ansible.builtin.debug:
             msg: >-
-              O driver foi instalado/configurado, mas não parece estar
-              carregado ainda. Reinicie a máquina para o módulo do
-              kernel novo (e o initramfs atualizado) entrarem em uso.
+              The driver was installed/configured but doesn't appear to
+              be loaded yet. Reboot to pick up the new kernel module and
+              initramfs.
           when: nvidia_smi_check.rc != 0

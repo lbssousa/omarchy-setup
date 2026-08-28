@@ -1,103 +1,53 @@
 ---
-# Chaves SSH residentes da Yubikey — NÃO faz parte de site.yml/`just
-# setup`, de propósito: depende de um token físico estar conectado no
-# momento da execução, então roda isolado, via `ansible-playbook
-# playbooks/yubikey-ssh.yml --ask-become-pass` (ou `just ssh-yubikey`).
+# Yubikey resident (discoverable) FIDO2 SSH keys — not part of
+# site.yml/`just setup`: depends on the physical token being connected,
+# so it runs on its own (`just ssh-yubikey`).
 #
-# "Residente" aqui é terminologia FIDO2/CTAP2 (discoverable
-# credential), diferente da chave de Autenticação do applet OpenPGP
-# (que playbooks/yubikey-gpg.yml já cobre, via gpg/gpg-agent — outro
-# mecanismo completamente separado, chip diferente da Yubikey). Uma
-# chave FIDO2 "resident"/"discoverable" tem o key handle inteiro
-# gravado no próprio hardware, não só derivado localmente — é o que
-# permite baixá-la de volta em qualquer máquina onde o token seja
-# conectado, com `ssh-keygen -K` (veja `man ssh-keygen`, seção "FIDO
-# AUTHENTICATOR"). Ele grava os arquivos de chave pública/privada
-# (algo como `id_ed25519_sk_rk[.pub]` — o sufixo exato depende de como
-# a chave foi originalmente gerada, ex.:
-# `ssh-keygen -t ed25519-sk -O resident`) no diretório atual.
+# Only prepares the ground (installs libfido2, ensures ~/.ssh exists)
+# and asks you to run `ssh-keygen -K` yourself. Downloading a resident
+# key always requires the FIDO2 PIN, and its prompt doesn't use a
+# `/dev/tty` bypass like sudo/gpg — run through Ansible, the prompt
+# never appears and the task hangs forever with no way to supply the PIN.
 #
-# `libfido2` (become: true, único ponto privilegiado deste playbook) é
-# o que fornece `libfido2.so.1`, exigido pelo `ssh-sk-helper` interno
-# do OpenSSH — sem ele, `ssh-keygen -K` (e qualquer operação com chave
-# `-sk`) falha com "error while loading shared libraries:
-# libfido2.so.1: cannot open shared object file", confirmado testando
-# nesta máquina antes de escrever este playbook.
-#
-# Por que este playbook NÃO chama `ssh-keygen -K` diretamente (ao
-# contrário do `gpg --card-edit fetch` do playbook irmão): baixar uma
-# chave residente sempre exige o PIN FIDO2 (é uma garantia do próprio
-# protocolo CTAP2 — diferente da chave pública GPG, que não precisa de
-# PIN pra ser lida do cartão). Testado nesta máquina: o prompt
-# "Enter PIN for authenticator:" do `ssh-keygen` sai por stderr comum
-# (confirmado redirecionando os streams pra arquivos separados — o
-# texto do prompt foi capturado no arquivo, não vazou por nenhum canal
-# à parte) — ao contrário do `sudo`/`gpg`, que abrem `/dev/tty`
-# diretamente pra esse tipo de prompt, o `ssh-keygen` não tem esse
-# bypass, e não existe nenhuma variável de ambiente, flag ou fd
-# documentado (`man ssh-keygen`, `man ssh-sk-helper`) pra suprir o PIN
-# sem prompt interativo. Rodar isso via `ansible.builtin.command`
-# significa que o Ansible bufferiza esse prompt internamente (nunca
-# aparece na tela) enquanto o stdin da tarefa fica esperando, num pipe
-# aberto sem ninguém escrevendo nele — trava para sempre, sem aviso
-# nenhum, exatamente o comportamento reportado testando este playbook.
-# Não tem correção de configuração pra isso (diferente do
-# ansible_local_become_success_timeout que resolveu um problema
-# parecido com o `sudo`): o Ansible simplesmente não tem como mediar
-# essa conversa.
-#
-# Por isso o playbook para em preparar o terreno (pacote + diretório) e
-# pede pra você mesmo rodar `ssh-keygen -K` no seu terminal de
-# verdade — onde o prompt do PIN funciona normalmente, do mesmo jeito
-# que rodar qualquer outro comando interativo.
-#
-# Idempotência: a checagem de chaves já baixadas (glob `id_*_sk_rk*`
-# em `~/.ssh`) só existe pra decidir qual mensagem mostrar no final —
-# não tem tarefa mutável condicionada a ela, já que a mutação em si
-# ficou por sua conta.
-#
-# NUNCA usa `become: true` além da instalação do pacote — chave SSH é
-# dado pessoal do usuário (~/.ssh), nunca deveria ser tocada como root.
-- name: Chaves SSH residentes da Yubikey
+# Never uses `become: true` beyond installing the package — SSH keys in
+# ~/.ssh are personal user data.
+- name: Yubikey resident SSH keys
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Garantir que o libfido2 está instalado
+    - name: Ensure libfido2 is installed
       community.general.pacman:
         name: libfido2
         state: present
       become: true
 
-    - name: Garantir que ~/.ssh existe com a permissão correta
+    - name: Ensure ~/.ssh exists with the right permissions
       ansible.builtin.file:
         path: "{{ ansible_facts.env.HOME }}/.ssh"
         state: directory
         mode: "0700"
 
-    - name: Verificar se já existem chaves residentes baixadas
+    - name: Check for already-downloaded resident keys
       ansible.builtin.find:
         paths: "{{ ansible_facts.env.HOME }}/.ssh"
         patterns: "id_*_sk_rk*"
       register: yubikey_ssh_existing_keys
 
-    - name: Instruir a baixar as chaves residentes manualmente (PIN FIDO2 exige terminal de verdade)
+    - name: Point to downloading resident keys manually (FIDO2 PIN needs a real terminal)
       ansible.builtin.debug:
         msg: >-
-          Terreno pronto (libfido2 instalado, ~/.ssh existe). Baixar
-          as chaves residentes exige o PIN FIDO2, que só funciona num
-          terminal de verdade — o Ansible não consegue mediar esse
-          prompt (ver o cabeçalho deste playbook). Rode você mesmo:
-          cd ~/.ssh && ssh-keygen -K
+          Ready (libfido2 installed, ~/.ssh exists). Downloading
+          resident keys needs the FIDO2 PIN, which only works in a real
+          terminal. Run it yourself: cd ~/.ssh && ssh-keygen -K
       when: yubikey_ssh_existing_keys.matched == 0
 
-    - name: Avisar se chaves residentes já estavam baixadas (nenhuma ação tomada)
+    - name: Note that resident keys already exist (no action taken)
       ansible.builtin.debug:
         msg: >-
-          Já existem chaves residentes em ~/.ssh:
+          Resident keys already exist in ~/.ssh:
           {{ yubikey_ssh_existing_keys.files | map(attribute='path') | join(', ') }}
-          — nada foi baixado de novo. Pra buscar uma chave residente
-          nova gravada depois, rode `cd ~/.ssh && ssh-keygen -K`
-          manualmente.
+          — nothing downloaded. To fetch a newly enrolled key, run
+          `cd ~/.ssh && ssh-keygen -K` manually.
       when: yubikey_ssh_existing_keys.matched > 0

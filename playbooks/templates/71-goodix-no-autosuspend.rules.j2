@@ -1,21 +1,8 @@
-# Managed by playbooks/libfprint.yml (omarchy-setup).
+# Managed by playbooks/libfprint.yml.
 #
-# Disables USB autosuspend for the Goodix {{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }}
-# fingerprint reader. Diagnosed 2026-08-27: with the kernel's default USB
-# power management (power/control=auto, ~2s autosuspend delay), the sensor
-# suspends between fingerprint polls whenever the lock screen sits idle.
-# The community goodix538d libfprint driver (built by playbooks/libfprint.yml)
-# doesn't reliably survive that suspend/resume handshake — over a long lock
-# session the sensor drifts out of protocol sync ("Invalid ACK command" /
-# "Invalid protocol command" in `journalctl -u fprintd`), verify attempts
-# start failing instantly instead of waiting for a touch, the lock screen's
-# retry loop ends up hammering fprintd (seen jumping from ~2 PAM session
-# starts/minute to ~220/minute in `journalctl -g "Starting pam session"`),
-# and fprintd itself occasionally crashes (SIGSEGV, see
-# `coredumpctl list fprintd`) — all of which eventually makes the lock
-# screen give up on fingerprint and fall back to the password prompt.
-# Forcing power/control=on keeps the sensor always powered, removing the
-# suspend/resume trigger. Confirm with:
-#   cat /sys/bus/usb/devices/*/idVendor  # find the "1-N" matching {{ libfprint_goodix_usb_vendor_id }}
-#   cat /sys/bus/usb/devices/1-N/power/control  # should read "on"
+# Disables USB autosuspend for the Goodix
+# {{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }}
+# fingerprint reader. Doesn't fix the protocol-desync bug on its own (see
+# fprintd-desync-watchdog.service), but is harmless and may reduce how
+# often it triggers.
 ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="{{ libfprint_goodix_usb_vendor_id }}", ATTR{idProduct}=="{{ libfprint_goodix_usb_product_id }}", TEST=="power/control", ATTR{power/control}="on"

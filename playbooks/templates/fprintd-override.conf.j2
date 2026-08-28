@@ -1,11 +1,6 @@
 # {{ ansible_managed }}
-# Faz o fprintd.service carregar o libfprint buildado (com o driver
-# goodixtls53xd) a partir de {{ libfprint_usrlocal_libdir }}, em vez do
-# libfprint-2.so.2 do pacote oficial do Arch (que também está instalado
-# — é dependência do próprio pacote fprintd, e não tem esse driver).
-# LD_LIBRARY_PATH tem prioridade sobre o cache do ldconfig mesmo quando
-# as duas versões coexistem no sistema, o que um simples
-# /etc/ld.so.conf.d/*.conf apontando para {{ libfprint_usrlocal_libdir }}
-# não garantiria sozinho.
+# Makes fprintd.service load the built libfprint (goodixtls53xd driver)
+# from {{ libfprint_usrlocal_libdir }} instead of the official Arch
+# package's libfprint-2.so.2, which lacks that driver.
 [Service]
 Environment=LD_LIBRARY_PATH={{ libfprint_usrlocal_libdir }}

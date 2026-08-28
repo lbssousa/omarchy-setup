@@ -8,7 +8,7 @@ _ensure-ansible:
     #!/usr/bin/env bash
     set -euo pipefail
     if ! command -v ansible-playbook >/dev/null; then
-        echo "ansible-playbook não encontrado; instalando via pacman..."
+        echo "ansible-playbook not found; installing via pacman..."
         sudo pacman -S --needed --noconfirm ansible
     fi
 
@@ -16,24 +16,15 @@ _ensure-ansible:
 _ensure-collections: _ensure-ansible
     ansible-galaxy collection install -r requirements.yml
 
-# Run every automation. Privilege escalation is sudo (ansible.cfg
-# default) with --ask-become-pass: type your password once at the
-# start -- it's the fallback if the fingerprint reader doesn't
-# cooperate (pam_fprintd is still tried first, silently, no on-screen
-# prompt for it -- see ansible.cfg). sudo's own timestamp (~15 min)
-# means only the first privileged task of the run normally prompts.
+# Run every automation. Type your sudo password once at the start.
 setup: _ensure-collections
     ansible-playbook site.yml --ask-become-pass
 
-# Lower sudo's passwd_timeout (default 5 min) so a `become: true` fired
-# from an unattended/hidden terminal gives up quickly instead of
-# hanging (see playbooks/sudo.yml).
+# Lower sudo's passwd_timeout so an unattended become doesn't hang.
 sudo: _ensure-collections
     ansible-playbook site.yml --tags sudo --ask-become-pass
 
-# Raise polkitd's ExpirationSeconds -- helps other polkit-based desktop
-# tools (pkexec and friends), not this repo's own become (see
-# playbooks/polkit.yml).
+# Raise polkitd's authentication cache window.
 polkit: _ensure-collections
     ansible-playbook site.yml --tags polkit --ask-become-pass
 
@@ -61,8 +52,8 @@ distrobox: _ensure-collections
 libfprint: _ensure-collections
     ansible-playbook site.yml --tags libfprint --ask-become-pass
 
-# Hyprland: bind SUPER+[ / SUPER+SHIFT+[ to resize the focused column on
-# the scrolling layout. No privileged tasks -- no --ask-become-pass.
+# Bind SUPER+[ / SUPER+SHIFT+[ to resize the focused column on the
+# scrolling layout.
 hypr-scrolling-resize: _ensure-collections
     ansible-playbook site.yml --tags hypr-scrolling-resize
 
@@ -71,19 +62,14 @@ printer: _ensure-collections
     ansible-playbook site.yml --tags printer --ask-become-pass
 
 # Scale up shell bar + terminal text size without scaling GTK apps.
-# No privileged tasks -- no --ask-become-pass.
 text-size: _ensure-collections
     ansible-playbook site.yml --tags text-size
 
-# Sync the night light (hyprsunset) to today's real sunrise/sunset, via a
-# daily systemd --user timer. Only privileged task is confirming
-# hyprsunset/jq installed (both ship in omarchy-base.packages already).
+# Sync the night light to today's real sunrise/sunset.
 nightlight-solar: _ensure-collections
     ansible-playbook site.yml --tags nightlight-solar --ask-become-pass
 
 # Remap Caps Lock via keyd (tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock).
-# Also moves the Omarchy Compose key off Caps Lock (to Menu) first --
-# needed for Shift+CapsLock to work at all.
 capslock: _ensure-collections
     ansible-playbook site.yml --tags capslock --ask-become-pass
 
@@ -91,19 +77,16 @@ capslock: _ensure-collections
 libfprint-destroy-container:
     distrobox rm -f libfprint-build
 
-# Secure Boot (Limine + sbctl). Deliberately NOT part of `setup` — run
-# explicitly, twice, with a firmware reboot in between (see the
-# playbook's own header for the full two-step flow).
+# Secure Boot (Limine + sbctl). Not part of `setup` — run explicitly,
+# twice, with a firmware reboot in between (see the playbook header).
 secureboot: _ensure-collections
     ansible-playbook playbooks/secureboot.yml --ask-become-pass
 
-# Import the Yubikey's public GPG key (gpg --card-edit fetch).
-# Deliberately NOT part of `setup` -- needs the Yubikey plugged in.
+# Import the Yubikey's public GPG key. Needs the Yubikey plugged in.
 gpg-yubikey: _ensure-collections
     ansible-playbook playbooks/yubikey-gpg.yml --ask-become-pass
 
-# Download the Yubikey's resident (discoverable) FIDO2 SSH keys
-# (ssh-keygen -K). Deliberately NOT part of `setup` -- needs the
-# Yubikey plugged in, and a PIN/touch prompt on the real terminal.
+# Prepare for downloading the Yubikey's resident FIDO2 SSH keys. Needs
+# the Yubikey plugged in.
 ssh-yubikey: _ensure-collections
     ansible-playbook playbooks/yubikey-ssh.yml --ask-become-pass

@@ -1,5 +1,5 @@
 [Unit]
-Description=Exporta SSH_AUTH_SOCK do agente SSH do Bitwarden para a sessão systemd
+Description=Export the Bitwarden SSH agent's SSH_AUTH_SOCK to the systemd session
 StartLimitIntervalSec=0
 
 [Service]

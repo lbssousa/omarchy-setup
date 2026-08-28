@@ -1,5 +1,5 @@
 [Unit]
-Description=Observa o socket do agente SSH do Bitwarden
+Description=Watch the Bitwarden SSH agent socket
 
 [Path]
 PathExists=%h/.bitwarden-ssh-agent.sock

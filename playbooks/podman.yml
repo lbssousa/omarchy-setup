@@ -1,79 +1,44 @@
 ---
-# Podman, configurado para uso rootless — motor de containers usado
-# pelo playbook seguinte (playbooks/distrobox.yml), mas também
-# utilizável sozinho.
-#
-# O pacote `podman` do Arch já resolve praticamente toda a base
-# necessária para rootless funcionar de cara, como dependência
-# obrigatória (conferido em `pacman -Si podman` / `-Sp containers-common`
-# antes de escrever este playbook):
-#   - `passt` — rede rootless padrão do podman 5+ (modo "pasta"), sem
-#     precisar de slirp4netns;
-#   - `containers-common` → puxa `netavark` + `aardvark-dns` (rede em
-#     modo bridge, usada por `podman network create`) e já vem com um
-#     `registries.conf.d/00-shortnames.conf` mapeando nomes curtos
-#     comuns (ubuntu, debian, fedora, archlinux, tumbleweed, alpine...)
-#     para o registry completo — o suficiente para o distrobox puxar
-#     imagens de distro sem nenhuma configuração extra de
-#     unqualified-search-registries;
-#   - `crun`/`conmon`/`catatonit`, `nftables`, `shadow`, `sqlite`.
-# Por isso este playbook não mexe em /etc/containers/registries.conf:
-# não há nada de útil a acrescentar ao que o containers-common já
-# instala.
-#
-# O que de fato precisa de atenção manual para rootless:
-#   - subuid/subgid: o `useradd` do Arch já aloca uma faixa (tipicamente
-#     100000:65536) para o primeiro usuário normal automaticamente, mas
-#     nem todo usuário passou por esse fluxo (contas antigas, criadas de
-#     outra forma) — este playbook garante uma faixa em /etc/subuid e
-#     /etc/subgid, sem sobrescrever uma que já exista (mesmo que o valor
-#     seja diferente do nosso padrão).
-#   - cgroups v2 delegation e `kernel.unprivileged_userns_clone` já vêm
-#     habilitados por padrão no Arch/Omarchy atual (conferido antes de
-#     escrever isto) — não há nada para este playbook fazer aqui.
-#
-# Fora do escopo, de propósito: `loginctl enable-linger` (mantém
-# containers rootless rodando sem sessão ativa) não é ligado
-# automaticamente — é uma escolha de política (mantém processos do
-# usuário vivos após logout) que cabe a quem for usar containers como
-# serviços de longa duração decidir, não uma pré-condição para usar
-# podman rootless interativamente. Ative manualmente com
-# `loginctl enable-linger $USER` se for o seu caso.
+# Podman, configured for rootless use — the container engine used by
+# playbooks/distrobox.yml, but usable on its own too. The Arch package
+# already pulls in networking (passt, netavark/aardvark-dns) and short
+# image-name mappings as dependencies, so only subuid/subgid allocation
+# needs manual attention here.
 - name: Podman (rootless)
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Instalar o Podman via pacman
+    - name: Install Podman via pacman
       community.general.pacman:
         name: podman
         state: present
       become: true
 
-    - name: Verificar se já existe uma faixa subuid para o usuário
+    - name: Check for an existing subuid range
       ansible.builtin.command: "grep -q ^{{ ansible_facts.env.USER }}: /etc/subuid"
       register: podman_subuid_check
       changed_when: false
       failed_when: false
 
-    - name: Garantir uma faixa subuid/subgid (só se o usuário ainda não tiver uma)
+    - name: Allocate a subuid/subgid range (only if the user doesn't have one)
       when: podman_subuid_check.rc != 0
       become: true
       block:
-        - name: Adicionar a faixa subuid
+        - name: Add the subuid range
           ansible.builtin.lineinfile:
             path: /etc/subuid
             line: "{{ ansible_facts.env.USER }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
             create: true
 
-        - name: Adicionar a faixa subgid
+        - name: Add the subgid range
           ansible.builtin.lineinfile:
             path: /etc/subgid
             line: "{{ ansible_facts.env.USER }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
             create: true
 
-    - name: Verificar se o Podman roda em modo rootless corretamente
+    - name: Verify Podman runs rootless correctly
       ansible.builtin.command: podman info --format '{{ "{{" }}.Host.Security.Rootless{{ "}}" }}'
       register: podman_info_check
       changed_when: false

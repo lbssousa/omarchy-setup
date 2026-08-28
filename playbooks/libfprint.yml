@@ -1,120 +1,63 @@
 ---
-# libfprint (goodix538d) — compila e instala o fork
-# https://github.com/lbssousa/libfprint (driver `goodixtls53xd`, leitor
-# Goodix 27c6:538d) em /usr/local, seguindo o modelo do repositório
-# irmão lbssousa/bluefin-distrobox-libfprint (Fedora Atomic), mas
-# simplificado agora que /usr é gravável e o host é Arch/Omarchy, não
-# um sistema imutável:
+# libfprint (goodix538d) — builds and installs the
+# https://github.com/lbssousa/libfprint fork (goodixtls53xd driver, for
+# the Goodix 27c6:538d fingerprint reader) into /usr/local.
 #
-#   - Nada de Homebrew: o Fedora Atomic precisava dele porque instalar
-#     `opencv-devel` via rpm-ostree exigiria layering + reboot. Aqui o
-#     `opencv` é só mais um pacote pacman, tanto dentro do container de
-#     build quanto no host (runtime) — sem vendorizar `.so` nem apontar
-#     LD_LIBRARY_PATH para fora de /usr[/local]. Uma ressalva descoberta
-#     testando de verdade (não estava nem no bluefin original): o
-#     meson.build do fork pede um pacote pkg-config chamado "opencv4"
-#     (>= 4.5.0), nome que nem o Homebrew (opencv@4, série 4.x) nem o
-#     Arch atual (opencv = série 5.x, pkg-config "opencv5") têm mais —
-#     e a série 4.x só existe no AUR, com ~50 dependências de build
-#     (Java, Qt6, VTK) só para satisfazer esse nome. Testado e
-#     confirmado nesta máquina: a API que o SIGFM realmente usa (core,
-#     imgproc, imgcodecs, features2d/flann) compila sem alterações
-#     contra o opencv5 do Arch — só o *nome* do pacote pkg-config (e da
-#     lib "features2d", que virou "features") mudaram. Por isso este
-#     playbook cria um `.pc` shim (`libfprint_opencv4_shim_dir`,
-#     `files/libfprint-opencv4-shim.pc`) redirecionando "opencv4" para
-#     o opencv5 real, linkando só os módulos que o libfprint de fato
-#     usa — não os ~60 do `opencv5.pc` genérico, dos quais alguns
-#     (cvv/viz/hdf) têm símbolos quebrados nesta instalação do Arch
-#     (dependem de Qt6/VTK/HDF5 incompletos) e derrubavam a geração do
-#     GIR/typelib se entrassem no link. O shim não é instalado no
-#     sistema — só existe em $HOME (compartilhado com o container) e é
-#     referenciado via PKG_CONFIG_PATH durante o build.
-#   - Nada de relabeling de SELinux (`sefcontext`/`restorecon`): Arch
-#     não tem SELinux (`getenforce`/`sestatus` nem existem nesta
-#     imagem) — o problema de "fprintd carrega silenciosamente o
-#     libfprint errado" que motivava isso no Fedora não existe aqui.
-#   - `-Ddoc=false -Dinstalled-tests=false`: dispensa toda a toolchain
-#     de documentação/teste (gtk-doc, umockdev, python-cairo/-gobject,
-#     cmake, listados no distrobox.ini original) — não precisamos de
-#     HTML de API nem de testes instalados para um driver de hardware.
-#   - `drivers` fica no valor padrão do meson ("default"), não "all":
-#     `goodixtls53xd` já está incluso no conjunto default do fork
-#     (conferido em meson.build/meson_options.txt) — só os 3 drivers
-#     "virtual" (usados pela suíte de testes do próprio libfprint) ficam
-#     de fora, sem valor num desktop real.
+# Builds in a distrobox container, keeping the build toolchain
+# (meson/gcc/headers) off the host and disposable (`distrobox rm -f
+# libfprint-build`). The build stages into DESTDIR and gets copied to
+# the host manually, since the container doesn't share /usr with the
+# host (only $HOME).
 #
-# O que continua igual, apesar de não estarmos mais num sistema
-# imutável — e por quê:
+# The driver's meson.build looks for a pkg-config package named
+# "opencv4", which current Arch doesn't ship (opencv is now the
+# API-compatible opencv5). A local .pc shim
+# (playbooks/files/libfprint-opencv4-shim.pc) redirects "opencv4" to the
+# real opencv5, linking only the modules the driver actually needs —
+# avoids the ~50 extra build dependencies of AUR's opencv4 package, and
+# avoids linking opencv5 modules with broken symbols in this
+# environment.
 #
-#   - Ainda builda num **container distrobox** ("pet container"), a
-#     pedido: mantém meson/gcc/headers de desenvolvimento fora do host,
-#     isolados e descartáveis (`distrobox rm -f libfprint-build`), em
-#     vez de poluir o sistema com pacotes que só servem para este build
-#     pontual.
-#   - Ainda faz o **stage** da instalação (`DESTDIR=...`) e copia para
-#     o host manualmente, em vez de rodar `ninja install` direto para
-#     /usr/local: confirmado nesta máquina que o distrobox NÃO
-#     compartilha /usr do host com o container (cada um tem o seu) —
-#     só $HOME é compartilhado por padrão. Isso é sobre isolamento de
-#     container, não sobre imutabilidade — continua valendo mesmo aqui.
-#   - Ainda usa um **drop-in do fprintd.service** com `LD_LIBRARY_PATH`
-#     apontando para libfprint_usrlocal_libdir (/usr/local/lib), em vez
-#     de só um `/etc/ld.so.conf.d/*.conf`: o pacote oficial `fprintd`
-#     já traz o pacote oficial `libfprint` como dependência (mesmo
-#     soname, `libfprint-2.so.2`, sem o driver goodixtls53xd) — o
-#     LD_LIBRARY_PATH garante que a versão em /usr/local/lib tem
-#     prioridade para o fprintd especificamente, sem mudar a resolução
-#     de bibliotecas do sistema inteiro (que um ld.so.conf.d global
-#     faria).
+# fprintd.service gets an LD_LIBRARY_PATH drop-in pointing at
+# /usr/local/lib, since the official fprintd package already depends on
+# the official libfprint (same soname, no goodixtls53xd driver).
 #
-# Uso: ansible-playbook site.yml --ask-become-pass --tags libfprint
-# (requer podman + distrobox já configurados — veja playbooks/podman.yml
-# e playbooks/distrobox.yml, importados antes deste em site.yml).
-- name: libfprint (goodix538d) — build em container distrobox + instalação em /usr/local
+# Usage: ansible-playbook site.yml --ask-become-pass --tags libfprint
+# (needs podman + distrobox already set up).
+- name: libfprint (goodix538d)
   hosts: localhost
   connection: local
   gather_facts: true
 
   pre_tasks:
-    - name: Garantir que o distrobox está disponível
+    - name: Ensure distrobox is available
       ansible.builtin.command: distrobox --version
       register: libfprint_distrobox_check
       changed_when: false
       failed_when: false
 
-    - name: Falhar com orientação se o distrobox não for encontrado
+    - name: Fail with guidance if distrobox wasn't found
       ansible.builtin.fail:
         msg: >-
-          distrobox não encontrado. Rode primeiro
-          `ansible-playbook site.yml --ask-become-pass --tags
-          podman,distrobox` (ou `just podman && just distrobox`).
+          distrobox not found. Run `ansible-playbook site.yml
+          --ask-become-pass --tags podman,distrobox` (or `just podman &&
+          just distrobox`) first.
       when: libfprint_distrobox_check.rc != 0
 
   tasks:
-    # -----------------------------------------------------------------
-    # 1. Container de build (declarativo, dono do próprio distrobox)
-    # -----------------------------------------------------------------
-    - name: Criar/atualizar o container distrobox de build
+    - name: Create/update the distrobox build container
       ansible.builtin.command:
         cmd: "distrobox assemble create --file {{ libfprint_distrobox_ini_file }}"
       register: libfprint_assemble_result
       changed_when: "'already exists' not in libfprint_assemble_result.stderr"
 
-    # -----------------------------------------------------------------
-    # 2. Dependências de runtime no host (a lib buildada roda via
-    #    fprintd, um serviço do host — não do container)
-    # -----------------------------------------------------------------
-    - name: Instalar as dependências de runtime no host
+    - name: Install host runtime dependencies
       community.general.pacman:
         name: "{{ libfprint_runtime_deps }}"
         state: present
       become: true
 
-    # -----------------------------------------------------------------
-    # 3. Código-fonte (no host; $HOME é compartilhado com o container)
-    # -----------------------------------------------------------------
-    - name: Clonar/atualizar o fork do libfprint
+    - name: Clone/update the libfprint fork
       ansible.builtin.git:
         repo: "{{ libfprint_repo }}"
         dest: "{{ libfprint_checkout_dir }}"
@@ -122,30 +65,24 @@
         force: false
       register: libfprint_git_result
 
-    # -----------------------------------------------------------------
-    # 4. Shim de pkg-config "opencv4" → opencv5 real (veja o cabeçalho)
-    # -----------------------------------------------------------------
-    - name: Garantir o diretório do shim de pkg-config do opencv4
+    - name: Ensure the opencv4 pkg-config shim directory exists
       ansible.builtin.file:
         path: "{{ libfprint_opencv4_shim_dir }}"
         state: directory
         mode: "0755"
 
-    - name: Instalar o shim de pkg-config do opencv4
+    - name: Install the opencv4 pkg-config shim
       ansible.builtin.copy:
         src: libfprint-opencv4-shim.pc
         dest: "{{ libfprint_opencv4_shim_dir }}/opencv4.pc"
         mode: "0644"
 
-    # -----------------------------------------------------------------
-    # 5. Build dentro do container
-    # -----------------------------------------------------------------
-    - name: Checar se o build já está configurado
+    - name: Check whether the build is already configured
       ansible.builtin.stat:
         path: "{{ libfprint_checkout_dir }}/builddir/build.ninja"
       register: libfprint_builddir_stat
 
-    - name: Configurar o build (meson setup)
+    - name: Configure the build (meson setup)
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
         "export PKG_CONFIG_PATH={{ libfprint_opencv4_shim_dir }} &&
@@ -154,7 +91,7 @@
         -Ddoc=false -Dinstalled-tests=false"
       when: not libfprint_builddir_stat.stat.exists
 
-    - name: Reconfigurar o build se o fork mudou
+    - name: Reconfigure the build if the fork changed
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
         "export PKG_CONFIG_PATH={{ libfprint_opencv4_shim_dir }} &&
@@ -163,7 +100,7 @@
         -Ddoc=false -Dinstalled-tests=false --reconfigure"
       when: libfprint_builddir_stat.stat.exists and libfprint_git_result.changed
 
-    - name: Compilar com ninja
+    - name: Build with ninja
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
         "export PKG_CONFIG_PATH={{ libfprint_opencv4_shim_dir }} &&
@@ -171,26 +108,22 @@
       register: libfprint_ninja_result
       changed_when: "'ninja: no work to do.' not in libfprint_ninja_result.stdout"
 
-    - name: Fazer o stage da instalação (DESTDIR)
+    - name: Stage the install (DESTDIR)
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
         "rm -rf {{ libfprint_stage_dir }} &&
         DESTDIR={{ libfprint_stage_dir }} ninja -C {{ libfprint_checkout_dir }}/builddir install"
 
-    - name: Verificar se as dependências de runtime da lib buildada resolvem
+    - name: Verify the built library's runtime dependencies resolve
       ansible.builtin.shell: >
         ldd {{ libfprint_stage_dir }}{{ libfprint_usrlocal_libdir }}/libfprint-2.so.2.0.0
         | grep -q "not found" && exit 1 || exit 0
       changed_when: false
 
-    # -----------------------------------------------------------------
-    # 6. Instalação no host — únicas tarefas privilegiadas, restritas a
-    #    /usr/local, /etc/udev e um drop-in de systemd (nunca /usr)
-    # -----------------------------------------------------------------
-    - name: Instalação no host (privilegiada)
+    - name: Host install (privileged) — /usr/local, udev, systemd drop-in only
       become: true
       block:
-        - name: Garantir que os diretórios de destino em /usr/local existem
+        - name: Ensure the /usr/local destination directories exist
           ansible.builtin.file:
             path: "{{ item }}"
             state: directory
@@ -200,15 +133,11 @@
             - "{{ libfprint_usrlocal_prefix }}/include"
             - "{{ libfprint_usrlocal_prefix }}/share"
 
-        - name: Copiar biblioteca, headers, pkgconfig e gir/typelib para /usr/local
-          # `ansible.builtin.copy` (remote_src=true) descarta symlinks ao
-          # copiar um diretório — copia só o alvo (libfprint-2.so.2.0.0),
-          # sem os links libfprint-2.so{,.2}. O SONAME que o fprintd.service
-          # procura via LD_LIBRARY_PATH é exatamente "libfprint-2.so.2"; sem
-          # o link, o linker dinâmico ignora /usr/local/lib e cai de volta
-          # no libfprint-2.so.2 do pacote oficial (sem o driver
-          # goodixtls53xd), e o fprintd para de ver o leitor. `cp -a`
-          # preserva os links.
+        - name: Copy library, headers, pkgconfig and gir/typelib to /usr/local
+          # `cp -a` preserves the libfprint-2.so{,.2} symlinks that
+          # ansible.builtin.copy would drop — without them, the linker
+          # falls back to the official libfprint-2.so.2 (no
+          # goodixtls53xd driver) and fprintd stops seeing the reader.
           ansible.builtin.command:
             cmd: >-
               cp -a
@@ -220,7 +149,7 @@
             - share
           changed_when: true
 
-        - name: Instalar a regra udev
+        - name: Install the udev rule
           ansible.builtin.copy:
             src: "{{ libfprint_stage_dir }}/usr/lib/udev/rules.d/70-libfprint-2.rules"
             dest: /etc/udev/rules.d/70-libfprint-2.rules
@@ -228,14 +157,7 @@
             mode: "0644"
           notify: reload udev rules
 
-        - name: "Instalar regra udev — desabilitar autosuspend USB do leitor {{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }}"
-          # Tentativa de correção em 2026-08-27 (mantida por ser inofensiva,
-          # mas NÃO é a causa raiz — descartada por evidência: o bug voltou a
-          # ocorrer horas depois, já com power/control=on o tempo todo). A
-          # causa raiz de verdade é uma dessincronia de protocolo no driver
-          # goodix538d em si — ver o comentário da task "Instalar o watchdog
-          # de dessincronia do fprintd" logo abaixo para os detalhes e a
-          # mitigação de fato usada.
+        - name: "Install udev rule — disable USB autosuspend for the reader ({{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }})"
           ansible.builtin.template:
             src: 71-goodix-no-autosuspend.rules.j2
             dest: /etc/udev/rules.d/71-goodix-no-autosuspend.rules
@@ -245,39 +167,15 @@
             - trigger udev rule for goodix fingerprint reader
             - restart fprintd
 
-        - name: Instalar o watchdog de dessincronia do fprintd
-          # Causa raiz de verdade (achada em 2026-08-27, depois da tentativa
-          # de autosuspend acima falhar): o driver goodix538d desincroniza o
-          # protocolo com o MCU do sensor depois de um cancel de verify — o
-          # comando FDT_DOWN ("esperar dedo", 0x32) já enviado ao MCU não
-          # pode ser "desenviado"; sua resposta chega tarde, depois que o
-          # próximo comando já está em voo, e o cmd não bate mais
-          # (`Invalid ACK command`/`Invalid protocol command` em
-          # `journalctl -u fprintd`) — o processo fprintd fica com esse
-          # estado quebrado pelo resto da vida dele, os verifies passam a
-          # falhar na hora em vez de esperar o toque, e o lock screen do
-          # Omarchy (sem nenhum backoff, ver
-          # /usr/share/omarchy/shell/plugins/lock/Service.qml,
-          # fingerprintRetryTimer de 250ms fixos) entra num loop martelando
-          # o fprintd por HORAS até alguém digitar a senha manualmente.
-          #
-          # O fork lbssousa/libfprint (branch goodix-538d-sigfm-gtls, commit
-          # 4d9acb0, já buildado no /usr/local desta máquina) tenta corrigir
-          # isso mandando o MCU pra idle (comando 0x70) no cancel — só que
-          # faz isso da mesma forma fire-and-forget que causou o bug
-          # original: a resposta do PRÓPRIO 0x70 chega tarde e colide com o
-          # comando seguinte (`Invalid ACK command: 0x70`, visto nesta
-          # máquina horas depois do fix já estar instalado). O bug só migrou
-          # de comando; corrigir de vez pediria rastrear respostas atrasadas
-          # por geração/sequência (não comando a comando) no driver — fora
-          # do escopo deste repositório de configuração.
-          #
-          # Mitigação: um serviço que segue `journalctl -u fprintd -f`
-          # (só o log novo, `-n0`, pra não reagir a avisos antigos ao
-          # iniciar) e reinicia o fprintd assim que vir esses avisos — o
-          # mesmo `systemctl restart fprintd` que já resolvia manualmente,
-          # só que automático e na hora (segundos), em vez de esperar até
-          # horas de martelamento até alguém digitar a senha.
+        - name: Install the fprintd desync watchdog
+          # The goodix538d driver can desync its protocol with the
+          # sensor's MCU after a verify cancel, leaving fprintd stuck
+          # failing every subsequent verify instantly instead of
+          # waiting for a touch — and the Omarchy lock screen retries
+          # with no backoff, hammering fprintd for hours. This watchdog
+          # follows `journalctl -u fprintd` and restarts the service the
+          # moment it sees the desync warning, instead of waiting for a
+          # manual restart.
           ansible.builtin.copy:
             src: fprintd-desync-watchdog.service
             dest: /etc/systemd/system/fprintd-desync-watchdog.service
@@ -286,13 +184,13 @@
             - reload systemd
             - enable and start fprintd-desync-watchdog
 
-        - name: Criar o diretório de drop-in do fprintd.service
+        - name: Create the fprintd.service drop-in directory
           ansible.builtin.file:
             path: /etc/systemd/system/fprintd.service.d
             state: directory
             mode: "0755"
 
-        - name: Apontar o fprintd.service para /usr/local
+        - name: Point fprintd.service at /usr/local
           ansible.builtin.template:
             src: fprintd-override.conf.j2
             dest: /etc/systemd/system/fprintd.service.d/override.conf
@@ -302,11 +200,8 @@
             - restart fprintd
 
   handlers:
-    # Handlers não herdam o `become: true` do bloco que os notifica (esse
-    # bloco cobre só as próprias tasks) — cada um precisa do seu próprio
-    # `become: true` para as ações abaixo, que mexem em recursos do sistema
-    # (udev, systemd), rodarem com privilégio de verdade em vez de falhar
-    # silenciosamente sem root.
+    # Handlers don't inherit `become: true` from the block that
+    # notifies them — each needs its own.
     - name: reload udev rules
       ansible.builtin.command: udevadm control --reload-rules
       changed_when: false
@@ -314,13 +209,8 @@
       listen: reload udev rules
 
     - name: trigger udev rule for goodix fingerprint reader
-      # `udevadm control --reload-rules` só recarrega as regras em si; sem
-      # isso, uma regra nova só passaria a valer no próximo (re)plug do
-      # dispositivo (ou reboot) — o leitor de digital é interno e nunca é
-      # replugado. `udevadm trigger` reemite um evento "change" para o
-      # dispositivo já conectado, aplicando ATTR{power/control}="on" na
-      # hora. Escopado por idVendor/subsistema para não reemitir eventos em
-      # todo o resto do sistema à toa.
+      # The reader is internal and never replugged, so a rule change
+      # needs an explicit trigger to apply without a reboot.
       ansible.builtin.command: >-
         udevadm trigger --subsystem-match=usb
         --attr-match=idVendor={{ libfprint_goodix_usb_vendor_id }}

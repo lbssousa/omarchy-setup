@@ -4,7 +4,7 @@ libdir=${exec_prefix}/lib
 includedir=${prefix}/include/opencv5
 
 Name: OpenCV
-Description: shim opencv4 -> opencv5 real (só os módulos que o matcher SIGFM do libfprint usa)
+Description: opencv4 -> opencv5 shim (only the modules the libfprint SIGFM matcher uses)
 Version: 5.0.0
 Libs: -L${exec_prefix}/lib -lopencv_features -lopencv_imgcodecs -lopencv_imgproc -lopencv_flann -lopencv_core
 Cflags: -I${includedir}

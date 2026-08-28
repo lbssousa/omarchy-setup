@@ -1,36 +1,25 @@
 ---
-# Setup de um desktop Omarchy recém-instalado — índice das automações.
-# Cada uma é um playbook próprio em playbooks/, importado abaixo via
-# import_playbook, o que faz todas rodarem sob a mesma escalação de
-# privilégio: sudo (padrão) com `--ask-become-pass` — digite sua senha
-# uma vez no início, ela serve de retaguarda se o fingerprint reader
-# (habilitado como login do sudo, fora deste repositório) não
-# cooperar. Veja a seção "Privilégio: sudo + --ask-become-pass" do
-# README para o porquê (inclui duas tentativas anteriores que não
-# deram certo).
+# Index of automations for a freshly installed Omarchy desktop. Run a
+# single one with --tags <tag>, or skip one with --skip-tags <tag>.
 #
-# Rode só uma automação com `--tags <tag>`, ou pule uma com
-# `--skip-tags <tag>`. Veja o comentário de cada playbooks/*.yml para
-# detalhes.
-#
-# Uso: ansible-playbook site.yml --ask-become-pass
-- name: "sudo — passwd_timeout"
+# Usage: ansible-playbook site.yml --ask-become-pass
+- name: sudo passwd_timeout
   ansible.builtin.import_playbook: playbooks/sudo.yml
   tags: [sudo]
 
-- name: polkitd — ExpirationSeconds (memória da autenticação de privilégio)
+- name: polkitd ExpirationSeconds
   ansible.builtin.import_playbook: playbooks/polkit.yml
   tags: [polkit]
 
-- name: NVIDIA (driver proprietário)
+- name: NVIDIA (proprietary driver)
   ansible.builtin.import_playbook: playbooks/nvidia.yml
   tags: [nvidia]
 
-- name: Localização pt-BR (locale, pastas pessoais, apps e man pages)
+- name: pt-BR localization
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]
 
-- name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial
+- name: Bitwarden
   ansible.builtin.import_playbook: playbooks/bitwarden.yml
   tags: [bitwarden]
 
@@ -42,26 +31,26 @@
   ansible.builtin.import_playbook: playbooks/distrobox.yml
   tags: [distrobox]
 
-- name: libfprint (goodix538d) — build em container distrobox + instalação em /usr/local
+- name: libfprint (goodix538d)
   ansible.builtin.import_playbook: playbooks/libfprint.yml
   tags: [libfprint]
 
-- name: Impressora EPSON L4160 (driverless)
+- name: EPSON L4160 printer (driverless)
   ansible.builtin.import_playbook: playbooks/printer.yml
   tags: [printer]
 
-- name: "Hyprland — redimensionar coluna no layout scrolling"
+- name: Hyprland scrolling-layout column resize
   ansible.builtin.import_playbook: playbooks/hypr-scrolling-resize.yml
   tags: [hypr-scrolling-resize]
 
-- name: "Tamanho de texto — barra do quickshell + terminais (sem escalar GTK)"
+- name: Shell bar + terminal text size
   ansible.builtin.import_playbook: playbooks/text-size.yml
   tags: [text-size]
 
-- name: "Luz noturna sincronizada ao nascer/pôr do sol (hyprsunset + timer systemd --user)"
+- name: Night light synced to sunrise/sunset
   ansible.builtin.import_playbook: playbooks/nightlight-solar.yml
   tags: [nightlight-solar]
 
-- name: "Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)"
+- name: Caps Lock via keyd
   ansible.builtin.import_playbook: playbooks/capslock.yml
   tags: [capslock]

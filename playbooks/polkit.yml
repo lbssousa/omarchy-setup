@@ -1,56 +1,15 @@
 ---
-# polkitd — aumenta a "memória" das autenticações de privilégio
-# (ExpirationSeconds), o equivalente do polkit ao timestamp_timeout do
-# sudo. Padrão de fábrica do polkitd é `ExpirationSeconds=300`
-# (documentado em `man polkitd.conf`) — só "lembra" uma autenticação
-# por 5 minutos, curto para ferramentas gráficas baseadas em polkit
-# (pkexec e afins: GNOME Disks, atualizadores de pacote com UI etc.)
-# que ficam pedindo digital/senha de novo a cada poucos minutos de uso.
-#
-# Nota histórica (não se aplica mais ao `become: true` deste
-# repositório): uma tentativa anterior migrou o `become_method` do
-# Ansible para `community.general.run0` (que fala com o polkit em vez
-# do PAM do sudo) esperando que esse `ExpirationSeconds` resolvesse
-# prompts repetidos durante o `just setup`. Não resolveu — revertido em
-# ansible.cfg. Motivo: cada tarefa do Ansible sobe um processo `run0`
-# novo, e a autorização temporária do polkit nunca chega a ser
-# reaproveitada entre processos diferentes (confirmado no journal: uma
-# autenticação completa por tarefa, não por sessão) — não é uma questão
-# de janela de tempo, e sim de a concessão nunca ser reconsultada.
-# `ansible.cfg` hoje usa sudo (com `become_flags` sem "-n"), cuja
-# própria memória (timestamp, por usuário, entre processos) já resolve
-# isso nativamente, sem depender do polkit. Este playbook continua
-# valendo por conta própria — melhora qualquer outra ferramenta da
-# área de trabalho que passe pelo polkit, só não pelo motivo original.
-#
-# `/etc/polkit-1/polkitd.conf` tem precedência sobre o
-# `/usr/lib/polkit-1/polkitd.conf` (o pacote `polkit` só documenta a
-# chave comentada, com o valor padrão, em `/usr/share/polkit-1/`) —
-# criamos o arquivo em `/etc` só com a chave que queremos mudar, sem
-# tocar em mais nada da configuração do polkitd. O valor não é infinito
-# de propósito (não viramos NOPASSWD permanente, só damos mais fôlego):
-# ainda expira, só que numa janela mais generosa que os 5 minutos de
-# fábrica.
-#
-# `polkit.service` é `Type=notify-reload` (unit do próprio pacote) —
-# `systemctl reload` releva a config sem derrubar o daemon nem as
-# autorizações temporárias já concedidas na sessão atual.
-#
-# Continua importado primeiro em site.yml — não muda nada para as
-# outras automações (que já usam sudo, não polkit), mas não custa nada
-# valer desde o início da execução.
-#
-# Uso: ansible-playbook site.yml --ask-become-pass --tags polkit (ou
-# `just polkit`) — roda sozinho; também roda como parte de
-# `just setup`/`site.yml` sem
-# filtro de tags.
-- name: polkitd — ExpirationSeconds (memória da autenticação de privilégio)
+# Raises polkitd's authentication cache window (ExpirationSeconds,
+# default 300s) so polkit-based desktop tools (pkexec and friends) don't
+# re-prompt every few minutes. Doesn't affect this repo's own `become`,
+# which uses sudo.
+- name: polkitd ExpirationSeconds
   hosts: localhost
   connection: local
   gather_facts: false
 
   tasks:
-    - name: "Configurar ExpirationSeconds={{ polkit_expiration_seconds }} em /etc/polkit-1/polkitd.conf"
+    - name: "Set ExpirationSeconds={{ polkit_expiration_seconds }} in /etc/polkit-1/polkitd.conf"
       community.general.ini_file:
         path: /etc/polkit-1/polkitd.conf
         section: Polkitd

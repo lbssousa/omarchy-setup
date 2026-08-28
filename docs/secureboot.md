@@ -1,182 +1,132 @@
 # `just secureboot` — Secure Boot (Limine + sbctl)
 
-Guia de uso do `playbooks/secureboot.yml`. Diferente de todo o resto
-deste repositório, **este playbook não faz parte de `just setup`** —
-mexe em firmware/boot, então só roda se você chamar explicitamente
-`just secureboot` (ou
-`ansible-playbook playbooks/secureboot.yml --ask-become-pass`).
-Veja o cabeçalho do próprio playbook para a versão comentada linha a
-linha; este documento é o passo a passo de uso.
+Usage guide for `playbooks/secureboot.yml`. Unlike the rest of this
+repo, **this playbook is not part of `just setup`** — it touches
+firmware/boot, so it only runs when called explicitly:
+`just secureboot` (or `ansible-playbook playbooks/secureboot.yml
+--ask-become-pass`).
 
-## Por que existe
+## Prerequisites
 
-Habilitar Secure Boot com chaves próprias (não as da Microsoft) é algo
-que o instalador do Omarchy não faz sozinho — cada usuário decide se
-quer isso e assume o risco. Este playbook automatiza a parte que dá
-para automatizar (instalar o `sbctl`, criar as chaves, configurar o
-`limine-entry-tool` para manter tudo assinado, matricular as chaves no
-firmware quando possível) e é explícito sobre a parte que **não** dá
-(trocar o estado do Secure Boot no firmware exige entrar no BIOS/UEFI
-manualmente — nenhum software rodando no Linux consegue fazer isso
-pelo usuário).
-
-## Pré-requisitos
-
-- Bootloader **Limine** com o pacote `limine-mkinitcpio-hook`
-  (`limine-entry-tool`) instalado — padrão em qualquer instalação do
-  Omarchy. O playbook falha cedo, sem mexer em nada, se detectar outro
+- **Limine** bootloader with `limine-mkinitcpio-hook`
+  (`limine-entry-tool`) installed — the default on Omarchy. The
+  playbook fails early, without changing anything, on another
   bootloader (GRUB, systemd-boot).
-- Acesso físico à máquina para entrar no BIOS/UEFI duas vezes durante
-  o processo (veja o passo a passo abaixo) — não dá para fazer isso
-  remotamente via SSH.
-- `sudo` com senha interativa.
+- Physical access to enter the BIOS/UEFI twice during the process — not
+  doable remotely over SSH.
+- `sudo` with an interactive password.
 
-## Como funciona (resumo técnico)
+## How it works
 
-Baseado em duas fontes — veja `Créditos` no `README.md` principal para
-os links:
+Limine has no shim or MOK/MOKmanager — the firmware verifies the
+Limine binary's PE signature directly, and the kernel/initramfs are
+protected by a BLAKE2b checksum embedded in that same binary
+(`limine enroll-config`), not individual signatures. Once `sbctl` has
+keys, any limine-entry-tool operation (including the pacman kernel
+update hook) already re-signs the Limine binary on its own — this
+playbook relies on that instead of a manual sign-and-enroll process.
 
-1. **Discussões do Omarchy no GitHub** (basecamp/omarchy#5306, #7462)
-   descrevem um processo manual (extrair o binário do cache do pacman,
-   `limine enroll-config` manual, `sbctl sign -s`, em ordem estrita, e
-   repetir tudo a cada kernel novo). Esse processo parece anterior ao
-   `limine-entry-tool` ganhar suporte nativo a isso: o código-fonte
-   real (`/usr/lib/limine/limine-common-functions`) mostra que, uma
-   vez que o `sbctl` tenha chaves criadas, **qualquer operação do
-   limine-entry-tool já re-assina o binário do Limine sozinha**
-   (inclusive a disparada pelo hook de atualização de kernel do
-   pacman) — não é preciso reimplementar aquele processo manual.
-2. **[lbssousa/nix-config](https://github.com/lbssousa/nix-config)**
-   (`scripts/setup-secureboot.sh`) — de onde vieram a ordem
-   assinar-antes-de-matricular chaves, a detecção de Setup Mode lendo
-   a variável EFI diretamente (mais robusta que só o texto do `sbctl
-   status`), e o desbloqueio de variáveis EFI marcadas imutáveis que
-   alguns firmwares aplicam mesmo em Setup Mode.
+## Step by step
 
-Com Limine, **não há shim nem MOK/MOKmanager** — o firmware verifica
-diretamente a assinatura PE do binário do Limine; o kernel e o
-initramfs são protegidos por um checksum BLAKE2b embutido nesse mesmo
-binário (`limine enroll-config`), não por assinatura individual.
+Two runs of the playbook, with a BIOS trip in between — run
+`just secureboot` the same way both times; it detects which stage
+you're at.
 
-## Passo a passo
-
-O fluxo tem duas execuções do playbook, com uma ida ao BIOS no meio —
-rode `just secureboot` a mesma forma nas duas vezes; o playbook detecta
-sozinho em qual etapa você está.
-
-### 1ª execução — preparação
+### 1st run — preparation
 
 ```bash
 just secureboot
 ```
 
-Com o Secure Boot desligado (estado atual normal), o playbook:
+With Secure Boot off, the playbook:
 
-1. Confirma que o bootloader é Limine + limine-entry-tool.
-2. Instala o `sbctl`.
-3. Avisa (sem remover nada) se encontrar `splash` no cmdline do
-   kernel — incompatível com Secure Boot nesta configuração, segundo
-   basecamp/omarchy#5306.
-4. Cria as chaves do `sbctl` (`sbctl create-keys`), se ainda não
-   existirem.
-5. Liga `ENABLE_ENROLL_LIMINE_CONFIG=yes` e `ENABLE_VERIFICATION=yes`
-   em `/etc/default/limine`, e `hash_mismatch_panic: yes` em
+1. Confirms the bootloader is Limine + limine-entry-tool.
+2. Installs `sbctl`.
+3. Warns (without removing anything) if `splash` is on the kernel
+   cmdline — incompatible with Secure Boot here.
+4. Creates `sbctl` keys, if missing.
+5. Sets `ENABLE_ENROLL_LIMINE_CONFIG=yes` and `ENABLE_VERIFICATION=yes`
+   in `/etc/default/limine`, and `hash_mismatch_panic: yes` in
    `/boot/limine.conf`.
-6. Roda `limine-update` — que já assina o binário do Limine com as
-   chaves recém-criadas (mecanismo nativo do limine-entry-tool, veja
-   acima).
-7. Mostra `sbctl status` e `sbctl verify` para você conferir.
-8. Detecta que o firmware **não está em Setup Mode** (via a variável
-   EFI `SetupMode`) e para aí, com instruções.
+6. Runs `limine-update`, which signs the Limine binary with the new
+   keys.
+7. Shows `sbctl status` and `sbctl verify`.
+8. Detects the firmware is **not in Setup Mode** and stops, with
+   instructions.
 
-### Ida ao BIOS (1ª vez) — entrar em Setup Mode
+### BIOS trip #1 — enter Setup Mode
 
-1. Reinicie e entre no BIOS/UEFI (a tecla varia por fabricante — F2,
-   F12, Del ou Esc durante o boot).
-2. Vá em **Secure Boot** e procure uma opção como *"Setup Mode"*,
-   *"Clear Secure Boot Keys"* ou *"Delete All Secure Boot Keys"*.
-3. Limpe/apague as chaves existentes — isso ativa o Setup Mode.
-4. Salve e reinicie de volta para o Linux.
+1. Reboot and enter the BIOS/UEFI (F2, F12, Del or Esc during boot,
+   depending on the vendor).
+2. Go to **Secure Boot** and look for an option like *"Setup Mode"*,
+   *"Clear Secure Boot Keys"*, or *"Delete All Secure Boot Keys"*.
+3. Clear the existing keys — this enables Setup Mode.
+4. Save and reboot back into Linux.
 
-### 2ª execução — matrícula das chaves
+### 2nd run — key enrollment
 
 ```bash
 just secureboot
 ```
 
-Desta vez o playbook detecta o Setup Mode e:
+This time the playbook detects Setup Mode and:
 
-1. Desbloqueia variáveis EFI marcadas imutáveis, se necessário (alguns
-   firmwares fazem isso mesmo em Setup Mode).
-2. Matricula as chaves no firmware: `sbctl enroll-keys --microsoft`
-   (inclui as chaves da Microsoft, para compatibilidade com
-   drivers/firmware assinados por ela).
-3. Mostra o resultado e as instruções finais.
+1. Unlocks immutable EFI variables, if needed.
+2. Enrolls the keys into firmware: `sbctl enroll-keys --microsoft`
+   (includes Microsoft's keys, for their-signed drivers/firmware).
+3. Shows the result and next steps.
 
-### Ida ao BIOS (2ª vez) — ligar o Secure Boot
+### BIOS trip #2 — enable Secure Boot
 
-1. Reinicie, entre no BIOS/UEFI de novo.
-2. **Ligue** o Secure Boot.
-3. Salve e reinicie.
+1. Reboot, enter the BIOS/UEFI again.
+2. **Enable** Secure Boot.
+3. Save and reboot.
 
-### Verificação final
+### Final check
 
 ```bash
-sbctl status      # deve mostrar "Secure Boot: enabled"
-bootctl status    # idem, na seção "Secure Boot"
+sbctl status      # should show "Secure Boot: enabled"
+bootctl status    # same, under "Secure Boot"
 ```
 
-Se a máquina não bootar com o Secure Boot ligado, veja
-[Se o boot falhar](#se-o-boot-falhar) abaixo.
+If the machine doesn't boot with Secure Boot on, see
+[If boot fails](#if-boot-fails) below.
 
-## Avisos importantes
+## Important notes
 
-- **`splash` (Plymouth) no cmdline do kernel** quebra o boot com
-  Secure Boot ligado nesta configuração, segundo
-  basecamp/omarchy#5306. O playbook avisa se encontrar, mas não
-  remove — decida e edite `/etc/default/limine` manualmente se for o
-  seu caso, e rode `sudo limine-update` depois.
-- **LUKS com desbloqueio automático via TPM2**: se você usa isso
-  (`systemd-cryptenroll --tpm2-pcrs=...`), ligar o Secure Boot pela
-  primeira vez muda o PCR7 (estado do Secure Boot) e quebra o
-  desbloqueio automático até você re-matricular o TPM2:
+- **`splash` (Plymouth) on the kernel cmdline** breaks boot with
+  Secure Boot enabled here. The playbook warns but doesn't remove it —
+  edit `/etc/default/limine` yourself and run `sudo limine-update`
+  afterward if needed.
+- **LUKS with TPM2 auto-unlock**: enabling Secure Boot for the first
+  time changes PCR7 and breaks auto-unlock until you re-enroll:
   ```bash
-  sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 /dev/<partição-luks>
+  sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 /dev/<luks-partition>
   ```
-  A senha continua funcionando como fallback nesse meio tempo — não é
-  risco de ficar trancado para fora, só um lembrete para não se
-  assustar se o desbloqueio automático parar de funcionar depois do
-  primeiro boot com Secure Boot ativo.
-- **`hash_mismatch_panic: yes`** (que este playbook liga) faz o boot
-  travar se o checksum do kernel/initrd não bater com o que está
-  embutido no binário do Limine. É a proteção de integridade real do
-  Secure Boot aqui — mas também significa que editar manualmente
-  qualquer arquivo de boot sem passar pelo `limine-entry-tool` depois
-  (ex.: rodar `limine-update` ou `sudo limine-enroll-config`) quebra o
-  boot.
+  The password keeps working as a fallback in the meantime.
+- **`hash_mismatch_panic: yes`** (enabled by this playbook) halts boot
+  on a kernel/initrd checksum mismatch. Real integrity protection, but
+  it means editing boot files by hand without going through
+  limine-entry-tool afterward breaks boot.
 
-## Se o boot falhar
+## If boot fails
 
-Sistemas com Secure Boot mal configurado tipicamente não bootam de
-jeito nenhum (tela preta ou um panic do Limine) em vez de bootar
-parcialmente — não há risco de "meio quebrado". Recuperação:
+A misconfigured Secure Boot setup typically doesn't boot at all (black
+screen or a Limine panic) rather than booting halfway — there's no
+"partially broken" state. Recovery:
 
-1. Reinicie e entre no BIOS/UEFI.
-2. **Desligue** o Secure Boot de novo. Isso por si só já deve
-   restaurar o boot (o firmware para de verificar assinaturas).
-3. Do Linux, rode `sbctl verify` para ver quais binários não estão
-   assinados corretamente, e `sudo limine-update` para forçar uma
-   nova assinatura.
-4. Repita o passo a passo acima a partir de onde parou.
+1. Reboot and enter the BIOS/UEFI.
+2. **Disable** Secure Boot again — this alone should restore boot.
+3. From Linux, run `sbctl verify` to see what's unsigned, and
+   `sudo limine-update` to force a re-sign.
+4. Repeat the steps above from where you left off.
 
-Nenhum arquivo do sistema em si é apagado por esse processo — o pior
-cenário é não conseguir religar o Secure Boot até corrigir a causa,
-não perder dados nem precisar reinstalar.
+No system files are deleted by this process — worst case is not being
+able to re-enable Secure Boot until you fix the cause, not data loss
+or a reinstall.
 
-## Rodando de novo
+## Running again
 
-O playbook é idempotente: rodar `just secureboot` de novo numa máquina
-que já tem tudo configurado só confirma o estado (chaves já existem,
-config já está com os flags certos) e não deveria fazer nada novo,
-exceto o próprio `limine-update` (que sempre roda, é seguro/idempotente
-por design da ferramenta).
+The playbook is idempotent: rerunning `just secureboot` on an
+already-configured machine just confirms the state and does nothing
+new, except `limine-update` itself (always run, safe by design).

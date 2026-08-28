@@ -1,73 +1,33 @@
 ---
-# Bitwarden (cliente desktop) — instala preferencialmente o pacote
-# bitwarden-bin do AUR, e só usa o pacote oficial do Arch
-# (extra/bitwarden) se ele não estiver mais desatualizado em relação ao
-# AUR. Isso é decidido dinamicamente a cada execução, comparando as
-# duas versões via `vercmp` (a mesma lógica de comparação que o próprio
-# pacman usa) — não é uma escolha fixa neste arquivo. No dia em que o
-# pacote oficial for atualizado (e passar a ser igual ou mais novo que
-# o do AUR), este playbook volta a preferi-lo sozinho, sem precisar
-# editar nada aqui — inclusive desinstalando o bitwarden-bin nesse
-# caso, já que os dois pacotes se conflitam (não dá para ter os dois
-# instalados ao mesmo tempo).
+# Bitwarden desktop client — prefers the AUR bitwarden-bin package, and
+# only falls back to the official Arch package once it's no longer
+# outdated relative to the AUR (compared via `vercmp` on every run). The
+# two packages conflict, so whichever loses gets removed.
 #
-# Por que não rodar `yay -S bitwarden-bin` direto: yay/makepkg
-# precisam de root (via sudo) tanto para sincronizar dependências em
-# falta quanto para instalar o pacote final, e esse sudo interno do yay
-# pediria uma senha interativa que o Ansible não tem como responder
-# (as tarefas deste playbook não têm um terminal/tty anexado — ficaria
-# pendurado esperando uma senha que nunca chega). Em vez disso, cada
-# etapa privilegiada é feita pelo próprio Ansible, com `become: true`
-# (sudo + --ask-become-pass, igual ao resto do repositório — ver
-# ansible.cfg):
-#   1. instala via pacman as dependências de runtime do bitwarden-bin
-#      (evitando o `--syncdeps`/sudo interno do makepkg);
-#   2. clona/atualiza o repositório AUR do bitwarden-bin (git puro, sem
-#      privilégio nenhum — um pacote do AUR é só um PKGBUILD);
-#   3. builda com `makepkg --nodeps` como usuário normal (nunca como
-#      root: makepkg recusa rodar como root, e com razão — o script de
-#      build roda arbitrariamente);
-#   4. instala o pacote já buildado com `pacman -U`, de novo com
-#      become: true.
+# Doesn't shell out to yay: makepkg's own sudo (for syncing missing
+# deps) needs an interactive password Ansible can't supply. Instead,
+# each privileged step runs through Ansible's own `become: true`:
+# install runtime deps via pacman, clone the AUR repo (no privilege
+# needed), build with `makepkg --nodeps` as a normal user (makepkg
+# refuses to run as root), then install the built package with
+# `pacman -U`.
 #
-# fakeroot e git são pré-requisitos de build do makepkg, mas já fazem
-# parte do conjunto base do Omarchy (omarchy-base.packages) — não
-# precisam ser instalados aqui.
+# Also wires SSH_AUTH_SOCK to the Bitwarden SSH agent's socket — a
+# static export via ~/.config/environment.d/ (reaches IDEs and other
+# session apps) plus a `.path` unit that reacts once Bitwarden actually
+# creates the socket (only happens after unlock). gcr-ssh-agent is
+# masked so it doesn't compete for the same variable.
 #
-# Depois de instalado (por qualquer uma das duas origens — o app é o
-# mesmo), o playbook também liga o SSH_AUTH_SOCK padrão da sessão ao
-# socket do agente SSH do Bitwarden, replicando a automação equivalente
-# de lbssousa/bluefin-initial-setup (playbooks/bitwarden.yml de lá),
-# com um ajuste: aqui a instalação é nativa (pacman/AUR, sem sandbox
-# Flatpak), então o socket vive direto em `~/.bitwarden-ssh-agent.sock`
-# — não em `~/.var/app/com.bitwarden.desktop/...`, caminho que só
-# existe dentro do sandbox do Flatpak. Confirmado pela documentação
-# oficial (bitwarden.com/help/ssh-agent). O mecanismo é o mesmo dos
-# dois repositórios: `SSH_AUTH_SOCK` é exportado estaticamente via
-# `~/.config/environment.d/` (lido pelo systemd --user inteiro, então
-# alcança IDEs abertos pela sessão) e dinamicamente via um `.path` unit
-# que reage à criação do socket (`~/.config/systemd/user/`), já que o
-# Bitwarden só cria o socket depois de aberto/desbloqueado — o
-# `gcr-ssh-agent` (pacote gcr-4, presente por padrão no Omarchy) é
-# mascarado para não competir pela mesma variável.
-#
-# Por fim, o playbook reaproveita `SUPER + SHIFT + SLASH` — o atalho
-# padrão do Omarchy para "Passwords", que vem pré-configurado para o
-# 1Password em
-# /usr/share/omarchy/default/hypr/bindings/applications.lua — e o
-# redireciona para o Bitwarden, já que este setup não instala o
-# 1Password. A edição acontece em `~/.config/hypr/bindings.lua` (o
-# arquivo que o próprio Omarchy reserva para overrides pessoais de
-# keybinding, nunca nos arquivos default do pacote `omarchy`, que são
-# sobrescritos em atualizações), via `ansible.builtin.blockinfile` com
-# marcadores — preserva qualquer outra customização que já esteja lá.
-- name: Bitwarden (cliente desktop) — AUR bitwarden-bin ou oficial, conforme a versão mais recente
+# Finally, rebinds Omarchy's default "Passwords" shortcut
+# (SUPER+SHIFT+SLASH, normally 1Password) to Bitwarden, since this setup
+# doesn't install 1Password.
+- name: Bitwarden (AUR bitwarden-bin or official, whichever is newer)
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Descobrir a versão do bitwarden no repositório oficial
+    - name: Check the bitwarden version in the official repo
       ansible.builtin.command: "pacman -Si {{ bitwarden_official_package }}"
       environment:
         LC_ALL: C
@@ -75,58 +35,54 @@
       changed_when: false
       failed_when: false
 
-    - name: Extrair a versão do pacote oficial
-      # LC_ALL=C acima garante "Version" em inglês: o pacman traduz os
-      # nomes dos campos ("Versão" etc.) conforme o locale do sistema, e
-      # esse select('match', 'Version') quebraria (lista vazia) em
-      # qualquer locale não-inglês.
+    - name: Extract the official package version
       ansible.builtin.set_fact:
         bitwarden_official_version: >-
           {{ (bitwarden_official_info.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
       when: bitwarden_official_info.rc == 0
 
-    - name: Descobrir a versão do bitwarden-bin no AUR
+    - name: Check the bitwarden-bin version on the AUR
       ansible.builtin.uri:
         url: "{{ bitwarden_aur_rpc_url }}"
         return_content: true
       register: bitwarden_aur_info
 
-    - name: Extrair a versão do pacote AUR
+    - name: Extract the AUR package version
       ansible.builtin.set_fact:
         bitwarden_aur_version: "{{ bitwarden_aur_info.json.results[0].Version }}"
 
-    - name: Comparar a versão do AUR com a do repositório oficial
+    - name: Compare the AUR version against the official one
       ansible.builtin.command: "vercmp {{ bitwarden_aur_version }} {{ bitwarden_official_version | default('0') }}"
       register: bitwarden_vercmp
       changed_when: false
       when: bitwarden_official_version is defined
 
-    - name: "Decidir a origem do pacote: oficial só se não estiver mais desatualizado que o AUR"
+    - name: "Pick the package source: official only if not outdated vs. AUR"
       ansible.builtin.set_fact:
         bitwarden_source: >-
           {{ 'official'
              if (bitwarden_official_version is defined and (bitwarden_vercmp.stdout | int) <= 0)
              else 'aur' }}
 
-    - name: "Instalar via pacman (repositório oficial, versão {{ bitwarden_official_version | default('?') }})"
+    - name: "Install via pacman (official repo, version {{ bitwarden_official_version | default('?') }})"
       when: bitwarden_source == 'official'
       block:
-        - name: Remover o bitwarden-bin do AUR, se instalado (conflita com o pacote oficial)
+        - name: Remove AUR bitwarden-bin, if installed
           community.general.pacman:
             name: "{{ bitwarden_aur_package }}"
             state: absent
           become: true
 
-        - name: Instalar o Bitwarden via pacman
+        - name: Install Bitwarden via pacman
           community.general.pacman:
             name: "{{ bitwarden_official_package }}"
             state: present
           become: true
 
-    - name: "Instalar via AUR (bitwarden-bin, versão {{ bitwarden_aur_version }})"
+    - name: "Install via AUR (bitwarden-bin, version {{ bitwarden_aur_version }})"
       when: bitwarden_source == 'aur'
       block:
-        - name: Verificar a versão do bitwarden-bin já instalada (se houver)
+        - name: Check the currently installed bitwarden-bin version, if any
           ansible.builtin.command: "pacman -Qi {{ bitwarden_aur_package }}"
           environment:
             LC_ALL: C
@@ -134,64 +90,64 @@
           changed_when: false
           failed_when: false
 
-        - name: Extrair a versão já instalada do bitwarden-bin
+        - name: Extract the installed bitwarden-bin version
           ansible.builtin.set_fact:
             bitwarden_aur_installed_version: >-
               {{ (bitwarden_aur_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
           when: bitwarden_aur_installed.rc == 0
 
-        - name: Build + instalação (só roda se estiver faltando ou desatualizado)
+        - name: Build and install (only if missing or outdated)
           when: bitwarden_aur_installed.rc != 0 or bitwarden_aur_installed_version != bitwarden_aur_version
           block:
-            - name: Remover o pacote oficial, se instalado (conflita com o bitwarden-bin)
+            - name: Remove the official package, if installed
               community.general.pacman:
                 name: "{{ bitwarden_official_package }}"
                 state: absent
               become: true
 
-            - name: Instalar as dependências de runtime do bitwarden-bin
+            - name: Install bitwarden-bin's runtime dependencies
               community.general.pacman:
                 name: "{{ bitwarden_aur_runtime_deps }}"
                 state: present
               become: true
 
-            - name: Clonar/atualizar o repositório AUR do bitwarden-bin
+            - name: Clone/update the bitwarden-bin AUR repo
               ansible.builtin.git:
                 repo: "{{ bitwarden_aur_git_url }}"
                 dest: "{{ bitwarden_aur_build_dir }}"
                 update: true
 
-            - name: Buildar o pacote (makepkg, sem checar dependências e sem privilégio de root)
+            - name: Build the package (makepkg, no dep resolution, unprivileged)
               ansible.builtin.command: makepkg --nodeps --noconfirm --force
               args:
                 chdir: "{{ bitwarden_aur_build_dir }}"
 
-            - name: Instalar o pacote buildado
+            - name: Install the built package
               ansible.builtin.shell: "pacman -U --noconfirm {{ bitwarden_aur_build_dir }}/*.pkg.tar.zst"
               become: true
 
-    - name: Agente SSH do Bitwarden — SSH_AUTH_SOCK padrão da sessão
+    - name: Bitwarden SSH agent — session-wide SSH_AUTH_SOCK
       block:
-        - name: Criar ~/.config/environment.d
+        - name: Create ~/.config/environment.d
           ansible.builtin.file:
             path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
             state: directory
             mode: "0755"
 
-        - name: Configurar SSH_AUTH_SOCK estático para IDEs e apps da sessão
+        - name: Set a static SSH_AUTH_SOCK for IDEs and session apps
           ansible.builtin.copy:
             src: 20-bitwarden-ssh-agent.conf
             dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-bitwarden-ssh-agent.conf"
             mode: "0644"
             force: false
 
-        - name: Criar ~/.config/systemd/user
+        - name: Create ~/.config/systemd/user
           ansible.builtin.file:
             path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
             state: directory
             mode: "0755"
 
-        - name: Instalar as unidades systemd --user do agente SSH do Bitwarden
+        - name: Install the Bitwarden SSH agent's systemd --user units
           ansible.builtin.copy:
             src: "{{ item }}"
             dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
@@ -200,14 +156,14 @@
           loop: "{{ bitwarden_ssh_agent_units }}"
           notify: reload systemd --user
 
-        - name: Mascarar o gcr-ssh-agent (evita disputa por SSH_AUTH_SOCK)
+        - name: Mask gcr-ssh-agent (avoids competing for SSH_AUTH_SOCK)
           ansible.builtin.systemd:
             name: "{{ item }}"
             scope: user
             masked: true
           loop: "{{ gcr_ssh_agent_units }}"
 
-        - name: Habilitar o path unit do agente SSH do Bitwarden
+        - name: Enable the Bitwarden SSH agent's path unit
           ansible.builtin.systemd:
             name: bitwarden-ssh-agent.path
             scope: user
@@ -215,15 +171,15 @@
             enabled: true
             state: started
 
-    - name: "Keybinding do Bitwarden ({{ bitwarden_hypr_keybind }}, herdado do atalho padrão do 1Password)"
+    - name: "Bitwarden keybinding ({{ bitwarden_hypr_keybind }}, inherited from 1Password's default)"
       block:
-        - name: Criar ~/.config/hypr
+        - name: Create ~/.config/hypr
           ansible.builtin.file:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr"
             state: directory
             mode: "0755"
 
-        - name: Criar ~/.config/hypr/bindings.lua a partir do padrão do Omarchy, se ainda não existir
+        - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
           ansible.builtin.copy:
             src: /usr/share/omarchy/default/hypr/bindings.lua
             dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
@@ -231,10 +187,10 @@
             force: false
             mode: "0644"
 
-        - name: "Rebindar {{ bitwarden_hypr_keybind }} de 1Password (padrão do Omarchy) para o Bitwarden"
+        - name: "Rebind {{ bitwarden_hypr_keybind }} from 1Password to Bitwarden"
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
-            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/bitwarden.yml — keybinding do Bitwarden)"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/bitwarden.yml — Bitwarden keybinding)"
             block: |
               hl.unbind("{{ bitwarden_hypr_keybind }}")
               o.bind("{{ bitwarden_hypr_keybind }}", "Bitwarden", { launch = "bitwarden", focus = "^Bitwarden$" })
@@ -249,9 +205,8 @@
       listen: reload systemd --user
 
     - name: reload Hyprland
-      # Só existe efeito se estivermos rodando dentro de uma sessão
-      # Hyprland de verdade (o caso comum deste repo); fora dela não há
-      # o que recarregar, e o bind já vale a partir do próximo login.
+      # Only has an effect inside a real Hyprland session; the bind
+      # still applies on next login either way.
       ansible.builtin.command: hyprctl reload
       changed_when: false
       failed_when: false

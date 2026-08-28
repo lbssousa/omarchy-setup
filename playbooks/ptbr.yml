@@ -1,215 +1,81 @@
 ---
-# Localização pt-BR — deixa o sistema o mais próximo possível de
-# totalmente em português do Brasil, cobrindo sete frentes independentes
-# (cada uma com sua sub-tag, para rodar ou pular isoladamente):
+# pt-BR localization, covering seven independent areas (each with its own
+# sub-tag to run or skip on its own):
 #
-#   - locale.gen + /etc/locale.conf (tag ptbr-locale): gera o locale
-#     pt_BR.UTF-8 (sem remover nenhum locale já habilitado, ex.:
-#     en_US.UTF-8) e define LANG=pt_BR.UTF-8 no sistema. LANGUAGE
-#     também é definido (pt_BR:pt:en) — é a cadeia de fallback do
-#     gettext, usada quando um app tem tradução pt_BR incompleta mas
-#     tem pt genérico (ou nenhuma das duas, caindo em inglês em vez de
-#     travar em C/POSIX). Nenhuma categoria LC_* é definida
-#     individualmente: todas herdam de LANG, igual à troca de idioma em
-#     Configurações do GNOME.
+#   - locale + LANG/LANGUAGE (ptbr-locale): enables pt_BR.UTF-8 without
+#     removing other locales, and sets LANG/LANGUAGE in /etc/locale.conf.
+#   - xdg-user-dirs (ptbr-xdg-user-dirs): renames personal folders
+#     (~/Downloads, etc.) to their pt-BR translations, only for folders
+#     that are already enabled.
+#   - Firefox (ptbr-firefox): installs the pt-BR language pack and forces
+#     RequestedLocale via policies.json, since a profile created before
+#     LANG was pt_BR never renegotiates its language on its own.
+#   - Chromium and variants (ptbr-chromium): fixes each browser's
+#     Preferences (intl.accept_languages), which controls the page
+#     language web apps like WhatsApp Web see — frozen at en-US since
+#     profile creation, with no official policy for this in Chromium.
+#   - LibreOffice (ptbr-libreoffice): installs the pt-BR language pack.
+#   - Man pages (ptbr-man-pages): installs man-pages-pt_br.
+#   - OCR (ptbr-ocr): installs tesseract-data-por and sets
+#     OMARCHY_OCR_LANGS for omarchy-capture-text.
 #
-#   - xdg-user-dirs (tag ptbr-xdg-user-dirs): renomeia as pastas
-#     pessoais (~/Downloads, ~/Documents, etc., incluindo
-#     XDG_PROJECTS_DIR — entrada extra do Omarchy em
-#     /etc/xdg/user-dirs.defaults, fora do padrão upstream do
-#     xdg-user-dirs, mas aceita normalmente por `--set`) para os nomes
-#     traduzidos em pt_BR, só para as pastas que já estiverem
-#     habilitadas (XDG_*_DIR != $HOME — se Área de Trabalho/Modelos/
-#     Público estiverem desabilitadas, como costuma ser preferência
-#     pessoal, permanecem desabilitadas). O comando
-#     `xdg-user-dirs-update`, sozinho, NUNCA renomeia pastas já
-#     existentes — ele só cria as que ainda não têm entrada em
-#     user-dirs.dirs; quem faz esse rename (com diálogo de confirmação)
-#     é o `xdg-user-dirs-gtk-update`, uma ferramenta gráfica que não dá
-#     para rodar de forma não interativa. Este playbook replica
-#     manualmente o mesmo mecanismo (mv + `xdg-user-dirs-update --set`),
-#     sem diálogo, e só renomeia se a pasta ainda não estiver com o
-#     nome traduzido (idempotente entre execuções — não tenta renomear
-#     de novo numa máquina já localizada). Atenção: uma pasta
-#     desabilitada é gravada em user-dirs.dirs como
-#     "$HOME/" literal (com barra final) — a comparação abaixo precisa
-#     normalizar essa barra, senão confunde "desabilitada" com
-#     "diferente do nome traduzido" e tenta mover $HOME para dentro de
-#     si mesmo.
+# Doesn't touch keyboard layout or timezone — both are already asked by
+# the Omarchy installer. Doesn't touch apps that ship pt_BR translations
+# in their own package (GNOME, GTK, KDE) — those already follow LANG.
 #
-#   - Firefox (tag ptbr-firefox): instala o pacote firefox-i18n-pt-br
-#     via pacman, se o Firefox estiver instalado (senão pula, sem
-#     falhar — o instalador do Omarchy permite escolher outro navegador
-#     padrão, ex.: Chromium). Com LANG=pt_BR.UTF-8 e o pacote de idioma
-#     instalado, o Firefox escolhe pt-BR sozinho — mas só num PERFIL
-#     NOVO, negociado no primeiro start. Se o perfil já existir de
-#     antes (ex.: Firefox aberto antes de rodar `just ptbr`/antes do
-#     LANG virar pt_BR — exatamente o caso comum, já que o Firefox
-#     costuma ser o primeiro app aberto numa instalação nova), o idioma
-#     já escolhido fica preso nesse perfil pra sempre; instalar o
-#     pacote de idioma depois não muda nada retroativamente (confirmado
-#     nesta máquina: perfil criado antes do LANG/pacote de idioma,
-#     Firefox continuou em inglês mesmo com os dois já presentes).
-#     Por isso, além do pacote, este playbook também define
-#     `RequestedLocale` (política oficial do Firefox — ver
-#     mozilla.github.io/policy-templates — reconhecida no schema
-#     embutido do binário, `omni.ja`/`libxul.so`, confirmado nesta
-#     máquina) em `/usr/lib/firefox/distribution/policies.json`, com
-#     fallback pra en-US caso o pacote de idioma alguma hora suma. Essa
-#     política força o idioma em QUALQUER perfil, novo ou existente —
-#     o comentário antigo desta seção evitava mexer em policies.json
-#     achando que sobrescreveria uma escolha manual do usuário
-#     silenciosamente; na prática o problema real é o oposto (perfil
-#     nunca chegou a negociar pt-BR nenhuma vez), e a tarefa faz um
-#     merge no JSON existente (preserva qualquer outra política já
-#     configurada, ex.: as que o próprio Omarchy grava nesse arquivo
-#     pra aceleração de vídeo/Wayland) em vez de substituir o arquivo
-#     inteiro.
-#     feito manualmente no navegador.
-#
-#   - Chromium e variantes (tag ptbr-chromium): os web apps do Omarchy
-#     (omarchy-launch-webapp, ex.: WhatsApp, Discord, Google
-#     Maps/Photos/Contacts/Messages, YouTube, Basecamp, X) sempre caem
-#     num navegador da família Chromium — o script só usa o padrão do
-#     sistema se ele já for chrome/brave/edge/opera/vivaldi/helium,
-#     senão força chromium.desktop; ou seja, TROCAR o navegador padrão
-#     entre membros dessa família (confirmado nesta máquina: Firefox →
-#     Chromium → Brave Origin, ao longo de duas idas e vindas) muda
-#     qual perfil é usado, mas o bug é o mesmo em todos. Diferente de
-#     Firefox/LibreOffice, não é pacote de idioma faltando: nenhum
-#     deles tem um separado no Arch. O problema é
-#     `intl.accept_languages`/`intl.selected_languages`, no Preferences
-#     do perfil Default de cada um (ex.:
-#     ~/.config/chromium/Default/Preferences,
-#     ~/.config/BraveSoftware/Brave-Origin/Default/Preferences) — usado
-#     por sites (Accept-Language/navigator.language, ex.: WhatsApp Web)
-#     pra escolher o idioma da página, congelado em "en-US,en" desde a
-#     criação do perfil (mesma classe de bug do Firefox acima: perfil
-#     criado antes do LANG virar pt_BR, nunca renegocia sozinho —
-#     confirmado nesta máquina, em dois perfis diferentes: Chromium e
-#     Brave Origin). Não existe policy oficial reconhecida nestes
-#     builds pra isso (procuramos ApplicationLocaleValue/AcceptLanguage*
-#     nas strings do binário do Chromium — não aparece; é Windows-only
-#     no Chrome oficial), então a tarefa (delegada por
-#     tasks/ptbr-chromium-family-browser.yml, em loop pra cada
-#     navegador de ptbr_chromium_family_config_dirs) edita o Preferences
-#     do perfil diretamente — só se aquele navegador estiver FECHADO
-#     (senão ele sobrescreve a edição ao sair; detectado pelo
-#     SingletonLock do próprio perfil, não por `pgrep` — ver comentário
-#     no topo do arquivo de tasks, explica por que). Confirmado com curl
-#     (Accept-Language: pt-BR devolve `lang="pt"` no HTML do
-#     web.whatsapp.com, en-US devolve `lang="en"`) e com o Chromium real
-#     (perfil --incognito novo, sem dado de site nenhum, abre em pt-BR
-#     depois desta tarefa). ATENÇÃO: um site já aberto antes da correção
-#     (ex.: WhatsApp Web com sessão logada) pode continuar em inglês
-#     mesmo depois — o idioma que a PWA já negociou fica cacheado no
-#     IndexedDB/localStorage/Service Worker dela, dentro do perfil
-#     daquele navegador especificamente, e HTTP/Accept-Language novo não
-#     invalida esse cache sozinho (confirmado nesta máquina: janela já
-#     aberta continuou em inglês após a tarefa, só uma nova sessão sem
-#     esse cache abriu em pt-BR). Pra sites já usados antes de rodar
-#     esta tarefa, é preciso um "Limpar dados do site" manual (cadeado
-#     da barra de endereço → dados do site → Limpar dados) — este
-#     playbook não automatiza isso, porque apagaria a sessão logada
-#     (ex.: derrubaria o WhatsApp Web pareado com o celular).
-#
-#   - LibreOffice Fresh (tag ptbr-libreoffice): mesmo mecanismo do
-#     Firefox — instala `libreoffice-fresh-pt-br` via pacman, e só se o
-#     `libreoffice-fresh` estiver instalado. Cuidado ao ler o nome dos
-#     pacotes no repositório: existe também um `libreoffice-fresh-pt`
-#     (português europeu/Portugal) — não é o mesmo pacote, nem
-#     intercambiável para pt-BR.
-#
-#   - Man pages (tag ptbr-man-pages): instala `man-pages-pt_br`
-#     (projeto man-pages-l10n) incondicionalmente — não depende de
-#     nenhum app específico, só do `man-db` (que já vem no conjunto
-#     base do Omarchy). Algumas páginas pt_BR já aparecem em
-#     `/usr/share/man/pt_BR` mesmo sem esse pacote (util-linux,
-#     procps-ng, shadow, xz... embutem as suas próprias), mas é
-#     cobertura pontual de cada projeto; este pacote é quem traduz o
-#     grosso do manual (chamadas de sistema, biblioteca C, páginas de
-#     visão geral do man2/man3/man7).
-#
-#   - OCR (tag ptbr-ocr): o `omarchy-capture-text` (captura de tela com
-#     reconhecimento de texto, via tesseract) só reconhece inglês por
-#     padrão — `tesseract-data-eng` é o único pacote de dados do
-#     omarchy-base.packages, e o script lê `${OMARCHY_OCR_LANGS:-eng}`.
-#     Só age se o `tesseract` estiver instalado (está, por vir no
-#     conjunto base do Omarchy): instala `tesseract-data-por` e
-#     exporta `OMARCHY_OCR_LANGS=por+eng` (sintaxe "+", nativa do
-#     tesseract, para reconhecer os dois idiomas na mesma captura sem
-#     escolher um previamente) via `~/.config/environment.d/`, mesmo
-#     mecanismo estático usado por playbooks/bitwarden.yml para
-#     variáveis de sessão.
-#
-# Nenhuma tarefa aqui mexe em layout de teclado nem fuso horário — ambos
-# já são perguntados pelo instalador do Omarchy
-# (install/provisioning/setup-form.sh). Também não mexemos em apps que
-# já trazem tradução pt_BR embutida no próprio pacote (todo o GNOME —
-# Nautilus, Evince etc. —, GTK, KDE/kdenlive, obs-studio): esses seguem
-# o LANG do sistema sozinhos, sem pacote de idioma separado — só
-# Firefox, Thunderbird, LibreOffice e o GIMP (help) fazem esse split no
-# Arch, e dos quatro só Firefox e LibreOffice estão neste setup. O
-# A família Chromium é um caso à parte: não faz esse split (nenhum tem
-# pacote de idioma), mas cada um fica preso em inglês do mesmo jeito
-# por causa do Preferences do perfil — daí a frente dedicada acima.
-#
-# Depois de rodar a parte de locale, é preciso logout (ou reboot) para o
-# LANG novo valer na sessão gráfica inteira (Hyprland, apps já abertos)
-# — veja o aviso final da primeira etapa. O mesmo vale para
-# OMARCHY_OCR_LANGS (environment.d só é lido no login).
-- name: Localização pt-BR (locale, pastas pessoais, apps e man pages)
+# A logout (or reboot) is needed after the locale step for LANG to apply
+# to the whole graphical session.
+- name: pt-BR localization
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Locale pt_BR.UTF-8 (locale.gen + LANG/LANGUAGE do sistema)
+    - name: pt_BR.UTF-8 locale (locale.gen + system LANG/LANGUAGE)
       become: true
       block:
-        - name: Garantir que pt_BR.UTF-8 UTF-8 está habilitado em /etc/locale.gen
+        - name: Ensure pt_BR.UTF-8 UTF-8 is enabled in /etc/locale.gen
           ansible.builtin.lineinfile:
             path: /etc/locale.gen
             regexp: '^#?\s*{{ ptbr_locale_gen_line | regex_escape }}\s*$'
             line: "{{ ptbr_locale_gen_line }}"
           register: locale_gen_conf
 
-        - name: Gerar os locales (locale-gen)
+        - name: Generate locales (locale-gen)
           ansible.builtin.command: locale-gen
           when: locale_gen_conf.changed
 
-        - name: "Definir LANG={{ ptbr_locale }} em /etc/locale.conf"
+        - name: "Set LANG={{ ptbr_locale }} in /etc/locale.conf"
           ansible.builtin.lineinfile:
             path: /etc/locale.conf
             regexp: '^LANG='
             line: "LANG={{ ptbr_locale }}"
             create: true
 
-        - name: Definir LANGUAGE (cadeia de fallback do gettext) em /etc/locale.conf
+        - name: Set LANGUAGE (gettext fallback chain) in /etc/locale.conf
           ansible.builtin.lineinfile:
             path: /etc/locale.conf
             regexp: '^LANGUAGE='
             line: "LANGUAGE={{ ptbr_language_fallback }}"
             create: true
 
-        - name: Avisar que é necessário logout/reboot para valer na sessão gráfica
+        - name: Note that logout/reboot is needed for the graphical session
           ansible.builtin.debug:
             msg: >-
-              LANG/LANGUAGE atualizados em /etc/locale.conf. Faça logout
-              (ou reboot) para o Hyprland e os apps já abertos assumirem
-              o novo idioma — este playbook não reinicia a sessão
-              sozinho.
+              LANG/LANGUAGE updated in /etc/locale.conf. Log out (or
+              reboot) for Hyprland and already-open apps to pick up the
+              new language.
       tags: [ptbr-locale]
 
-    - name: Pastas pessoais (xdg-user-dirs) em pt-BR
+    - name: Personal folders (xdg-user-dirs) in pt-BR
       block:
-        - name: Garantir que o xdg-user-dirs está instalado
+        - name: Ensure xdg-user-dirs is installed
           community.general.pacman:
             name: xdg-user-dirs
             state: present
           become: true
 
-        - name: Consultar o caminho atual de cada pasta XDG
+        - name: Look up the current path for each XDG folder
           ansible.builtin.command: "xdg-user-dir {{ item.name }}"
           loop: "{{ ptbr_xdg_user_dirs }}"
           loop_control:
@@ -217,14 +83,11 @@
           register: xdg_current
           changed_when: false
 
-        - name: Renomear as pastas já habilitadas e atualizar user-dirs.dirs
+        - name: Rename enabled folders and update user-dirs.dirs
           vars:
-            # xdg-user-dir ecoa o valor cru de user-dirs.dirs: uma pasta
-            # desabilitada está gravada literalmente como "$HOME/", com
-            # barra final — sem normalizar isso, a comparação abaixo
-            # nunca reconhece o caso "desabilitada" e tenta mover $HOME
-            # para dentro de si mesmo (mv: cannot move '/home/x/' to a
-            # subdirectory of itself).
+            # A disabled folder is stored as "$HOME/" (trailing slash) —
+            # normalize before comparing, or this tries to move $HOME
+            # into itself.
             current_path: "{{ result.stdout | regex_replace('/+$', '') }}"
             desired_path: "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
           ansible.builtin.shell: >-
@@ -240,31 +103,31 @@
           changed_when: true
       tags: [ptbr-xdg-user-dirs]
 
-    - name: Firefox — pacote de idioma pt-BR
+    - name: Firefox pt-BR language pack
       block:
-        - name: Verificar se o Firefox está instalado
+        - name: Check whether Firefox is installed
           ansible.builtin.command: pacman -Q firefox
           register: firefox_check
           changed_when: false
           failed_when: false
 
-        - name: Instalar o pacote de idioma pt-BR do Firefox
+        - name: Install the Firefox pt-BR language pack
           community.general.pacman:
             name: "{{ ptbr_firefox_i18n_package }}"
             state: present
           become: true
           when: firefox_check.rc == 0
 
-        - name: Verificar se o policies.json do Firefox já existe
+        - name: Check whether Firefox's policies.json already exists
           ansible.builtin.stat:
             path: /usr/lib/firefox/distribution/policies.json
           register: firefox_policies_stat
           when: firefox_check.rc == 0
 
-        - name: Carregar o policies.json atual (ou um objeto vazio, se não existir/estiver corrompido)
+        - name: Load the current policies.json (or an empty object)
           when: firefox_check.rc == 0
           block:
-            - name: Tentar parsear o policies.json atual
+            - name: Try parsing the current policies.json
               ansible.builtin.set_fact:
                 firefox_policies_current: >-
                   {{
@@ -273,33 +136,19 @@
                     else {'policies': {}}
                   }}
           rescue:
-            # Cobre um bug já visto nesta máquina (ansible-core 2.21.3):
-            # `to_nice_json + "\n"` numa content: >- escreve o "\n"
-            # LITERAL (backslash + n, 2 bytes) em vez de um newline de
-            # verdade — JSON inválido, from_json falha em toda execução
-            # seguinte ("Extra data"). Corrigido abaixo (sem mais
-            # `+ "\n"`), mas um policies.json já corrompido por uma
-            # execução anterior com o bug antigo continuaria quebrando
-            # pra sempre sem isso: tratado como vazio (perde qualquer
-            # policy que só existisse nesse arquivo corrompido — ex.:
-            # as que o próprio Omarchy grava pra aceleração de
-            # vídeo/Wayland) e a tarefa seguinte já sobrescreve com
-            # conteúdo válido.
-            - name: policies.json existente não é JSON válido — tratar como vazio
+            - name: Existing policies.json isn't valid JSON — treat as empty
               ansible.builtin.set_fact:
                 firefox_policies_current: { "policies": {} }
 
-            - name: Avisar sobre o policies.json corrompido
+            - name: Warn about the corrupted policies.json
               ansible.builtin.debug:
                 msg: >-
-                  /usr/lib/firefox/distribution/policies.json existe mas
-                  não é JSON válido — tratado como vazio e será
-                  sobrescrito agora com um conteúdo novo e válido.
-                  Qualquer outra policy que só existisse nesse arquivo
-                  (ex.: as que o próprio Omarchy grava pra aceleração de
-                  vídeo/Wayland) foi perdida.
+                  /usr/lib/firefox/distribution/policies.json exists but
+                  isn't valid JSON — treated as empty and will be
+                  overwritten now. Any policy that only existed in that
+                  file was lost.
 
-        - name: "Forçar RequestedLocale={{ ptbr_firefox_requested_locale }} no policies.json (perfis novos e existentes)"
+        - name: "Force RequestedLocale={{ ptbr_firefox_requested_locale }} in policies.json"
           ansible.builtin.copy:
             content: >-
               {{
@@ -312,87 +161,84 @@
           become: true
           when: firefox_check.rc == 0
 
-        - name: Avisar se o Firefox não estiver instalado (nenhuma ação tomada)
+        - name: Note that Firefox wasn't found (no action taken)
           ansible.builtin.debug:
             msg: >-
-              Firefox não encontrado via pacman — pacote de idioma
-              {{ ptbr_firefox_i18n_package }} não instalado, e
-              policies.json não foi tocado. Sem efeito se o navegador
-              padrão desta máquina for outro (ex.: Chromium).
+              Firefox not found via pacman — {{ ptbr_firefox_i18n_package }}
+              not installed, policies.json untouched.
           when: firefox_check.rc != 0
       tags: [ptbr-firefox]
 
-    - name: "Chromium e variantes — idioma dos web apps ({{ ptbr_chromium_accept_languages }})"
+    - name: "Chromium and variants — web app language ({{ ptbr_chromium_accept_languages }})"
       ansible.builtin.include_tasks: tasks/ptbr-chromium-family-browser.yml
       loop: "{{ ptbr_chromium_family_config_dirs }}"
       loop_control:
         loop_var: browser_config_dir
       tags: [ptbr-chromium]
 
-    - name: LibreOffice — pacote de idioma pt-BR
+    - name: LibreOffice pt-BR language pack
       block:
-        - name: Verificar se o LibreOffice Fresh está instalado
+        - name: Check whether LibreOffice Fresh is installed
           ansible.builtin.command: pacman -Q libreoffice-fresh
           register: libreoffice_check
           changed_when: false
           failed_when: false
 
-        - name: Instalar o pacote de idioma pt-BR do LibreOffice Fresh
+        - name: Install the LibreOffice Fresh pt-BR language pack
           community.general.pacman:
             name: "{{ ptbr_libreoffice_i18n_package }}"
             state: present
           become: true
           when: libreoffice_check.rc == 0
 
-        - name: Avisar se o LibreOffice Fresh não estiver instalado (nenhuma ação tomada)
+        - name: Note that LibreOffice Fresh wasn't found (no action taken)
           ansible.builtin.debug:
             msg: >-
-              libreoffice-fresh não encontrado via pacman — pacote de
-              idioma {{ ptbr_libreoffice_i18n_package }} não instalado.
+              libreoffice-fresh not found via pacman —
+              {{ ptbr_libreoffice_i18n_package }} not installed.
           when: libreoffice_check.rc != 0
       tags: [ptbr-libreoffice]
 
-    - name: Man pages em pt-BR
+    - name: pt-BR man pages
       community.general.pacman:
         name: "{{ ptbr_man_pages_package }}"
         state: present
       become: true
       tags: [ptbr-man-pages]
 
-    - name: "OCR (omarchy-capture-text) — dados tesseract em pt-BR + OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}"
+    - name: "OCR (omarchy-capture-text) — pt-BR tesseract data + OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}"
       block:
-        - name: Verificar se o tesseract está instalado
+        - name: Check whether tesseract is installed
           ansible.builtin.command: pacman -Q tesseract
           register: tesseract_check
           changed_when: false
           failed_when: false
 
-        - name: Instalar os dados de OCR em português (tesseract-data-por)
+        - name: Install Portuguese OCR data (tesseract-data-por)
           community.general.pacman:
             name: "{{ ptbr_tesseract_data_package }}"
             state: present
           become: true
           when: tesseract_check.rc == 0
 
-        - name: Criar ~/.config/environment.d
+        - name: Create ~/.config/environment.d
           ansible.builtin.file:
             path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
             state: directory
             mode: "0755"
           when: tesseract_check.rc == 0
 
-        - name: "Configurar OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }} para o omarchy-capture-text"
+        - name: "Set OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }} for omarchy-capture-text"
           ansible.builtin.copy:
             content: "OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}\n"
             dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-omarchy-ocr-langs.conf"
             mode: "0644"
           when: tesseract_check.rc == 0
 
-        - name: Avisar se o tesseract não estiver instalado (nenhuma ação tomada)
+        - name: Note that tesseract wasn't found (no action taken)
           ansible.builtin.debug:
             msg: >-
-              tesseract não encontrado via pacman — dados de OCR em
-              português não instalados, OMARCHY_OCR_LANGS não
-              configurado.
+              tesseract not found via pacman — Portuguese OCR data not
+              installed, OMARCHY_OCR_LANGS not set.
           when: tesseract_check.rc != 0
       tags: [ptbr-ocr]

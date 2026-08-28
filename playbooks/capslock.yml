@@ -27,21 +27,104 @@
 # (predefinido pelo keyd) enquanto a tecla é segurada; um toque isolado
 # (sem outra tecla no meio) emite Esc. O layer `[shift]` (também
 # predefinido) recebe uma sobreposição só para `capslock`, restaurando
-# o Caps Lock literal quando combinado com Shift — mesmo mecanismo do
-# exemplo oficial do keyd (`man keyd`, "Tapping both shift keys will
-# activate capslock"), confirmado na documentação
-# (github.com/rvaiya/keyd, docs/keyd.scdoc) antes de escrever este
-# playbook. Ver playbooks/files/keyd-default.conf para o config
-# completo e comentado.
+# o Caps Lock literal quando combinado com Shift. Ver
+# playbooks/files/keyd-default.conf para o config completo e comentado
+# — inclusive a ressalva de que essa combinação só funciona com Shift
+# pressionado ANTES do Caps Lock (limitação estrutural do overload() do
+# keyd, não um erro de config).
+#
+# PRÉ-REQUISITO descoberto em 2026-08-28, nesta máquina: o Omarchy usa
+# `compose:caps` por padrão (`/usr/share/omarchy/default/hypr/input.lua`)
+# — a tecla física Caps Lock já está reatribuída, a nível de XKB, pra
+# função de Compose (Multi_key). Enquanto isso estiver ativo, NENHUM
+# remap de keyd que emita o keycode capslock (nem `overload(control,
+# esc)` no toque, nem `[shift] capslock = capslock`) consegue produzir
+# um Caps Lock de verdade — o XKB intercepta o keycode antes,
+# independente de qual dispositivo (real ou virtual do keyd) o enviou.
+# Confirmado ao vivo: Shift+Caps Lock, seguido de "u", produzia "ŭ"
+# (sequência de composição), não um toggle. Por isso este playbook
+# primeiro move o Compose pra outra tecla, liberando o Caps Lock pro
+# keyd de verdade.
+#
+# A escolha de QUAL tecla importa, e não é só "achar uma livre":
+# primeira tentativa foi `compose:rctrl` (Ctrl direito) — pareceu certo
+# (nenhum bind do Hyprland usa `rightcontrol`), mas na prática Ctrl
+# direito CONTINUOU funcionando como Ctrl normal (`Ctrl direito+U`
+# apagando a linha, igual `Ctrl+U`). Causa, confirmada com
+# `xkbcli compile-keymap --options compose:rctrl` (o símbolo da tecla
+# vira Multi_key de verdade) comparada com o comportamento real: teclas
+# que já são modificadores de hardware (Ctrl, Alt, Win — de qualquer
+# lado) ficam com o keycode físico permanentemente amarrado ao
+# modifier_map do XKB, INDEPENDENTE do símbolo atribuído a elas — então
+# a tecla acaba funcionando como Ctrl E como Compose ao mesmo tempo (o
+# Ctrl "vaza" e ganha na prática, já que atalhos como Ctrl+U reagem ao
+# estado do modificador, não ao símbolo da tecla pressionada).
+# `compose:caps` funciona de forma limpa justamente porque Caps Lock
+# NÃO é um modificador de hardware (é uma lock key comum, sem entrada
+# no modifier_map) — o mesmo vale pra qualquer tecla nessa categoria.
+#
+# Escolhida a tecla Menu/Aplicativo (`capslock_compose_key: menu`) em
+# vez disso: reporta nativamente como KEY_COMPOSE (127) no kernel
+# (confirmado via capabilities do dispositivo real,
+# `/sys/class/input/eventN/device/capabilities/key`) — ou seja, já é a
+# tecla "de fábrica" pra esse propósito em teclados que a têm — e não é
+# modificador de hardware, então `compose:menu` não sofre do mesmo
+# problema (confirmado com `xkbcli compile-keymap --options
+# compose:menu`, e testado ao vivo: a tecla Menu virou Compose de
+# verdade, sem efeito colateral em nenhum outro atalho).
+#
+# Testado depois da mudança: Shift+Caps Lock (nessa ordem) agora ativa
+# o Caps Lock de verdade (confirmado via `hyprctl devices -j`, campo
+# `capsLock` do teclado virtual do keyd passando pra `true`) — e a
+# tecla Menu segurada sozinha continua funcionando como Compose. Nota:
+# o LED físico do teclado pode não acender mesmo assim — o Hyprland
+# rastreia `capsLock` por dispositivo, e o dispositivo com o LED de
+# verdade não é o virtual do keyd; o toggle funcional (maiúsculas ao
+# digitar) é o que importa e esse funciona.
 #
 # Sequência de pânico se um config ruim travar o teclado:
 # backspace+esc+enter (mata o keyd).
 - name: Caps Lock via keyd (evdev, tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   tasks:
+    - name: "Mover o Compose do Caps Lock pro {{ capslock_compose_key }} (libera o Caps Lock pro keyd)"
+      block:
+        - name: Criar ~/.config/hypr
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+            state: directory
+            mode: "0755"
+
+        - name: Criar ~/.config/hypr/input.lua a partir do template do Omarchy, se ainda não existir
+          # Mesma pegadinha de nome já documentada em playbooks/nightlight-solar.yml
+          # (autostart.lua) e corrigida em playbooks/bitwarden.yml/hypr-scrolling-resize.yml
+          # (bindings.lua): a fonte certa é /etc/skel (o placeholder real
+          # que o instalador do Omarchy copia pra a home do usuário), NÃO
+          # /usr/share/omarchy/default/hypr/input.lua (arquivo interno
+          # diferente, carregado à parte via require).
+          ansible.builtin.copy:
+            src: /etc/skel/.config/hypr/input.lua
+            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/input.lua"
+            remote_src: true
+            force: false
+            mode: "0644"
+
+        - name: "Definir kb_options = compose:{{ capslock_compose_key }}"
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr/input.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/capslock.yml — Compose no {{ capslock_compose_key }}, liberando o Caps Lock pro keyd)"
+            block: |
+              hl.config({
+                input = {
+                  kb_options = "compose:{{ capslock_compose_key }}",
+                },
+              })
+          register: capslock_compose_key_binding
+          notify: reload Hyprland
+
     - name: Caps Lock via keyd
       become: true
       block:
@@ -76,3 +159,13 @@
         state: restarted
       become: true
       listen: restart keyd
+
+    - name: reload Hyprland
+      # Só tem efeito se estivermos rodando dentro de uma sessão
+      # Hyprland de verdade (o caso comum deste repo); fora dela não há
+      # o que recarregar, e o kb_options já vale a partir do próximo
+      # login.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland

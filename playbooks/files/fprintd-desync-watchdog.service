@@ -1,0 +1,12 @@
+[Unit]
+Description=Restart fprintd on goodix538d protocol desync (Invalid ACK/protocol command)
+After=fprintd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/bash -c 'journalctl -u fprintd -f -n0 -o cat | grep --line-buffered -E "Invalid (ACK|protocol) command" | while read -r _; do echo "fprintd-desync-watchdog: restarting fprintd"; systemctl restart fprintd.service; sleep 10; done'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

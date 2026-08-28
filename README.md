@@ -228,26 +228,50 @@ firmware/boot, então roda isolado, de propósito (veja o item 7 abaixo).
 
    **Bug diagnosticado em 2026-08-27**: o desbloqueio por digital parava
    de funcionar depois de a tela ficar bloqueada por muito tempo,
-   caindo pra senha. Causa raiz, achada em `journalctl`: o autosuspend
-   USB padrão do kernel (`power/control=auto`, ~2s de delay) suspende o
-   sensor entre os polls periódicos de digital do lock screen; o
-   driver goodix538d não sobrevive de forma confiável a esse ciclo de
-   suspend/resume — ao longo de uma sessão bloqueada longa o sensor
-   acumula erros de dessincronia de protocolo (`Invalid ACK command`/
-   `Invalid protocol command` em `journalctl -u fprintd`), os verifies
-   passam a falhar na hora em vez de esperar o toque, o lock screen
-   entra num loop martelando o fprintd (`journalctl -g "Starting pam
+   caindo pra senha. Sintoma no `journalctl -u fprintd`: erros de
+   dessincronia de protocolo (`Invalid ACK command`/`Invalid protocol
+   command`) fazendo os verifies falharem na hora em vez de esperar o
+   toque — e como o lock screen do Omarchy não tem nenhum backoff
+   (`fingerprintRetryTimer` de 250ms fixos em
+   `/usr/share/omarchy/shell/plugins/lock/Service.qml`), isso vira um
+   loop martelando o fprintd por HORAS (`journalctl -g "Starting pam
    session"` mostrou o ritmo pular de ~2 sessões PAM/minuto pra
-   ~220/minuto) e o fprintd chega a travar (SIGSEGV,
-   `coredumpctl list fprintd`) — até o lock screen desistir da digital.
-   Corrigido com uma regra udev
-   (`ACTION=="add|change", SUBSYSTEM=="usb", ATTR{idVendor}=="27c6",
-   ATTR{idProduct}=="538d", TEST=="power/control",
-   ATTR{power/control}="on"`) que mantém o sensor sempre ligado,
-   removendo o gatilho — mesma automação já rodada nesta máquina,
-   agora idempotente via `playbooks/libfprint.yml` (não precisa
-   recompilar nada pra reaplicar, só a parte de instalação privilegiada
-   no host).
+   ~220/minuto) até alguém digitar a senha manualmente.
+
+   Duas tentativas de correção, a primeira descartada por evidência:
+     1. **Autosuspend USB** (regra udev, `ACTION=="add|change",
+        SUBSYSTEM=="usb", ATTR{idVendor}=="27c6",
+        ATTR{idProduct}=="538d", TEST=="power/control",
+        ATTR{power/control}="on"`) — teoria de que o autosuspend padrão
+        do kernel (~2s) suspendendo o sensor entre polls causava a
+        dessincronia. **Descartada**: o bug voltou a ocorrer horas
+        depois, já com `power/control=on` o tempo todo. Mantida mesmo
+        assim (inofensiva), mas não é o que resolve o problema.
+     2. **Causa raiz de verdade**: o driver goodix538d (fork
+        [lbssousa/libfprint](https://github.com/lbssousa/libfprint),
+        branch `goodix-538d-sigfm-gtls`) desincroniza o protocolo com o
+        MCU do sensor depois de um cancel de verify — o comando
+        FDT_DOWN ("esperar dedo", 0x32) já enviado ao MCU não pode ser
+        desenviado; sua resposta chega tarde, depois que o próximo
+        comando já está em voo, e o `cmd` não bate mais. O processo
+        `fprintd` fica com esse estado quebrado pelo resto da vida
+        dele — só um restart resolve. O fork já tenta corrigir isso
+        (commit `4d9acb0`, mandando o MCU pra idle, comando 0x70, no
+        cancel), mas comete o mesmo erro fire-and-forget que está
+        corrigindo: a resposta do próprio 0x70 chega tarde e colide com
+        o comando seguinte (`Invalid ACK command: 0x70`, visto nesta
+        máquina horas depois desse fix já estar instalado). O bug só
+        migrou de comando — corrigir de vez pediria rastrear respostas
+        atrasadas por geração/sequência no driver, fora do escopo deste
+        repositório de configuração.
+
+   **Mitigação aplicada**: `fprintd-desync-watchdog.service`
+   (`playbooks/files/fprintd-desync-watchdog.service`, instalado por
+   `playbooks/libfprint.yml`) segue `journalctl -u fprintd -f` e
+   reinicia o `fprintd` assim que vir esses avisos — o mesmo
+   `systemctl restart fprintd` que já resolvia manualmente, só que
+   automático e em segundos, em vez de horas de martelamento até
+   alguém digitar a senha.
 
 7. **Impressora EPSON L4160** (`playbooks/printer.yml`, tag `printer`) —
    modelo copiado do repositório irmão

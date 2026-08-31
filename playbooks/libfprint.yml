@@ -167,15 +167,25 @@
             - trigger udev rule for goodix fingerprint reader
             - restart fprintd
 
-        - name: Install the fprintd desync watchdog
-          # The goodix538d driver can desync its protocol with the
-          # sensor's MCU after a verify cancel, leaving fprintd stuck
-          # failing every subsequent verify instantly instead of
-          # waiting for a touch — and the Omarchy lock screen retries
-          # with no backoff, hammering fprintd for hours. This watchdog
-          # follows `journalctl -u fprintd` and restarts the service the
-          # moment it sees the desync warning, instead of waiting for a
-          # manual restart.
+        - name: Install the fprintd desync watchdog script
+          # Two independent detectors: the goodix538d driver desyncing
+          # its protocol with the sensor's MCU after a verify cancel
+          # (leaves fprintd stuck failing every verify instantly), and
+          # the Omarchy lock screen's fingerprint retry loop hammering
+          # fprintd with no backoff for as long as the screen stays
+          # locked (upstream omacom/omarchy#7176, #7172 — open,
+          # unfixed as of Omarchy 4.0.1). Both get the same fix:
+          # restart fprintd the moment the signature shows up, instead
+          # of waiting for a manual restart.
+          ansible.builtin.copy:
+            src: fprintd-desync-watchdog.sh
+            dest: /usr/local/bin/fprintd-desync-watchdog
+            mode: "0755"
+          notify:
+            - reload systemd
+            - enable and start fprintd-desync-watchdog
+
+        - name: Install the fprintd desync watchdog service
           ansible.builtin.copy:
             src: fprintd-desync-watchdog.service
             dest: /etc/systemd/system/fprintd-desync-watchdog.service

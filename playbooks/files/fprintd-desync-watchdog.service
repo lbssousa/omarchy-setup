@@ -1,10 +1,10 @@
 [Unit]
-Description=Restart fprintd on goodix538d protocol desync (Invalid ACK/protocol command)
+Description=Restart fprintd on goodix538d desync or lock-screen fingerprint retry storms
 After=fprintd.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/bash -c 'journalctl -u fprintd -f -n0 -o cat | grep --line-buffered -E "Invalid (ACK|protocol) command" | while read -r _; do echo "fprintd-desync-watchdog: restarting fprintd"; systemctl restart fprintd.service; sleep 10; done'
+ExecStart=/usr/local/bin/fprintd-desync-watchdog
 Restart=always
 RestartSec=5
 

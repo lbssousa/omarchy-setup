@@ -19,7 +19,7 @@ only runs when called explicitly.
 | Bitwarden | `bitwarden` | Desktop client (AUR or official, whichever is newer) + SSH agent wiring. |
 | Podman | `podman` | Rootless container engine. |
 | Distrobox | `distrobox` | Depends on Podman. |
-| libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug. |
+| libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
 | Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+SHIFT+[ resize the focused column. |
 | Shell/terminal text size | `text-size` | Scales the bar + terminals without scaling GTK apps. |

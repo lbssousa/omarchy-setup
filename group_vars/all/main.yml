@@ -11,6 +11,24 @@ sudo_passwd_timeout_minutes: 1
 # polkit authentication cache window (seconds), for pkexec/graphical tools.
 polkit_expiration_seconds: 1800
 
+# Firefox (playbooks/firefox.yml) — runs before pt-BR localization, which
+# depends on Firefox already being installed.
+firefox_package: firefox
+firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
+firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
+
+# Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
+# so the Omarchy theme integration (omazed) comes along.
+zed_package: zed
+zed_omazed_package: omazed
+zed_font_size: 20
+
+# Same family Omarchy sets as the system-wide monospace default (see
+# /usr/share/omarchy/default/fontconfig/conf.avail/50-omarchy.conf) —
+# note it's the Nerd Font build ("JetBrainsMono Nerd Font"), not plain
+# "JetBrains Mono", which isn't installed on its own.
+zed_buffer_font_family: "JetBrainsMono Nerd Font"
+
 # pt-BR localization (playbooks/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"

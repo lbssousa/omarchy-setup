@@ -1,0 +1,40 @@
+---
+# Installs Firefox and enables "tab apps" (Taskbar Tabs — pin a site to
+# the taskbar as an app-like window), off by default on Linux even
+# though it's already stable and on by default on Windows.
+#
+# browser.taskbarTabs.enabled isn't in the fixed allowlist the
+# Preferences key in policies.json accepts, so it can't be set that way
+# (see policies.json's Firefox pt-BR block in playbooks/ptbr.yml, which
+# CAN use it for RequestedLocale). Instead, this drops a small
+# defaults/preferences/*.js file — the same mechanism the Arch package
+# itself uses for its own overrides (see vendor.js in the same
+# directory) — which only changes the *default* value: still visible
+# and user-overridable in about:config, and untouched by future Firefox
+# upgrades since it's a separate file from the package's own vendor.js.
+#
+# Runs before playbooks/ptbr.yml (see site.yml) so that Firefox is
+# already installed by the time the pt-BR language pack step checks for
+# it.
+- name: Firefox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Install Firefox
+      community.general.pacman:
+        name: "{{ firefox_package }}"
+        state: present
+      become: true
+
+    - name: "Enable tab apps by default ({{ firefox_taskbar_tabs_pref_name }})"
+      ansible.builtin.copy:
+        content: |
+          // Tab apps (Taskbar Tabs) — stable but off by default on
+          // Linux. Only flips the default; still user-overridable in
+          // about:config.
+          pref("{{ firefox_taskbar_tabs_pref_name }}", true);
+        dest: "{{ firefox_taskbar_tabs_pref_dest }}"
+        mode: "0644"
+      become: true

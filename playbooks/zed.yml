@@ -1,0 +1,100 @@
+---
+# Zed editor, installed the same way Omarchy's own TUI installer does it
+# (see /usr/share/omarchy/bin/omarchy-install-editor-zed): the "zed" and
+# "omazed" packages, then `omazed setup`. omazed is what generates the
+# custom Zed color theme from the active Omarchy palette (colors.toml)
+# and installs a theme-set hook so Zed's theme keeps following Omarchy's
+# whenever it changes — reimplementing that here would mean duplicating
+# omazed's own template/generator instead of reusing it.
+#
+# Skips the interactive script's last step (launching Zed once via
+# gtk-launch) — pointless and possibly disruptive during an unattended
+# run.
+#
+# On top of that, forces every Zed font size (UI, editor buffer, agent
+# panel, integrated terminal) to the same size, and sets the buffer
+# (editor) font to JetBrainsMono Nerd Font — the same family Omarchy
+# sets as the desktop's default monospace font. Merged into
+# settings.json without touching the theme/other settings omazed (or
+# the user) already put there.
+- name: Zed editor (Omarchy theme + font size + buffer font)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    zed_config_dir: "{{ ansible_facts.env.HOME }}/.config/zed"
+    zed_settings_path: "{{ zed_config_dir }}/settings.json"
+    # Only the v4 hook path is checked here (this repo already assumes a
+    # current Omarchy install, like every other playbook). Re-running
+    # `omazed setup` is harmless either way — this only affects whether
+    # the step is reported as changed.
+    zed_omazed_hook_path: "{{ ansible_facts.env.HOME }}/.config/omarchy/hooks/theme-set.d/omazed"
+
+  tasks:
+    - name: Install Zed and omazed
+      community.general.pacman:
+        name:
+          - "{{ zed_package }}"
+          - "{{ zed_omazed_package }}"
+        state: present
+      become: true
+
+    - name: Check whether omazed's theme-sync hook is already set up
+      ansible.builtin.stat:
+        path: "{{ zed_omazed_hook_path }}"
+      register: zed_omazed_hook_stat
+
+    - name: "Apply the Omarchy theme to Zed (omazed setup)"
+      ansible.builtin.command: omazed setup
+      changed_when: not zed_omazed_hook_stat.stat.exists
+
+    - name: Create ~/.config/zed
+      ansible.builtin.file:
+        path: "{{ zed_config_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check whether settings.json already exists
+      ansible.builtin.stat:
+        path: "{{ zed_settings_path }}"
+      register: zed_settings_stat
+
+    - name: Load the current settings.json (or an empty object)
+      block:
+        - name: Try parsing the current settings.json
+          ansible.builtin.set_fact:
+            zed_settings_current: >-
+              {{
+                (lookup('file', zed_settings_path) | from_json)
+                if zed_settings_stat.stat.exists
+                else {}
+              }}
+      rescue:
+        - name: Existing settings.json isn't valid JSON — treat as empty
+          ansible.builtin.set_fact:
+            zed_settings_current: {}
+
+        - name: Warn about the corrupted settings.json
+          ansible.builtin.debug:
+            msg: >-
+              {{ zed_settings_path }} exists but isn't valid JSON —
+              treated as empty and will be overwritten now. Any setting
+              that only existed in that file was lost.
+
+    - name: "Set every Zed font size to {{ zed_font_size }}px and the buffer font to {{ zed_buffer_font_family }}"
+      ansible.builtin.copy:
+        content: >-
+          {{
+            (zed_settings_current
+              | combine({
+                  'buffer_font_size': zed_font_size,
+                  'buffer_font_family': zed_buffer_font_family,
+                  'ui_font_size': zed_font_size,
+                  'agent_font_size': zed_font_size,
+                  'terminal': { 'font_size': zed_font_size },
+                }, recursive=True)
+              | to_nice_json)
+          }}
+        dest: "{{ zed_settings_path }}"
+        mode: "0600"

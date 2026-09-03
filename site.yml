@@ -15,6 +15,14 @@
   ansible.builtin.import_playbook: playbooks/nvidia.yml
   tags: [nvidia]
 
+- name: Firefox
+  ansible.builtin.import_playbook: playbooks/firefox.yml
+  tags: [firefox]
+
+- name: Zed editor
+  ansible.builtin.import_playbook: playbooks/zed.yml
+  tags: [zed]
+
 - name: pt-BR localization
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]

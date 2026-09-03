@@ -148,26 +148,6 @@ libfprint_opencv4_shim_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/l
 libfprint_goodix_usb_vendor_id: "27c6"
 libfprint_goodix_usb_product_id: "538d"
 
-# NVIDIA (playbooks/nvidia.yml) — package choice depends on GPU
-# generation, detected via Omarchy's own helper scripts.
-nvidia_kernel_pkg_regex: '^linux(-zen|-lts|-hardened|-t2|-ptl)?$'
-
-# Turing or newer.
-nvidia_gsp_packages:
-  - nvidia-open-dkms
-  - nvidia-utils
-  - lib32-nvidia-utils
-  - libva-nvidia-driver
-
-# Maxwell/Pascal/Volta.
-nvidia_without_gsp_packages:
-  - nvidia-580xx-dkms
-  - nvidia-580xx-utils
-  - lib32-nvidia-580xx-utils
-
-nvidia_modprobe_conf_dest: /etc/modprobe.d/nvidia.conf
-nvidia_mkinitcpio_conf_dest: /etc/mkinitcpio.conf.d/nvidia.conf
-
 # Secure Boot (Limine + sbctl, playbooks/secureboot.yml — not part of
 # `just setup`, run explicitly).
 secureboot_esp_path: /boot

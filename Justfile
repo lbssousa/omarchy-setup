@@ -28,10 +28,6 @@ sudo: _ensure-collections
 polkit: _ensure-collections
     ansible-playbook site.yml --tags polkit --ask-become-pass
 
-# Run only the NVIDIA playbook.
-nvidia: _ensure-collections
-    ansible-playbook site.yml --tags nvidia --ask-become-pass
-
 # Install Firefox and enable tab apps (Taskbar Tabs).
 firefox: _ensure-collections
     ansible-playbook site.yml --tags firefox --ask-become-pass

@@ -11,10 +11,6 @@
   ansible.builtin.import_playbook: playbooks/polkit.yml
   tags: [polkit]
 
-- name: NVIDIA (proprietary driver)
-  ansible.builtin.import_playbook: playbooks/nvidia.yml
-  tags: [nvidia]
-
 - name: Firefox
   ansible.builtin.import_playbook: playbooks/firefox.yml
   tags: [firefox]

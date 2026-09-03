@@ -14,7 +14,6 @@ only runs when called explicitly.
 
 | Automation | Tag | What it does |
 |---|---|---|
-| NVIDIA | `nvidia` | Installs the right proprietary driver for the detected GPU, plus early KMS. |
 | Firefox | `firefox` | Installs Firefox and enables tab apps (Taskbar Tabs), off by default on Linux. Runs before pt-BR localization. |
 | Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 20px and the buffer font to JetBrainsMono Nerd Font. |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
@@ -40,8 +39,6 @@ See each playbook's own header comment for implementation details.
 - `sudo` and a user in the `wheel` group.
 - The libfprint playbook needs Podman + Distrobox already set up
   (`site.yml` already runs them in the right order).
-- The NVIDIA playbook depends on Omarchy's own hardware-detection
-  tools — Omarchy-specific, not plain Arch.
 - The Secure Boot playbook only covers Limine + limine-entry-tool.
 
 Neither `just` nor `ansible` need to be pre-installed: `./bootstrap.sh`
@@ -107,7 +104,6 @@ just ssh-yubikey  # needs the Yubikey plugged in
 | `site.yml` | Index: imports each `playbooks/*.yml` with its tag |
 | `playbooks/sudo.yml` | sudo passwd_timeout (tag `sudo`) |
 | `playbooks/polkit.yml` | polkitd ExpirationSeconds (tag `polkit`) |
-| `playbooks/nvidia.yml` | NVIDIA driver (tag `nvidia`) |
 | `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
 | `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
@@ -129,4 +125,4 @@ just ssh-yubikey  # needs the Yubikey plugged in
 | `playbooks/tasks/` | Reusable tasks included via `include_tasks` |
 | `group_vars/all/main.yml` | Variables for all automations |
 | `requirements.yml` | Required Ansible collections |
-| `Justfile` | Shortcuts (`just setup`, `just nvidia`, etc.) |
+| `Justfile` | Shortcuts (`just setup`, `just ptbr`, etc.) |

@@ -35,15 +35,18 @@ ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"
 ptbr_language_fallback: "pt_BR:pt:en"
 
 ptbr_xdg_user_dirs:
-  - { name: DESKTOP, translated: "Área de Trabalho" }
-  - { name: DOWNLOAD, translated: "Downloads" }
-  - { name: TEMPLATES, translated: "Modelos" }
-  - { name: PUBLICSHARE, translated: "Público" }
-  - { name: DOCUMENTS, translated: "Documentos" }
-  - { name: MUSIC, translated: "Música" }
-  - { name: PICTURES, translated: "Imagens" }
-  - { name: VIDEOS, translated: "Vídeos" }
-  - { name: PROJECTS, translated: "Projetos" }
+  # "default" is the stock (pre-translation) English folder name — used
+  # to find and fix file-manager sidebar bookmarks still pointing at it
+  # (see the GTK bookmarks task below).
+  - { name: DESKTOP, default: "Desktop", translated: "Área de Trabalho" }
+  - { name: DOWNLOAD, default: "Downloads", translated: "Downloads" }
+  - { name: TEMPLATES, default: "Templates", translated: "Modelos" }
+  - { name: PUBLICSHARE, default: "Public", translated: "Público" }
+  - { name: DOCUMENTS, default: "Documents", translated: "Documentos" }
+  - { name: MUSIC, default: "Music", translated: "Música" }
+  - { name: PICTURES, default: "Pictures", translated: "Imagens" }
+  - { name: VIDEOS, default: "Videos", translated: "Vídeos" }
+  - { name: PROJECTS, default: "Projects", translated: "Projetos" }
 
 ptbr_firefox_i18n_package: firefox-i18n-pt-br
 ptbr_firefox_requested_locale:

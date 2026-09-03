@@ -6,7 +6,8 @@
 #     removing other locales, and sets LANG/LANGUAGE in /etc/locale.conf.
 #   - xdg-user-dirs (ptbr-xdg-user-dirs): renames personal folders
 #     (~/Downloads, etc.) to their pt-BR translations, only for folders
-#     that are already enabled.
+#     that are already enabled. Also fixes any file-manager sidebar
+#     bookmark still pointing at the old English path/label.
 #   - Firefox (ptbr-firefox): installs the pt-BR language pack and forces
 #     RequestedLocale via policies.json, since a profile created before
 #     LANG was pt_BR never renegotiates its language on its own.
@@ -101,6 +102,37 @@
             - current_path != (ansible_facts.env.HOME | regex_replace('/+$', ''))
             - current_path != desired_path
           changed_when: true
+
+        - name: Locate GTK bookmarks files (file-manager sidebar)
+          ansible.builtin.find:
+            paths:
+              - "{{ ansible_facts.env.HOME }}/.config/gtk-3.0"
+              - "{{ ansible_facts.env.HOME }}/.config/gtk-4.0"
+            patterns: bookmarks
+            file_type: file
+          register: gtk_bookmarks_files
+
+        - name: Fix sidebar bookmarks still pointing at the pre-translation folder name
+          # Renaming the folder (above) doesn't touch bookmarks the file
+          # manager already created against the old English path — left
+          # unfixed, they show a stale label and point nowhere. Only
+          # rewrites a line that's already there (ansible.builtin.replace
+          # is a no-op without a match) — never adds a bookmark for a
+          # folder that wasn't already bookmarked. Runs independently of
+          # whether the rename happened in this same play or a previous
+          # one, so it also repairs bookmarks left over from before this
+          # task existed.
+          vars:
+            old_default_path: "{{ ansible_facts.env.HOME }}/{{ item.1.item.default }}"
+            new_path: "{{ ansible_facts.env.HOME }}/{{ item.1.item.translated }}"
+          ansible.builtin.replace:
+            path: "{{ item.0 }}"
+            regexp: "(?m)^file://{{ old_default_path | regex_escape }}(\\s.*)?$"
+            replace: "file://{{ new_path }} {{ item.1.item.translated }}"
+          loop: "{{ gtk_bookmarks_files.files | map(attribute='path') | product(xdg_current.results) | list }}"
+          loop_control:
+            label: "{{ item.0 }} — {{ item.1.item.name }}"
+          when: item.1.item.default != item.1.item.translated
       tags: [ptbr-xdg-user-dirs]
 
     - name: Firefox pt-BR language pack

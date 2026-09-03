@@ -15,6 +15,8 @@ only runs when called explicitly.
 | Automation | Tag | What it does |
 |---|---|---|
 | NVIDIA | `nvidia` | Installs the right proprietary driver for the detected GPU, plus early KMS. |
+| Firefox | `firefox` | Installs Firefox and enables tab apps (Taskbar Tabs), off by default on Linux. Runs before pt-BR localization. |
+| Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 20px and the buffer font to JetBrainsMono Nerd Font. |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
 | Bitwarden | `bitwarden` | Desktop client (AUR or official, whichever is newer) + SSH agent wiring. |
 | Podman | `podman` | Rootless container engine. |
@@ -106,6 +108,8 @@ just ssh-yubikey  # needs the Yubikey plugged in
 | `playbooks/sudo.yml` | sudo passwd_timeout (tag `sudo`) |
 | `playbooks/polkit.yml` | polkitd ExpirationSeconds (tag `polkit`) |
 | `playbooks/nvidia.yml` | NVIDIA driver (tag `nvidia`) |
+| `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
+| `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/bitwarden.yml` | Bitwarden (tag `bitwarden`) |
 | `playbooks/podman.yml` | Podman rootless (tag `podman`) |

@@ -32,6 +32,15 @@ polkit: _ensure-collections
 nvidia: _ensure-collections
     ansible-playbook site.yml --tags nvidia --ask-become-pass
 
+# Install Firefox and enable tab apps (Taskbar Tabs).
+firefox: _ensure-collections
+    ansible-playbook site.yml --tags firefox --ask-become-pass
+
+# Install Zed (Omarchy theme integration), set every font size to 20px
+# and the buffer font to JetBrainsMono Nerd Font.
+zed: _ensure-collections
+    ansible-playbook site.yml --tags zed --ask-become-pass
+
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections
     ansible-playbook site.yml --tags ptbr --ask-become-pass

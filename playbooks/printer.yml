@@ -4,6 +4,12 @@
 # one bad job doesn't jam the whole queue. CUPS + Avahi + nss-mdns aren't
 # installed by default on a clean Omarchy, so this playbook installs and
 # enables all three first.
+#
+# If the printer doesn't answer via mDNS (most likely just powered
+# off), the queue setup is skipped with a warning instead of failing
+# the play — a hard failure here would abort the whole `site.yml` run,
+# breaking `just setup` for every other playbook over something as
+# routine as the L4160 being off.
 - name: EPSON L4160 printer (driverless)
   hosts: localhost
   connection: local
@@ -40,18 +46,19 @@
       changed_when: false
       failed_when: false
 
-    - name: Fail with guidance if the printer didn't answer
-      ansible.builtin.fail:
+    - name: Warn and skip if the printer didn't answer
+      ansible.builtin.debug:
         msg: >-
           "{{ printer_l4160_hostname }}" didn't answer via mDNS
-          (`getent hosts` found nothing). Check the L4160 is powered on
-          and connected to Wi-Fi, then try again. If the hostname
-          changed, update printer_l4160_hostname in
-          group_vars/all/main.yml.
+          (`getent hosts` found nothing) — skipping the print queue
+          setup. Check the L4160 is powered on and connected to
+          Wi-Fi, then rerun (`just printer`). If the hostname changed,
+          update printer_l4160_hostname in group_vars/all/main.yml.
       when: printer_l4160_resolve.rc != 0
 
     - name: EPSON L4160 printer (driverless)
       become: true
+      when: printer_l4160_resolve.rc == 0
       block:
         - name: Check the current L4160 print queue
           ansible.builtin.command: "lpstat -v {{ printer_l4160_name }}"

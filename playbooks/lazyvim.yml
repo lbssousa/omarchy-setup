@@ -1,0 +1,83 @@
+---
+# LazyVim plugin preferences — Omarchy already installs and manages
+# LazyVim itself (~/.config/nvim); this only layers two personal
+# preferences on top of that install:
+#
+#   - Enables LazyVim's bundled LaTeX extra
+#     (lazyvim.plugins.extras.lang.tex — vimtex, texlab and LaTeX-aware
+#     treesitter setup), by adding it to lazyvim.json's "extras"
+#     list, the same file LazyVim's own :LazyExtras UI writes to.
+#     Existing extras (e.g. Omarchy's own
+#     lazyvim.plugins.extras.editor.neo-tree) and the file's other keys
+#     (install_version, news, version) are preserved.
+#
+#   - Installs AISCGre-BR/gregorio.nvim (GABC/NABC — Gregorian chant
+#     notation — support), lazy-loaded on the "gabc" filetype, via a
+#     dedicated spec file under lua/plugins/. That directory is scanned
+#     automatically by lazy.nvim — see lua/plugins/example.lua (LazyVim's
+#     own starter example) for the same pattern. The plugin's optional
+#     LSP integration talks to gregorio-lsp (playbooks/gregorio-lsp.yml),
+#     which must be on PATH for diagnostics to activate; the plugin
+#     itself works without it (syntax highlighting, editing commands).
+#
+# Assumes Omarchy's default ~/.config/nvim (LazyVim) is already in
+# place — fails loudly instead of silently scaffolding a fresh install
+# if lazyvim.json is missing. Neither step touches any other plugin file
+# or theme setting.
+- name: LazyVim plugin preferences (LaTeX extra + gregorio.nvim)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Check whether lazyvim.json already exists
+      ansible.builtin.stat:
+        path: "{{ lazyvim_json_path }}"
+      register: lazyvim_json_stat
+
+    - name: lazyvim.json must already exist (Omarchy installs LazyVim by default)
+      ansible.builtin.assert:
+        that: lazyvim_json_stat.stat.exists
+        fail_msg: >-
+          {{ lazyvim_json_path }} not found — this playbook assumes
+          Omarchy's default LazyVim setup is already installed.
+
+    - name: Load the current lazyvim.json
+      ansible.builtin.set_fact:
+        lazyvim_json_current: "{{ lookup('file', lazyvim_json_path) | from_json }}"
+
+    - name: "Enable the LazyVim LaTeX extra ({{ lazyvim_latex_extra }})"
+      ansible.builtin.copy:
+        content: >-
+          {{
+            (lazyvim_json_current
+              | combine({
+                  'extras': ((lazyvim_json_current.extras | default([]))
+                             + [lazyvim_latex_extra]) | unique | sort,
+                }))
+              | to_nice_json(indent=2, sort_keys=True)
+          }}
+        dest: "{{ lazyvim_json_path }}"
+        mode: "0644"
+
+    - name: Create ~/.config/nvim/lua/plugins
+      ansible.builtin.file:
+        path: "{{ lazyvim_plugins_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Install gregorio.nvim ({{ gregorio_nvim_repo }})"
+      ansible.builtin.copy:
+        dest: "{{ gregorio_nvim_plugin_file }}"
+        mode: "0644"
+        content: |
+          -- Managed by omarchy-setup (playbooks/lazyvim.yml). GABC/NABC
+          -- (Gregorian chant notation) support. Pairs with gregorio-lsp
+          -- (playbooks/gregorio-lsp.yml) for diagnostics/language
+          -- features — optional, the plugin works without it.
+          return {
+            {
+              "{{ gregorio_nvim_repo }}",
+              ft = "gabc",
+            },
+          }

@@ -19,6 +19,18 @@
   ansible.builtin.import_playbook: playbooks/zed.yml
   tags: [zed]
 
+- name: gregorio-lsp
+  ansible.builtin.import_playbook: playbooks/gregorio-lsp.yml
+  tags: [gregorio-lsp]
+
+- name: PDF viewer (Zathura default, Papers optional, Evince kept for sushi)
+  ansible.builtin.import_playbook: playbooks/pdf-viewer.yml
+  tags: [pdf-viewer]
+
+- name: LazyVim plugin preferences (LaTeX extra + gregorio.nvim)
+  ansible.builtin.import_playbook: playbooks/lazyvim.yml
+  tags: [lazyvim]
+
 - name: pt-BR localization
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]

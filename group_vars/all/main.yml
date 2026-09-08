@@ -29,6 +29,52 @@ zed_font_size: 20
 # "JetBrains Mono", which isn't installed on its own.
 zed_buffer_font_family: "JetBrainsMono Nerd Font"
 
+# This repo's container engine is rootless Podman (playbooks/podman.yml),
+# not Docker — Zed's Dev Containers feature needs to be told that, or it
+# shells out to `docker` and fails. See
+# https://zed.dev/docs/dev-containers.
+zed_dev_container_use_podman: true
+
+# gregorio-lsp (playbooks/gregorio-lsp.yml) — LSP server, grelint and
+# grefmt for GABC/NABC (Gregorian chant notation), built from source
+# with cargo. Pinned to a tag for reproducibility — bump when a newer
+# release is needed.
+gregorio_lsp_repo: https://github.com/aiscgre-br/gregorio-lsp.git
+gregorio_lsp_ref: v0.11.0
+gregorio_lsp_checkout_dir: "{{ ansible_facts.env.HOME }}/src/gregorio-lsp"
+gregorio_lsp_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
+gregorio_lsp_server_crate: crates/gregorio-server
+gregorio_lsp_cli_crate: crates/gregorio-cli
+gregorio_lsp_binaries:
+  - gregorio-lsp
+  - grelint
+  - grefmt
+
+# LazyVim (playbooks/lazyvim.yml) — Omarchy's default Neovim distro,
+# already installed at ~/.config/nvim; this only adds the LaTeX language
+# extra and a personal plugin on top of it.
+lazyvim_config_dir: "{{ ansible_facts.env.HOME }}/.config/nvim"
+lazyvim_json_path: "{{ lazyvim_config_dir }}/lazyvim.json"
+lazyvim_plugins_dir: "{{ lazyvim_config_dir }}/lua/plugins"
+# LazyVim's LaTeX extra module is named "lang.tex", not "lang.latex" —
+# see lua/lazyvim/plugins/extras/lang/tex.lua in the LazyVim plugin
+# itself (installs vimtex + texlab + LaTeX treesitter).
+lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
+
+# gregorio.nvim (playbooks/lazyvim.yml) — GABC/NABC (Gregorian chant
+# notation) support, pairs with gregorio_lsp_* above.
+gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
+gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
+
+# PDF viewer (playbooks/pdf-viewer.yml) — Zathura becomes the default
+# PDF viewer; Papers is installed as an extra, non-default viewer; Evince
+# is kept installed (Nautilus's sushi previewer depends on it).
+pdf_viewer_papers_package: papers
+pdf_viewer_zathura_package: zathura
+pdf_viewer_zathura_backend_package: zathura-pdf-mupdf
+pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
+pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
+
 # pt-BR localization (playbooks/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"

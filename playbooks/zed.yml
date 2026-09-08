@@ -14,9 +14,17 @@
 # On top of that, forces every Zed font size (UI, editor buffer, agent
 # panel, integrated terminal) to the same size, and sets the buffer
 # (editor) font to JetBrainsMono Nerd Font — the same family Omarchy
-# sets as the desktop's default monospace font. Merged into
-# settings.json without touching the theme/other settings omazed (or
-# the user) already put there.
+# sets as the desktop's default monospace font.
+#
+# Also sets "use_podman": true, since this repo's container engine is
+# rootless Podman (playbooks/podman.yml), not Docker — without it, Zed's
+# Dev Containers feature shells out to `docker`, which isn't installed/
+# running here, and every "Open in Container" attempt fails. See
+# https://zed.dev/docs/dev-containers ("If you use podman, you must set
+# the use_podman setting in your Zed settings.json to true").
+#
+# All of the above is merged into settings.json without touching the
+# theme/other settings omazed (or the user) already put there.
 - name: Zed editor (Omarchy theme + font size + buffer font)
   hosts: localhost
   connection: local
@@ -82,7 +90,7 @@
               treated as empty and will be overwritten now. Any setting
               that only existed in that file was lost.
 
-    - name: "Set every Zed font size to {{ zed_font_size }}px and the buffer font to {{ zed_buffer_font_family }}"
+    - name: "Set every Zed font size to {{ zed_font_size }}px, the buffer font to {{ zed_buffer_font_family }}, and use_podman"
       ansible.builtin.copy:
         content: >-
           {{
@@ -93,6 +101,7 @@
                   'ui_font_size': zed_font_size,
                   'agent_font_size': zed_font_size,
                   'terminal': { 'font_size': zed_font_size },
+                  'use_podman': zed_dev_container_use_podman,
                 }, recursive=True)
               | to_nice_json)
           }}

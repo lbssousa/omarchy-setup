@@ -1,0 +1,82 @@
+---
+# gregorio-lsp — Language Server, linter (grelint) and formatter (grefmt)
+# for GABC/NABC (Gregorian chant notation) files, built from source
+# (https://github.com/aiscgre-br/gregorio-lsp). Upstream only publishes
+# source tags, no prebuilt binaries, so this always builds locally.
+#
+# Rust is installed the same way Omarchy's own TUI installer does it —
+# `omarchy-install-dev-env rust`, which runs the official rustup script
+# non-interactively and puts cargo/rustc in ~/.cargo/bin. That directory
+# is prepended to PATH explicitly on every cargo task below, rather than
+# relying on ansible_facts.env.PATH (gathered at play start, so it won't
+# reflect a rustup install that just happened earlier in this same run).
+#
+# Builds happen directly on the host with `cargo install --path ...
+# --locked --force` — no build container, unlike playbooks/libfprint.yml:
+# there's no system library to isolate here, and Omarchy already ships a
+# C toolchain for cargo's own linking. --force is safe because the
+# install tasks only run when the checkout changed or a binary is
+# missing (see gregorio_lsp_needs_build below); --locked builds against
+# the repo's own Cargo.lock.
+#
+# The workspace's gregorio-cli crate declares two [[bin]] targets
+# (grelint, grefmt), so a single `cargo install --path
+# crates/gregorio-cli` installs both at once.
+#
+# No privileged steps — rustup and cargo install both stay in $HOME.
+#
+# Usage: ansible-playbook site.yml --tags gregorio-lsp
+- name: gregorio-lsp (LSP server, grelint, grefmt)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    gregorio_lsp_cargo_env:
+      PATH: "{{ gregorio_lsp_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
+
+  tasks:
+    - name: Check whether Rust (cargo) is already installed
+      ansible.builtin.stat:
+        path: "{{ gregorio_lsp_cargo_bin_dir }}/cargo"
+      register: gregorio_lsp_cargo_stat
+
+    - name: Install Rust (omarchy-install-dev-env rust)
+      ansible.builtin.command: omarchy-install-dev-env rust
+      when: not gregorio_lsp_cargo_stat.stat.exists
+
+    - name: "Clone/update the gregorio-lsp repo ({{ gregorio_lsp_ref }})"
+      ansible.builtin.git:
+        repo: "{{ gregorio_lsp_repo }}"
+        dest: "{{ gregorio_lsp_checkout_dir }}"
+        version: "{{ gregorio_lsp_ref }}"
+        force: false
+      register: gregorio_lsp_git_result
+
+    - name: Check whether the binaries are already installed
+      ansible.builtin.stat:
+        path: "{{ gregorio_lsp_cargo_bin_dir }}/{{ item }}"
+      register: gregorio_lsp_binaries_stat
+      loop: "{{ gregorio_lsp_binaries }}"
+
+    - name: Determine whether a (re)build is needed
+      ansible.builtin.set_fact:
+        gregorio_lsp_needs_build: >-
+          {{ gregorio_lsp_git_result.changed
+             or (gregorio_lsp_binaries_stat.results
+                 | selectattr('stat.exists', 'equalto', false)
+                 | list | length > 0) }}
+
+    - name: "Build and install gregorio-lsp (LSP server)"
+      ansible.builtin.command:
+        cmd: "{{ gregorio_lsp_cargo_bin_dir }}/cargo install --path {{ gregorio_lsp_server_crate }} --locked --force"
+        chdir: "{{ gregorio_lsp_checkout_dir }}"
+      environment: "{{ gregorio_lsp_cargo_env }}"
+      when: gregorio_lsp_needs_build
+
+    - name: "Build and install grelint + grefmt (CLI)"
+      ansible.builtin.command:
+        cmd: "{{ gregorio_lsp_cargo_bin_dir }}/cargo install --path {{ gregorio_lsp_cli_crate }} --locked --force"
+        chdir: "{{ gregorio_lsp_checkout_dir }}"
+      environment: "{{ gregorio_lsp_cargo_env }}"
+      when: gregorio_lsp_needs_build

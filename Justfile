@@ -37,6 +37,19 @@ firefox: _ensure-collections
 zed: _ensure-collections
     ansible-playbook site.yml --tags zed --ask-become-pass
 
+# Install Rust (if needed) and build/install gregorio-lsp, grelint and
+# grefmt from source.
+gregorio-lsp: _ensure-collections
+    ansible-playbook site.yml --tags gregorio-lsp
+
+# Make Zathura the default PDF viewer + Papers (optional viewer); Evince stays installed (sushi depends on it).
+pdf-viewer: _ensure-collections
+    ansible-playbook site.yml --tags pdf-viewer --ask-become-pass
+
+# Enable LazyVim's LaTeX extra and install gregorio.nvim (GABC/NABC).
+lazyvim: _ensure-collections
+    ansible-playbook site.yml --tags lazyvim
+
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections
     ansible-playbook site.yml --tags ptbr --ask-become-pass

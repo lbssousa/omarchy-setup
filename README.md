@@ -15,7 +15,10 @@ only runs when called explicitly.
 | Automation | Tag | What it does |
 |---|---|---|
 | Firefox | `firefox` | Installs Firefox and enables tab apps (Taskbar Tabs), off by default on Linux. Runs before pt-BR localization. |
-| Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 20px and the buffer font to JetBrainsMono Nerd Font. |
+| Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 20px and the buffer font to JetBrainsMono Nerd Font, and sets `use_podman` so Dev Containers use Podman instead of Docker. |
+| gregorio-lsp | `gregorio-lsp` | Installs Rust (`omarchy install dev-env rust`) if needed, then builds and installs the `gregorio-lsp`, `grelint` and `grefmt` binaries from source. |
+| PDF viewer | `pdf-viewer` | Installs Zathura (+ MuPDF backend) as the default PDF viewer and Papers as an extra, non-default viewer. Evince stays installed since Nautilus's sushi previewer depends on it. |
+| LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
 | Bitwarden | `bitwarden` | Desktop client (AUR or official, whichever is newer) + SSH agent wiring. |
 | Podman | `podman` | Rootless container engine. |
@@ -106,6 +109,9 @@ just ssh-yubikey  # needs the Yubikey plugged in
 | `playbooks/polkit.yml` | polkitd ExpirationSeconds (tag `polkit`) |
 | `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
 | `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
+| `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
+| `playbooks/pdf-viewer.yml` | Zathura default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
+| `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/bitwarden.yml` | Bitwarden (tag `bitwarden`) |
 | `playbooks/podman.yml` | Podman rootless (tag `podman`) |

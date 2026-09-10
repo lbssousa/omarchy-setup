@@ -23,7 +23,7 @@ when called explicitly.
 | LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
 | OpenSSH agent | `ssh-agent` | Enables the systemd --user ssh-agent at the session socket + exports `SSH_AUTH_SOCK` session-wide. Runs before KeePassXC. |
-| KeePassXC | `keepassxc` | Default password manager: desktop client + browser integration (Firefox/Chromium/Brave) + SSH agent support (via `ssh-agent`) + monochrome tray icon (minimize/close to tray) + session autostart. |
+| KeePassXC | `keepassxc` | Default password manager: desktop client (native Wayland via `qt5-wayland`) + browser integration (Firefox/Chromium/Brave) + SSH agent support (via `ssh-agent`) + monochrome tray icon (minimize/close to tray) + session autostart. |
 | Podman | `podman` | Rootless container engine. |
 | Distrobox | `distrobox` | Depends on Podman. |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
@@ -118,7 +118,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/ssh-agent.yml` | OpenSSH agent, user session (tag `ssh-agent`) |
-| `playbooks/keepassxc.yml` | KeePassXC (tag `keepassxc`) |
+| `playbooks/keepassxc.yml` | KeePassXC + Qt5 Wayland plugin + XDG autostart (tag `keepassxc`) |
 | `playbooks/bitwarden.yml` | Bitwarden — optional, outside `site.yml` (tag `bitwarden`) |
 | `playbooks/podman.yml` | Podman rootless (tag `podman`) |
 | `playbooks/distrobox.yml` | Distrobox (tag `distrobox`) |

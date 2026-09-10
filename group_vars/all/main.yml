@@ -35,6 +35,29 @@ zed_buffer_font_family: "JetBrainsMono Nerd Font"
 # https://zed.dev/docs/dev-containers.
 zed_dev_container_use_podman: true
 
+# Gregorio (playbooks/gregorio.yml) — the GABC engraver + GregorioTeX,
+# built from the user's own fork at the same commit pinned by every
+# AISCGre-BR project's devcontainer gregorio feature (as of
+# 2026-09-08: Eugene-Cardine-Primeiro-Ano-de-Semiologia-Gregoriana and
+# darezzo). Keep gregorio_ref in sync with those devcontainer.json
+# files rather than bumping it independently.
+gregorio_repo: https://github.com/lbssousa/gregorio.git
+gregorio_ref: bdb4eedbc2eb0521c3e040811f7d70a99b6fa639
+gregorio_checkout_dir: "{{ ansible_facts.env.HOME }}/src/gregorio"
+gregorio_configure_prefix: /usr/local
+gregorio_binary_path: "{{ gregorio_configure_prefix }}/bin/gregorio"
+gregorio_build_deps:
+  - autoconf
+  - automake
+  - libtool
+  - gcc
+  - make
+  - flex
+  - bison
+  - python
+  - fontforge
+  - pkgconf
+
 # gregorio-lsp (playbooks/gregorio-lsp.yml) — LSP server, grelint and
 # grefmt for GABC/NABC (Gregorian chant notation), built from source
 # with cargo. Pinned to a tag for reproducibility — bump when a newer
@@ -65,6 +88,88 @@ lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
 # notation) support, pairs with gregorio_lsp_* above.
 gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
 gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
+
+# TeX Live (playbooks/texlive.yml) — installed via the AUR
+# texlive-installer package (upstream's own install-tl, tricking pacman
+# into thinking texlive-core/texlive-bin/etc. are satisfied).
+texlive_release: "2026"
+texlive_aur_package: texlive-installer
+texlive_aur_git_url: "https://aur.archlinux.org/{{ texlive_aur_package }}.git"
+texlive_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ texlive_aur_package }}"
+texlive_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ texlive_aur_package }}"
+texlive_aur_build_deps:
+  - wget
+  - xz
+texlive_installer_bin: /opt/texlive-installer/install-tl
+
+# Same CTAN mirror the AISCGre-BR devcontainer texlive feature uses
+# (its "mirror" setting expects the tlnet path appended, as install-tl
+# itself does via --repository).
+texlive_mirror: https://linorg.usp.br
+texlive_repository: "{{ texlive_mirror }}/CTAN/systems/texlive/tlnet"
+
+texlive_texdir: "/usr/local/texlive/{{ texlive_release }}"
+# Omarchy only targets x86_64.
+texlive_platform: x86_64-linux
+texlive_tlmgr_bin: "{{ texlive_texdir }}/bin/{{ texlive_platform }}/tlmgr"
+texlive_profile_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/texlive.profile"
+
+texlive_scheme: scheme-minimal
+
+# Union of the "packages" list from every AISCGre-BR project's
+# devcontainer texlive feature, as of 2026-09-08:
+#   - Eugene-Cardine-Primeiro-Ano-de-Semiologia-Gregoriana/.devcontainer/devcontainer.json
+#   - darezzo/.devcontainer/devcontainer.json
+# Re-sync by hand if those projects' package selections change.
+texlive_extra_packages:
+  - babel-latin
+  - babel-portuges
+  - booktabs
+  - csquotes
+  - ebgaramond
+  - enumitem
+  - epstopdf-pkg
+  - float
+  - fontspec
+  - geometry
+  - gregoriotex
+  - hyperref
+  - hyphen-latin
+  - hyphen-portuguese
+  - iftex
+  - l3packages
+  - latex-bin
+  - latexindent
+  - latexmk
+  - libertine
+  - listings
+  - luacolor
+  - luamplib
+  - luatex85
+  - luatexbase
+  - memoir
+  - metapost
+  - metre
+  - microtype
+  - musixtex
+  - musixtex-fonts
+  - paracol
+  - pgf
+  - quoting
+  - relsize
+  - stackengine
+  - standalone
+  - subfiles
+  - texcount
+  - textcase
+  - tikzmark
+  - tools
+  - varwidth
+  - xcolor
+  - xetex
+  - xkeyval
+  - xpatch
+  - xstring
 
 # PDF viewer (playbooks/pdf-viewer.yml) — Zathura becomes the default
 # PDF viewer; Papers is installed as an extra, non-default viewer; Evince

@@ -227,8 +227,56 @@ ptbr_man_pages_package: man-pages-pt_br
 ptbr_tesseract_data_package: tesseract-data-por
 ptbr_ocr_langs: "por+eng"
 
-# Bitwarden (playbooks/bitwarden.yml) — prefers the AUR package, which
-# tracks upstream releases faster than the official Arch package.
+# OpenSSH agent (playbooks/ssh-agent.yml, imported before keepassxc) —
+# enables the standard user-scope agent (socket + service) at the session
+# runtime socket and exports SSH_AUTH_SOCK session-wide via environment.d
+# so IDEs, CLI tools and KeePassXC can reach the same agent.
+ssh_agent_socket: "/run/user/{{ ansible_facts.user_uid }}/ssh-agent.socket"
+ssh_agent_units:
+  - ssh-agent.socket
+  - ssh-agent.service
+
+# KeePassXC (playbooks/keepassxc.yml) — open-source password manager
+# with browser integration (Firefox/Chromium/Brave), SSH agent support
+# (needs the ssh-agent playbook) and system tray integration.
+keepassxc_package: keepassxc
+keepassxc_config_dir: "{{ ansible_facts.env.HOME }}/.config/keepassxc"
+keepassxc_config_ini: "{{ keepassxc_config_dir }}/keepassxc.ini"
+# Upstream schema version — KeePassXC bumps this on migration.
+keepassxc_config_version: "2"
+# "colorful" = full-color tray icon matching KeePassXC's branding.
+keepassxc_tray_icon_appearance: colorful
+# KeeShare active-set XML (escaped for storage in keepassxc.ini). The
+# secret KeeShare "Own" identity key is machine-specific, so it is left
+# out of version control and configured interactively.
+keepassxc_keepshare_active: '<?xml version=\"1.0\"?><KeeShare><Active/></KeeShare>\n'
+# KeePassXC acts as a client for the OpenSSH agent; its override pins the
+# socket provided by playbooks/ssh-agent.yml.
+keepassxc_ssh_agent_socket: "{{ ssh_agent_socket }}"
+# Reuses Omarchy's default "Passwords" keybinding (originally bound to
+# 1Password, which this setup doesn't install).
+keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
+
+# Browser integration: KeePassXC checks a browser's native messaging
+# host manifest to decide whether it's supported. The playbook deploys
+# the manifests directly ("isBrowserEnabled" is just file existence), so
+# no GUI clicking is needed; the browser extension still has to be
+# installed and connected by the user.
+keepassxc_proxy_path: /usr/bin/keepassxc-proxy
+keepassxc_browser_manifests:
+  - name: Firefox
+    src: keepassxc-browser-firefox.json.j2
+    dest: "{{ ansible_facts.env.HOME }}/.config/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
+  - name: Chromium
+    src: keepassxc-browser-chromium.json.j2
+    dest: "{{ ansible_facts.env.HOME }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+  - name: Brave
+    src: keepassxc-browser-chromium.json.j2
+    dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+
+# Bitwarden (playbooks/bitwarden.yml — optional, not part of `just
+# setup`).  Prefers the AUR package, which tracks upstream releases
+# faster than the official Arch package.
 bitwarden_official_package: bitwarden
 bitwarden_aur_package: bitwarden-bin
 bitwarden_aur_git_url: "https://aur.archlinux.org/{{ bitwarden_aur_package }}.git"

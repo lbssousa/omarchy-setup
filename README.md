@@ -6,9 +6,11 @@ Ansible automation for setting up a freshly installed
 Each automation is its own playbook under `playbooks/`, imported by
 `site.yml`. All of them share the same privilege escalation (sudo, see
 `ansible.cfg`), and each has its own tag: run one with `--tags <tag>`,
-or skip one with `--skip-tags <tag>`. Exception: `playbooks/secureboot.yml`
-is **not** imported by `site.yml` — it touches firmware/boot, so it
-only runs when called explicitly.
+or skip one with `--skip-tags <tag>`. Exceptions:
+`playbooks/secureboot.yml` and `playbooks/bitwarden.yml` are **not**
+imported by `site.yml` — Secure Boot touches firmware/boot, and Bitwarden
+is an optional alternative to the default KeePassXC — so they only run
+when called explicitly.
 
 ## What it sets up
 
@@ -20,7 +22,8 @@ only runs when called explicitly.
 | PDF viewer | `pdf-viewer` | Installs Zathura (+ MuPDF backend) as the default PDF viewer and Papers as an extra, non-default viewer. Evince stays installed since Nautilus's sushi previewer depends on it. |
 | LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
-| Bitwarden | `bitwarden` | Desktop client (AUR or official, whichever is newer) + SSH agent wiring. |
+| OpenSSH agent | `ssh-agent` | Enables the systemd --user ssh-agent at the session socket + exports `SSH_AUTH_SOCK` session-wide. Runs before KeePassXC. |
+| KeePassXC | `keepassxc` | Default password manager: desktop client + browser integration (Firefox/Chromium/Brave) + SSH agent support (via `ssh-agent`) + monochrome tray icon (minimize/close to tray) + session autostart. |
 | Podman | `podman` | Rootless container engine. |
 | Distrobox | `distrobox` | Depends on Podman. |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
@@ -90,13 +93,14 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**Secure Boot, the Yubikey GPG key, and the Yubikey SSH keys are
-separate** — not part of `just setup`:
+**Bitwarden, Secure Boot, the Yubikey GPG key, and the Yubikey SSH
+keys are separate** — not part of `just setup`:
 
 ```bash
-just secureboot   # see docs/secureboot.md for the full walkthrough
-just gpg-yubikey  # needs the Yubikey plugged in
-just ssh-yubikey  # needs the Yubikey plugged in
+just bitwarden     # optional; KeePassXC is the default password manager
+just secureboot    # see docs/secureboot.md for the full walkthrough
+just gpg-yubikey   # needs the Yubikey plugged in
+just ssh-yubikey   # needs the Yubikey plugged in
 ```
 
 ## Structure
@@ -113,7 +117,9 @@ just ssh-yubikey  # needs the Yubikey plugged in
 | `playbooks/pdf-viewer.yml` | Zathura default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
 | `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
-| `playbooks/bitwarden.yml` | Bitwarden (tag `bitwarden`) |
+| `playbooks/ssh-agent.yml` | OpenSSH agent, user session (tag `ssh-agent`) |
+| `playbooks/keepassxc.yml` | KeePassXC (tag `keepassxc`) |
+| `playbooks/bitwarden.yml` | Bitwarden — optional, outside `site.yml` (tag `bitwarden`) |
 | `playbooks/podman.yml` | Podman rootless (tag `podman`) |
 | `playbooks/distrobox.yml` | Distrobox (tag `distrobox`) |
 | `playbooks/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |

@@ -234,12 +234,21 @@
       become: true
       listen: reload systemd
 
+    - name: Check if fprintd.service exists
+      ansible.builtin.command: systemctl cat fprintd.service
+      become: true
+      register: fprintd_service_check
+      changed_when: false
+      failed_when: false
+      listen: restart fprintd
+
     - name: restart fprintd
       ansible.builtin.systemd:
         name: fprintd.service
         state: restarted
       become: true
       listen: restart fprintd
+      when: fprintd_service_check.rc == 0
 
     - name: enable and start fprintd-desync-watchdog
       ansible.builtin.systemd:

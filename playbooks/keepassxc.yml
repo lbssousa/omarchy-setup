@@ -1,0 +1,217 @@
+---
+# KeePassXC — open-source password manager with browser integration,
+# SSH agent support and system tray integration.
+#
+# Installs KeePassXC from the official Arch repos, then writes a
+# pre-seeded keepassxc.ini that enables:
+#   - Browser integration (Firefox, Chromium, Brave)
+#   - SSH Agent support (OpenSSH backend — requires the ssh-agent
+#     playbook, which provides the agent this client connects to)
+#   - KeeShare (active set bootstrapped, success notifications quieted)
+#   - Monochrome light tray icon (high-contrast on dark panels),
+#     colored passwords and monospace notes,
+#     minimization to tray, and close-to-tray behavior
+#   - Launch at startup (XDG autostart)
+#
+# The native messaging host manifests are deployed by this playbook to
+# the Firefox/Chromium/Brave locations; the user still needs to install
+# the KeePassXC-Browser extension in each browser and connect it.
+- name: KeePassXC (password manager with browser + SSH agent integration)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Install KeePassXC
+      community.general.pacman:
+        name: "{{ keepassxc_package }}"
+        state: present
+      become: true
+
+    - name: Create ~/.config/keepassxc
+      ansible.builtin.file:
+        path: "{{ keepassxc_config_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Set KeePassXC config version
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: General
+        option: ConfigVersion
+        value: "{{ keepassxc_config_version }}"
+        mode: "0644"
+
+    - name: Minimize entry editor after unlocking
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: General
+        option: MinimizeAfterUnlock
+        value: "true"
+        mode: "0644"
+
+    - name: Enable browser integration
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: Browser
+        option: Enabled
+        value: "true"
+        mode: "0644"
+
+    - name: Clear browser custom proxy location
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: Browser
+        option: CustomProxyLocation
+        value: ""
+        mode: "0644"
+
+    - name: Update keepassxc-proxy path on binary upgrade
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: Browser
+        option: UpdateBinaryPath
+        value: "true"
+        mode: "0644"
+
+    - name: Create native messaging host directories
+      ansible.builtin.file:
+        path: "{{ item.dest | dirname }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ keepassxc_browser_manifests }}"
+
+    - name: Deploy the browser integration native messaging host manifests
+      ansible.builtin.template:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: "0644"
+      loop: "{{ keepassxc_browser_manifests }}"
+
+    - name: Enable SSH Agent integration
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: SSHAgent
+        option: Enabled
+        value: "true"
+        mode: "0644"
+
+    - name: Use OpenSSH backend for the SSH agent
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: SSHAgent
+        option: UseOpenSSH
+        value: "true"
+        mode: "0644"
+
+    - name: Set SSH_AUTH_SOCK override for the SSH agent
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: SSHAgent
+        option: AuthSockOverride
+        value: "{{ keepassxc_ssh_agent_socket }}"
+        mode: "0644"
+
+    - name: Set KeeShare active configuration
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: KeeShare
+        option: Active
+        value: "{{ keepassxc_keepshare_active }}"
+        mode: "0644"
+
+    - name: Quiet KeePassXC success notifications in KeeShare
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: KeeShare
+        option: QuietSuccess
+        value: "true"
+        mode: "0644"
+
+    - name: Show system tray icon
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: ShowTrayIcon
+        value: "true"
+        mode: "0644"
+
+    - name: Use full-color tray icon matching KeePassXC's branding
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: TrayIconAppearance
+        value: "{{ keepassxc_tray_icon_appearance }}"
+        mode: "0644"
+
+    - name: Use colored passwords
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: ColorPasswords
+        value: "true"
+        mode: "0644"
+
+    - name: Use monospace font for notes
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: MonospaceNotes
+        value: "true"
+        mode: "0644"
+
+    - name: Minimize to tray instead of taskbar
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: MinimizeToTray
+        value: "true"
+        mode: "0644"
+
+    - name: Close button minimizes to tray instead of quitting
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: MinimizeOnClose
+        value: "true"
+        mode: "0644"
+
+    - name: Launch KeePassXC at session startup
+      community.general.ini_file:
+        path: "{{ keepassxc_config_ini }}"
+        section: GUI
+        option: LaunchAtStartup
+        value: "true"
+        mode: "0644"
+
+    - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
+      block:
+        - name: Create ~/.config/hypr
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+            state: directory
+            mode: "0755"
+
+        - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+          ansible.builtin.copy:
+            src: /usr/share/omarchy/default/hypr/bindings.lua
+            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            remote_src: true
+            force: false
+            mode: "0644"
+
+        - name: "Rebind {{ keepassxc_hypr_keybind }} from 1Password to KeePassXC"
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/keepassxc.yml — KeePassXC keybinding)"
+            block: |
+              hl.unbind("{{ keepassxc_hypr_keybind }}")
+              o.bind("{{ keepassxc_hypr_keybind }}", "KeePassXC", { launch = "keepassxc", focus = "^KeePassXC$" })
+          notify: reload Hyprland
+
+  handlers:
+    - name: reload Hyprland
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland

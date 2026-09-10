@@ -1,0 +1,35 @@
+---
+# OpenSSH agent (systemd --user) — enables the standard ssh-agent socket
+# and service at the session runtime socket, and exports SSH_AUTH_SOCK
+# session-wide via environment.d so IDEs, KeePassXC and other CLI tools
+# all talk to the same agent.
+#
+# Prerequisite for the KeePassXC playbook (playbooks/keepassxc.yml),
+# which acts as a client for this agent. site.yml imports it right before
+# KeePassXC.
+- name: OpenSSH agent (user session, SSH_AUTH_SOCK export)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+
+    - name: Export SSH_AUTH_SOCK session-wide
+      ansible.builtin.template:
+        src: ssh-agent-env.conf.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-ssh-agent.conf"
+        mode: "0644"
+
+    - name: "Enable the OpenSSH agent ({{ ssh_agent_socket }})"
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started
+      loop: "{{ ssh_agent_units }}"

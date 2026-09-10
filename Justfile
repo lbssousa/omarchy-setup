@@ -63,9 +63,17 @@ gregorio: _ensure-collections
 ptbr: _ensure-collections
     ansible-playbook site.yml --tags ptbr --ask-become-pass
 
-# Run only the Bitwarden playbook.
+# Run only the OpenSSH agent (user session) playbook.
+ssh-agent: _ensure-collections
+    ansible-playbook site.yml --tags ssh-agent
+
+# Run only the KeePassXC playbook (depends on `just ssh-agent`).
+keepassxc: _ensure-collections
+    ansible-playbook site.yml --tags keepassxc --ask-become-pass
+
+# Run only the Bitwarden playbook (optional, not part of `just setup`).
 bitwarden: _ensure-collections
-    ansible-playbook site.yml --tags bitwarden --ask-become-pass
+    ansible-playbook playbooks/bitwarden.yml --ask-become-pass
 
 # Run only the Podman (rootless) playbook.
 podman: _ensure-collections

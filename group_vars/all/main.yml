@@ -240,6 +240,11 @@ ssh_agent_units:
 # with browser integration (Firefox/Chromium/Brave), SSH agent support
 # (needs the ssh-agent playbook) and system tray integration.
 keepassxc_package: keepassxc
+# The extra-repo keepassxc is a Qt5 build; Omarchy's Wayland session exports
+# QT_QPA_PLATFORM=wayland;xcb, so the Qt5 Wayland QPA plugin is required for
+# KeePassXC to start at all. Without it the autostart aborts at login with
+# "qt.qpa.plugin: Could not find the Qt platform plugin \"wayland\"".
+keepassxc_wayland_plugin_package: qt5-wayland
 keepassxc_config_dir: "{{ ansible_facts.env.HOME }}/.config/keepassxc"
 keepassxc_config_ini: "{{ keepassxc_config_dir }}/keepassxc.ini"
 # Upstream schema version — KeePassXC bumps this on migration.
@@ -256,6 +261,11 @@ keepassxc_ssh_agent_socket: "{{ ssh_agent_socket }}"
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
 keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
+# KeePassXC's "Launch KeePassXC at system startup" checkbox only writes the
+# XDG autostart entry when the settings dialog is saved, so the playbook
+# deploys the same file itself to make autostart deterministic on fresh
+# installs (see keepassxc.yml).
+keepassxc_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/org.keepassxc.KeePassXC.desktop"
 
 # Browser integration: KeePassXC checks a browser's native messaging
 # host manifest to decide whether it's supported. The playbook deploys

@@ -13,6 +13,16 @@
 #     minimization to tray, and close-to-tray behavior
 #   - Launch at startup (XDG autostart)
 #
+# The extra-repo keepassxc package is a Qt5 build, so the Qt5 Wayland QPA
+# plugin (qt5-wayland) is installed as well. Omarchy's Wayland session
+# exports QT_QPA_PLATFORM=wayland;xcb, and without the plugin the app aborts
+# at login before the autostart can show its tray icon.
+#
+# KeePassXC only writes its XDG autostart entry when the "Launch KeePassXC
+# at system startup" checkbox is saved in the settings dialog, so the
+# playbook deploys the same org.keepassxc.KeePassXC.desktop itself
+# (force: false — an entry the user or KeePassXC already wrote is kept).
+#
 # The native messaging host manifests are deployed by this playbook to
 # the Firefox/Chromium/Brave locations; the user still needs to install
 # the KeePassXC-Browser extension in each browser and connect it.
@@ -25,6 +35,12 @@
     - name: Install KeePassXC
       community.general.pacman:
         name: "{{ keepassxc_package }}"
+        state: present
+      become: true
+
+    - name: Install the Qt5 Wayland platform plugin
+      community.general.pacman:
+        name: "{{ keepassxc_wayland_plugin_package }}"
         state: present
       become: true
 
@@ -183,6 +199,19 @@
         option: LaunchAtStartup
         value: "true"
         mode: "0644"
+
+    - name: Create the XDG autostart directory
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/autostart"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy the KeePassXC XDG autostart entry (only if missing)
+      ansible.builtin.template:
+        src: keepassxc-autostart.desktop.j2
+        dest: "{{ keepassxc_autostart_desktop }}"
+        mode: "0644"
+        force: false
 
     - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
       block:

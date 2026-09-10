@@ -88,3 +88,22 @@
           when:
             - printer_l4160_set_default
             - printer_l4160_name not in default_printer_current.stdout
+
+        - name: Check the current user default printer
+          # The system default (lpadmin -d) is not what the user's own
+          # print dialogs and lp/lpr honor — that's the per-user default
+          # stored in ~/.cups/lpoptions. Without it, apps can fall back
+          # to other discovered queues, so set it for the user too.
+          ansible.builtin.command: lpstat -d
+          register: user_default_printer_current
+          changed_when: false
+          failed_when: false
+          become: false
+
+        - name: Set the L4160 as the user default printer
+          ansible.builtin.command: "lpoptions -d {{ printer_l4160_name }}"
+          changed_when: false
+          become: false
+          when:
+            - printer_l4160_set_default
+            - printer_l4160_name not in user_default_printer_current.stdout

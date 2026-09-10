@@ -1,0 +1,119 @@
+---
+# Gregorio (GABC → GregorioTeX engraver), built from the user's own
+# fork (lbssousa/gregorio) at the exact commit both AISCGre-BR projects
+# pin in their devcontainer's gregorio feature
+# (~/Projetos/AISCGre-BR/{Eugene-Cardine-Primeiro-Ano-de-Semiologia-Gregoriana,darezzo}/.devcontainer/devcontainer.json)
+# — see gregorio_ref in group_vars/all/main.yml. Keep that value in
+# sync with those devcontainer.json files rather than bumping it
+# independently.
+#
+# Depends on TeX Live already being installed (playbooks/texlive.yml):
+# kpsewhich/texhash resolve the system TEXMFLOCAL tree that the second
+# build step below installs GregorioTeX's support files into. Fails
+# early, without changing anything, if kpsewhich isn't on PATH yet.
+#
+# Mirrors the two build steps of
+# https://github.com/aiscgre-br/devcontainer-features (src/gregorio/install.sh),
+# minus the container-only bits (no tarball download — a real git
+# checkout instead, like playbooks/gregorio-lsp.yml — and build
+# dependencies are left installed afterward instead of being removed,
+# since this is a desktop install, not a throwaway container layer):
+#
+#   1. autoreconf + `configure --disable-version-in-exe` + make + make
+#      install — builds and installs the `gregorio` command-line
+#      binary (GABC → GregorioTeX). --disable-version-in-exe installs
+#      it as plain "gregorio" rather than a version-suffixed name.
+#   2. `install-gtex.sh system` — installs the GregorioTeX TeX/LaTeX
+#      sources and fonts into the system TEXMFLOCAL tree (resolved via
+#      kpsewhich) and refreshes texhash. AUTO_UNINSTALL=true answers
+#      its old-file-removal prompts non-interactively; SKIP
+#      leaves out docs/examples/font-sources, which nothing here needs.
+#
+# Usage: ansible-playbook site.yml --tags gregorio --ask-become-pass
+- name: Gregorio (GABC engraver + GregorioTeX, from lbssousa/gregorio)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Check whether TeX Live's kpsewhich is on PATH
+      ansible.builtin.command: kpsewhich --version
+      register: gregorio_kpsewhich_check
+      changed_when: false
+      failed_when: false
+
+    - name: TeX Live must already be installed (playbooks/texlive.yml)
+      ansible.builtin.assert:
+        that: gregorio_kpsewhich_check.rc == 0
+        fail_msg: >-
+          kpsewhich not found on PATH — run `just texlive` (or
+          `ansible-playbook site.yml --tags texlive`) first.
+
+    - name: Install Gregorio's build dependencies
+      community.general.pacman:
+        name: "{{ gregorio_build_deps }}"
+        state: present
+      become: true
+
+    - name: "Clone/update the gregorio repo ({{ gregorio_ref }})"
+      ansible.builtin.git:
+        repo: "{{ gregorio_repo }}"
+        dest: "{{ gregorio_checkout_dir }}"
+        version: "{{ gregorio_ref }}"
+        force: false
+      register: gregorio_git_result
+
+    - name: Check whether the gregorio binary is already installed
+      ansible.builtin.stat:
+        path: "{{ gregorio_binary_path }}"
+      register: gregorio_binary_stat
+
+    - name: Check whether GregorioTeX's support files are already installed
+      ansible.builtin.command: kpsewhich gregoriotex.sty
+      register: gregorio_gtex_check
+      changed_when: false
+      failed_when: false
+
+    - name: Determine whether a (re)build is needed
+      ansible.builtin.set_fact:
+        gregorio_needs_build: >-
+          {{ gregorio_git_result.changed
+             or not gregorio_binary_stat.stat.exists
+             or gregorio_gtex_check.rc != 0 }}
+
+    - name: "Build and install Gregorio ({{ gregorio_ref }})"
+      when: gregorio_needs_build
+      block:
+        - name: Generate the autotools build files (autoreconf)
+          ansible.builtin.command: autoreconf -fi
+          args:
+            chdir: "{{ gregorio_checkout_dir }}"
+
+        - name: "Configure Gregorio (prefix={{ gregorio_configure_prefix }})"
+          # Run with bash explicitly: configure uses CFLAGS+= (a
+          # bash-ism) that breaks under a POSIX /bin/sh.
+          ansible.builtin.command: >-
+            bash ./configure --prefix={{ gregorio_configure_prefix }}
+            --disable-version-in-exe
+          args:
+            chdir: "{{ gregorio_checkout_dir }}"
+
+        - name: "Build Gregorio (make -j{{ ansible_facts.processor_nproc }})"
+          ansible.builtin.command: "make -j{{ ansible_facts.processor_nproc }}"
+          args:
+            chdir: "{{ gregorio_checkout_dir }}"
+
+        - name: Install the gregorio binary
+          ansible.builtin.command: make install
+          args:
+            chdir: "{{ gregorio_checkout_dir }}"
+          become: true
+
+        - name: Install GregorioTeX's TeX/LaTeX support files and fonts (install-gtex.sh system)
+          ansible.builtin.command: bash ./install-gtex.sh system
+          args:
+            chdir: "{{ gregorio_checkout_dir }}"
+          environment:
+            SKIP: docs,examples,font-sources
+            AUTO_UNINSTALL: "true"
+          become: true

@@ -1,0 +1,146 @@
+---
+# TeX Live via the AUR texlive-installer package — a thin wrapper
+# around upstream's own install-tl script that also makes pacman think
+# every texlive-* package is already satisfied (see its PKGBUILD
+# `provides=`), instead of pulling in Arch's own texlive-* packages.
+# https://aur.archlinux.org/packages/texlive-installer
+#
+# install-tl then does the real work, driven by a generated unattended
+# profile: scheme-minimal, installed under
+# "{{ texlive_texdir }}", from the same CTAN mirror the AISCGre-BR
+# devcontainer texlive feature uses (texlive_repository below).
+# instopt_adjustpath 1 makes install-tl symlink its own binaries into
+# /usr/local/bin at install time, so the scheme-minimal set (tlmgr,
+# pdflatex, etc.) lands on PATH without a separate step.
+#
+# On top of scheme-minimal, tlmgr installs texlive_extra_packages — the
+# union of the "packages" list from every AISCGre-BR project's
+# devcontainer texlive feature
+# (~/Projetos/AISCGre-BR/*/.devcontainer/devcontainer.json as of
+# 2026-09-08: Eugene-Cardine-Primeiro-Ano-de-Semiologia-Gregoriana and
+# darezzo). Re-sync that list by hand in group_vars/all/main.yml if
+# those projects' package selections change. Those extra packages can
+# add binaries install-tl never symlinked (latexmk, luatex/lualatex —
+# not part of scheme-minimal), so `tlmgr path add` runs again
+# afterward to pick them up; instopt_adjustpath alone only covers
+# what's on disk at install-tl time, not later tlmgr installs.
+#
+# Building texlive-installer itself follows the same unprivileged
+# clone+makepkg+pacman -U pattern as playbooks/bitwarden.yml — makepkg
+# refuses to run as root, and its own sudo (for missing build deps)
+# can't take an interactive password from Ansible. Unlike Bitwarden,
+# there's no official-vs-AUR comparison here: texlive-installer only
+# exists on the AUR.
+#
+# Usage: ansible-playbook site.yml --tags texlive --ask-become-pass
+- name: TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR packages)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Check the currently installed texlive-installer version, if any
+      ansible.builtin.command: "pacman -Qi {{ texlive_aur_package }}"
+      environment:
+        LC_ALL: C
+      register: texlive_installer_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Extract the installed texlive-installer version
+      ansible.builtin.set_fact:
+        texlive_installer_installed_version: >-
+          {{ (texlive_installer_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+      when: texlive_installer_installed.rc == 0
+
+    - name: Check the texlive-installer version on the AUR
+      ansible.builtin.uri:
+        url: "{{ texlive_aur_rpc_url }}"
+        return_content: true
+      register: texlive_aur_info
+
+    - name: Extract the AUR package version
+      ansible.builtin.set_fact:
+        texlive_aur_version: "{{ texlive_aur_info.json.results[0].Version }}"
+
+    - name: "Build and install texlive-installer (only if missing or outdated)"
+      when: >-
+        texlive_installer_installed.rc != 0
+        or texlive_installer_installed_version != texlive_aur_version
+      block:
+        - name: Install texlive-installer's build dependencies
+          community.general.pacman:
+            name: "{{ texlive_aur_build_deps }}"
+            state: present
+          become: true
+
+        - name: Clone/update the texlive-installer AUR repo
+          ansible.builtin.git:
+            repo: "{{ texlive_aur_git_url }}"
+            dest: "{{ texlive_aur_build_dir }}"
+            update: true
+
+        - name: Build the package (makepkg, no dep resolution, unprivileged)
+          ansible.builtin.command: makepkg --nodeps --noconfirm --force
+          args:
+            chdir: "{{ texlive_aur_build_dir }}"
+
+        - name: Install the built package
+          ansible.builtin.shell: "pacman -U --noconfirm {{ texlive_aur_build_dir }}/*.pkg.tar.zst"
+          become: true
+
+    - name: Check whether TeX Live is already installed
+      ansible.builtin.stat:
+        path: "{{ texlive_tlmgr_bin }}"
+      register: texlive_tlmgr_stat
+
+    - name: "Run the TeX Live installer ({{ texlive_scheme }} into {{ texlive_texdir }})"
+      when: not texlive_tlmgr_stat.stat.exists
+      block:
+        - name: Create ~/.cache/omarchy-setup
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup"
+            state: directory
+            mode: "0755"
+
+        - name: Write the unattended install profile
+          ansible.builtin.copy:
+            dest: "{{ texlive_profile_path }}"
+            mode: "0644"
+            content: |
+              selected_scheme {{ texlive_scheme }}
+              TEXDIR {{ texlive_texdir }}
+              instopt_adjustpath 1
+              tlpdbopt_install_docfiles 0
+              tlpdbopt_install_srcfiles 0
+
+        - name: "Run install-tl (network install from {{ texlive_repository }} — this takes a while)"
+          ansible.builtin.command: >-
+            {{ texlive_installer_bin }}
+            --profile={{ texlive_profile_path }}
+            --repository {{ texlive_repository }}
+          become: true
+
+    - name: Get the currently installed TeX Live package names
+      ansible.builtin.command: "{{ texlive_tlmgr_bin }} list --only-installed --data name"
+      register: texlive_installed_packages
+      changed_when: false
+
+    - name: Determine which AISCGre-BR packages are still missing
+      ansible.builtin.set_fact:
+        texlive_missing_packages: "{{ texlive_extra_packages | difference(texlive_installed_packages.stdout_lines) }}"
+
+    - name: "Install the AISCGre-BR devcontainer package selection on top of {{ texlive_scheme }}"
+      ansible.builtin.command: "{{ texlive_tlmgr_bin }} install {{ texlive_missing_packages | join(' ') }}"
+      when: texlive_missing_packages | length > 0
+      become: true
+
+    - name: Re-sync /usr/local/bin symlinks (tlmgr path add)
+      # install-tl's own instopt_adjustpath only symlinks the binaries
+      # present at install time (scheme-minimal). tlmgr doesn't keep
+      # those symlinks in sync on its own when new packages add new
+      # binaries (e.g. latexmk, luatex/lualatex) — without this,
+      # tlmgr install above silently leaves them off PATH.
+      ansible.builtin.command: "{{ texlive_tlmgr_bin }} path add"
+      when: texlive_missing_packages | length > 0
+      become: true

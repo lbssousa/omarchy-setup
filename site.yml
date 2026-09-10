@@ -31,6 +31,14 @@
   ansible.builtin.import_playbook: playbooks/lazyvim.yml
   tags: [lazyvim]
 
+- name: TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR packages)
+  ansible.builtin.import_playbook: playbooks/texlive.yml
+  tags: [texlive]
+
+- name: Gregorio (GABC engraver + GregorioTeX, from lbssousa/gregorio)
+  ansible.builtin.import_playbook: playbooks/gregorio.yml
+  tags: [gregorio]
+
 - name: pt-BR localization
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]

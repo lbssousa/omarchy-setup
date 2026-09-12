@@ -384,7 +384,7 @@ printer_l4160_set_default: true
 
 # Shell bar + terminal text size (playbooks/text-size.yml), px. GTK scale
 # factor is always reset afterward, so this doesn't affect other apps.
-omarchy_text_size_px: 20
+omarchy_text_size_px: 16
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
 # from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep

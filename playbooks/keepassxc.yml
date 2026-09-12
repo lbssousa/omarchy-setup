@@ -23,6 +23,15 @@
 # playbook deploys the same org.keepassxc.KeePassXC.desktop itself
 # (force: false — an entry the user or KeePassXC already wrote is kept).
 #
+# systemd's XDG autostart fires desktop entries before quickshell has
+# registered the system tray (org.kde.StatusNotifierWatcher) and before
+# Omarchy applies the theme's color-scheme to gsettings. KeePassXC samples
+# both at startup, so launching that early shows the window in the stock
+# light theme with no appindicator icon; a manual restart fixes both only
+# because the environment is ready by then. The autostart Exec therefore
+# runs a readiness wrapper that waits for the tray and the color-scheme,
+# then execs KeePassXC.
+#
 # The native messaging host manifests are deployed by this playbook to
 # the Firefox/Chromium/Brave locations; the user still needs to install
 # the KeePassXC-Browser extension in each browser and connect it.
@@ -200,6 +209,12 @@
         value: "true"
         mode: "0644"
 
+    - name: Deploy the KeePassXC autostart readiness wrapper
+      ansible.builtin.template:
+        src: keepassxc-autostart.sh.j2
+        dest: "{{ keepassxc_autostart_wrapper }}"
+        mode: "0700"
+
     - name: Create the XDG autostart directory
       ansible.builtin.file:
         path: "{{ ansible_facts.env.HOME }}/.config/autostart"
@@ -212,6 +227,14 @@
         dest: "{{ keepassxc_autostart_desktop }}"
         mode: "0644"
         force: false
+
+    - name: Point the autostart entry at the readiness wrapper
+      community.general.ini_file:
+        path: "{{ keepassxc_autostart_desktop }}"
+        section: Desktop Entry
+        option: Exec
+        value: "{{ keepassxc_autostart_wrapper }}"
+        mode: "0644"
 
     - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
       block:

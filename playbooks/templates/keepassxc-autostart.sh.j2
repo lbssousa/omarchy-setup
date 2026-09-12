@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+# Launch KeePassXC only once the Omarchy desktop is actually up.
+#
+# systemd's XDG autostart moves the org.keepassxc.KeePassXC desktop entry
+# into a transient scope well before quickshell registers the system tray
+# (org.kde.StatusNotifierWatcher / StatusNotifierHost) and before Omarchy
+# has applied the current theme to gsettings. KeePassXC samples both at
+# startup, so launching early makes it open with the stock light theme and
+# without its appindicator icon — restarting the app after login "fixes"
+# both only because the environment happens to be ready by then. Wait up to
+# the timeout for both signals, then launch regardless so a slowly starting
+# desktop never swallows the autostart entry.
+set -euo pipefail
+
+timeout=${KEEPASSXC_AUTOSTART_TIMEOUT:-60}
+
+for ((i = 0; i < timeout; i++)); do
+  tray=$(
+    busctl --user get-property \
+      org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
+      org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered \
+      2>/dev/null || true
+  )
+  scheme=$(gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null || true)
+
+  if [[ $tray == *" true"* && ($scheme == "'prefer-dark'" || $scheme == "'prefer-light'") ]]; then
+    break
+  fi
+
+  sleep 1
+done
+
+exec keepassxc "$@"

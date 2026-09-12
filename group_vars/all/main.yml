@@ -266,6 +266,11 @@ keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
 # deploys the same file itself to make autostart deterministic on fresh
 # installs (see keepassxc.yml).
 keepassxc_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/org.keepassxc.KeePassXC.desktop"
+# systemd's XDG autostart fires desktop entries before the tray and theme
+# are up, so the autostart Exec runs this readiness wrapper instead: it
+# waits for the shell's StatusNotifierHost and for Omarchy's gsettings
+# color-scheme before exec'ing KeePassXC (see keepassxc.yml).
+keepassxc_autostart_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart"
 
 # Browser integration: KeePassXC checks a browser's native messaging
 # host manifest to decide whether it's supported. The playbook deploys

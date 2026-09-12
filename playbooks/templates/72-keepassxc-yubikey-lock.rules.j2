@@ -1,0 +1,10 @@
+# Managed by playbooks/keepassxc.yml.
+#
+# Locks KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }})
+# is unplugged. On "remove" events derived properties like ID_VENDOR_ID may
+# no longer be available, so the raw PRODUCT field (still present at that
+# point) is used to recognize the device instead.
+#
+# Ported from lbssousa/nix-config's
+# modules/system/security/keepassxc-yubikey-lock.nix.
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{PRODUCT}=="{{ keepassxc_yubikey_usb_product_match }}", RUN+="/usr/bin/systemd-run --no-block --quiet --collect --service-type=oneshot {{ keepassxc_yubikey_lock_script }} {{ ansible_facts.env.USER }}"

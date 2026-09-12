@@ -272,6 +272,16 @@ keepassxc_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/org
 # color-scheme before exec'ing KeePassXC (see keepassxc.yml).
 keepassxc_autostart_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart"
 
+# Auto-lock KeePassXC when the YubiKey is unplugged (udev rule, ported from
+# lbssousa/nix-config's modules/system/security/keepassxc-yubikey-lock.nix).
+# ENV{PRODUCT} format is vendor/product/revision in hex, no leading zeros
+# (`lsusb`: ID 1050:0407 -> "1050/407/*") — the raw PRODUCT field is used
+# instead of ATTR{idVendor}/ATTR{idProduct} because on "remove" events the
+# device's sysfs attributes are already gone, while PRODUCT is still set.
+keepassxc_yubikey_usb_product_match: "1050/407/*"
+keepassxc_yubikey_lock_script: /usr/local/bin/keepassxc-lock-on-yubikey-remove
+keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.rules
+
 # Browser integration: KeePassXC checks a browser's native messaging
 # host manifest to decide whether it's supported. The playbook deploys
 # the manifests directly ("isBrowserEnabled" is just file existence), so

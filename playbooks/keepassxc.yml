@@ -35,6 +35,12 @@
 # The native messaging host manifests are deployed by this playbook to
 # the Firefox/Chromium/Brave locations; the user still needs to install
 # the KeePassXC-Browser extension in each browser and connect it.
+#
+# A udev rule locks every open database as soon as the YubiKey is
+# unplugged (matched on USB PRODUCT, since the reader is removable and
+# ID_VENDOR_ID/ID_MODEL_ID aren't reliably available on "remove" events).
+# Ported from lbssousa/nix-config's
+# modules/system/security/keepassxc-yubikey-lock.nix.
 - name: KeePassXC (password manager with browser + SSH agent integration)
   hosts: localhost
   connection: local
@@ -236,6 +242,22 @@
         value: "{{ keepassxc_autostart_wrapper }}"
         mode: "0644"
 
+    - name: "Auto-lock KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }}) is unplugged"
+      become: true
+      block:
+        - name: Install the KeePassXC YubiKey auto-lock script
+          ansible.builtin.copy:
+            src: keepassxc-lock-on-yubikey-remove.sh
+            dest: "{{ keepassxc_yubikey_lock_script }}"
+            mode: "0755"
+
+        - name: Install the udev rule
+          ansible.builtin.template:
+            src: 72-keepassxc-yubikey-lock.rules.j2
+            dest: "{{ keepassxc_yubikey_lock_udev_rule }}"
+            mode: "0644"
+          notify: reload udev rules
+
     - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
       block:
         - name: Create ~/.config/hypr
@@ -267,3 +289,11 @@
       changed_when: false
       failed_when: false
       listen: reload Hyprland
+
+    # Handlers don't inherit `become: true` from the block that notifies
+    # them — needs its own.
+    - name: reload udev rules
+      ansible.builtin.command: udevadm control --reload-rules
+      changed_when: false
+      become: true
+      listen: reload udev rules

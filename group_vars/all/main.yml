@@ -420,7 +420,8 @@ printer_l4160_error_policy: abort-job
 printer_l4160_set_default: true
 
 # Shell bar + terminal text size (playbooks/text-size.yml), px. GTK scale
-# factor is always reset afterward, so this doesn't affect other apps.
+# factor is always reset afterward, so this doesn't affect other GTK (or
+# Qt, via gtk3 platform theme) apps.
 omarchy_text_size_px: 16
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose

@@ -71,10 +71,6 @@
   ansible.builtin.import_playbook: playbooks/hypr-scrolling-resize.yml
   tags: [hypr-scrolling-resize]
 
-- name: Shell bar + terminal text size
-  ansible.builtin.import_playbook: playbooks/text-size.yml
-  tags: [text-size]
-
 - name: Night light synced to sunrise/sunset
   ansible.builtin.import_playbook: playbooks/nightlight-solar.yml
   tags: [nightlight-solar]

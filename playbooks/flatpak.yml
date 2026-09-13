@@ -2,12 +2,20 @@
 # Flatpak support with the Flathub remote enabled — the go-to
 # cross-distro source for desktop apps, several of which only ship as
 # flatpaks. Omarchy doesn't include Flatpak by default, so installing an
-# app from flathub.org needs this first. The remote is registered for
-# the current user, so app installs don't need root.
+# app from flathub.org needs this first. The remote and apps are
+# installed system-wide (available to every user, not just the current
+# one). Bazaar is installed here as the Flathub app-store frontend.
+#
+# Flatpak desktop shortcuts only reach Omarchy's app UI via
+# XDG_DATA_DIRS: Quickshell's DesktopEntries scans the dirs in that var
+# (see /usr/share/omarchy/shell/services/AppLibrary.qml), but the
+# graphical session never sources /etc/profile.d/flatpak.sh, so the
+# system Flatpak exports are missed. The environment.d export below
+# fixes that for the session.
 - name: Flatpak + Flathub
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   tasks:
     - name: Install flatpak via pacman
@@ -16,9 +24,29 @@
         state: present
       become: true
 
-    - name: Add the Flathub remote
+    - name: Add the Flathub remote (system-wide)
       community.general.flatpak_remote:
         name: "{{ flatpak_flathub_remote }}"
         state: present
-        method: user
+        method: system
         flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Bazaar (app store) from Flathub system-wide
+      community.general.flatpak:
+        name: "{{ flatpak_bazaar_package }}"
+        state: present
+        method: system
+      become: true
+
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+
+    - name: Put Flatpak export dirs on XDG_DATA_DIRS for the session
+      ansible.builtin.template:
+        src: flatpak-env.conf.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/{{ flatpak_env_file }}"
+        mode: "0644"

@@ -351,6 +351,17 @@ podman_subuid_count: 65536
 flatpak_package: flatpak
 flatpak_flathub_remote: flathub
 flatpak_flathub_repo_url: https://flathub.org/repo/flathub.flatpakrepo
+# Bazaar — a Flathub app-store frontend (io.github.kolunmi.Bazaar).
+flatpak_bazaar_package: io.github.kolunmi.Bazaar
+
+# Flatpak desktop entries are exported to these dirs; Quickshell's
+# DesktopEntries (the Omarchy app library) only scans the dirs named in
+# XDG_DATA_DIRS, which the graphical session doesn't get from
+# /etc/profile.d/flatpak.sh. flatpak_env_file is deployed to
+# ~/.config/environment.d so the session sees flatpak apps.
+flatpak_system_exports_dir: /var/lib/flatpak/exports/share
+flatpak_user_exports_dir: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/exports/share"
+flatpak_env_file: 40-flatpak.conf
 
 # Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
 # /home/linuxbrew/.linuxbrew and symlinked into /usr/local/bin so `brew`
@@ -364,6 +375,8 @@ homebrew_runtime_deps:
   - base-devel
   - curl
   - git
+# bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
+homebrew_bbrew_package: bbrew
 
 # libfprint (goodix538d, playbooks/libfprint.yml) — built in a distrobox
 # container, installed to /usr/local on the host.

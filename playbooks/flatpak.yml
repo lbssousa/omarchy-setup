@@ -1,0 +1,24 @@
+---
+# Flatpak support with the Flathub remote enabled — the go-to
+# cross-distro source for desktop apps, several of which only ship as
+# flatpaks. Omarchy doesn't include Flatpak by default, so installing an
+# app from flathub.org needs this first. The remote is registered for
+# the current user, so app installs don't need root.
+- name: Flatpak + Flathub
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Install flatpak via pacman
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Add the Flathub remote
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: user
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"

@@ -1,0 +1,48 @@
+---
+# Homebrew for Linux — installed per upstream's official script
+# (targets /home/linuxbrew/.linuxbrew). Omarchy doesn't ship it by
+# default, but some tools only publish brew formulae. `brew` is symlinked
+# into /usr/local/bin so it's on PATH without shell-profile edits.
+- name: Homebrew
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Install Homebrew's runtime dependencies via pacman
+      community.general.pacman:
+        name: "{{ homebrew_runtime_deps }}"
+        state: present
+      become: true
+
+    - name: Check whether brew is already installed
+      ansible.builtin.stat:
+        path: "{{ homebrew_bin }}"
+      register: homebrew_brew_check
+
+    - name: Download the official installer script
+      ansible.builtin.get_url:
+        url: "{{ homebrew_install_url }}"
+        dest: "{{ homebrew_install_script_path }}"
+        mode: "0700"
+      when: not homebrew_brew_check.stat.exists
+
+    - name: Run the installer (non-interactive)
+      ansible.builtin.command: "{{ homebrew_install_script_path }}"
+      environment:
+        NONINTERACTIVE: "1"
+      when: not homebrew_brew_check.stat.exists
+
+    - name: Ensure /usr/local/bin exists
+      ansible.builtin.file:
+        path: /usr/local/bin
+        state: directory
+      become: true
+
+    - name: Symlink brew into /usr/local/bin
+      ansible.builtin.file:
+        src: "{{ homebrew_bin }}"
+        dest: "{{ homebrew_symlink }}"
+        state: link
+        force: true
+      become: true

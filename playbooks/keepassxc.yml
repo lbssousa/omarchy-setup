@@ -4,7 +4,7 @@
 #
 # Installs KeePassXC from the official Arch repos, then writes a
 # pre-seeded keepassxc.ini that enables:
-#   - Browser integration (Firefox, Chromium, Brave)
+#   - Browser integration (Firefox, Chromium, Brave, Brave Origin)
 #   - SSH Agent support (OpenSSH backend — requires the ssh-agent
 #     playbook, which provides the agent this client connects to)
 #   - KeeShare (active set bootstrapped, success notifications quieted)
@@ -33,8 +33,9 @@
 # then execs KeePassXC.
 #
 # The native messaging host manifests are deployed by this playbook to
-# the Firefox/Chromium/Brave locations; the user still needs to install
-# the KeePassXC-Browser extension in each browser and connect it.
+# the Firefox/Chromium/Brave/Brave-Origin locations; the user still
+# needs to install the KeePassXC-Browser extension in each browser and
+# connect it.
 #
 # A udev rule locks every open database as soon as the YubiKey is
 # unplugged (matched on USB PRODUCT, since the reader is removable and

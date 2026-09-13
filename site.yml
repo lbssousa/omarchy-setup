@@ -59,6 +59,14 @@
   ansible.builtin.import_playbook: playbooks/distrobox.yml
   tags: [distrobox]
 
+- name: Flatpak + Flathub
+  ansible.builtin.import_playbook: playbooks/flatpak.yml
+  tags: [flatpak]
+
+- name: Homebrew (Linux)
+  ansible.builtin.import_playbook: playbooks/homebrew.yml
+  tags: [homebrew]
+
 - name: libfprint (goodix538d)
   ansible.builtin.import_playbook: playbooks/libfprint.yml
   tags: [libfprint]

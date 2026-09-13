@@ -298,6 +298,13 @@ keepassxc_browser_manifests:
   - name: Brave
     src: keepassxc-browser-chromium.json.j2
     dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+  # Brave-Origin is a separate Brave profile directory (not the stable
+  # Brave-Browser one) — it keeps its own NativeMessagingHosts folder, so
+  # it needs its own manifest entry or the extension can't reach
+  # keepassxc-proxy.
+  - name: Brave Origin
+    src: keepassxc-browser-chromium.json.j2
+    dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
 
 # Bitwarden (playbooks/bitwarden.yml — optional, not part of `just
 # setup`).  Prefers the AUR package, which tracks upstream releases
@@ -337,6 +344,26 @@ gcr_ssh_agent_units:
 # default useradd already allocates.
 podman_subuid_start: 100000
 podman_subuid_count: 65536
+
+# Flatpak (playbooks/flatpak.yml) — enables Flatpak support plus the
+# Flathub remote (the default cross-distro app source). Omarchy doesn't
+# include Flatpak by default.
+flatpak_package: flatpak
+flatpak_flathub_remote: flathub
+flatpak_flathub_repo_url: https://flathub.org/repo/flathub.flatpakrepo
+
+# Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
+# /home/linuxbrew/.linuxbrew and symlinked into /usr/local/bin so `brew`
+# is on PATH without shell-profile edits.
+homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+homebrew_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/homebrew-install.sh"
+homebrew_prefix: /home/linuxbrew/.linuxbrew
+homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
+homebrew_symlink: /usr/local/bin/brew
+homebrew_runtime_deps:
+  - base-devel
+  - curl
+  - git
 
 # libfprint (goodix538d, playbooks/libfprint.yml) — built in a distrobox
 # container, installed to /usr/local on the host.

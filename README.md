@@ -26,6 +26,8 @@ when called explicitly.
 | KeePassXC | `keepassxc` | Default password manager: desktop client (native Wayland via `qt5-wayland`) + browser integration (Firefox/Chromium/Brave) + SSH agent support (via `ssh-agent`) + monochrome tray icon (minimize/close to tray) + session autostart. |
 | Podman | `podman` | Rootless container engine. |
 | Distrobox | `distrobox` | Depends on Podman. |
+| Flatpak + Flathub | `flatpak` | Installs Flatpak and enables the Flathub remote (per-user, so app installs don't need root). |
+| Homebrew | `homebrew` | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`. |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
 | Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+SHIFT+[ resize the focused column. |
@@ -122,6 +124,8 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/bitwarden.yml` | Bitwarden — optional, outside `site.yml` (tag `bitwarden`) |
 | `playbooks/podman.yml` | Podman rootless (tag `podman`) |
 | `playbooks/distrobox.yml` | Distrobox (tag `distrobox`) |
+| `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
+| `playbooks/homebrew.yml` | Homebrew for Linux (tag `homebrew`) |
 | `playbooks/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |
 | `playbooks/printer.yml` | EPSON L4160 printer (tag `printer`) |
 | `playbooks/hypr-scrolling-resize.yml` | Scrolling-layout column resize (tag `hypr-scrolling-resize`) |

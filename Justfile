@@ -83,6 +83,14 @@ podman: _ensure-collections
 distrobox: _ensure-collections
     ansible-playbook site.yml --tags distrobox --ask-become-pass
 
+# Install Flatpak and enable the Flathub remote.
+flatpak: _ensure-collections
+    ansible-playbook site.yml --tags flatpak --ask-become-pass
+
+# Install Homebrew for Linux and symlink brew into /usr/local/bin.
+homebrew: _ensure-collections
+    ansible-playbook site.yml --tags homebrew --ask-become-pass
+
 # Build and install libfprint (goodix538d). Requires podman + distrobox.
 libfprint: _ensure-collections
     ansible-playbook site.yml --tags libfprint --ask-become-pass

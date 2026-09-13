@@ -1,7 +1,9 @@
 ---
 # Scales the Omarchy shell bar + terminal text size, without scaling
 # other GTK apps (and, by extension, web browsers, which don't use that
-# GTK factor to render pages).
+# GTK factor to render pages) — nor Qt apps, which on this machine use
+# the gtk3 platform theme (QT_QPA_PLATFORMTHEME=gtk3) and so read the
+# same GTK text-scaling-factor.
 #
 # `omarchy display text size <px>` changes all three at once (shell bar,
 # GTK apps, terminals) — this playbook calls the same command, then

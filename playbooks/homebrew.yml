@@ -3,6 +3,7 @@
 # (targets /home/linuxbrew/.linuxbrew). Omarchy doesn't ship it by
 # default, but some tools only publish brew formulae. `brew` is symlinked
 # into /usr/local/bin so it's on PATH without shell-profile edits.
+# bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
 - name: Homebrew
   hosts: localhost
   connection: local
@@ -46,3 +47,6 @@
         state: link
         force: true
       become: true
+
+    - name: Install bbrew (TUI for Homebrew/Flatpak) via brew
+      ansible.builtin.command: "{{ homebrew_symlink }} install {{ homebrew_bbrew_package }}"

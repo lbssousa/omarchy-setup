@@ -1,8 +1,10 @@
 ---
 # Homebrew for Linux — installed per upstream's official script
 # (targets /home/linuxbrew/.linuxbrew). Omarchy doesn't ship it by
-# default, but some tools only publish brew formulae. `brew` is symlinked
-# into /usr/local/bin so it's on PATH without shell-profile edits.
+# default, but some tools only publish brew formulae. `brew` is exposed
+# via a launcher script in /usr/local/bin so it's on PATH without
+# shell-profile edits, and every brew-installed binary is mirrored into
+# ~/.local/bin (overshadowed on PATH) via symlinks.
 # bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
 - name: Homebrew
   hosts: localhost
@@ -28,10 +30,33 @@
         mode: "0700"
       when: not homebrew_brew_check.stat.exists
 
-    - name: Run the installer (non-interactive)
-      ansible.builtin.command: "{{ homebrew_install_script_path }}"
+    # The installer only skips sudo when the prefix is already writable,
+    # so create it owned by the current user beforehand.
+    - name: Pre-create the Homebrew prefix owned by the current user
+      ansible.builtin.file:
+        path: "{{ homebrew_prefix }}"
+        state: directory
+        owner: "{{ ansible_facts.user_id }}"
+        group: "{{ ansible_facts.user_id }}"
+        mode: "0755"
+      become: true
+      when: not homebrew_brew_check.stat.exists
+
+    # There is no TTY here, so real `sudo` calls (fingerprint/password auth)
+    # can never succeed. The installer probes it via `sudo -l`, which this
+    # machine answers successfully even without authentication, so we force
+    # `have_sudo_access` to fail with a broken SUDO_ASKPASS; the installer
+    # then runs its commands directly as the current user (allowed because
+    # the prefix above is user-owned). INTERACTIVE keeps the probe in the
+    # askpass path (NONINTERACTIVE would use `sudo -n` and ignore it), and
+    # the piped newline answers its "Press RETURN" prompt.
+    - name: Run the installer
+      ansible.builtin.command:
+        cmd: "{{ homebrew_install_script_path }}"
+        stdin: "\n"
       environment:
-        NONINTERACTIVE: "1"
+        INTERACTIVE: "1"
+        SUDO_ASKPASS: /bin/false
       when: not homebrew_brew_check.stat.exists
 
     - name: Ensure /usr/local/bin exists
@@ -40,13 +65,62 @@
         state: directory
       become: true
 
-    - name: Symlink brew into /usr/local/bin
+    # A symlink here breaks brew 7.x: it resolves only the first hop of the
+    # /usr/local/bin/brew -> bin/brew -> Homebrew/bin/brew chain and then looks
+    # up Library/Homebrew/brew.sh one level early, and its macOS x86_64 shim
+    # additionally rewrites HOMEBREW_PREFIX to /usr/local. A plain launcher
+    # script avoids both by exec'ing the real brew so it resolves its own path.
+    - name: Remove any stale brew launcher
       ansible.builtin.file:
-        src: "{{ homebrew_bin }}"
+        path: "{{ homebrew_symlink }}"
+        state: absent
+      become: true
+
+    - name: Install brew launcher into /usr/local/bin
+      ansible.builtin.copy:
+        content: |
+          #!/bin/bash
+          exec "{{ homebrew_bin }}" "$@"
         dest: "{{ homebrew_symlink }}"
-        state: link
-        force: true
+        mode: "0755"
+        owner: root
+        group: root
       become: true
 
     - name: Install bbrew (TUI for Homebrew/Flatpak) via brew
       ansible.builtin.command: "{{ homebrew_symlink }} install {{ homebrew_bbrew_package }}"
+
+    # /home/linuxbrew/.linuxbrew/bin is not on PATH (managed by mise/omarchy),
+    # so brew-installed CLIs would be unreachable. Rather than launchers per
+    # app, mirror every Homebrew binary into ~/.local/bin, the omarchy
+    # user-tool path that is already exported in every context (login, bash
+    # non-login/SSH, uwsm session, and PAM). Future brew installs automatically
+    # show up on the next run of this playbook.
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ ansible_facts.user_dir }}/.local/bin"
+        state: directory
+
+    - name: List binaries shipped by Homebrew
+      ansible.builtin.command: ls -1 "{{ homebrew_prefix }}/bin"
+      register: homebrew_bins
+      changed_when: false
+
+    - name: Check for existing entries in ~/.local/bin before symlinking
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.user_dir }}/.local/bin/{{ item }}"
+      loop: "{{ homebrew_bins.stdout_lines }}"
+      register: local_bin_tgts
+
+    - name: Symlink every Homebrew binary into ~/.local/bin
+      ansible.builtin.file:
+        src: "{{ homebrew_prefix }}/bin/{{ item.item }}"
+        path: "{{ ansible_facts.user_dir }}/.local/bin/{{ item.item }}"
+        state: link
+        force: true
+      loop: "{{ local_bin_tgts.results }}"
+      when: not item.stat.exists or item.stat.islnk
+
+    - name: Drop dangling symlinks left by uninstalled formulae
+      ansible.builtin.command: find "{{ ansible_facts.user_dir }}/.local/bin" -maxdepth 1 -type l ! -exec test -e {} \; -delete
+      changed_when: false

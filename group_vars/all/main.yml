@@ -364,8 +364,8 @@ flatpak_user_exports_dir: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/exp
 flatpak_env_file: 40-flatpak.conf
 
 # Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
-# /home/linuxbrew/.linuxbrew and symlinked into /usr/local/bin so `brew`
-# is on PATH without shell-profile edits.
+# /home/linuxbrew/.linuxbrew and exposed via a launcher script in
+# /usr/local/bin so `brew` is on PATH without shell-profile edits.
 homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
 homebrew_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/homebrew-install.sh"
 homebrew_prefix: /home/linuxbrew/.linuxbrew

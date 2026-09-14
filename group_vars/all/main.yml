@@ -450,3 +450,24 @@ keyd_config_dest: /etc/keyd/default.conf
 nightlight_solar_night_temperature: 4000
 nightlight_solar_geoip_url: "http://ip-api.com/json/"
 nightlight_solar_oncalendar: "*-*-* 00:05:00"
+
+# Inkscape (playbooks/inkscape.yml) — official repo. svg2tikz (an
+# Inkscape extension exporting SVG paths as TikZ/PGF for LaTeX,
+# https://github.com/xyz2tex/svg2tikz) has no official Arch package, so
+# it's built from the AUR the same way as texlive_* / bitwarden_aur_*
+# above (unprivileged clone+makepkg+pacman -U). xclip is an optional
+# runtime dependency the extension uses for its "copy to clipboard"
+# output mode.
+inkscape_package: inkscape
+inkscape_svg2tikz_aur_package: python-svg2tikz
+inkscape_svg2tikz_aur_git_url: "https://aur.archlinux.org/{{ inkscape_svg2tikz_aur_package }}.git"
+inkscape_svg2tikz_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ inkscape_svg2tikz_aur_package }}"
+inkscape_svg2tikz_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ inkscape_svg2tikz_aur_package }}"
+inkscape_svg2tikz_aur_build_deps:
+  - python-build
+  - python-installer
+  - python-setuptools
+  - python-wheel
+  - python-poetry
+inkscape_svg2tikz_runtime_deps:
+  - xclip

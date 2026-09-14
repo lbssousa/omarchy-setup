@@ -116,6 +116,10 @@ nightlight-solar: _ensure-collections
 capslock: _ensure-collections
     ansible-playbook site.yml --tags capslock --ask-become-pass
 
+# Install Inkscape + svg2tikz (AUR), an extension exporting SVG paths as TikZ/PGF for LaTeX.
+inkscape: _ensure-collections
+    ansible-playbook site.yml --tags inkscape --ask-become-pass
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

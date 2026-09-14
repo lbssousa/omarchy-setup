@@ -90,3 +90,7 @@
 - name: Caps Lock via keyd
   ansible.builtin.import_playbook: playbooks/capslock.yml
   tags: [capslock]
+
+- name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
+  ansible.builtin.import_playbook: playbooks/inkscape.yml
+  tags: [inkscape]

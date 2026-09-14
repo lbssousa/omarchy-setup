@@ -471,3 +471,9 @@ inkscape_svg2tikz_aur_build_deps:
   - python-poetry
 inkscape_svg2tikz_runtime_deps:
   - xclip
+
+# fontconfig drop-in pointing Inkscape (and every other fontconfig/Pango
+# app) at TeX Live's own font tree (playbooks/inkscape.yml), which lives
+# outside fontconfig's default search dirs (/usr/share/fonts,
+# /usr/local/share/fonts, ~/.fonts, $XDG_DATA_HOME/fonts).
+inkscape_texlive_fontconfig_conf: /etc/fonts/conf.d/09-texlive-fonts.conf

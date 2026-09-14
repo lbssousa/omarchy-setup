@@ -1,0 +1,88 @@
+---
+# Inkscape (official repo) + svg2tikz (AUR python-svg2tikz) — an
+# Inkscape extension that exports SVG paths as TikZ/PGF code for LaTeX
+# documents. https://github.com/xyz2tex/svg2tikz
+#
+# svg2tikz has no official Arch package, so it's built from the AUR the
+# same unprivileged clone+makepkg+pacman -U pattern as
+# playbooks/texlive.yml (texlive-installer) and playbooks/bitwarden.yml:
+# makepkg refuses to run as root, and its own sudo (for missing build
+# deps) can't take an interactive password from Ansible, so build deps
+# are installed via pacman first and makepkg runs with --nodeps.
+#
+# The AUR package's own PKGBUILD installs tikz_export.py and its two
+# .inx files straight into /usr/share/inkscape/extensions — the same
+# place Inkscape looks for extensions system-wide — so no manual file
+# copying is needed here. Once installed, the extension shows up in
+# Inkscape's Extensions > Export menu. xclip is installed alongside it:
+# an optional runtime dependency svg2tikz uses for its "copy to
+# clipboard" output mode.
+#
+# Usage: ansible-playbook site.yml --tags inkscape --ask-become-pass
+- name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Install Inkscape via pacman
+      community.general.pacman:
+        name: "{{ inkscape_package }}"
+        state: present
+      become: true
+
+    - name: Install svg2tikz's optional runtime dependencies (xclip)
+      community.general.pacman:
+        name: "{{ inkscape_svg2tikz_runtime_deps }}"
+        state: present
+      become: true
+
+    - name: Check the currently installed svg2tikz version, if any
+      ansible.builtin.command: "pacman -Qi {{ inkscape_svg2tikz_aur_package }}"
+      environment:
+        LC_ALL: C
+      register: inkscape_svg2tikz_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Extract the installed svg2tikz version
+      ansible.builtin.set_fact:
+        inkscape_svg2tikz_installed_version: >-
+          {{ (inkscape_svg2tikz_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+      when: inkscape_svg2tikz_installed.rc == 0
+
+    - name: Check the svg2tikz version on the AUR
+      ansible.builtin.uri:
+        url: "{{ inkscape_svg2tikz_aur_rpc_url }}"
+        return_content: true
+      register: inkscape_svg2tikz_aur_info
+
+    - name: Extract the AUR package version
+      ansible.builtin.set_fact:
+        inkscape_svg2tikz_aur_version: "{{ inkscape_svg2tikz_aur_info.json.results[0].Version }}"
+
+    - name: "Build and install svg2tikz (only if missing or outdated)"
+      when: >-
+        inkscape_svg2tikz_installed.rc != 0
+        or inkscape_svg2tikz_installed_version != inkscape_svg2tikz_aur_version
+      block:
+        - name: Install svg2tikz's build dependencies
+          community.general.pacman:
+            name: "{{ inkscape_svg2tikz_aur_build_deps }}"
+            state: present
+          become: true
+
+        - name: Clone/update the python-svg2tikz AUR repo
+          ansible.builtin.git:
+            repo: "{{ inkscape_svg2tikz_aur_git_url }}"
+            dest: "{{ inkscape_svg2tikz_aur_build_dir }}"
+            update: true
+
+        - name: Build the package (makepkg, no dep resolution, unprivileged)
+          ansible.builtin.command: makepkg --nodeps --noconfirm --force
+          args:
+            chdir: "{{ inkscape_svg2tikz_aur_build_dir }}"
+
+        - name: Install the built package
+          ansible.builtin.shell: "pacman -U --noconfirm {{ inkscape_svg2tikz_aur_build_dir }}/*.pkg.tar.zst"
+          become: true

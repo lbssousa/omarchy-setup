@@ -18,6 +18,21 @@
 # an optional runtime dependency svg2tikz uses for its "copy to
 # clipboard" output mode.
 #
+# Inkscape discovers fonts through fontconfig/Pango, same as any other
+# desktop app, and TeX Live's own fonts (playbooks/texlive.yml, under
+# "{{ texlive_texdir }}/texmf-dist/fonts") live outside fontconfig's
+# default search dirs — so without this, Latin Modern and every other
+# TeX Live family are invisible in Inkscape's font picker. A fontconfig
+# drop-in adding those dirs is used instead of copying or symlinking
+# individual font files into /usr/local/share/fonts, so `tlmgr` font
+# package updates keep showing up with no extra step. opentype/truetype
+# cover most families; type1 (.pfb) is included too since some classic
+# TeX Live families — Latin Modern's Type 1 variant among them — only
+# ship that way, and FreeType renders it fine. This is a fontconfig-wide
+# change (every app benefits, not just Inkscape), and is harmless to
+# apply even before TeX Live is installed: fontconfig just skips <dir>
+# entries that don't exist yet.
+#
 # Usage: ansible-playbook site.yml --tags inkscape --ask-become-pass
 - name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
   hosts: localhost
@@ -86,3 +101,17 @@
         - name: Install the built package
           ansible.builtin.shell: "pacman -U --noconfirm {{ inkscape_svg2tikz_aur_build_dir }}/*.pkg.tar.zst"
           become: true
+
+    - name: Point fontconfig at TeX Live's fonts (opentype/truetype/type1)
+      ansible.builtin.template:
+        src: texlive-fonts.conf.j2
+        dest: "{{ inkscape_texlive_fontconfig_conf }}"
+        mode: "0644"
+      become: true
+      notify: rebuild font cache
+
+  handlers:
+    - name: rebuild font cache
+      ansible.builtin.command: fc-cache -f
+      changed_when: true
+      listen: rebuild font cache

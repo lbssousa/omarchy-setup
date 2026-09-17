@@ -1,0 +1,11 @@
+[Plymouth Theme]
+Name=Omarchy BGRT
+Description=BGRT firmware logo with a small Omarchy wordmark below the password field.
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/omarchy-bgrt
+ScriptFile=/usr/share/plymouth/themes/omarchy-bgrt/omarchy-bgrt.script
+ConsoleLogBackgroundColor=0x000000
+MonospaceFont=Cantarell 11
+Font=Cantarell 11

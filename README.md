@@ -7,10 +7,11 @@ Each automation is its own playbook under `playbooks/`, imported by
 `site.yml`. All of them share the same privilege escalation (sudo, see
 `ansible.cfg`), and each has its own tag: run one with `--tags <tag>`,
 or skip one with `--skip-tags <tag>`. Exceptions:
-`playbooks/secureboot.yml` and `playbooks/bitwarden.yml` are **not**
-imported by `site.yml` — Secure Boot touches firmware/boot, and Bitwarden
-is an optional alternative to the default KeePassXC — so they only run
-when called explicitly.
+`playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml` and
+`playbooks/bitwarden.yml` are **not** imported by `site.yml` — Secure
+Boot and the BGRT boot theme touch firmware/boot, and Bitwarden is an
+optional alternative to the default KeePassXC — so they only run when
+called explicitly.
 
 ## What it sets up
 
@@ -35,6 +36,7 @@ when called explicitly.
 | Night light | `nightlight-solar` | Syncs hyprsunset to real sunrise/sunset daily. |
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |
 | Inkscape + svg2tikz | `inkscape` | Installs Inkscape and the [svg2tikz](https://github.com/xyz2tex/svg2tikz) extension (AUR `python-svg2tikz`) for exporting SVG paths as TikZ/PGF code for LaTeX. Also points fontconfig at TeX Live's own fonts, so Latin Modern and other TeX families show up in Inkscape's (and every fontconfig app's) font picker. |
+| BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
 | Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. |
 | Yubikey SSH keys | `ssh-yubikey` | Prepares for downloading resident FIDO2 keys. Not part of `just setup`. |
@@ -96,11 +98,12 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**Bitwarden, Secure Boot, the Yubikey GPG key, and the Yubikey SSH
-keys are separate** — not part of `just setup`:
+**Bitwarden, the BGRT boot theme, Secure Boot, the Yubikey GPG key,
+and the Yubikey SSH keys are separate** — not part of `just setup`:
 
 ```bash
 just bitwarden     # optional; KeePassXC is the default password manager
+just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
 just ssh-yubikey   # needs the Yubikey plugged in
@@ -133,6 +136,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/text-size.yml` | Shell bar + terminal text size (tag `text-size`) |
 | `playbooks/nightlight-solar.yml` | Night light synced to sunrise/sunset (tag `nightlight-solar`) |
 | `playbooks/capslock.yml` | Caps Lock via keyd (tag `capslock`) |
+| `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |
 | `playbooks/yubikey-gpg.yml` | Yubikey GPG key — outside `site.yml` (tag `gpg-yubikey`) |

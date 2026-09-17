@@ -94,3 +94,7 @@
 - name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
   ansible.builtin.import_playbook: playbooks/inkscape.yml
   tags: [inkscape]
+
+- name: Sacred Heart Omarchy theme
+  ansible.builtin.import_playbook: playbooks/sacred-heart-theme.yml
+  tags: [sacred-heart-theme]

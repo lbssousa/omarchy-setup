@@ -120,6 +120,10 @@ capslock: _ensure-collections
 inkscape: _ensure-collections
     ansible-playbook site.yml --tags inkscape --ask-become-pass
 
+# Install and apply the Sacred Heart Omarchy theme.
+sacred-heart-theme: _ensure-collections
+    ansible-playbook site.yml --tags sacred-heart-theme
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

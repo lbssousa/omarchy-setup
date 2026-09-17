@@ -36,6 +36,7 @@ called explicitly.
 | Night light | `nightlight-solar` | Syncs hyprsunset to real sunrise/sunset daily. |
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |
 | Inkscape + svg2tikz | `inkscape` | Installs Inkscape and the [svg2tikz](https://github.com/xyz2tex/svg2tikz) extension (AUR `python-svg2tikz`) for exporting SVG paths as TikZ/PGF code for LaTeX. Also points fontconfig at TeX Live's own fonts, so Latin Modern and other TeX families show up in Inkscape's (and every fontconfig app's) font picker. |
+| Sacred Heart theme | `sacred-heart-theme` | Installs and applies a personal Omarchy theme (warm gold/brown palette tuned to Tokyo Night's background depth, devotional backgrounds). |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
 | Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. |
@@ -136,6 +137,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/text-size.yml` | Shell bar + terminal text size (tag `text-size`) |
 | `playbooks/nightlight-solar.yml` | Night light synced to sunrise/sunset (tag `nightlight-solar`) |
 | `playbooks/capslock.yml` | Caps Lock via keyd (tag `capslock`) |
+| `playbooks/sacred-heart-theme.yml` | Sacred Heart Omarchy theme (tag `sacred-heart-theme`) |
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |

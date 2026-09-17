@@ -459,10 +459,23 @@ printer_l4160_device_uri: "ipp://{{ printer_l4160_hostname }}:631/ipp/print"
 printer_l4160_error_policy: abort-job
 printer_l4160_set_default: true
 
-# Shell bar + terminal text size (playbooks/text-size.yml), px. GTK scale
-# factor is always reset afterward, so this doesn't affect other GTK (or
-# Qt, via gtk3 platform theme) apps.
+# Shell bar + terminal text size (playbooks/text-size.yml), px. The GTK
+# text-scaling factor this command would otherwise leave in place is always
+# reset — the desktop's default UI font size is set directly instead, via
+# omarchy_system_ui_font_pt below.
 omarchy_text_size_px: 16
+
+# Hyprland monitor scale factor (playbooks/text-size.yml) — the
+# compositor-level "screen scale" applied to everything on screen. Fed
+# straight into hl.monitor({ scale = ... }) in
+# ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
+omarchy_monitor_scale: 1.25
+
+# Default GTK/Qt (via gtk3 platform theme) system UI font point size
+# (playbooks/text-size.yml). Applied directly to
+# org.gnome.desktop.interface font-name, keeping whatever font family is
+# already configured there.
+omarchy_system_ui_font_pt: 12
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
 # from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep

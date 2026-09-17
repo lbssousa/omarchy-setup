@@ -124,6 +124,12 @@ inkscape: _ensure-collections
 libfprint-destroy-container:
     distrobox rm -f libfprint-build
 
+# Build the BGRT-derived boot theme (Omarchy theme + Plymouth theme) and
+# set it as the default boot splash. Not part of `setup` — rewrites the
+# default Plymouth theme and rebuilds the initramfs.
+bgrt-theme: _ensure-collections
+    ansible-playbook playbooks/bgrt-theme.yml --ask-become-pass
+
 # Secure Boot (Limine + sbctl). Not part of `setup` — run explicitly,
 # twice, with a firmware reboot in between (see the playbook header).
 secureboot: _ensure-collections

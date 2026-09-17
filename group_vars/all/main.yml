@@ -420,6 +420,33 @@ secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 
+# BGRT-derived boot theme (playbooks/bgrt-theme.yml — not part of
+# `just setup`, run explicitly). Builds an Omarchy desktop theme and a
+# standalone Plymouth theme, both derived from this machine's own UEFI
+# BGRT boot logo (/sys/firmware/acpi/bgrt/*), so the same picture stays
+# on screen from firmware through Plymouth to the Hyprlock lock screen.
+bgrt_sysfs_dir: /sys/firmware/acpi/bgrt
+bgrt_sysfs_image: "{{ bgrt_sysfs_dir }}/image"
+bgrt_sysfs_yoffset: "{{ bgrt_sysfs_dir }}/yoffset"
+bgrt_imagemagick_package: imagemagick
+bgrt_omarchy_theme_name: bgrt
+bgrt_omarchy_theme_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
+bgrt_plymouth_theme_name: omarchy-bgrt
+bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
+# The stock "omarchy" Plymouth theme template Omarchy itself ships —
+# read-only source for the assets that just need recoloring.
+bgrt_plymouth_stock_dir: /usr/share/omarchy/default/plymouth
+bgrt_wordmark_width: 320
+# Gaps around the (hidden, until unlocking starts) password entry
+# field, same values omarchy-bgrt.script itself uses to place the
+# entry field below the logo and the wordmark below the entry field.
+bgrt_entry_gap_above: 40
+bgrt_entry_gap_below: 30
+# Style > Unlock menu preview canvas — same size every Omarchy theme's
+# own preview-unlock.png uses.
+bgrt_preview_width: 1920
+bgrt_preview_height: 1080
+
 # Hyprland scrolling-layout column resize step (playbooks/hypr-scrolling-resize.yml).
 hypr_scrolling_colresize_step: 0.1
 

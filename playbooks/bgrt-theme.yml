@@ -1,0 +1,243 @@
+---
+# BGRT-derived boot theme — not part of site.yml/`just setup`,
+# deliberately: it rewrites the system's default Plymouth theme and
+# rebuilds the initramfs, the same class of risk as
+# playbooks/secureboot.yml.
+#
+# Most PCs show their own UEFI boot logo (the ACPI BGRT table,
+# /sys/firmware/acpi/bgrt/*) before any bootloader or OS code runs. By
+# default, Omarchy's Plymouth splash and Hyprlock look nothing like
+# that firmware logo, so the screen visibly changes right after the
+# firmware hands off. This playbook builds two themes from the
+# machine's own BGRT logo instead of a bundled image, so the same
+# picture stays on screen from firmware through Plymouth to the
+# Hyprlock lock screen:
+#   - an Omarchy desktop theme (~/.config/omarchy/themes/bgrt),
+#     selectable from Style > Theme, whose unlock.png (and Style >
+#     Unlock menu preview) both come from the BGRT logo;
+#   - a standalone Plymouth theme (omarchy-bgrt) — outside Omarchy's
+#     own per-theme Plymouth mechanism (omarchy-plymouth-set-by-theme
+#     recolors/replaces the single shared "omarchy" theme, which would
+#     get overwritten the next time any other Omarchy theme is applied
+#     from Style > Unlock) — using the same logo, a plain black
+#     background instead of a theme-accent gradient, and the firmware's
+#     own yoffset so the logo doesn't jump when Plymouth takes over. A
+#     small Omarchy wordmark is pinned below the password field, since
+#     the main logo slot is now the firmware logo instead of the
+#     Omarchy wordmark.
+#
+# Both are rebuilt from /sys/firmware/acpi/bgrt/* on every run —
+# nothing here is a bundled binary asset, since the BGRT logo, its
+# size and its yoffset are specific to each machine's firmware.
+#
+# The Style > Unlock menu preview is generated, not a screenshot: a
+# 1920x1080 black canvas with the logo and wordmark placed at the same
+# relative offsets omarchy-bgrt.script itself computes (idle boot
+# state — no password field, which the real script only shows once
+# unlocking starts). It's a good approximation, not a pixel-identical
+# capture of the real screen at its actual resolution.
+- name: BGRT-derived boot theme (Omarchy desktop theme + standalone Plymouth theme)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Check this machine's firmware has a BGRT boot logo
+      ansible.builtin.stat:
+        path: "{{ bgrt_sysfs_image }}"
+      register: bgrt_image_stat
+
+    - name: Fail if there's no BGRT boot logo to derive the theme from
+      ansible.builtin.fail:
+        msg: >-
+          {{ bgrt_sysfs_image }} doesn't exist — this firmware doesn't
+          expose a BGRT boot logo (common on VMs and some laptops), so
+          there's nothing to build this theme from.
+      when: not bgrt_image_stat.stat.exists
+
+  tasks:
+    - name: Ensure ImageMagick is installed
+      community.general.pacman:
+        name: "{{ bgrt_imagemagick_package }}"
+        state: present
+      become: true
+
+    - name: Read the firmware logo's Y offset (keeps the boot transition seamless)
+      ansible.builtin.command: "cat {{ bgrt_sysfs_yoffset }}"
+      register: bgrt_yoffset_read
+      changed_when: false
+
+    - name: Set bgrt_yoffset
+      ansible.builtin.set_fact:
+        bgrt_yoffset: "{{ bgrt_yoffset_read.stdout | trim | int }}"
+
+    - name: Create a scratch build directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: omarchy-bgrt-theme.
+      register: bgrt_build
+
+    - name: Convert the firmware logo to grayscale PNG
+      ansible.builtin.command: "magick {{ bgrt_sysfs_image }} -colorspace Gray {{ bgrt_build.path }}/logo.png"
+      changed_when: true
+
+    - name: Read the converted logo's dimensions
+      ansible.builtin.command: "identify -format '%w %h' {{ bgrt_build.path }}/logo.png"
+      register: bgrt_logo_size
+      changed_when: false
+
+    - name: Set bgrt_logo_width / bgrt_logo_height
+      ansible.builtin.set_fact:
+        bgrt_logo_width: "{{ bgrt_logo_size.stdout.split()[0] | int }}"
+        bgrt_logo_height: "{{ bgrt_logo_size.stdout.split()[1] | int }}"
+
+    - name: Build the small Omarchy wordmark (Omarchy's own boot logo, resized + recolored white)
+      ansible.builtin.command: >-
+        magick {{ bgrt_plymouth_stock_dir }}/logo.png -resize {{ bgrt_wordmark_width }}x
+        -channel RGB +level-colors "#ffffff","#ffffff" {{ bgrt_build.path }}/wordmark.png
+      changed_when: true
+
+    - name: Read the wordmark's actual dimensions
+      ansible.builtin.command: "identify -format '%w %h' {{ bgrt_build.path }}/wordmark.png"
+      register: bgrt_wordmark_size
+      changed_when: false
+
+    - name: Read the stock entry field's height (same value omarchy-bgrt.script uses to place the wordmark)
+      ansible.builtin.command: "identify -format '%h' {{ bgrt_plymouth_stock_dir }}/entry.png"
+      register: bgrt_entry_height_read
+      changed_when: false
+
+    - name: Set the wordmark/entry dimensions used for layout
+      ansible.builtin.set_fact:
+        bgrt_wordmark_width_actual: "{{ bgrt_wordmark_size.stdout.split()[0] | int }}"
+        bgrt_entry_height: "{{ bgrt_entry_height_read.stdout | trim | int }}"
+
+    - name: Render the Style > Unlock menu preview (logo + wordmark on black, matching the script's idle-boot layout)
+      ansible.builtin.command: >-
+        magick -size {{ bgrt_preview_width }}x{{ bgrt_preview_height }} xc:black
+        {{ bgrt_build.path }}/logo.png
+        -geometry +{{ ((bgrt_preview_width - bgrt_logo_width) / 2) | int }}+{{ bgrt_yoffset }} -composite
+        {{ bgrt_build.path }}/wordmark.png
+        -geometry +{{ ((bgrt_preview_width - bgrt_wordmark_width_actual) / 2) | int }}+{{ bgrt_yoffset + bgrt_logo_height + bgrt_entry_gap_above + bgrt_entry_height + bgrt_entry_gap_below }} -composite
+        {{ bgrt_build.path }}/preview-unlock.png
+      changed_when: true
+
+    - name: Create the Omarchy theme directory (~/.config/omarchy/themes/bgrt)
+      ansible.builtin.file:
+        path: "{{ bgrt_omarchy_theme_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the theme colors (monochrome, matching the firmware logo)
+      ansible.builtin.copy:
+        src: bgrt-colors.toml
+        dest: "{{ bgrt_omarchy_theme_dir }}/colors.toml"
+        mode: "0644"
+
+    - name: Install the theme's unlock.png (firmware logo)
+      ansible.builtin.copy:
+        src: "{{ bgrt_build.path }}/logo.png"
+        dest: "{{ bgrt_omarchy_theme_dir }}/unlock.png"
+        remote_src: true
+        mode: "0644"
+
+    - name: Install the theme's Style > Unlock menu preview
+      ansible.builtin.copy:
+        src: "{{ bgrt_build.path }}/preview-unlock.png"
+        dest: "{{ bgrt_omarchy_theme_dir }}/preview-unlock.png"
+        remote_src: true
+        mode: "0644"
+
+    - name: Create the standalone Plymouth theme directory
+      ansible.builtin.file:
+        path: "{{ bgrt_plymouth_theme_dir }}"
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Copy the stock Omarchy Plymouth assets that only need recoloring
+      ansible.builtin.copy:
+        src: "{{ bgrt_plymouth_stock_dir }}/{{ item }}"
+        dest: "{{ bgrt_plymouth_theme_dir }}/{{ item }}"
+        remote_src: true
+        mode: "0644"
+      loop:
+        - bullet.png
+        - entry.png
+        - lock.png
+        - progress_bar.png
+      become: true
+      register: bgrt_plymouth_recolor_assets
+
+    - name: Recolor the copied assets white (same recipe omarchy-plymouth-set uses per theme)
+      ansible.builtin.command: >-
+        magick {{ bgrt_plymouth_theme_dir }}/{{ item.item }} -channel RGB +level-colors "#ffffff","#ffffff"
+        {{ bgrt_plymouth_theme_dir }}/{{ item.item }}
+      loop: "{{ bgrt_plymouth_recolor_assets.results }}"
+      become: true
+      changed_when: true
+
+    - name: Copy the stock progress box (not recolored — already flat black/white)
+      ansible.builtin.copy:
+        src: "{{ bgrt_plymouth_stock_dir }}/progress_box.png"
+        dest: "{{ bgrt_plymouth_theme_dir }}/progress_box.png"
+        remote_src: true
+        mode: "0644"
+      become: true
+
+    - name: Install the Plymouth theme's logo (firmware logo)
+      ansible.builtin.copy:
+        src: "{{ bgrt_build.path }}/logo.png"
+        dest: "{{ bgrt_plymouth_theme_dir }}/logo.png"
+        remote_src: true
+        mode: "0644"
+      become: true
+
+    - name: Install the Plymouth theme's wordmark
+      ansible.builtin.copy:
+        src: "{{ bgrt_build.path }}/wordmark.png"
+        dest: "{{ bgrt_plymouth_theme_dir }}/wordmark.png"
+        remote_src: true
+        mode: "0644"
+      become: true
+
+    - name: Install the theme descriptor
+      ansible.builtin.copy:
+        src: omarchy-bgrt.plymouth
+        dest: "{{ bgrt_plymouth_theme_dir }}/omarchy-bgrt.plymouth"
+        mode: "0644"
+      become: true
+
+    - name: Install the boot script (black background, this machine's yoffset, wordmark)
+      ansible.builtin.template:
+        src: omarchy-bgrt.script.j2
+        dest: "{{ bgrt_plymouth_theme_dir }}/omarchy-bgrt.script"
+        mode: "0644"
+      become: true
+
+    - name: Check the current default Plymouth theme
+      ansible.builtin.command: plymouth-set-default-theme
+      register: bgrt_current_plymouth_theme
+      changed_when: false
+
+    - name: Set omarchy-bgrt as the default Plymouth theme and rebuild the initramfs
+      when: bgrt_current_plymouth_theme.stdout | trim != bgrt_plymouth_theme_name
+      become: true
+      block:
+        - name: "plymouth-set-default-theme {{ bgrt_plymouth_theme_name }}"
+          ansible.builtin.command: "plymouth-set-default-theme {{ bgrt_plymouth_theme_name }}"
+          changed_when: true
+
+        - name: Rebuild the initramfs (limine-mkinitcpio if present, else mkinitcpio -P)
+          ansible.builtin.shell: >-
+            if command -v limine-mkinitcpio >/dev/null 2>&1; then
+              limine-mkinitcpio
+            else
+              mkinitcpio -P
+            fi
+          changed_when: true
+
+    - name: Clean up the scratch build directory
+      ansible.builtin.file:
+        path: "{{ bgrt_build.path }}"
+        state: absent

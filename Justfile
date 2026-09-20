@@ -121,9 +121,10 @@ capslock: _ensure-collections
 inkscape: _ensure-collections
     ansible-playbook site.yml --tags inkscape --ask-become-pass
 
-# Install and apply the Sacred Heart Omarchy theme.
-sacred-heart-theme: _ensure-collections
-    ansible-playbook site.yml --tags sacred-heart-theme
+# Install the Omadwaita Omarchy themes (Adwaita-based: Omadwaita = dark TUI +
+# light GTK, Omadwaita Light, Omadwaita Dark). Installs only; doesn't apply.
+omadwaita-themes: _ensure-collections
+    ansible-playbook site.yml --tags omadwaita-themes
 
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:

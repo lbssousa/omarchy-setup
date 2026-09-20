@@ -1,0 +1,37 @@
+# Omadwaita (dark) — Adwaita/libadwaita 1.9 dark, as a TUI/terminal palette.
+# Surfaces: view_bg_color #1d1d20 (background), headerbar/sidebar #2e2e32 (lighter_background).
+# Colors: the 9 Adwaita accent colors (blue teal green yellow orange red pink purple slate).
+#   normal = accent_bg_color, lifted in OKLab lightness only as far as needed to reach 4.5:1 on background;
+#   bright = libadwaita's dark standalone form, oklab(max(l, 0.85) a b).
+#   cyan = teal, magenta = purple (bright_magenta = pink), muted = slate.
+
+mode = "dark"
+
+accent = "#3584e4"
+selection = "#233751"
+muted = "#72879a"
+
+background = "#1d1d20"
+dark_background = "#161618"
+darker_background = "#0e0e10"
+lighter_background = "#2e2e32"
+
+foreground = "#e8e8e9"
+dark_foreground = "#99999b"
+light_foreground = "#cdcdce"
+bright_foreground = "#ffffff"
+
+red = "#f43d4d"
+yellow = "#c88800"
+orange = "#ed5b00"
+green = "#3c964c"
+cyan = "#2291a5"
+blue = "#3685e5"
+magenta = "#b463d0"
+
+bright_red = "#ff888c"
+bright_yellow = "#ffc057"
+bright_green = "#8de698"
+bright_cyan = "#7bdff4"
+bright_blue = "#81d0ff"
+bright_magenta = "#ffa0d8"

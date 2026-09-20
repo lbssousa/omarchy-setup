@@ -39,7 +39,7 @@ they only run when called explicitly.
 | Night light | `nightlight-solar` | Syncs hyprsunset to real sunrise/sunset daily. |
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |
 | Inkscape + svg2tikz | `inkscape` | Installs Inkscape and the [svg2tikz](https://github.com/xyz2tex/svg2tikz) extension (AUR `python-svg2tikz`) for exporting SVG paths as TikZ/PGF code for LaTeX. Also points fontconfig at TeX Live's own fonts, so Latin Modern and other TeX families show up in Inkscape's (and every fontconfig app's) font picker. |
-| Sacred Heart theme | `sacred-heart-theme` | Installs and applies a personal Omarchy theme (warm gold/brown palette tuned to Tokyo Night's background depth, devotional backgrounds). |
+| Omadwaita themes | `omadwaita-themes` | Installs three Adwaita-based Omarchy themes whose terminal palettes come from Adwaita's nine accent colors, WCAG-AA-checked on their background: **Omadwaita** (dark TUI, light GTK — a `theme-set` hook flips GTK back to light), **Omadwaita Light** and **Omadwaita Dark**. All three use the Adwaita icon theme and share one wallpaper set (devotional paintings and wallpapers, `playbooks/files/omadwaita/backgrounds/`, migrated from the former Sacred Heart theme), plus a generated fallback wallpaper (the Omarchy logo on a gradient in the theme's palette). Omarchy never recolors GTK (it only picks `Adwaita`/`Adwaita-dark` from the theme's `mode`), so GTK apps keep the stock Adwaita palette. Installs only; apply with `omarchy-theme-set "Omadwaita"`. |
 | TeX Live | `texlive` | Installs TeX Live via AUR `texlive-installer` (scheme-minimal + AISCGre-BR package selection). Not part of `just setup` — a long network install, run explicitly. |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
@@ -144,7 +144,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/text-size.yml` | Shell bar + terminal text size (tag `text-size`) |
 | `playbooks/nightlight-solar.yml` | Night light synced to sunrise/sunset (tag `nightlight-solar`) |
 | `playbooks/capslock.yml` | Caps Lock via keyd (tag `capslock`) |
-| `playbooks/sacred-heart-theme.yml` | Sacred Heart Omarchy theme (tag `sacred-heart-theme`) |
+| `playbooks/omadwaita-themes.yml` | Omadwaita / Omadwaita Light / Omadwaita Dark Omarchy themes (tag `omadwaita-themes`) |
 | `playbooks/texlive.yml` | TeX Live via AUR texlive-installer — outside `site.yml` (tag `texlive`) |
 | `playbooks/gregorio.yml` | Gregorio engraver, builds from source — outside `site.yml` (tag `gregorio`) |
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |

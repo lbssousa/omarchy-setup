@@ -1,0 +1,175 @@
+---
+# Omadwaita — three personal Omarchy themes that keep the Adwaita look and
+# take their terminal (TUI) colors from Adwaita's nine accent colors
+# (blue, teal, green, yellow, orange, red, pink, purple, slate):
+#
+#   Omadwaita        TUI dark, GTK light
+#   Omadwaita Light  everything light
+#   Omadwaita Dark   everything dark
+#
+# Omarchy never recolors GTK: omarchy-theme-set-gnome only switches
+# between `Adwaita` and `Adwaita-dark` from colors.toml's `mode`, so GTK
+# and libadwaita apps keep their stock Adwaita palette under any theme
+# (community `gtk.css` files are not consumed). Two colors.toml palettes,
+# derived from libadwaita 1.9's own stylesheet, cover the three themes:
+#
+#   files/omadwaita/dark/colors.toml   Omadwaita, Omadwaita Dark
+#   files/omadwaita/light/colors.toml  Omadwaita Light
+#
+# "Omadwaita" is the only one that needs more than a palette: its
+# theme-set hook (files/omadwaita/omadwaita-light-apps.sh) flips GTK and
+# the Chromium-family browsers back to light after Omarchy has set them
+# dark from `mode = "dark"` and the dark background color. (Browsers are
+# tinted from the theme's background color, not from GTK's color scheme.)
+#
+# All three share one wallpaper set, committed under
+# files/omadwaita/backgrounds/ (devotional paintings and wallpapers,
+# migrated from the former Sacred Heart theme) and copied into each
+# theme's backgrounds/.
+#
+# A theme without backgrounds/ makes every omarchy-theme-set complain
+# ("No background was found"), so each one also gets a generated fallback
+# wallpaper that needs no committed files: the Omarchy logo
+# (/usr/share/omarchy/logo.svg, recolored) centered on a radial gradient
+# in the theme's palette, rendered here with ImageMagick. It takes part in
+# Omarchy's wallpaper rotation like the others.
+#
+# All three use the Adwaita icon theme (icons.theme), instead of Omarchy's
+# default Yaru-blue.
+#
+# Installs the themes only; apply one with `omarchy-theme-set "Omadwaita"`
+# (or pick it in the theme menu).
+- name: Omadwaita Omarchy themes
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    omadwaita_themes_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/themes"
+    omadwaita_hooks_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/hooks/theme-set.d"
+    omadwaita_logo: /usr/share/omarchy/logo.svg
+    omadwaita_icon_theme: Adwaita
+    # wallpaper: radial gradient from the center color to the edge color;
+    # logo: the Adwaita blue the logo is filled with (the accent on dark,
+    # libadwaita's deeper light-mode form of it on light, for contrast).
+    omadwaita_themes:
+      - { dir: omadwaita, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4" }
+      - { dir: omadwaita-light, palette: light, wallpaper: "#ffffff-#dfebfb", logo: "#0461be" }
+      - { dir: omadwaita-dark, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4" }
+
+  tasks:
+    # `magick` would otherwise hand SVGs to Inkscape when it's installed
+    # (slow, noisy); the wallpaper task below asks for librsvg explicitly.
+    - name: Check that ImageMagick can render SVG with librsvg
+      ansible.builtin.command: magick -list format
+      register: omadwaita_magick_formats
+      changed_when: false
+      failed_when: "'RSVG' not in omadwaita_magick_formats.stdout"
+
+    - name: Look for the Omarchy logo and the Adwaita icon theme
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ omadwaita_logo }}"
+        - "/usr/share/icons/{{ omadwaita_icon_theme }}"
+      register: omadwaita_assets
+
+    - name: Fail if either is missing
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: "{{ item.item }} not found"
+        quiet: true
+      loop: "{{ omadwaita_assets.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Create the theme directories
+      ansible.builtin.file:
+        path: "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds"
+        state: directory
+        mode: "0755"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Install the palettes
+      ansible.builtin.copy:
+        src: "omadwaita/{{ item.palette }}/colors.toml"
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/colors.toml"
+        mode: "0644"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.palette }})"
+
+    - name: Install the shared wallpaper set
+      ansible.builtin.copy:
+        src: omadwaita/backgrounds/
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds/"
+        mode: "0644"
+        directory_mode: "0755"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Use the Adwaita icon theme
+      ansible.builtin.copy:
+        content: "{{ omadwaita_icon_theme }}\n"
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/icons.theme"
+        mode: "0644"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Render the fallback wallpapers (Omarchy logo on a gradient)
+      ansible.builtin.command:
+        argv:
+          - magick
+          - -size
+          - 2560x1440
+          - "radial-gradient:{{ item.wallpaper }}"
+          # A little noise hides the banding of a low-contrast gradient;
+          # it's applied before the logo is composited, so the logo's
+          # edges stay clean.
+          - -attenuate
+          - "0.06"
+          - +noise
+          - Gaussian
+          - "("
+          - -background
+          - none
+          - "rsvg:{{ omadwaita_logo }}"
+          - -resize
+          - 900x
+          - -fill
+          - "{{ item.logo }}"
+          - -colorize
+          - "100"
+          - ")"
+          - -gravity
+          - center
+          - -composite
+          - -quality
+          - "95"
+          - "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds/omarchy-logo.jpg"
+        creates: "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds/omarchy-logo.jpg"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Create ~/.config/omarchy/hooks/theme-set.d
+      ansible.builtin.file:
+        path: "{{ omadwaita_hooks_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the theme-set hook that keeps GTK and browsers light under Omadwaita
+      ansible.builtin.copy:
+        src: omadwaita/omadwaita-light-apps.sh
+        dest: "{{ omadwaita_hooks_dir }}/omadwaita-light-apps"
+        mode: "0755"
+
+    - name: Say how to apply them
+      ansible.builtin.debug:
+        msg: >-
+          Installed. Apply one with omarchy-theme-set "Omadwaita" (or
+          "Omadwaita Light" / "Omadwaita Dark").

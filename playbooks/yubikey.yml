@@ -1,4 +1,12 @@
 ---
+# Yubikey helpers, neither part of site.yml/`just setup` (both depend on
+# the physical token being connected):
+#
+#   GPG public key      tags: yubikey, gpg-yubikey   (`just gpg-yubikey`)
+#   Resident SSH keys   tags: yubikey, ssh-yubikey   (`just ssh-yubikey`)
+#
+# Usage: ./run-empowered.sh ansible-playbook playbooks/yubikey.yml --tags gpg-yubikey
+
 # Yubikey GPG public key — imports it, assigns ultimate trust, and
 # configures git to sign commits/tags with it. Not part of
 # site.yml/`just setup`: depends on the physical token being connected,
@@ -20,6 +28,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [yubikey, gpg-yubikey]
 
   tasks:
     - name: Ensure gnupg is installed
@@ -89,3 +98,57 @@
           No OpenPGP card found (gpg --card-status failed) — connect
           the Yubikey and rerun. Nothing was imported or configured.
       when: yubikey_gpg_card_check.rc != 0
+
+# Yubikey resident (discoverable) FIDO2 SSH keys — not part of
+# site.yml/`just setup`: depends on the physical token being connected,
+# so it runs on its own (`just ssh-yubikey`).
+#
+# Only prepares the ground (installs libfido2, ensures ~/.ssh exists)
+# and asks you to run `ssh-keygen -K` yourself. Downloading a resident
+# key always requires the FIDO2 PIN, and its prompt doesn't use a
+# `/dev/tty` bypass like run0/gpg — run through Ansible, the prompt
+# never appears and the task hangs forever with no way to supply the PIN.
+#
+# Never uses `become: true` beyond installing the package — SSH keys in
+# ~/.ssh are personal user data.
+- name: Yubikey resident SSH keys
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [yubikey, ssh-yubikey]
+
+  tasks:
+    - name: Ensure libfido2 is installed
+      community.general.pacman:
+        name: libfido2
+        state: present
+      become: true
+
+    - name: Ensure ~/.ssh exists with the right permissions
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.ssh"
+        state: directory
+        mode: "0700"
+
+    - name: Check for already-downloaded resident keys
+      ansible.builtin.find:
+        paths: "{{ ansible_facts.env.HOME }}/.ssh"
+        patterns: "id_*_sk_rk*"
+      register: yubikey_ssh_existing_keys
+
+    - name: Point to downloading resident keys manually (FIDO2 PIN needs a real terminal)
+      ansible.builtin.debug:
+        msg: >-
+          Ready (libfido2 installed, ~/.ssh exists). Downloading
+          resident keys needs the FIDO2 PIN, which only works in a real
+          terminal. Run it yourself: cd ~/.ssh && ssh-keygen -K
+      when: yubikey_ssh_existing_keys.matched == 0
+
+    - name: Note that resident keys already exist (no action taken)
+      ansible.builtin.debug:
+        msg: >-
+          Resident keys already exist in ~/.ssh:
+          {{ yubikey_ssh_existing_keys.files | map(attribute='path') | join(', ') }}
+          — nothing downloaded. To fetch a newly enrolled key, run
+          `cd ~/.ssh && ssh-keygen -K` manually.
+      when: yubikey_ssh_existing_keys.matched > 0

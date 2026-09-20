@@ -3,8 +3,8 @@
 Usage guide for `playbooks/secureboot.yml`. Unlike the rest of this
 repo, **this playbook is not part of `just setup`** — it touches
 firmware/boot, so it only runs when called explicitly:
-`just secureboot` (or `ansible-playbook playbooks/secureboot.yml
---ask-become-pass`).
+`just secureboot` (or `./run-empowered.sh ansible-playbook
+playbooks/secureboot.yml`).
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ firmware/boot, so it only runs when called explicitly:
   bootloader (GRUB, systemd-boot).
 - Physical access to enter the BIOS/UEFI twice during the process — not
   doable remotely over SSH.
-- `sudo` with an interactive password.
+- `run0` with interactive authentication (fingerprint or password).
 
 ## How it works
 
@@ -96,12 +96,12 @@ If the machine doesn't boot with Secure Boot on, see
 
 - **`splash` (Plymouth) on the kernel cmdline** breaks boot with
   Secure Boot enabled here. The playbook warns but doesn't remove it —
-  edit `/etc/default/limine` yourself and run `sudo limine-update`
-  afterward if needed.
+  edit `/etc/default/limine` yourself and afterward
+  execute `run0 limine-update` if needed.
 - **LUKS with TPM2 auto-unlock**: enabling Secure Boot for the first
   time changes PCR7 and breaks auto-unlock until you re-enroll:
   ```bash
-  sudo systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 /dev/<luks-partition>
+  run0 systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 /dev/<luks-partition>
   ```
   The password keeps working as a fallback in the meantime.
 - **`hash_mismatch_panic: yes`** (enabled by this playbook) halts boot
@@ -118,7 +118,7 @@ screen or a Limine panic) rather than booting halfway — there's no
 1. Reboot and enter the BIOS/UEFI.
 2. **Disable** Secure Boot again — this alone should restore boot.
 3. From Linux, run `sbctl verify` to see what's unsigned, and
-   `sudo limine-update` to force a re-sign.
+   `run0 limine-update` to force a re-sign.
 4. Repeat the steps above from where you left off.
 
 No system files are deleted by this process — worst case is not being

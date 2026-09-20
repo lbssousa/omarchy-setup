@@ -1,0 +1,278 @@
+---
+# snapd and the app this setup uses it for, in this order:
+#
+#   snapd               tags: snap, snapd, vscode
+#   Visual Studio Code  tags: snap, vscode
+#
+# VS Code's official snap needs snapd, so the snapd play also carries the
+# `vscode` tag: `--tags vscode` (or `just vscode`) sets snapd up first.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags snap
+
+# snapd (https://snapcraft.io/docs/installing-snapd) — the daemon and
+# tools for managing snap packages, so apps published only in the Snap
+# Store (e.g. the Visual Studio Code play below) can be installed.
+#
+# snapd has no official Arch package, so it's built from the AUR the same
+# unprivileged clone+makepkg+pacman -U way as playbooks/blesh.yml,
+# playbooks/tex.yml and playbooks/inkscape.yml: makepkg refuses to run
+# as root, and its own sudo (for missing build deps) can't take an
+# interactive password from Ansible, so build deps are installed via
+# pacman first and makepkg runs with --nodeps. The runtime deps
+# (squashfs-tools, apparmor, ...) are resolved by `pacman -U`. The build
+# compiles snapd from source with Go, so the first run takes a few minutes.
+# It rebuilds only when the installed version is OLDER than the AUR's
+# (vercmp).
+#
+# On top of the package this playbook:
+#
+# - enables snapd.socket, which socket-activates snapd on demand (the
+#   Arch wiki's setup). snapd.apparmor.service is enabled too (not started
+#   now): the unit carries ConditionSecurity=apparmor, so it's skipped,
+#   harmlessly, at boot while AppArmor isn't the active LSM (see below);
+# - links /snap -> /var/lib/snapd/snap: the Arch package mounts snaps under
+#   /var/lib/snapd/snap, but classic snaps (VS Code among them) expect
+#   /snap to exist;
+# - waits for snapd's first-boot seeding to finish (`snap wait system
+#   seed.loaded`); a snap installed right after enabling the socket
+#   otherwise fails with "too early for operation, device not yet seeded";
+# - puts /var/lib/snapd/snap/bin on PATH and /var/lib/snapd/desktop on
+#   XDG_DATA_DIRS for the graphical session, through ~/.config/environment.d
+#   (same mechanism, and same reason, as playbooks/flatpak.yml): the
+#   package's /etc/profile.d/snapd.sh only reaches login shells, and
+#   Quickshell's app library only scans the XDG_DATA_DIRS dirs, so snap
+#   apps would otherwise be missing from it. Log out and back in to pick it
+#   up (the `snap` command itself works right away, it's in /usr/bin).
+#
+# AppArmor: snapd's strict confinement needs AppArmor as the active kernel
+# LSM, which Omarchy doesn't enable by default (see /sys/kernel/security/lsm).
+# This playbook does NOT touch the boot cmdline — playbooks/apparmor.yml does
+# (`just apparmor`), and needs a reboot. Without AppArmor snapd still works,
+# with partial confinement, and classic snaps (like VS Code) don't use AppArmor
+# confinement anyway.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags snapd
+- name: snapd
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [snap, snapd, vscode]
+
+  tasks:
+    - name: Check the currently installed snapd version, if any
+      ansible.builtin.command: "pacman -Qi {{ snapd_aur_package }}"
+      environment:
+        LC_ALL: C
+      register: snapd_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Extract the installed snapd version
+      ansible.builtin.set_fact:
+        snapd_installed_version: >-
+          {{ (snapd_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+      when: snapd_installed.rc == 0
+
+    - name: Check the snapd version on the AUR
+      ansible.builtin.uri:
+        url: "{{ snapd_aur_rpc_url }}"
+        return_content: true
+      register: snapd_aur_info
+
+    - name: Extract the AUR package version
+      ansible.builtin.set_fact:
+        snapd_aur_version: "{{ snapd_aur_info.json.results[0].Version }}"
+
+    - name: Compare the installed and AUR versions
+      ansible.builtin.command: "vercmp {{ snapd_installed_version }} {{ snapd_aur_version }}"
+      register: snapd_vercmp
+      changed_when: false
+      when: snapd_installed.rc == 0
+
+    - name: "Build and install snapd (only if missing or outdated)"
+      when: snapd_installed.rc != 0 or snapd_vercmp.stdout | trim == '-1'
+      block:
+        - name: Install snapd's build dependencies
+          community.general.pacman:
+            name: "{{ snapd_aur_build_deps }}"
+            state: present
+          become: true
+
+        - name: Clone/update the snapd AUR repo
+          ansible.builtin.git:
+            repo: "{{ snapd_aur_git_url }}"
+            dest: "{{ snapd_aur_build_dir }}"
+            update: true
+
+        - name: Build the package (makepkg, no dep resolution, unprivileged)
+          ansible.builtin.command: makepkg --nodeps --noconfirm --force
+          args:
+            chdir: "{{ snapd_aur_build_dir }}"
+
+        - name: Install the built package
+          ansible.builtin.shell: "pacman -U --noconfirm {{ snapd_aur_build_dir }}/*.pkg.tar.zst"
+          become: true
+
+    - name: Enable and start snapd.socket
+      ansible.builtin.systemd_service:
+        name: "{{ snapd_socket_unit }}"
+        enabled: true
+        state: started
+      become: true
+
+    - name: Enable snapd.apparmor.service (starts at boot, when AppArmor is active)
+      ansible.builtin.systemd_service:
+        name: "{{ snapd_apparmor_unit }}"
+        enabled: true
+      become: true
+
+    - name: Link /snap to snapd's snap mount dir (needed by classic snaps)
+      ansible.builtin.file:
+        src: "{{ snapd_mount_dir }}"
+        dest: /snap
+        state: link
+      become: true
+
+    # Root only: `snap wait` reads a snapd config key, and the daemon
+    # answers a regular user with "access denied (try with sudo)".
+    - name: Wait for snapd to finish seeding
+      ansible.builtin.command: snap wait system seed.loaded
+      changed_when: false
+      become: true
+
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+
+    - name: Put snap's bin and desktop dirs on PATH/XDG_DATA_DIRS for the session
+      ansible.builtin.template:
+        src: snapd-env.conf.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/{{ snapd_env_file }}"
+        mode: "0644"
+
+# Visual Studio Code from Microsoft's official snap
+# (https://snapcraft.io/code, published by the verified `vscode`
+# publisher). Installed with --classic, the snap's only confinement mode:
+# it needs full system access (terminals, toolchains, dev containers),
+# so it doesn't depend on AppArmor being the active LSM.
+#
+# Depends on snapd: the snapd play above also carries this play's `vscode`
+# tag, so it always runs first. This play still fails early with guidance
+# if snapd isn't reachable anyway (e.g. `--skip-tags snapd`), instead of
+# a cryptic snap error. Snaps update themselves through
+# snapd's own refresh schedule, so a rerun doesn't touch an installed
+# version. The launcher entry lives in /var/lib/snapd/desktop/applications
+# (exported to the session by the snapd play); the `code` command lands in
+# /var/lib/snapd/snap/bin.
+#
+# Two Omarchy-specific problems are fixed on top of the install:
+#
+# - Keyring: Electron picks its secret-storage backend from
+#   XDG_CURRENT_DESKTOP, and doesn't recognise Hyprland as a desktop with a
+#   keyring, so VS Code falls back to plain-text storage (or fails to reach
+#   the keyring at all) — "sign in" and Settings Sync keep asking again.
+#   `"password-store": "gnome-libsecret"` in ~/.vscode/argv.json forces the
+#   libsecret backend, which talks to whichever provider owns
+#   org.freedesktop.secrets on the session bus (gnome-keyring here,
+#   KeePassXC's Secret Service integration or another would work too).
+#   Credentials saved before this change aren't migrated: sign in again.
+# - UI size: the snap's launcher (electron-launch) hardcodes
+#   `--ozone-platform=x11` AFTER any user flag, so VS Code always runs under
+#   XWayland, where Hyprland doesn't scale the window
+#   (xwayland.force_zero_scaling) and Electron reads GDK_SCALE instead —
+#   the integer `omarchy_gdk_scale` (2) from ~/.config/hypr/monitors.lua, not
+#   the fractional monitor scale (1.25), so the whole UI renders 60% too
+#   big. A wrapper (~/.local/bin/code, ahead of snap's bin on PATH) and user
+#   copies of the snap's desktop entries (the app library launches those
+#   through Exec=) set GDK_SCALE=1 and pass
+#   `--force-device-scale-factor=<omarchy_monitor_scale>` instead. It is a
+#   single factor: it doesn't follow a monitor with a different scale.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags vscode
+- name: Visual Studio Code (official snap)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [snap, vscode]
+
+  pre_tasks:
+    # `snap version` exits 0 even when it can't reach the daemon; `snap
+    # list` needs the daemon socket, so it covers both cases.
+    - name: Check that snapd is installed and reachable
+      ansible.builtin.command: snap list
+      register: vscode_snapd_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail with guidance if snapd wasn't found
+      ansible.builtin.fail:
+        msg: >-
+          snapd not found (or not reachable). Visual Studio Code's snap
+          depends on it — run
+          `./run-empowered.sh ansible-playbook site.yml --tags snapd`
+          (or `just snapd`) first, and don't skip the snapd play.
+      when: vscode_snapd_check.rc != 0
+
+  tasks:
+    - name: Install Visual Studio Code from the Snap Store
+      community.general.snap:
+        name: "{{ vscode_snap_name }}"
+        classic: true
+        state: present
+      become: true
+
+    # VS Code writes argv.json (JSONC, full of comments) on first run, so
+    # it's edited in place instead of rewritten; only a missing file (VS
+    # Code never started yet) is created from scratch.
+    - name: Check for ~/.vscode/argv.json
+      ansible.builtin.stat:
+        path: "{{ vscode_argv_file }}"
+      register: vscode_argv
+
+    - name: Create ~/.vscode/argv.json with the keyring backend, if missing
+      ansible.builtin.copy:
+        content: |
+          {
+          	"password-store": "{{ vscode_password_store }}"
+          }
+        dest: "{{ vscode_argv_file }}"
+        mode: "0644"
+      when: not vscode_argv.stat.exists
+
+    - name: "Use the {{ vscode_password_store }} keyring backend"
+      ansible.builtin.lineinfile:
+        path: "{{ vscode_argv_file }}"
+        regexp: '^\s*"password-store"\s*:'
+        insertafter: '^\{'
+        line: "\t\"password-store\": \"{{ vscode_password_store }}\","
+      when: vscode_argv.stat.exists
+
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ vscode_wrapper | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the `code` wrapper (fixed UI scale under XWayland)
+      ansible.builtin.template:
+        src: vscode-wrapper.sh.j2
+        dest: "{{ vscode_wrapper }}"
+        mode: "0755"
+
+    - name: Create ~/.local/share/applications
+      ansible.builtin.file:
+        path: "{{ vscode_desktop_dir }}"
+        state: directory
+        mode: "0755"
+
+    # Same file names as snapd's, so these take precedence (XDG_DATA_HOME
+    # comes first in XDG_DATA_DIRS). Regenerated from snapd's copy on every
+    # run, so a snap refresh that changes the entry is picked up.
+    - name: Point VS Code's desktop entries at the wrapper
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.file', vscode_snap_desktop_dir ~ '/' ~ item) | regex_replace('(?m)^Exec=' ~ vscode_snap_bin | regex_escape, 'Exec=' ~ vscode_wrapper) ~ '\n' }}"
+        dest: "{{ vscode_desktop_dir }}/{{ item }}"
+        mode: "0644"
+      loop: "{{ vscode_desktop_entries }}"

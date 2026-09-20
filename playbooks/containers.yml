@@ -1,4 +1,80 @@
 ---
+# Container tooling, in this order:
+#
+#   Podman              tags: containers, podman, distrobox
+#   Distrobox           tags: containers, distrobox
+#   Starship prompt     tags: containers, starship-distrobox
+#
+# Distrobox needs Podman, so the Podman play also carries the `distrobox`
+# tag: `--tags distrobox` (or `just distrobox`) installs Podman first,
+# instead of failing on a missing engine. `--tags podman` runs just the
+# engine, and `--tags containers` all three.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags containers
+
+# Podman, configured for rootless use — the container engine used by
+# the Distrobox play below, but usable on its own too. The Arch package
+# already pulls in networking (passt, netavark/aardvark-dns) and short
+# image-name mappings as dependencies, so only subuid/subgid allocation
+# needs manual attention here.
+- name: Podman (rootless)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [containers, podman, distrobox]
+
+  tasks:
+    - name: Install Podman via pacman
+      community.general.pacman:
+        name: podman
+        state: present
+      become: true
+
+    - name: Check for an existing subuid range
+      ansible.builtin.command: "grep -q ^{{ ansible_facts.env.USER }}: /etc/subuid"
+      register: podman_subuid_check
+      changed_when: false
+      failed_when: false
+
+    - name: Allocate a subuid/subgid range (only if the user doesn't have one)
+      when: podman_subuid_check.rc != 0
+      become: true
+      block:
+        - name: Add the subuid range
+          ansible.builtin.lineinfile:
+            path: /etc/subuid
+            line: "{{ ansible_facts.env.USER }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
+            create: true
+
+        - name: Add the subgid range
+          ansible.builtin.lineinfile:
+            path: /etc/subgid
+            line: "{{ ansible_facts.env.USER }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
+            create: true
+
+    - name: Verify Podman runs rootless correctly
+      ansible.builtin.command: podman info --format '{{ "{{" }}.Host.Security.Rootless{{ "}}" }}'
+      register: podman_info_check
+      changed_when: false
+      failed_when: podman_info_check.rc != 0 or podman_info_check.stdout != "true"
+
+# Distrobox depends on Podman: the Podman play above also carries the
+# `distrobox` tag, so it always runs first, instead of installing
+# distrobox and only discovering a missing engine on the first
+# `distrobox create`.
+- name: Distrobox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [containers, distrobox]
+
+  tasks:
+    - name: Install distrobox via pacman
+      community.general.pacman:
+        name: distrobox
+        state: present
+      become: true
+
 # Starship prompt that works inside distrobox containers and shows which
 # one you're in: "⬢ <container> <dir> <branch> ❯".
 #
@@ -40,11 +116,18 @@
 # The container's name is available right away in new shells; nothing to
 # reload inside the containers.
 #
+# The block markers below still name playbooks/starship-distrobox.yml, the
+# file this play lived in before it was merged here. blockinfile matches
+# on the marker text, so renaming it would leave a second copy of each
+# block behind in ~/.bashrc and ~/.config/starship.toml (the duplicate
+# [env_var.CONTAINER_ID] table would make starship.toml invalid).
+#
 # Usage: ansible-playbook site.yml --tags starship-distrobox
 - name: Starship prompt inside distrobox (container name + Omarchy rc)
   hosts: localhost
   connection: local
   gather_facts: true
+  tags: [containers, starship-distrobox]
 
   tasks:
     - name: Create ~/.config/starship.toml from the Omarchy default, if missing

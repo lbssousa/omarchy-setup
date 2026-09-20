@@ -175,7 +175,7 @@
               BIOS/UEFI and ENABLE Secure Boot, save and reboot again.
               Then check with `sbctl status` (should show "Secure Boot:
               enabled") and `bootctl status`. If this machine uses LUKS
-              with TPM2 auto-unlock, PCR7 changed — run `sudo
+              with TPM2 auto-unlock, PCR7 changed — run `run0
               systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7
               /dev/<luks-partition>` again to restore it (the password
               still works as a fallback in the meantime).

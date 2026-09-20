@@ -1,12 +1,55 @@
 ---
+# Password manager: the OpenSSH agent, then KeePassXC on top of it.
+#
+#   OpenSSH agent       tags: keepassxc, ssh-agent
+#   KeePassXC           tags: keepassxc
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags keepassxc
+
+# OpenSSH agent (systemd --user) — enables the standard ssh-agent socket
+# and service at the session runtime socket, and exports SSH_AUTH_SOCK
+# session-wide via environment.d so IDEs, KeePassXC and other CLI tools
+# all talk to the same agent.
+#
+# Prerequisite for the KeePassXC play below, which acts as a client for
+# this agent. This play also carries the `keepassxc` tag, so
+# `just keepassxc` sets the agent up first.
+- name: OpenSSH agent (user session, SSH_AUTH_SOCK export)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [keepassxc, ssh-agent]
+
+  tasks:
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+
+    - name: Export SSH_AUTH_SOCK session-wide
+      ansible.builtin.template:
+        src: ssh-agent-env.conf.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-ssh-agent.conf"
+        mode: "0644"
+
+    - name: "Enable the OpenSSH agent ({{ ssh_agent_socket }})"
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started
+      loop: "{{ ssh_agent_units }}"
+
 # KeePassXC — open-source password manager with browser integration,
 # SSH agent support and system tray integration.
 #
 # Installs KeePassXC from the official Arch repos, then writes a
 # pre-seeded keepassxc.ini that enables:
 #   - Browser integration (Firefox, Chromium, Brave, Brave Origin)
-#   - SSH Agent support (OpenSSH backend — requires the ssh-agent
-#     playbook, which provides the agent this client connects to)
+#   - SSH Agent support (OpenSSH backend — requires the OpenSSH agent
+#     play above, which provides the agent this client connects to)
 #   - KeeShare (active set bootstrapped, success notifications quieted)
 #   - Monochrome light tray icon (high-contrast on dark panels),
 #     colored passwords and monospace notes,
@@ -46,6 +89,7 @@
   hosts: localhost
   connection: local
   gather_facts: true
+  tags: [keepassxc]
 
   tasks:
     - name: Install KeePassXC

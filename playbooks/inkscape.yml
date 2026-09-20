@@ -5,7 +5,7 @@
 #
 # svg2tikz has no official Arch package, so it's built from the AUR the
 # same unprivileged clone+makepkg+pacman -U pattern as
-# playbooks/texlive.yml (texlive-installer) and playbooks/bitwarden.yml:
+# playbooks/tex.yml (texlive-installer) and playbooks/bitwarden.yml:
 # makepkg refuses to run as root, and its own sudo (for missing build
 # deps) can't take an interactive password from Ansible, so build deps
 # are installed via pacman first and makepkg runs with --nodeps.
@@ -19,7 +19,7 @@
 # clipboard" output mode.
 #
 # Inkscape discovers fonts through fontconfig/Pango, same as any other
-# desktop app, and TeX Live's own fonts (playbooks/texlive.yml, under
+# desktop app, and TeX Live's own fonts (playbooks/tex.yml, under
 # "{{ texlive_texdir }}/texmf-dist/fonts") live outside fontconfig's
 # default search dirs — so without this, Latin Modern and every other
 # TeX Live family are invisible in Inkscape's font picker. A fontconfig
@@ -33,7 +33,7 @@
 # apply even before TeX Live is installed: fontconfig just skips <dir>
 # entries that don't exist yet.
 #
-# Usage: ansible-playbook site.yml --tags inkscape --ask-become-pass
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags inkscape
 - name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
   hosts: localhost
   connection: local

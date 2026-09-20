@@ -6,16 +6,22 @@
 # this playbook adds new, dedicated binds instead of overriding the
 # defaults.
 #
-# Both directions share one physical key (code:35 = "[" on this
-# machine's ABNT2 keyboard), split by Shift, instead of one key per
-# direction: code:34 doesn't correspond to any physical key on this
-# ABNT2 layout, and the physical "]" key has a hardware rollover issue
-# where SUPER+"]" never reaches Hyprland at all. colresize is a no-op
-# outside the scrolling layout (Hyprland just logs and ignores it).
+# One key per direction, on the two adjacent bracket keys of this
+# machine's ABNT2 keyboard: SUPER+[ shrinks, SUPER+] grows. Keycodes
+# (xkb, layout "br"): "[" is <AD12> = code:35 and "]" is <BKSL> =
+# code:51 — NOT code:34, which is <AD11> (the ´/` dead-key). Binding by
+# code:N instead of the keysym name keeps the pair tied to the physical
+# keys regardless of which symbol a layout variant puts on them.
+#
+# SUPER+"]" was empirically confirmed to reach Hyprland (runtime probe
+# binds on both code:51 and the "bracketright" keysym fired on every
+# press); an earlier "hardware rollover" theory for this key was wrong,
+# it came from testing the wrong keycode. colresize is a no-op outside
+# the scrolling layout (Hyprland just logs and ignores it).
 #
 # Written to ~/.config/hypr/bindings.lua via a marked block, so it
 # coexists with any other customization already there.
-- name: Hyprland scrolling-layout column resize (SUPER+[ / SUPER+SHIFT+[)
+- name: Hyprland scrolling-layout column resize (SUPER+[ / SUPER+])
   hosts: localhost
   connection: local
   gather_facts: true
@@ -35,16 +41,15 @@
         force: false
         mode: "0644"
 
-    - name: "Bind SUPER+[ / SUPER+SHIFT+[ to colresize (±{{ hypr_scrolling_colresize_step }}) on the scrolling layout"
+    - name: "Bind SUPER+[ / SUPER+] to colresize (±{{ hypr_scrolling_colresize_step }}) on the scrolling layout"
       ansible.builtin.blockinfile:
         path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
         marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/hypr-scrolling-resize.yml — scrolling column resize)"
         block: |
-          -- code:35 = physical "[" key on this machine's ABNT2 keyboard.
-          -- Physical "]" has a rollover issue (SUPER+"]" never reaches
-          -- Hyprland), so both directions share code:35, split by Shift.
+          -- code:35 = "[" and code:51 = "]" on this machine's ABNT2
+          -- keyboard (xkb layout "br"; code:34 is the ´ key, not "]").
           o.bind("SUPER + code:35", "Shrink column (scrolling)", hl.dsp.layout("colresize -{{ hypr_scrolling_colresize_step }}"))
-          o.bind("SUPER + SHIFT + code:35", "Grow column (scrolling)", hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
+          o.bind("SUPER + code:51", "Grow column (scrolling)", hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
       register: hypr_scrolling_resize_binding
       notify: reload Hyprland
 

@@ -104,7 +104,7 @@ vscode: _ensure-collections
 libfprint: _ensure-collections
     ansible-playbook site.yml --tags libfprint --ask-become-pass
 
-# Bind SUPER+[ / SUPER+SHIFT+[ to resize the focused column on the
+# Bind SUPER+[ / SUPER+] to resize the focused column on the
 # scrolling layout.
 hypr-scrolling-resize: _ensure-collections
     ansible-playbook site.yml --tags hypr-scrolling-resize

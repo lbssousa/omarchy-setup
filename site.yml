@@ -90,3 +90,7 @@
 - name: Omadwaita Omarchy themes (Adwaita-based)
   ansible.builtin.import_playbook: playbooks/omadwaita-themes.yml
   tags: [omadwaita-themes]
+
+- name: Limine silent boot (quiet + 1s timeout)
+  ansible.builtin.import_playbook: playbooks/limine-silent-boot.yml
+  tags: [limine-silent-boot]

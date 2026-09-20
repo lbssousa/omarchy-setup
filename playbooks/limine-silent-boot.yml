@@ -1,0 +1,155 @@
+---
+# Limine silent boot — hide the Limine boot menu for a flicker-free boot.
+# Part of `just setup`.
+#
+# Omarchy's default template has `#timeout: 3` active and no `quiet:`, so
+# Limine draws its graphical terminal (and menu countdown) on every boot.
+#
+# This playbook pins the three global options that fix that. They only work
+# in the config header — see the quiet task below:
+#   quiet: yes        — Limine never clears the framebuffer (fb_init() forces
+#                       preserve_screen; no gterm_init), so whatever the
+#                       firmware left (the BGRT boot logo) stays on screen
+#                       while Limine holds the display. Without it, an EFI
+#                       entry gets a black fb_clear() at handoff even with
+#                       timeout 0.
+#   timeout: 1        — 1-second key window, useful for recovery; nothing is
+#                       drawn during it while quiet is in effect. Set 0 to boot
+#                       instantly with no key window — a failed boot or an
+#                       invalid default entry still drops Limine back into an
+#                       interactive menu.
+#
+# To reveal the menu during that window, press ↑, ↓, Home or End — NOT Space.
+# Despite CONFIG.md ("any key"), the key that interrupts the countdown is also
+# fed to the menu's key handler (menu.c, `timeout_aborted:`), after quiet is
+# cleared and the terminal re-initialised. Space, Enter and → are the "boot
+# selected entry" keys there, so they draw a blank terminal and boot ~immediately
+# (what looks like a blank screen followed by a normal boot). 1-9, e, s, u and b
+# are commands too; Esc and other unhandled keys leave the blank terminal up
+# with no menu drawn. ↑/↓/Home/End are the only keys that end in a menu redraw.
+#
+# firmware_logo is deliberately NOT set (and removed if present). Limine only
+# honours it when it has cleared the screen (bgrt_restore() runs from
+# fb_init() only if !preserve_screen), i.e. never with quiet in effect. When
+# it does run it clears the BGRT "displayed" bit and recentres the image
+# (yoffset 217 → 330 here), expecting the OS to redraw the logo — but
+# simpledrm/i915 don't, and it would desync from the omarchy-bgrt Plymouth
+# theme, which hardcodes the firmware's original yoffset.
+#
+# The result: the firmware logo stays put through Limine (framebuffer untouched)
+# → Plymouth omarchy-bgrt → Hyprlock, with no menu flash in between.
+#
+# Editing /boot/limine.conf alone isn't enough with Secure Boot: /etc/default/limine
+# has ENABLE_ENROLL_LIMINE_CONFIG=yes, so limine-entry-tool embeds a checksum
+# of limine.conf into the Limine binary — a hand edit without re-enrolling
+# halts boot on a checksum panic. The limine-update run below rebuilds the UKIs
+# and re-runs the 90-limine-enroll-config hook, re-enrolling the checksum.
+#
+# limine-update preserves the config header (global options like these),
+# regenerating only the OS-entry block, so the settings survive kernel updates.
+- name: Limine silent boot (quiet + 1s timeout)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  pre_tasks:
+    - name: Check the bootloader is Limine + limine-entry-tool
+      ansible.builtin.command: pacman -Qi limine limine-mkinitcpio-hook
+      register: limine_silent_boot_limine_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail if the bootloader isn't Limine + limine-entry-tool
+      ansible.builtin.fail:
+        msg: >-
+          This playbook configures /boot/limine.conf, which is owned by
+          limine-entry-tool — only present when limine-mkinitcpio-hook is
+          installed. Doesn't apply to GRUB/systemd-boot.
+      when: limine_silent_boot_limine_check.rc != 0
+
+  tasks:
+    - name: Check /boot/limine.conf exists
+      ansible.builtin.stat:
+        path: "{{ limine_silent_boot_conf }}"
+      become: true
+      register: limine_silent_boot_conf_stat
+
+    - name: Generate /boot/limine.conf (never initialized before)
+      ansible.builtin.command: limine-update
+      become: true
+      when: not limine_silent_boot_conf_stat.stat.exists
+
+    # quiet MUST live in the header, before the first /entry. Limine
+    # NUL-terminates its "global config" at the first entry (init_config()
+    # in common/lib/config.c), so a `quiet: yes` after any entry is just an
+    # entry-local option and is silently ignored as a global one, despite what
+    # CONFIG.md says. The template has no `quiet:` line to replace in place,
+    # so a plain lineinfile appends it at EOF — inside the last entry.
+    - name: Read /boot/limine.conf
+      ansible.builtin.slurp:
+        src: "{{ limine_silent_boot_conf }}"
+      become: true
+      register: limine_silent_boot_conf_raw
+
+    - name: Check whether quiet is already set in the header (before the first entry)
+      ansible.builtin.set_fact:
+        limine_silent_boot_quiet_in_header: >-
+          {{ (limine_silent_boot_conf_raw.content | b64decode | regex_replace('(?s)\n/.*$', ''))
+             is search('^quiet:\s*' ~ limine_silent_boot_quiet ~ '\s*$', multiline=True) }}
+
+    - name: Remove misplaced quiet lines (after an entry they are not global)
+      ansible.builtin.lineinfile:
+        path: "{{ limine_silent_boot_conf }}"
+        regexp: "^[#\\s]*quiet:"
+        state: absent
+      become: true
+      when: not limine_silent_boot_quiet_in_header
+
+    - name: "Set quiet: yes in the /boot/limine.conf header"
+      ansible.builtin.lineinfile:
+        path: "{{ limine_silent_boot_conf }}"
+        regexp: "^[#\\s]*quiet:"
+        line: "quiet: {{ limine_silent_boot_quiet }}"
+        insertbefore: "^/"
+        firstmatch: true
+      become: true
+      when: not limine_silent_boot_quiet_in_header
+      register: limine_silent_boot_quiet_edit
+
+    - name: "Set timeout in /boot/limine.conf"
+      ansible.builtin.lineinfile:
+        path: "{{ limine_silent_boot_conf }}"
+        regexp: "^[#\\s]*timeout:"
+        line: "timeout: {{ limine_silent_boot_timeout }}"
+      become: true
+      register: limine_silent_boot_timeout_edit
+
+    - name: Remove firmware_logo from /boot/limine.conf (set by an earlier version)
+      ansible.builtin.lineinfile:
+        path: "{{ limine_silent_boot_conf }}"
+        regexp: "^[#\\s]*firmware_logo:"
+        state: absent
+      become: true
+      register: limine_silent_boot_firmware_logo_edit
+
+    - name: Apply — rebuild UKIs and re-enroll the config checksum (when changed)
+      ansible.builtin.command: limine-update
+      become: true
+      when: >
+        limine_silent_boot_quiet_edit.changed or
+        limine_silent_boot_timeout_edit.changed or
+        limine_silent_boot_firmware_logo_edit.changed
+
+    # Print only what Limine will actually see as global: lines before the
+    # first entry. Fails if quiet isn't among them (firmware_logo is matched
+    # too, so a leftover would show up here).
+    - name: Verify the settings are in effect (header only)
+      ansible.builtin.command:
+        argv:
+          - awk
+          - '/^\// {exit} /^(quiet|timeout|firmware_logo):/ {print NR": "$0}'
+          - "{{ limine_silent_boot_conf }}"
+      become: true
+      register: limine_silent_boot_header_check
+      changed_when: false
+      failed_when: "'quiet:' not in limine_silent_boot_header_check.stdout"

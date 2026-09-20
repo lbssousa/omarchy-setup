@@ -553,3 +553,60 @@ blesh_aur_build_deps:
 blesh_script: /usr/share/blesh/ble.sh
 blesh_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
 blesh_blerc: "{{ ansible_facts.env.HOME }}/.blerc"
+
+# snapd (playbooks/snapd.yml) — daemon and tools for snap packages. No
+# official Arch package, so it's built from the AUR (unprivileged
+# clone+makepkg+pacman -U, same as blesh_* / texlive_* above). The build
+# deps are the PKGBUILD's makedepends; the runtime deps (squashfs-tools,
+# apparmor, ...) are resolved by `pacman -U`.
+snapd_aur_package: snapd
+snapd_aur_git_url: "https://aur.archlinux.org/{{ snapd_aur_package }}.git"
+snapd_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ snapd_aur_package }}"
+snapd_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ snapd_aur_package }}"
+snapd_aur_build_deps:
+  - git
+  - go
+  - go-tools
+  - libseccomp
+  - libcap
+  - systemd
+  - xfsprogs
+  - python-docutils
+  - apparmor
+  - autoconf-archive
+  - m4
+snapd_socket_unit: snapd.socket
+snapd_apparmor_unit: snapd.apparmor.service
+
+# The Arch package mounts snaps under /var/lib/snapd/snap; classic snaps
+# expect /snap, so it's symlinked there.
+snapd_mount_dir: /var/lib/snapd/snap
+snapd_bin_dir: "{{ snapd_mount_dir }}/bin"
+# Snap desktop entries are exported here; Quickshell's DesktopEntries (the
+# Omarchy app library) only scans the dirs named in XDG_DATA_DIRS.
+# snapd_env_file is deployed to ~/.config/environment.d so the graphical
+# session sees snap apps and the `snap` bin dir (same idea as flatpak_*).
+snapd_desktop_dir: /var/lib/snapd/desktop
+snapd_env_file: 41-snapd.conf
+
+# Visual Studio Code (playbooks/vscode.yml) — Microsoft's official snap
+# (classic confinement), so depends on snapd above.
+vscode_snap_name: code
+
+# AppArmor (playbooks/apparmor.yml — not part of `just setup`, run
+# explicitly; needs a reboot). The kernel is built with AppArmor but
+# leaves it out of the default LSM list; `lsm=` on the kernel command line
+# (a limine-entry-tool drop-in) replaces that list, so it repeats the
+# default one ("landlock,lockdown,yama,integrity,bpf") with apparmor added.
+# apparmor_load_profiles picks the variant: false = kernel LSM only, no
+# distro profiles loaded (apparmor.service disabled); true = also enable
+# apparmor.service, which loads /etc/apparmor.d's profiles (unix-chkpwd,
+# avahi-daemon, ping, ... — see the playbook header). Override on the
+# command line with `-e apparmor_load_profiles=true` (or `just
+# apparmor-profiles`).
+apparmor_package: apparmor
+apparmor_lsm: landlock,lockdown,yama,integrity,apparmor,bpf
+apparmor_limine_dropin: /etc/limine-entry-tool.d/apparmor.conf
+apparmor_service: apparmor.service
+apparmor_active_lsm_file: /sys/kernel/security/lsm
+apparmor_load_profiles: false

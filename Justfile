@@ -92,6 +92,14 @@ flatpak: _ensure-collections
 homebrew: _ensure-collections
     ansible-playbook site.yml --tags homebrew --ask-become-pass
 
+# Install snapd (AUR) and enable it.
+snapd: _ensure-collections
+    ansible-playbook site.yml --tags snapd --ask-become-pass
+
+# Install Visual Studio Code from the official snap (depends on `just snapd`).
+vscode: _ensure-collections
+    ansible-playbook site.yml --tags vscode --ask-become-pass
+
 # Build and install libfprint (goodix538d). Requires podman + distrobox.
 libfprint: _ensure-collections
     ansible-playbook site.yml --tags libfprint --ask-become-pass
@@ -135,6 +143,16 @@ limine-silent-boot: _ensure-collections
 # autosuggestions + syntax highlighting.
 blesh: _ensure-collections
     ansible-playbook site.yml --tags blesh --ask-become-pass
+
+# Activate AppArmor in the kernel (lsm= via a limine-entry-tool drop-in) without
+# loading the distro profiles. Needs a reboot. Not part of `just setup`.
+apparmor: _ensure-collections
+    ansible-playbook playbooks/apparmor.yml --ask-become-pass
+
+# Same as `just apparmor`, plus apparmor.service loading the distro profiles
+# (unix-chkpwd, avahi-daemon, ...). Not part of `just setup`.
+apparmor-profiles: _ensure-collections
+    ansible-playbook playbooks/apparmor.yml --ask-become-pass -e apparmor_load_profiles=true
 
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:

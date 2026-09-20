@@ -17,10 +17,23 @@
 #   files/omadwaita/light/colors.toml  Omadwaita Light
 #
 # "Omadwaita" is the only one that needs more than a palette: its
-# theme-set hook (files/omadwaita/omadwaita-light-apps.sh) flips GTK and
-# the Chromium-family browsers back to light after Omarchy has set them
-# dark from `mode = "dark"` and the dark background color. (Browsers are
-# tinted from the theme's background color, not from GTK's color scheme.)
+# theme-set hook (files/omadwaita/omadwaita-light-apps.sh) flips GTK back
+# to light after Omarchy has set it dark from `mode = "dark"`.
+#
+# Chromium-family browsers (Chromium, Brave, Brave Origin, Chrome, Edge)
+# take one seed color from Omarchy, the theme's chromium.theme (by default
+# rendered from the background color), and derive their whole palette from
+# it: the frame's tone AND the accent's hue (focus rings, selection, ...).
+# A neutral background like Adwaita's white or #1d1d20 has no hue of its
+# own, so the browser picks an arbitrary one (a teal accent on white). Each
+# theme therefore ships its own chromium.theme (Omarchy doesn't overwrite a
+# theme's own file): a near-neutral seed tinted just enough to give the
+# accent Adwaita blue's hue (~214°) without tinting the frame. Measured in
+# Brave Origin, the accent renders as #4f77af on the light seed and #4e78af
+# on the dark one (Chromium's tonal palette caps its chroma, so it can't
+# reach #3584e4 itself; a full-chroma blue seed would match the hue too but
+# turn the whole frame blue). Seeds by hue, HSL: light 224°/94%, dark
+# 218°/12%.
 #
 # All three share one wallpaper set, committed under
 # files/omadwaita/backgrounds/ (devotional paintings and wallpapers,
@@ -52,10 +65,14 @@
     # wallpaper: radial gradient from the center color to the edge color;
     # logo: the Adwaita blue the logo is filled with (the accent on dark,
     # libadwaita's deeper light-mode form of it on light, for contrast).
+    # browser: chromium.theme's seed color, "R,G,B" — see the header.
+    # Omadwaita has a dark palette but light GUI apps: light seed.
+    omadwaita_browser_light: "229,235,250"
+    omadwaita_browser_dark: "29,31,35"
     omadwaita_themes:
-      - { dir: omadwaita, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4" }
-      - { dir: omadwaita-light, palette: light, wallpaper: "#ffffff-#dfebfb", logo: "#0461be" }
-      - { dir: omadwaita-dark, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4" }
+      - { dir: omadwaita, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4", browser: "{{ omadwaita_browser_light }}" }
+      - { dir: omadwaita-light, palette: light, wallpaper: "#ffffff-#dfebfb", logo: "#0461be", browser: "{{ omadwaita_browser_light }}" }
+      - { dir: omadwaita-dark, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4", browser: "{{ omadwaita_browser_dark }}" }
 
   tasks:
     # `magick` would otherwise hand SVGs to Inkscape when it's installed
@@ -120,6 +137,15 @@
       loop_control:
         label: "{{ item.dir }}"
 
+    - name: Set the browser seed color (Adwaita blue accent, neutral frame)
+      ansible.builtin.copy:
+        content: "{{ item.browser }}\n"
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/chromium.theme"
+        mode: "0644"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.browser }})"
+
     - name: Render the fallback wallpapers (Omarchy logo on a gradient)
       ansible.builtin.command:
         argv:
@@ -162,7 +188,7 @@
         state: directory
         mode: "0755"
 
-    - name: Install the theme-set hook that keeps GTK and browsers light under Omadwaita
+    - name: Install the theme-set hook that keeps GTK light under Omadwaita
       ansible.builtin.copy:
         src: omadwaita/omadwaita-light-apps.sh
         dest: "{{ omadwaita_hooks_dir }}/omadwaita-light-apps"

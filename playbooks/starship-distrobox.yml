@@ -1,0 +1,123 @@
+---
+# Starship prompt that works inside distrobox containers and shows which
+# one you're in: "⬢ <container> <dir> <branch> ❯".
+#
+# distrobox shares $HOME with the host, so ~/.bashrc and
+# ~/.config/starship.toml apply inside every container too. Two things
+# get in the way of the prompt there, and this playbook handles both:
+#
+# 1. Omarchy's bash setup doesn't load. ~/.bashrc does
+#    `source "$OMARCHY_PATH/default/bash/rc"`, and OMARCHY_PATH
+#    (/usr/share/omarchy) is inherited from the host, but the container's
+#    /usr is the image's own: the file isn't there ("No such file or
+#    directory"), starship never starts, and neither do Omarchy's aliases
+#    and functions. distrobox mounts the host's root at /run/host, so a
+#    ~/.bashrc block (only active when CONTAINER_ID is set, i.e. inside
+#    distrobox, and only when the inherited path is missing) points
+#    OMARCHY_PATH there. The container also usually lacks the starship
+#    binary; the block falls back to the host's /run/host/usr/bin/starship
+#    through a shell function. That only works while the container shares
+#    the host's userland (Arch on Arch): a container on another distro may
+#    have an incompatible glibc, and is better off with its own starship.
+#
+# 2. Nothing in the prompt says you're in a container. distrobox-enter
+#    exports CONTAINER_ID=<container name> (and its own default PS1 uses
+#    it too), so starship's env_var module renders it, with the format
+#    prefixed by ${env_var.CONTAINER_ID}. The variable is unset on the
+#    host, where nothing renders.
+#
+# Omarchy's rc chain is safe to load in a container that lacks its tools:
+# the aliases that replace core commands (ls -> eza, cd -> zoxide) sit
+# behind `command -v`; the rest (g, d, t, ...) are shortcuts that only fail
+# when used without the tool.
+#
+# The ~/.bashrc block goes right before Omarchy's `source` line, the same
+# anchor playbooks/blesh.yml uses, so the two coexist in either order. The
+# starship.toml `format` edit only matches Omarchy's stock line: if you
+# customized it, the playbook leaves it alone and warns, and you add
+# ${env_var.CONTAINER_ID} to it yourself.
+#
+# The container's name is available right away in new shells; nothing to
+# reload inside the containers.
+#
+# Usage: ansible-playbook site.yml --tags starship-distrobox
+- name: Starship prompt inside distrobox (container name + Omarchy rc)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Create ~/.config/starship.toml from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: "{{ starship_distrobox_omarchy_default_config }}"
+        dest: "{{ starship_distrobox_config }}"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: Prefix the prompt format with the distrobox container name
+      # Anchored to Omarchy's stock top-level `format` line: the tables
+      # below it have `format` keys too, and a customized top-level format
+      # shouldn't be rewritten blindly. Already-prefixed lines don't match
+      # anymore, so this is idempotent.
+      ansible.builtin.replace:
+        path: "{{ starship_distrobox_config }}"
+        regexp: '^format = "(\[\$directory\$git_branch\$git_status\]\(\$style\)\$character)"$'
+        replace: 'format = "${env_var.CONTAINER_ID}\1"'
+
+    - name: Read back ~/.config/starship.toml
+      # slurp rather than lineinfile in check mode: that one reports
+      # "changed" whenever its pattern matches, so every run would too.
+      ansible.builtin.slurp:
+        src: "{{ starship_distrobox_config }}"
+      register: starship_distrobox_config_content
+
+    - name: Warn when a customized prompt format left the container name out
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ starship_distrobox_config }} has a customized top-level
+          `format`, so the container name won't be shown. Add
+          ${env_var.CONTAINER_ID} to it (e.g. at the start).
+      when: >-
+        starship_distrobox_config_content.content | b64decode
+        is not search('(?m)^format = ".*\$\{env_var\.CONTAINER_ID\}')
+
+    - name: Render the distrobox container name (env_var module)
+      ansible.builtin.blockinfile:
+        path: "{{ starship_distrobox_config }}"
+        insertafter: EOF
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/starship-distrobox.yml — distrobox container name)"
+        block: |
+          # Inside distrobox: show the container's name. distrobox-enter exports
+          # CONTAINER_ID=<container name>; unset on the host, so nothing renders.
+          [env_var.CONTAINER_ID]
+          format = "[{{ starship_distrobox_symbol }} $env_value]($style) "
+          style = "{{ starship_distrobox_style }}"
+
+    - name: Check ~/.bashrc still sources Omarchy's bash rc
+      # blockinfile's insertbefore silently falls back to end-of-file when
+      # its pattern doesn't match, which would put the block after the
+      # source line, where it does nothing. Fail loudly instead.
+      # (lineinfile in check mode rather than `grep`: the command module
+      # expands $OMARCHY_PATH in its arguments before grep sees them.)
+      ansible.builtin.lineinfile:
+        path: "{{ starship_distrobox_bashrc }}"
+        line: 'source "$OMARCHY_PATH/default/bash/rc"'
+      check_mode: true
+      register: starship_distrobox_bashrc_check
+      failed_when: starship_distrobox_bashrc_check is changed
+
+    - name: Load Omarchy's bash rc from the host's /run/host inside distrobox
+      ansible.builtin.blockinfile:
+        path: "{{ starship_distrobox_bashrc }}"
+        insertbefore: '^source "\$OMARCHY_PATH/default/bash/rc"'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/starship-distrobox.yml — distrobox host paths)"
+        block: |
+          # Inside distrobox the host's /usr is mounted at /run/host, so the
+          # inherited OMARCHY_PATH points at nothing. Use the host's copy, and fall
+          # back to the host's starship binary (same Arch userland) when the
+          # container doesn't ship its own.
+          if [[ -n ${CONTAINER_ID-} && ! -r $OMARCHY_PATH/default/bash/rc && -r /run/host$OMARCHY_PATH/default/bash/rc ]]; then
+            OMARCHY_PATH=/run/host$OMARCHY_PATH
+            command -v starship &> /dev/null || starship() { /run/host/usr/bin/starship "$@"; }
+          fi

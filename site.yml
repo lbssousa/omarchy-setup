@@ -106,3 +106,7 @@
 - name: ble.sh (Bash autosuggestions + syntax highlighting)
   ansible.builtin.import_playbook: playbooks/blesh.yml
   tags: [blesh]
+
+- name: Starship prompt inside distrobox (container name + Omarchy rc)
+  ansible.builtin.import_playbook: playbooks/starship-distrobox.yml
+  tags: [starship-distrobox]

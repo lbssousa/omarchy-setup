@@ -37,7 +37,7 @@ they only run when called explicitly.
 | Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (fails early with guidance if it's missing). Also fixes two Hyprland issues: sets `"password-store": "gnome-libsecret"` in `~/.vscode/argv.json` so VS Code uses the Secret Service keyring (Electron doesn't detect one under Hyprland), and installs a `~/.local/bin/code` wrapper + user desktop entries that set the UI scale to the monitor scale (the snap is forced onto XWayland, where `GDK_SCALE=2` made the UI too big). |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
-| Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+SHIFT+[ resize the focused column. |
+| Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+] resize the focused column. |
 | Shell/terminal text size | `text-size` | Scales the bar + terminals without scaling GTK apps. |
 | Night light | `nightlight-solar` | Syncs hyprsunset to real sunrise/sunset daily. |
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |

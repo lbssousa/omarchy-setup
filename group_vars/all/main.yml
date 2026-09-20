@@ -592,6 +592,23 @@ snapd_env_file: 41-snapd.conf
 # Visual Studio Code (playbooks/vscode.yml) — Microsoft's official snap
 # (classic confinement), so depends on snapd above.
 vscode_snap_name: code
+# Electron doesn't detect a keyring under Hyprland; argv.json's
+# "password-store" forces the libsecret backend (Secret Service: gnome-keyring,
+# KeePassXC, ...).
+vscode_argv_file: "{{ ansible_facts.env.HOME }}/.vscode/argv.json"
+vscode_password_store: gnome-libsecret
+# The snap always runs under XWayland (electron-launch hardcodes
+# --ozone-platform=x11), which reads the integer GDK_SCALE instead of
+# Hyprland's fractional monitor scale: the wrapper forces
+# omarchy_monitor_scale as the device scale factor instead.
+vscode_scale_factor: "{{ omarchy_monitor_scale }}"
+vscode_snap_bin: "{{ snapd_bin_dir }}/code"
+vscode_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/code"
+vscode_snap_desktop_dir: "{{ snapd_desktop_dir }}/applications"
+vscode_desktop_dir: "{{ ansible_facts.env.HOME }}/.local/share/applications"
+vscode_desktop_entries:
+  - code_code.desktop
+  - code_code-url-handler.desktop
 
 # AppArmor (playbooks/apparmor.yml — not part of `just setup`, run
 # explicitly; needs a reboot). The kernel is built with AppArmor but

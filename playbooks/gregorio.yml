@@ -7,10 +7,11 @@
 # sync with those devcontainer.json files rather than bumping it
 # independently.
 #
-# Depends on TeX Live already being installed (playbooks/texlive.yml):
-# kpsewhich/texhash resolve the system TEXMFLOCAL tree that the second
-# build step below installs GregorioTeX's support files into. Fails
-# early, without changing anything, if kpsewhich isn't on PATH yet.
+# Depends on TeX Live already being installed (playbooks/texlive.yml —
+# run `just texlive` first): kpsewhich/texhash resolve the system
+# TEXMFLOCAL tree that the second build step below installs GregorioTeX's
+# support files into. Fails early, without changing anything, if
+# kpsewhich isn't on PATH yet.
 #
 # Mirrors the two build steps of
 # https://github.com/aiscgre-br/devcontainer-features (src/gregorio/install.sh),
@@ -29,7 +30,7 @@
 #      its old-file-removal prompts non-interactively; SKIP
 #      leaves out docs/examples/font-sources, which nothing here needs.
 #
-# Usage: ansible-playbook site.yml --tags gregorio --ask-become-pass
+# Usage: ansible-playbook playbooks/gregorio.yml --ask-become-pass
 - name: Gregorio (GABC engraver + GregorioTeX, from lbssousa/gregorio)
   hosts: localhost
   connection: local
@@ -47,7 +48,8 @@
         that: gregorio_kpsewhich_check.rc == 0
         fail_msg: >-
           kpsewhich not found on PATH — run `just texlive` (or
-          `ansible-playbook site.yml --tags texlive`) first.
+          `ansible-playbook playbooks/texlive.yml --ask-become-pass`)
+          first.
 
     - name: Install Gregorio's build dependencies
       community.general.pacman:

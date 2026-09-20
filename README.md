@@ -7,11 +7,13 @@ Each automation is its own playbook under `playbooks/`, imported by
 `site.yml`. All of them share the same privilege escalation (sudo, see
 `ansible.cfg`), and each has its own tag: run one with `--tags <tag>`,
 or skip one with `--skip-tags <tag>`. Exceptions:
-`playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml` and
-`playbooks/bitwarden.yml` are **not** imported by `site.yml` — Secure
-Boot and the BGRT boot theme touch firmware/boot, and Bitwarden is an
-optional alternative to the default KeePassXC — so they only run when
-called explicitly.
+`playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
+`playbooks/bitwarden.yml`, `playbooks/texlive.yml` and
+`playbooks/gregorio.yml` are **not** imported by `site.yml` — Secure
+Boot and the BGRT boot theme touch firmware/boot, Bitwarden is an
+optional alternative to the default KeePassXC, and TeX Live (+ Gregorio,
+which depends on it) is a long download/install you run on demand — so
+they only run when called explicitly.
 
 ## What it sets up
 
@@ -22,6 +24,7 @@ called explicitly.
 | gregorio-lsp | `gregorio-lsp` | Installs Rust (`omarchy install dev-env rust`) if needed, then builds and installs the `gregorio-lsp`, `grelint` and `grefmt` binaries from source. |
 | PDF viewer | `pdf-viewer` | Installs Zathura (+ MuPDF backend) as the default PDF viewer and Papers as an extra, non-default viewer. Evince stays installed since Nautilus's sushi previewer depends on it. |
 | LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
+| Gregorio | `gregorio` | Builds and installs the Gregorio GABC → GregorioTeX engraver from source. Depends on TeX Live (runs `just texlive` first). Not part of `just setup`. |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
 | OpenSSH agent | `ssh-agent` | Enables the systemd --user ssh-agent at the session socket + exports `SSH_AUTH_SOCK` session-wide. Runs before KeePassXC. |
 | KeePassXC | `keepassxc` | Default password manager: desktop client (native Wayland via `qt5-wayland`) + browser integration (Firefox/Chromium/Brave) + SSH agent support (via `ssh-agent`) + monochrome tray icon (minimize/close to tray) + session autostart. |
@@ -37,6 +40,7 @@ called explicitly.
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |
 | Inkscape + svg2tikz | `inkscape` | Installs Inkscape and the [svg2tikz](https://github.com/xyz2tex/svg2tikz) extension (AUR `python-svg2tikz`) for exporting SVG paths as TikZ/PGF code for LaTeX. Also points fontconfig at TeX Live's own fonts, so Latin Modern and other TeX families show up in Inkscape's (and every fontconfig app's) font picker. |
 | Sacred Heart theme | `sacred-heart-theme` | Installs and applies a personal Omarchy theme (warm gold/brown palette tuned to Tokyo Night's background depth, devotional backgrounds). |
+| TeX Live | `texlive` | Installs TeX Live via AUR `texlive-installer` (scheme-minimal + AISCGre-BR package selection). Not part of `just setup` — a long network install, run explicitly. |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
 | Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. |
@@ -99,11 +103,14 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**Bitwarden, the BGRT boot theme, Secure Boot, the Yubikey GPG key,
-and the Yubikey SSH keys are separate** — not part of `just setup`:
+**Bitwarden, TeX Live, Gregorio, the BGRT boot theme, Secure Boot, the
+Yubikey GPG key, and the Yubikey SSH keys are separate** — not part of
+`just setup`:
 
 ```bash
 just bitwarden     # optional; KeePassXC is the default password manager
+just texlive       # TeX Live is a long network install; run when you need it
+just gregorio      # runs `just texlive` first; builds the Gregorio engraver
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
@@ -138,6 +145,8 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/nightlight-solar.yml` | Night light synced to sunrise/sunset (tag `nightlight-solar`) |
 | `playbooks/capslock.yml` | Caps Lock via keyd (tag `capslock`) |
 | `playbooks/sacred-heart-theme.yml` | Sacred Heart Omarchy theme (tag `sacred-heart-theme`) |
+| `playbooks/texlive.yml` | TeX Live via AUR texlive-installer — outside `site.yml` (tag `texlive`) |
+| `playbooks/gregorio.yml` | Gregorio engraver, builds from source — outside `site.yml` (tag `gregorio`) |
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |

@@ -1,0 +1,142 @@
+# ble.sh (Bash Line Editor, https://github.com/akinomyoga/ble.sh) loaded
+# by default in Bash, with fish-style autosuggestions (from history, then
+# completion) and syntax highlighting as you type.
+#
+# Omarchy does NOT load ble.sh: its ~/.bashrc just sources
+# $OMARCHY_PATH/default/bash/rc, whose init runs `starship init bash`,
+# zoxide, fzf's key bindings and `bind -f inputrc`. ble.sh has to come
+# first for that to work, so this playbook wraps that source line in two
+# ~/.bashrc blocks, as ble.sh's README prescribes:
+#
+#   source ble.sh --noattach     # right BEFORE Omarchy's rc: starship
+#                                # then hooks into ble.sh's precmd, and
+#                                # fzf's Ctrl-R/Ctrl-T/Alt-C bindings are
+#                                # picked up when ble.sh takes over
+#   ble-attach                   # at the END of ~/.bashrc
+#
+# The source line is guarded with -r, so uninstalling the package doesn't
+# break Bash. The blocks sit below Omarchy's non-interactive `return`.
+#
+# ble.sh has no official Arch package, so it's built from the AUR (blesh-git)
+# the same unprivileged clone+makepkg+pacman -U way as playbooks/texlive.yml,
+# playbooks/bitwarden.yml and playbooks/inkscape.yml. See blesh_* in
+# group_vars/all/main.yml for why blesh-git and not the stable blesh.
+#
+# Being a git package, the version makepkg computes (r<commit count>) is
+# usually newer than the one the AUR RPC reports (last committed pkgver),
+# so this rebuilds only when the installed version is OLDER than the AUR's
+# (vercmp), never merely because they differ.
+#
+# ~/.blerc gets an explicit ble.sh options block (both features are on by
+# default in ble.sh; setting them keeps the intent visible). Tweak the
+# ghost-text look with e.g. `ble-face auto_complete='fg=240'` in ~/.blerc,
+# outside the managed block. The first shell after installing prints a few
+# "ble.sh: updating cache..." lines while ble.sh builds its caches.
+#
+# Usage: ansible-playbook site.yml --tags blesh --ask-become-pass
+- name: ble.sh (Bash autosuggestions + syntax highlighting)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Check the currently installed ble.sh version, if any
+      ansible.builtin.command: "pacman -Qi {{ blesh_aur_package }}"
+      environment:
+        LC_ALL: C
+      register: blesh_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Extract the installed ble.sh version
+      ansible.builtin.set_fact:
+        blesh_installed_version: >-
+          {{ (blesh_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+      when: blesh_installed.rc == 0
+
+    - name: Check the ble.sh version on the AUR
+      ansible.builtin.uri:
+        url: "{{ blesh_aur_rpc_url }}"
+        return_content: true
+      register: blesh_aur_info
+
+    - name: Extract the AUR package version
+      ansible.builtin.set_fact:
+        blesh_aur_version: "{{ blesh_aur_info.json.results[0].Version }}"
+
+    - name: Compare the installed and AUR versions
+      ansible.builtin.command: "vercmp {{ blesh_installed_version }} {{ blesh_aur_version }}"
+      register: blesh_vercmp
+      changed_when: false
+      when: blesh_installed.rc == 0
+
+    - name: "Build and install ble.sh (only if missing or outdated)"
+      when: blesh_installed.rc != 0 or blesh_vercmp.stdout | trim == '-1'
+      block:
+        - name: Install ble.sh's build dependencies
+          community.general.pacman:
+            name: "{{ blesh_aur_build_deps }}"
+            state: present
+          become: true
+
+        - name: Clone/update the blesh-git AUR repo
+          ansible.builtin.git:
+            repo: "{{ blesh_aur_git_url }}"
+            dest: "{{ blesh_aur_build_dir }}"
+            update: true
+
+        - name: Build the package (makepkg, no dep resolution, unprivileged)
+          ansible.builtin.command: makepkg --nodeps --noconfirm --force
+          args:
+            chdir: "{{ blesh_aur_build_dir }}"
+
+        - name: Install the built package
+          ansible.builtin.shell: "pacman -U --noconfirm {{ blesh_aur_build_dir }}/*.pkg.tar.zst"
+          become: true
+
+    - name: Enable autosuggestions and syntax highlighting in ~/.blerc
+      ansible.builtin.blockinfile:
+        path: "{{ blesh_blerc }}"
+        create: true
+        mode: "0644"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/blesh.yml — ble.sh features)"
+        block: |
+          # Autosuggestions: ghost text from history, then from completion
+          # (accept with Right/End, or Alt+Right for one word)
+          bleopt complete_auto_complete=1
+          bleopt complete_auto_history=1
+          # Syntax highlighting of the command line as you type
+          bleopt highlight_syntax=1
+          bleopt highlight_filename=1
+          bleopt highlight_variable=1
+
+    - name: Check ~/.bashrc still sources Omarchy's bash rc
+      # blockinfile's insertbefore silently falls back to end-of-file when
+      # its pattern doesn't match, which would source ble.sh AFTER
+      # starship/fzf/etc. and break the integration. Fail loudly instead.
+      # (lineinfile in check mode rather than `grep`: the command module
+      # expands $OMARCHY_PATH in its arguments before grep sees them.)
+      ansible.builtin.lineinfile:
+        path: "{{ blesh_bashrc }}"
+        line: 'source "$OMARCHY_PATH/default/bash/rc"'
+      check_mode: true
+      register: blesh_bashrc_check
+      failed_when: blesh_bashrc_check is changed
+
+    - name: Load ble.sh (without attaching) before Omarchy's bash rc
+      ansible.builtin.blockinfile:
+        path: "{{ blesh_bashrc }}"
+        insertbefore: '^source "\$OMARCHY_PATH/default/bash/rc"'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/blesh.yml — load ble.sh)"
+        block: |
+          # ble.sh (Bash Line Editor) — must come before Omarchy's init
+          # (starship, fzf key bindings, ...); attached at the end of this file.
+          [[ -r {{ blesh_script }} ]] && source {{ blesh_script }} --noattach
+
+    - name: Attach ble.sh at the end of ~/.bashrc
+      ansible.builtin.blockinfile:
+        path: "{{ blesh_bashrc }}"
+        insertafter: EOF
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/blesh.yml — attach ble.sh)"
+        block: |
+          [[ ${BLE_VERSION-} ]] && ble-attach

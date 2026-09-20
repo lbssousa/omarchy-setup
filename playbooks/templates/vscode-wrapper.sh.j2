@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Managed by omarchy-setup (playbooks/vscode.yml).
+# The snap always runs under XWayland, which reads the integer GDK_SCALE
+# instead of Hyprland's fractional monitor scale; force that scale instead.
+export GDK_SCALE=1
+exec {{ vscode_snap_bin }} --force-device-scale-factor={{ vscode_scale_factor }} "$@"

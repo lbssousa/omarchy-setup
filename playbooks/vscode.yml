@@ -13,11 +13,34 @@
 # (exported to the session by snapd.yml); the `code` command lands in
 # /var/lib/snapd/snap/bin.
 #
+# Two Omarchy-specific problems are fixed on top of the install:
+#
+# - Keyring: Electron picks its secret-storage backend from
+#   XDG_CURRENT_DESKTOP, and doesn't recognise Hyprland as a desktop with a
+#   keyring, so VS Code falls back to plain-text storage (or fails to reach
+#   the keyring at all) — "sign in" and Settings Sync keep asking again.
+#   `"password-store": "gnome-libsecret"` in ~/.vscode/argv.json forces the
+#   libsecret backend, which talks to whichever provider owns
+#   org.freedesktop.secrets on the session bus (gnome-keyring here,
+#   KeePassXC's Secret Service integration or another would work too).
+#   Credentials saved before this change aren't migrated: sign in again.
+# - UI size: the snap's launcher (electron-launch) hardcodes
+#   `--ozone-platform=x11` AFTER any user flag, so VS Code always runs under
+#   XWayland, where Hyprland doesn't scale the window
+#   (xwayland.force_zero_scaling) and Electron reads GDK_SCALE instead —
+#   the integer `omarchy_gdk_scale` (2) from ~/.config/hypr/monitors.lua, not
+#   the fractional monitor scale (1.25), so the whole UI renders 60% too
+#   big. A wrapper (~/.local/bin/code, ahead of snap's bin on PATH) and user
+#   copies of the snap's desktop entries (the app library launches those
+#   through Exec=) set GDK_SCALE=1 and pass
+#   `--force-device-scale-factor=<omarchy_monitor_scale>` instead. It is a
+#   single factor: it doesn't follow a monitor with a different scale.
+#
 # Usage: ansible-playbook site.yml --tags vscode --ask-become-pass
 - name: Visual Studio Code (official snap)
   hosts: localhost
   connection: local
-  gather_facts: false
+  gather_facts: true
 
   pre_tasks:
     # `snap version` exits 0 even when it can't reach the daemon; `snap
@@ -44,3 +67,57 @@
         classic: true
         state: present
       become: true
+
+    # VS Code writes argv.json (JSONC, full of comments) on first run, so
+    # it's edited in place instead of rewritten; only a missing file (VS
+    # Code never started yet) is created from scratch.
+    - name: Check for ~/.vscode/argv.json
+      ansible.builtin.stat:
+        path: "{{ vscode_argv_file }}"
+      register: vscode_argv
+
+    - name: Create ~/.vscode/argv.json with the keyring backend, if missing
+      ansible.builtin.copy:
+        content: |
+          {
+          	"password-store": "{{ vscode_password_store }}"
+          }
+        dest: "{{ vscode_argv_file }}"
+        mode: "0644"
+      when: not vscode_argv.stat.exists
+
+    - name: "Use the {{ vscode_password_store }} keyring backend"
+      ansible.builtin.lineinfile:
+        path: "{{ vscode_argv_file }}"
+        regexp: '^\s*"password-store"\s*:'
+        insertafter: '^\{'
+        line: "\t\"password-store\": \"{{ vscode_password_store }}\","
+      when: vscode_argv.stat.exists
+
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ vscode_wrapper | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the `code` wrapper (fixed UI scale under XWayland)
+      ansible.builtin.template:
+        src: vscode-wrapper.sh.j2
+        dest: "{{ vscode_wrapper }}"
+        mode: "0755"
+
+    - name: Create ~/.local/share/applications
+      ansible.builtin.file:
+        path: "{{ vscode_desktop_dir }}"
+        state: directory
+        mode: "0755"
+
+    # Same file names as snapd's, so these take precedence (XDG_DATA_HOME
+    # comes first in XDG_DATA_DIRS). Regenerated from snapd's copy on every
+    # run, so a snap refresh that changes the entry is picked up.
+    - name: Point VS Code's desktop entries at the wrapper
+      ansible.builtin.copy:
+        content: "{{ lookup('ansible.builtin.file', vscode_snap_desktop_dir ~ '/' ~ item) | regex_replace('(?m)^Exec=' ~ vscode_snap_bin | regex_escape, 'Exec=' ~ vscode_wrapper) ~ '\n' }}"
+        dest: "{{ vscode_desktop_dir }}/{{ item }}"
+        mode: "0644"
+      loop: "{{ vscode_desktop_entries }}"

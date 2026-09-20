@@ -34,7 +34,7 @@ they only run when called explicitly.
 | Flatpak + Flathub | `flatpak` | Installs Flatpak and enables the Flathub remote (per-user, so app installs don't need root). |
 | Homebrew | `homebrew` | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`. |
 | snapd | `snapd` | Builds and installs snapd from the AUR (no official Arch package), enables `snapd.socket` (+ `snapd.apparmor.service`), links `/snap` → `/var/lib/snapd/snap` (classic snaps expect it), waits for first-boot seeding, and exports snap's `bin` and desktop-entry dirs to the graphical session (`PATH`/`XDG_DATA_DIRS` via `environment.d`; log out and back in to pick it up). Doesn't touch the kernel cmdline: strict confinement would need AppArmor as the active LSM, which Omarchy doesn't enable by default — snapd still works, and classic snaps don't need it. |
-| Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (fails early with guidance if it's missing). |
+| Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (fails early with guidance if it's missing). Also fixes two Hyprland issues: sets `"password-store": "gnome-libsecret"` in `~/.vscode/argv.json` so VS Code uses the Secret Service keyring (Electron doesn't detect one under Hyprland), and installs a `~/.local/bin/code` wrapper + user desktop entries that set the UI scale to the monitor scale (the snap is forced onto XWayland, where `GDK_SCALE=2` made the UI too big). |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
 | Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+SHIFT+[ resize the focused column. |
@@ -147,7 +147,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
 | `playbooks/homebrew.yml` | Homebrew for Linux (tag `homebrew`) |
 | `playbooks/snapd.yml` | snapd from the AUR, enabled + `/snap` link + session env (tag `snapd`) |
-| `playbooks/vscode.yml` | Visual Studio Code, official snap (tag `vscode`) |
+| `playbooks/vscode.yml` | Visual Studio Code, official snap + keyring/UI-scale fixes (tag `vscode`) |
 | `playbooks/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |
 | `playbooks/printer.yml` | EPSON L4160 printer (tag `printer`) |
 | `playbooks/hypr-scrolling-resize.yml` | Scrolling-layout column resize (tag `hypr-scrolling-resize`) |

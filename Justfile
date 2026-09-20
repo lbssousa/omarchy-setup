@@ -131,6 +131,11 @@ omadwaita-themes: _ensure-collections
 limine-silent-boot: _ensure-collections
     ansible-playbook site.yml --tags limine-silent-boot --ask-become-pass
 
+# Install ble.sh (AUR blesh-git) and load it by default in Bash, with
+# autosuggestions + syntax highlighting.
+blesh: _ensure-collections
+    ansible-playbook site.yml --tags blesh --ask-become-pass
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

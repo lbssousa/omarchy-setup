@@ -534,3 +534,22 @@ inkscape_texlive_fontconfig_conf: /etc/fonts/conf.d/09-texlive-fonts.conf
 limine_silent_boot_conf: /boot/limine.conf
 limine_silent_boot_quiet: "yes"
 limine_silent_boot_timeout: "1"
+
+# ble.sh (playbooks/blesh.yml) — Bash Line Editor: fish-style
+# autosuggestions + syntax highlighting. Built from the AUR (unprivileged
+# clone+makepkg+pacman -U, same as texlive_* / inkscape_svg2tikz_*).
+# blesh-git (0.4.0-devel) rather than the stable `blesh` (0.3.4): 0.3.4
+# predates Bash 5.3 and prints "unsupported readline function" warnings
+# on every shell start against Omarchy's inputrc (menu-complete-backward,
+# emacs-editing-mode, vi-editing-mode); 0.4 loads cleanly.
+blesh_aur_package: blesh-git
+blesh_aur_git_url: "https://aur.archlinux.org/{{ blesh_aur_package }}.git"
+blesh_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ blesh_aur_package }}"
+blesh_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ blesh_aur_package }}"
+blesh_aur_build_deps:
+  - git
+  - make
+  - gawk
+blesh_script: /usr/share/blesh/ble.sh
+blesh_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
+blesh_blerc: "{{ ansible_facts.env.HOME }}/.blerc"

@@ -94,3 +94,7 @@
 - name: Limine silent boot (quiet + 1s timeout)
   ansible.builtin.import_playbook: playbooks/limine-silent-boot.yml
   tags: [limine-silent-boot]
+
+- name: ble.sh (Bash autosuggestions + syntax highlighting)
+  ansible.builtin.import_playbook: playbooks/blesh.yml
+  tags: [blesh]

@@ -1,5 +1,11 @@
 set shell := ["bash", "-uc"]
 
+# Playbooks that need root run under `run0 --empower` (see run-empowered.sh):
+# one polkit authentication up front, then every `become: true` task's run0
+# inside passes without prompting again. Recipes for user-level-only tags
+# call plain ansible-playbook.
+ap := "./run-empowered.sh ansible-playbook"
+
 default:
     @just --list
 
@@ -9,33 +15,31 @@ _ensure-ansible:
     set -euo pipefail
     if ! command -v ansible-playbook >/dev/null; then
         echo "ansible-playbook not found; installing via pacman..."
-        sudo pacman -S --needed --noconfirm ansible
+        run0 pacman -S --needed --noconfirm ansible
     fi
 
 # Install collections required by the playbooks (community.general).
 _ensure-collections: _ensure-ansible
     ansible-galaxy collection install -r requirements.yml
 
-# Run every automation. Type your sudo password once at the start.
+# Run every automation. Authenticate once, in the polkit dialog that appears
+# at the start (fingerprint or password).
 setup: _ensure-collections
-    ansible-playbook site.yml --ask-become-pass
+    {{ap}} site.yml
 
-# Lower sudo's passwd_timeout so an unattended become doesn't hang.
-sudo: _ensure-collections
-    ansible-playbook site.yml --tags sudo --ask-become-pass
-
-# Raise polkitd's authentication cache window.
+# Raise polkitd's authentication cache window and remove the legacy sudoers
+# drop-in an older version of this repo installed.
 polkit: _ensure-collections
-    ansible-playbook site.yml --tags polkit --ask-become-pass
+    {{ap}} site.yml --tags polkit
 
 # Install Firefox and enable tab apps (Taskbar Tabs).
 firefox: _ensure-collections
-    ansible-playbook site.yml --tags firefox --ask-become-pass
+    {{ap}} site.yml --tags firefox
 
 # Install Zed (Omarchy theme integration), set every font size to 20px
 # and the buffer font to JetBrainsMono Nerd Font.
 zed: _ensure-collections
-    ansible-playbook site.yml --tags zed --ask-become-pass
+    {{ap}} site.yml --tags zed
 
 # Install Rust (if needed) and build/install gregorio-lsp, grelint and
 # grefmt from source.
@@ -44,7 +48,7 @@ gregorio-lsp: _ensure-collections
 
 # Make Zathura the default PDF viewer + Papers (optional viewer); Evince stays installed (sushi depends on it).
 pdf-viewer: _ensure-collections
-    ansible-playbook site.yml --tags pdf-viewer --ask-become-pass
+    {{ap}} site.yml --tags pdf-viewer
 
 # Enable LazyVim's LaTeX extra and install gregorio.nvim (GABC/NABC).
 lazyvim: _ensure-collections
@@ -53,56 +57,57 @@ lazyvim: _ensure-collections
 # Install TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR
 # packages). Not part of `just setup` — run explicitly.
 texlive: _ensure-collections
-    ansible-playbook playbooks/texlive.yml --ask-become-pass
+    {{ap}} playbooks/tex.yml --tags texlive
 
 # Build and install Gregorio (lbssousa/gregorio) from source. Depends on
-# TeX Live — runs `just texlive` first. Not part of `just setup`.
-gregorio: texlive
-    ansible-playbook playbooks/gregorio.yml --ask-become-pass
+# TeX Live — the tag also runs the TeX Live play first. Not part of `just setup`.
+gregorio: _ensure-collections
+    {{ap}} playbooks/tex.yml --tags gregorio
 
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections
-    ansible-playbook site.yml --tags ptbr --ask-become-pass
+    {{ap}} site.yml --tags ptbr
 
-# Run only the OpenSSH agent (user session) playbook.
+# Run only the OpenSSH agent (user session) play.
 ssh-agent: _ensure-collections
     ansible-playbook site.yml --tags ssh-agent
 
-# Run only the KeePassXC playbook (depends on `just ssh-agent`).
+# Run the KeePassXC play (the tag also runs the OpenSSH agent play first).
 keepassxc: _ensure-collections
-    ansible-playbook site.yml --tags keepassxc --ask-become-pass
+    {{ap}} site.yml --tags keepassxc
 
 # Run only the Bitwarden playbook (optional, not part of `just setup`).
 bitwarden: _ensure-collections
-    ansible-playbook playbooks/bitwarden.yml --ask-become-pass
+    {{ap}} playbooks/bitwarden.yml
 
-# Run only the Podman (rootless) playbook.
+# Run only the Podman (rootless) play.
 podman: _ensure-collections
-    ansible-playbook site.yml --tags podman --ask-become-pass
+    {{ap}} site.yml --tags podman
 
-# Run only the Distrobox playbook.
+# Run the Distrobox play (the tag also runs the Podman play first).
 distrobox: _ensure-collections
-    ansible-playbook site.yml --tags distrobox --ask-become-pass
+    {{ap}} site.yml --tags distrobox
 
 # Install Flatpak and enable the Flathub remote.
 flatpak: _ensure-collections
-    ansible-playbook site.yml --tags flatpak --ask-become-pass
+    {{ap}} site.yml --tags flatpak
 
 # Install Homebrew for Linux and symlink brew into /usr/local/bin.
 homebrew: _ensure-collections
-    ansible-playbook site.yml --tags homebrew --ask-become-pass
+    {{ap}} site.yml --tags homebrew
 
-# Install snapd (AUR) and enable it.
+# Install snapd (AUR) and enable it (just the snapd play).
 snapd: _ensure-collections
-    ansible-playbook site.yml --tags snapd --ask-become-pass
+    {{ap}} site.yml --tags snapd
 
-# Install Visual Studio Code from the official snap (depends on `just snapd`).
+# Install Visual Studio Code from the official snap (the tag also runs the
+# snapd play first).
 vscode: _ensure-collections
-    ansible-playbook site.yml --tags vscode --ask-become-pass
+    {{ap}} site.yml --tags vscode
 
 # Build and install libfprint (goodix538d). Requires podman + distrobox.
 libfprint: _ensure-collections
-    ansible-playbook site.yml --tags libfprint --ask-become-pass
+    {{ap}} site.yml --tags libfprint
 
 # Bind SUPER+[ / SUPER+] to resize the focused column on the
 # scrolling layout.
@@ -111,7 +116,7 @@ hypr-scrolling-resize: _ensure-collections
 
 # Set up the EPSON L4160 printer queue (CUPS driverless/IPP Everywhere).
 printer: _ensure-collections
-    ansible-playbook site.yml --tags printer --ask-become-pass
+    {{ap}} site.yml --tags printer
 
 # Scale up shell bar + terminal text size without scaling GTK apps.
 text-size: _ensure-collections
@@ -119,15 +124,15 @@ text-size: _ensure-collections
 
 # Sync the night light to today's real sunrise/sunset.
 nightlight-solar: _ensure-collections
-    ansible-playbook site.yml --tags nightlight-solar --ask-become-pass
+    {{ap}} site.yml --tags nightlight-solar
 
 # Remap Caps Lock via keyd (tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock).
 capslock: _ensure-collections
-    ansible-playbook site.yml --tags capslock --ask-become-pass
+    {{ap}} site.yml --tags capslock
 
 # Install Inkscape + svg2tikz (AUR), an extension exporting SVG paths as TikZ/PGF for LaTeX.
 inkscape: _ensure-collections
-    ansible-playbook site.yml --tags inkscape --ask-become-pass
+    {{ap}} site.yml --tags inkscape
 
 # Install the Omadwaita Omarchy themes (Adwaita-based: Omadwaita = dark TUI +
 # light GTK, Omadwaita Light, Omadwaita Dark). Installs only; doesn't apply.
@@ -137,12 +142,12 @@ omadwaita-themes: _ensure-collections
 # Hide the Limine boot menu (quiet: yes + timeout: 1)
 # for a flicker-free boot; a 1-second key window still reveals the menu.
 limine-silent-boot: _ensure-collections
-    ansible-playbook site.yml --tags limine-silent-boot --ask-become-pass
+    {{ap}} site.yml --tags limine-silent-boot
 
 # Install ble.sh (AUR blesh-git) and load it by default in Bash, with
 # autosuggestions + syntax highlighting.
 blesh: _ensure-collections
-    ansible-playbook site.yml --tags blesh --ask-become-pass
+    {{ap}} site.yml --tags blesh
 
 # Make the starship prompt work inside distrobox containers and show the
 # container's name (Omarchy's bash rc from /run/host + starship env_var).
@@ -152,12 +157,12 @@ starship-distrobox: _ensure-collections
 # Activate AppArmor in the kernel (lsm= via a limine-entry-tool drop-in) without
 # loading the distro profiles. Needs a reboot. Not part of `just setup`.
 apparmor: _ensure-collections
-    ansible-playbook playbooks/apparmor.yml --ask-become-pass
+    {{ap}} playbooks/apparmor.yml
 
 # Same as `just apparmor`, plus apparmor.service loading the distro profiles
 # (unix-chkpwd, avahi-daemon, ...). Not part of `just setup`.
 apparmor-profiles: _ensure-collections
-    ansible-playbook playbooks/apparmor.yml --ask-become-pass -e apparmor_load_profiles=true
+    {{ap}} playbooks/apparmor.yml -e apparmor_load_profiles=true
 
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
@@ -167,18 +172,18 @@ libfprint-destroy-container:
 # set it as the default boot splash. Not part of `setup` — rewrites the
 # default Plymouth theme and rebuilds the initramfs.
 bgrt-theme: _ensure-collections
-    ansible-playbook playbooks/bgrt-theme.yml --ask-become-pass
+    {{ap}} playbooks/bgrt-theme.yml
 
 # Secure Boot (Limine + sbctl). Not part of `setup` — run explicitly,
 # twice, with a firmware reboot in between (see the playbook header).
 secureboot: _ensure-collections
-    ansible-playbook playbooks/secureboot.yml --ask-become-pass
+    {{ap}} playbooks/secureboot.yml
 
 # Import the Yubikey's public GPG key. Needs the Yubikey plugged in.
 gpg-yubikey: _ensure-collections
-    ansible-playbook playbooks/yubikey-gpg.yml --ask-become-pass
+    {{ap}} playbooks/yubikey.yml --tags gpg-yubikey
 
 # Prepare for downloading the Yubikey's resident FIDO2 SSH keys. Needs
 # the Yubikey plugged in.
 ssh-yubikey: _ensure-collections
-    ansible-playbook playbooks/yubikey-ssh.yml --ask-become-pass
+    {{ap}} playbooks/yubikey.yml --tags ssh-yubikey

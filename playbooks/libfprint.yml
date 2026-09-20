@@ -22,7 +22,7 @@
 # /usr/local/lib, since the official fprintd package already depends on
 # the official libfprint (same soname, no goodixtls53xd driver).
 #
-# Usage: ansible-playbook site.yml --ask-become-pass --tags libfprint
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags libfprint
 # (needs podman + distrobox already set up).
 - name: libfprint (goodix538d)
   hosts: localhost
@@ -39,9 +39,9 @@
     - name: Fail with guidance if distrobox wasn't found
       ansible.builtin.fail:
         msg: >-
-          distrobox not found. Run `ansible-playbook site.yml
-          --ask-become-pass --tags podman,distrobox` (or `just podman &&
-          just distrobox`) first.
+          distrobox not found. Run `./run-empowered.sh ansible-playbook
+          site.yml --tags distrobox` (or `just distrobox`, which sets
+          Podman up first) first.
       when: libfprint_distrobox_check.rc != 0
 
   tasks:

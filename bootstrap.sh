@@ -9,7 +9,7 @@ if command -v just >/dev/null; then
     echo "just is already installed ($(command -v just))."
 else
     echo "just not found; installing via pacman..."
-    sudo pacman -S --needed --noconfirm just
+    run0 pacman -S --needed --noconfirm just
 fi
 
 echo "Done. Run 'just setup' to apply the automations (or 'just --list' to see available recipes)."

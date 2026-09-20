@@ -2,12 +2,8 @@
 # Index of automations for a freshly installed Omarchy desktop. Run a
 # single one with --tags <tag>, or skip one with --skip-tags <tag>.
 #
-# Usage: ansible-playbook site.yml --ask-become-pass
-- name: sudo passwd_timeout
-  ansible.builtin.import_playbook: playbooks/sudo.yml
-  tags: [sudo]
-
-- name: polkitd ExpirationSeconds
+# Usage: ./run-empowered.sh ansible-playbook site.yml
+- name: polkitd ExpirationSeconds + legacy sudoers drop-in cleanup
   ansible.builtin.import_playbook: playbooks/polkit.yml
   tags: [polkit]
 
@@ -35,21 +31,16 @@
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]
 
-- name: OpenSSH agent (user session)
-  ansible.builtin.import_playbook: playbooks/ssh-agent.yml
-  tags: [ssh-agent]
-
-- name: KeePassXC
+# Plays: OpenSSH agent (tag ssh-agent), then KeePassXC.
+- name: OpenSSH agent + KeePassXC
   ansible.builtin.import_playbook: playbooks/keepassxc.yml
   tags: [keepassxc]
 
-- name: Podman (rootless)
-  ansible.builtin.import_playbook: playbooks/podman.yml
-  tags: [podman]
-
-- name: Distrobox
-  ansible.builtin.import_playbook: playbooks/distrobox.yml
-  tags: [distrobox]
+# Plays: Podman (tag podman), Distrobox (tag distrobox, which also runs
+# Podman first), starship prompt inside distrobox (tag starship-distrobox).
+- name: Containers (Podman, Distrobox, starship in distrobox)
+  ansible.builtin.import_playbook: playbooks/containers.yml
+  tags: [containers]
 
 - name: Flatpak + Flathub
   ansible.builtin.import_playbook: playbooks/flatpak.yml
@@ -59,13 +50,11 @@
   ansible.builtin.import_playbook: playbooks/homebrew.yml
   tags: [homebrew]
 
-- name: snapd (AUR)
-  ansible.builtin.import_playbook: playbooks/snapd.yml
-  tags: [snapd]
-
-- name: Visual Studio Code (official snap)
-  ansible.builtin.import_playbook: playbooks/vscode.yml
-  tags: [vscode]
+# Plays: snapd (tag snapd), Visual Studio Code (tag vscode, which also runs
+# snapd first).
+- name: snapd + Visual Studio Code
+  ansible.builtin.import_playbook: playbooks/snap.yml
+  tags: [snap]
 
 - name: libfprint (goodix538d)
   ansible.builtin.import_playbook: playbooks/libfprint.yml
@@ -75,17 +64,11 @@
   ansible.builtin.import_playbook: playbooks/printer.yml
   tags: [printer]
 
-- name: Hyprland scrolling-layout column resize
-  ansible.builtin.import_playbook: playbooks/hypr-scrolling-resize.yml
-  tags: [hypr-scrolling-resize]
-
-- name: Shell bar + terminal text size
-  ansible.builtin.import_playbook: playbooks/text-size.yml
-  tags: [text-size]
-
-- name: Night light synced to sunrise/sunset
-  ansible.builtin.import_playbook: playbooks/nightlight-solar.yml
-  tags: [nightlight-solar]
+# Plays: scrolling column resize (tag hypr-scrolling-resize), screen scale +
+# text size (tag text-size), night light (tag nightlight-solar).
+- name: Desktop tuning (Hyprland resize, text size, night light)
+  ansible.builtin.import_playbook: playbooks/desktop.yml
+  tags: [desktop]
 
 - name: Caps Lock via keyd
   ansible.builtin.import_playbook: playbooks/capslock.yml
@@ -106,7 +89,3 @@
 - name: ble.sh (Bash autosuggestions + syntax highlighting)
   ansible.builtin.import_playbook: playbooks/blesh.yml
   tags: [blesh]
-
-- name: Starship prompt inside distrobox (container name + Omarchy rc)
-  ansible.builtin.import_playbook: playbooks/starship-distrobox.yml
-  tags: [starship-distrobox]

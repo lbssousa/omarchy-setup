@@ -30,7 +30,7 @@
 #     but apparmor.service is disabled, so none of the distro profiles in
 #     /etc/apparmor.d are loaded and the desktop behaves exactly as before.
 #     snapd still loads its own snap profiles (snapd.apparmor.service,
-#     enabled by playbooks/snapd.yml), so strict snaps get confined. The
+#     enabled by playbooks/snap.yml), so strict snaps get confined. The
 #     lowest-risk way to get what snapd wants.
 #
 #   true (`just apparmor-profiles`) — also enables apparmor.service, which loads
@@ -40,7 +40,7 @@
 #       - unix-chkpwd  — the PAM password helper (hyprlock, login). The only
 #                        one with a real lock-out risk: keep a TTY logged in
 #                        the first time, and if it misbehaves, run
-#                        `sudo aa-complain /etc/apparmor.d/unix-chkpwd`.
+#                        `run0 aa-complain /etc/apparmor.d/unix-chkpwd`.
 #       - avahi-daemon — mDNS; the printer's .local name resolves through it.
 #       - ping, nvidia_modprobe, lsb_release, zgrep.
 #     Docker (installed, service disabled) would also get its docker-default
@@ -54,8 +54,8 @@
 # /etc/limine-entry-tool.d/apparmor.conf and run `limine-update` (or boot the
 # Limine fallback entry if something goes wrong at boot).
 #
-# Usage: ansible-playbook playbooks/apparmor.yml --ask-become-pass
-#        ansible-playbook playbooks/apparmor.yml --ask-become-pass -e apparmor_load_profiles=true
+# Usage: ./run-empowered.sh ansible-playbook playbooks/apparmor.yml
+#        ./run-empowered.sh ansible-playbook playbooks/apparmor.yml -e apparmor_load_profiles=true
 - name: AppArmor (kernel LSM, optionally with the distro profiles)
   hosts: localhost
   connection: local

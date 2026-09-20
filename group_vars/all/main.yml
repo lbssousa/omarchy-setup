@@ -1,14 +1,13 @@
 ---
-# Local connection become timeout. The fingerprint reader is tried before
-# the sudo password on every privileged task, and can take longer than
-# Ansible's 10s default to give up and fall back.
+# Local connection become timeout. Under run-empowered.sh the run0 inside
+# returns at once; the generous value only matters for a playbook run without
+# it, where each run0 waits on a polkit dialog that can take longer than
+# Ansible's 10s default.
 ansible_local_become_success_timeout: 60
 
-# sudo prompt timeout (minutes) — guards against `become: true` left
-# hanging in an unattended terminal.
-sudo_passwd_timeout_minutes: 1
-
-# polkit authentication cache window (seconds), for pkexec/graphical tools.
+# polkit authentication cache window (seconds) — playbooks/polkit.yml. Set
+# for pkexec/graphical tools; see the playbook for what it does and doesn't
+# cover.
 polkit_expiration_seconds: 1800
 
 # Firefox (playbooks/firefox.yml) — runs before pt-BR localization, which
@@ -29,13 +28,13 @@ zed_font_size: 20
 # "JetBrains Mono", which isn't installed on its own.
 zed_buffer_font_family: "JetBrainsMono Nerd Font"
 
-# This repo's container engine is rootless Podman (playbooks/podman.yml),
+# This repo's container engine is rootless Podman (playbooks/containers.yml),
 # not Docker — Zed's Dev Containers feature needs to be told that, or it
 # shells out to `docker` and fails. See
 # https://zed.dev/docs/dev-containers.
 zed_dev_container_use_podman: true
 
-# Gregorio (playbooks/gregorio.yml) — the GABC engraver + GregorioTeX,
+# Gregorio (playbooks/tex.yml) — the GABC engraver + GregorioTeX,
 # built from the user's own fork at the same commit pinned by every
 # AISCGre-BR project's devcontainer gregorio feature (as of
 # 2026-09-08: Eugene-Cardine-Primeiro-Ano-de-Semiologia-Gregoriana and
@@ -89,7 +88,7 @@ lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
 gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
 gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
 
-# TeX Live (playbooks/texlive.yml) — installed via the AUR
+# TeX Live (playbooks/tex.yml) — installed via the AUR
 # texlive-installer package (upstream's own install-tl, tricking pacman
 # into thinking texlive-core/texlive-bin/etc. are satisfied).
 texlive_release: "2026"
@@ -227,7 +226,7 @@ ptbr_man_pages_package: man-pages-pt_br
 ptbr_tesseract_data_package: tesseract-data-por
 ptbr_ocr_langs: "por+eng"
 
-# OpenSSH agent (playbooks/ssh-agent.yml, imported before keepassxc) —
+# OpenSSH agent (playbooks/keepassxc.yml, the play that runs before KeePassXC's) —
 # enables the standard user-scope agent (socket + service) at the session
 # runtime socket and exports SSH_AUTH_SOCK session-wide via environment.d
 # so IDEs, CLI tools and KeePassXC can reach the same agent.
@@ -256,7 +255,7 @@ keepassxc_tray_icon_appearance: colorful
 # out of version control and configured interactively.
 keepassxc_keepshare_active: '<?xml version=\"1.0\"?><KeeShare><Active/></KeeShare>\n'
 # KeePassXC acts as a client for the OpenSSH agent; its override pins the
-# socket provided by playbooks/ssh-agent.yml.
+# socket provided by playbooks/keepassxc.yml.
 keepassxc_ssh_agent_socket: "{{ ssh_agent_socket }}"
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
@@ -340,7 +339,7 @@ gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
 
-# Podman rootless (playbooks/podman.yml) — subuid/subgid range, same
+# Podman rootless (playbooks/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.
 podman_subuid_start: 100000
 podman_subuid_count: 65536
@@ -447,7 +446,7 @@ bgrt_entry_gap_below: 30
 bgrt_preview_width: 1920
 bgrt_preview_height: 1080
 
-# Hyprland scrolling-layout column resize step (playbooks/hypr-scrolling-resize.yml).
+# Hyprland scrolling-layout column resize step (playbooks/desktop.yml).
 hypr_scrolling_colresize_step: 0.1
 
 # EPSON L4160 printer (playbooks/printer.yml) — driverless CUPS queue.
@@ -459,20 +458,20 @@ printer_l4160_device_uri: "ipp://{{ printer_l4160_hostname }}:631/ipp/print"
 printer_l4160_error_policy: abort-job
 printer_l4160_set_default: true
 
-# Shell bar + terminal text size (playbooks/text-size.yml), px. The GTK
+# Shell bar + terminal text size (playbooks/desktop.yml), px. The GTK
 # text-scaling factor this command would otherwise leave in place is always
 # reset — the desktop's default UI font size is set directly instead, via
 # omarchy_system_ui_font_pt below.
 omarchy_text_size_px: 16
 
-# Hyprland monitor scale factor (playbooks/text-size.yml) — the
+# Hyprland monitor scale factor (playbooks/desktop.yml) — the
 # compositor-level "screen scale" applied to everything on screen. Fed
 # straight into hl.monitor({ scale = ... }) in
 # ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
 omarchy_monitor_scale: 1.25
 
 # Default GTK/Qt (via gtk3 platform theme) system UI font point size
-# (playbooks/text-size.yml). Applied directly to
+# (playbooks/desktop.yml). Applied directly to
 # org.gnome.desktop.interface font-name, keeping whatever font family is
 # already configured there.
 omarchy_system_ui_font_pt: 12
@@ -484,7 +483,7 @@ omarchy_system_ui_font_pt: 12
 capslock_compose_key: menu
 keyd_config_dest: /etc/keyd/default.conf
 
-# Night light synced to real sunrise/sunset (playbooks/nightlight-solar.yml).
+# Night light synced to real sunrise/sunset (playbooks/desktop.yml).
 # hyprsunset only supports fixed HH:MM profile times, so a daily timer
 # recomputes them.
 nightlight_solar_night_temperature: 4000
@@ -554,7 +553,7 @@ blesh_script: /usr/share/blesh/ble.sh
 blesh_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
 blesh_blerc: "{{ ansible_facts.env.HOME }}/.blerc"
 
-# Starship prompt inside distrobox (playbooks/starship-distrobox.yml).
+# Starship prompt inside distrobox (playbooks/containers.yml).
 starship_distrobox_config: "{{ ansible_facts.env.HOME }}/.config/starship.toml"
 starship_distrobox_omarchy_default_config: /usr/share/omarchy/config/starship.toml
 starship_distrobox_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
@@ -562,7 +561,7 @@ starship_distrobox_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
 starship_distrobox_symbol: "⬢"
 starship_distrobox_style: bold yellow
 
-# snapd (playbooks/snapd.yml) — daemon and tools for snap packages. No
+# snapd (playbooks/snap.yml) — daemon and tools for snap packages. No
 # official Arch package, so it's built from the AUR (unprivileged
 # clone+makepkg+pacman -U, same as blesh_* / texlive_* above). The build
 # deps are the PKGBUILD's makedepends; the runtime deps (squashfs-tools,
@@ -597,7 +596,7 @@ snapd_bin_dir: "{{ snapd_mount_dir }}/bin"
 snapd_desktop_dir: /var/lib/snapd/desktop
 snapd_env_file: 41-snapd.conf
 
-# Visual Studio Code (playbooks/vscode.yml) — Microsoft's official snap
+# Visual Studio Code (playbooks/snap.yml) — Microsoft's official snap
 # (classic confinement), so depends on snapd above.
 vscode_snap_name: code
 # Electron doesn't detect a keyring under Hyprland; argv.json's

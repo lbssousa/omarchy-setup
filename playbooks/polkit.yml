@@ -1,12 +1,23 @@
 ---
-# Raises polkitd's authentication cache window (ExpirationSeconds,
-# default 300s) so polkit-based desktop tools (pkexec and friends) don't
-# re-prompt every few minutes. Doesn't affect this repo's own `become`,
-# which uses sudo.
-- name: polkitd ExpirationSeconds
+# Polkit side of privilege escalation. This repo escalates with run0
+# (ansible.cfg's become_method), which authenticates through polkit.
+#
+# 1. Raises polkitd's authentication cache window (ExpirationSeconds,
+#    default 300s), so polkit-based desktop tools (pkexec and friends)
+#    don't re-prompt every few minutes. It doesn't help run0: checked on
+#    this machine, polkit doesn't carry a run0 authorization over to the
+#    next run0 process, which is why playbooks run under run-empowered.sh.
+#
+# 2. Removes the /etc/sudoers.d drop-in that an earlier version of this
+#    repo installed (playbooks/sudo.yml, now gone) to shorten sudo's
+#    passwd_timeout: back when `become` used sudo, it kept an unattended
+#    terminal from hanging on the fingerprint prompt. run0 never reads
+#    sudoers, so the file does nothing now.
+- name: polkitd ExpirationSeconds + legacy sudoers drop-in cleanup
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [polkit]
 
   tasks:
     - name: "Set ExpirationSeconds={{ polkit_expiration_seconds }} in /etc/polkit-1/polkitd.conf"
@@ -19,6 +30,12 @@
         mode: "0644"
       become: true
       notify: reload polkit
+
+    - name: Remove the legacy sudo passwd_timeout drop-in
+      ansible.builtin.file:
+        path: /etc/sudoers.d/omarchy-setup-passwd-timeout
+        state: absent
+      become: true
 
   handlers:
     - name: reload polkit

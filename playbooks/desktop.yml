@@ -1,0 +1,270 @@
+---
+# Per-user Omarchy/Hyprland desktop tuning, in this order:
+#
+#   Scrolling column resize   tags: desktop, hypr-scrolling-resize
+#   Screen scale + text size  tags: desktop, text-size
+#   Night light (solar)       tags: desktop, nightlight-solar
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags desktop
+
+# Hyprland's "scrolling" layout has its own resize dispatcher,
+# hl.dsp.layout("colresize <±fraction>") — the generic window-resize
+# dispatcher (used by Omarchy's default SUPER+MINUS/EQUAL binds) doesn't
+# understand the scrolling layout's infinite horizontal strip model, so
+# this playbook adds new, dedicated binds instead of overriding the
+# defaults.
+#
+# One key per direction, on the two adjacent bracket keys of this
+# machine's ABNT2 keyboard: SUPER+[ shrinks, SUPER+] grows. Keycodes
+# (xkb, layout "br"): "[" is <AD12> = code:35 and "]" is <BKSL> =
+# code:51 — NOT code:34, which is <AD11> (the ´/` dead-key). Binding by
+# code:N instead of the keysym name keeps the pair tied to the physical
+# keys regardless of which symbol a layout variant puts on them.
+#
+# SUPER+"]" was empirically confirmed to reach Hyprland (runtime probe
+# binds on both code:51 and the "bracketright" keysym fired on every
+# press); an earlier "hardware rollover" theory for this key was wrong,
+# it came from testing the wrong keycode. colresize is a no-op outside
+# the scrolling layout (Hyprland just logs and ignores it).
+#
+# Written to ~/.config/hypr/bindings.lua via a marked block, so it
+# coexists with any other customization already there. The block marker
+# still names playbooks/hypr-scrolling-resize.yml, the file this play lived
+# in before it was merged here: blockinfile matches on the marker text, so
+# renaming it would leave a second copy of the binds behind.
+- name: Hyprland scrolling-layout column resize (SUPER+[ / SUPER+])
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [desktop, hypr-scrolling-resize]
+
+  tasks:
+    - name: Create ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
+
+    - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: /usr/share/omarchy/default/hypr/bindings.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: "Bind SUPER+[ / SUPER+] to colresize (±{{ hypr_scrolling_colresize_step }}) on the scrolling layout"
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/hypr-scrolling-resize.yml — scrolling column resize)"
+        block: |
+          -- code:35 = "[" and code:51 = "]" on this machine's ABNT2
+          -- keyboard (xkb layout "br"; code:34 is the ´ key, not "]").
+          o.bind("SUPER + code:35", "Shrink column (scrolling)", hl.dsp.layout("colresize -{{ hypr_scrolling_colresize_step }}"))
+          o.bind("SUPER + code:51", "Grow column (scrolling)", hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
+      register: hypr_scrolling_resize_binding
+      notify: reload Hyprland
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the bind
+      # still applies on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland
+
+# Screen scale factor (Hyprland monitor scale) + default system UI font
+# size, alongside the omarchy shell bar + terminal text size.
+#
+# The Hyprland monitor scale is a compositor-level multiplier applied to
+# everything on screen (~/.config/hypr/monitors.lua's omarchy_monitor_scale,
+# fed into hl.monitor({ scale = ... })). GDK_SCALE there is left untouched
+# by this playbook — GTK apps rely on Wayland fractional scaling instead of
+# doubling up.
+#
+# The GTK/Qt (via gtk3 platform theme, on this machine QT_QPA_PLATFORMTHEME
+# =gtk3) default UI font size is set directly on
+# org.gnome.desktop.interface font-name, keeping whatever family is already
+# configured. GTK's text-scaling-factor is always reset to its default
+# (1.0) instead: using both a multiplier and an explicit font point size at
+# once would double-scale.
+#
+# `omarchy display text size <px>` separately drives the omarchy shell bar
+# + terminal text size (shell/GTK/terminals in lockstep) — this playbook
+# still calls it for the shell+terminal legs, then overrides its GTK
+# scaling-factor side effect with the direct font-size approach above.
+- name: Screen scale factor + system UI font size
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [desktop, text-size]
+
+  tasks:
+    - name: Create ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
+
+    - name: Create ~/.config/hypr/monitors.lua from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: /usr/share/omarchy/config/hypr/monitors.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/monitors.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: "Set the Hyprland monitor scale factor to {{ omarchy_monitor_scale }}"
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/monitors.lua"
+        regexp: "^local omarchy_monitor_scale = "
+        line: "local omarchy_monitor_scale = {{ omarchy_monitor_scale }}"
+      notify: reload Hyprland
+
+    - name: Check the current text size (shell/GTK/terminals)
+      ansible.builtin.command: omarchy-display-text-size
+      register: omarchy_text_size_current
+      changed_when: false
+
+    - name: "Set the shell + terminal text size to {{ omarchy_text_size_px }}px"
+      ansible.builtin.command: "omarchy-display-text-size {{ omarchy_text_size_px }}"
+      when: '("text size: " ~ omarchy_text_size_px ~ " px") not in omarchy_text_size_current.stdout'
+
+    - name: Check whether the GTK text scale factor has an override
+      ansible.builtin.command: dconf read /org/gnome/desktop/interface/text-scaling-factor
+      register: gtk_text_scaling_current
+      changed_when: false
+
+    - name: Reset the GTK text-scaling factor (font size is set directly below)
+      ansible.builtin.command: gsettings reset org.gnome.desktop.interface text-scaling-factor
+      when: gtk_text_scaling_current.stdout | trim | length > 0
+
+    - name: Check the current GTK interface font
+      ansible.builtin.command: gsettings get org.gnome.desktop.interface font-name
+      register: gtk_font_current
+      changed_when: false
+
+    - name: Determine the desired GTK interface font (existing family, new size)
+      ansible.builtin.set_fact:
+        gtk_font_desired: "'{{ gtk_font_current.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }} {{ omarchy_system_ui_font_pt }}'"
+
+    - name: "Set the default system UI font size to {{ omarchy_system_ui_font_pt }}pt"
+      ansible.builtin.command: "gsettings set org.gnome.desktop.interface font-name {{ gtk_font_desired }}"
+      when: gtk_font_current.stdout | trim != gtk_font_desired
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the new scale
+      # still applies on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland
+
+# Night light (hyprsunset) synced to real sunrise/sunset, instead of two
+# hand-picked fixed times.
+#
+# hyprsunset only understands fixed HH:MM profile times — there's no
+# native "sunrise/sunset" concept. A script
+# (~/.local/bin/nightlight-solar-sync) resolves the location (Omarchy's
+# weather location if set, otherwise IP geolocation), queries Open-Meteo
+# for today's sunrise/sunset, and rewrites hyprsunset.conf with two
+# profiles: identity at sunrise, night temperature at sunset. A daily
+# systemd --user timer keeps it in sync, since the times shift every day.
+#
+# The hyprland.lua autostart block's marker still names
+# playbooks/nightlight-solar.yml, the file this play lived in before it
+# was merged here: blockinfile matches on the marker text, so renaming it
+# would leave a second copy of the autostart behind.
+- name: Night light synced to sunrise/sunset (hyprsunset + systemd --user timer)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [desktop, nightlight-solar]
+
+  tasks:
+    - name: Ensure hyprsunset and jq are installed via pacman
+      community.general.pacman:
+        name:
+          - hyprsunset
+          - jq
+        state: present
+      become: true
+
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Create ~/.config/systemd/user
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        state: directory
+        mode: "0755"
+
+    - name: Install the sync script (nightlight-solar-sync)
+      ansible.builtin.template:
+        src: nightlight-solar-sync.sh.j2
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin/nightlight-solar-sync"
+        mode: "0755"
+
+    - name: Install the systemd --user unit (service)
+      ansible.builtin.copy:
+        src: nightlight-solar-sync.service
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/nightlight-solar-sync.service"
+        mode: "0644"
+      notify: reload systemd --user
+
+    - name: Install the systemd --user unit (timer)
+      ansible.builtin.template:
+        src: nightlight-solar-sync.timer.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/nightlight-solar-sync.timer"
+        mode: "0644"
+      notify: reload systemd --user
+
+    - name: Enable and start the daily nightlight-solar-sync timer
+      ansible.builtin.systemd:
+        name: nightlight-solar-sync.timer
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started
+
+    - name: Create ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
+
+    - name: Create ~/.config/hypr/autostart.lua from the Omarchy template, if missing
+      # The right source is /etc/skel (the real placeholder the Omarchy
+      # installer copies into the user's home), NOT
+      # /usr/share/omarchy/default/hypr/autostart.lua — that's a
+      # different internal file (the omarchy.lua startup loader) with
+      # the same basename but unrelated content.
+      ansible.builtin.copy:
+        src: /etc/skel/.config/hypr/autostart.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: Launch hyprsunset automatically with Hyprland
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/nightlight-solar.yml — hyprsunset autostart)"
+        block: |
+          o.launch_on_start("hyprsunset")
+
+    - name: Sync now (today's sunrise/sunset) and start hyprsunset
+      ansible.builtin.command: "{{ ansible_facts.env.HOME }}/.local/bin/nightlight-solar-sync"
+      changed_when: true
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user

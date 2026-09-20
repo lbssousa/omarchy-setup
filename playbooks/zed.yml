@@ -17,7 +17,7 @@
 # sets as the desktop's default monospace font.
 #
 # Also sets "use_podman": true, since this repo's container engine is
-# rootless Podman (playbooks/podman.yml), not Docker — without it, Zed's
+# rootless Podman (playbooks/containers.yml), not Docker — without it, Zed's
 # Dev Containers feature shells out to `docker`, which isn't installed/
 # running here, and every "Open in Container" attempt fails. See
 # https://zed.dev/docs/dev-containers ("If you use podman, you must set

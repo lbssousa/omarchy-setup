@@ -126,6 +126,11 @@ inkscape: _ensure-collections
 omadwaita-themes: _ensure-collections
     ansible-playbook site.yml --tags omadwaita-themes
 
+# Hide the Limine boot menu (quiet: yes + timeout: 1)
+# for a flicker-free boot; a 1-second key window still reveals the menu.
+limine-silent-boot: _ensure-collections
+    ansible-playbook site.yml --tags limine-silent-boot --ask-become-pass
+
 # Remove the libfprint build container (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build

@@ -1,0 +1,46 @@
+---
+# Visual Studio Code from Microsoft's official snap
+# (https://snapcraft.io/code, published by the verified `vscode`
+# publisher). Installed with --classic, the snap's only confinement mode:
+# it needs full system access (terminals, toolchains, dev containers),
+# so it doesn't depend on AppArmor being the active LSM.
+#
+# Depends on snapd (playbooks/snapd.yml) — fails early with guidance if
+# it's missing or not running, instead of a cryptic snap error, same as
+# playbooks/distrobox.yml does for Podman. Snaps update themselves through
+# snapd's own refresh schedule, so a rerun doesn't touch an installed
+# version. The launcher entry lives in /var/lib/snapd/desktop/applications
+# (exported to the session by snapd.yml); the `code` command lands in
+# /var/lib/snapd/snap/bin.
+#
+# Usage: ansible-playbook site.yml --tags vscode --ask-become-pass
+- name: Visual Studio Code (official snap)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  pre_tasks:
+    # `snap version` exits 0 even when it can't reach the daemon; `snap
+    # list` needs the daemon socket, so it covers both cases.
+    - name: Check that snapd is installed and reachable
+      ansible.builtin.command: snap list
+      register: vscode_snapd_check
+      changed_when: false
+      failed_when: false
+
+    - name: Fail with guidance if snapd wasn't found
+      ansible.builtin.fail:
+        msg: >-
+          snapd not found (or not reachable). Visual Studio Code's snap
+          depends on it — run
+          `ansible-playbook site.yml --ask-become-pass --tags snapd`
+          (or `just snapd`) first.
+      when: vscode_snapd_check.rc != 0
+
+  tasks:
+    - name: Install Visual Studio Code from the Snap Store
+      community.general.snap:
+        name: "{{ vscode_snap_name }}"
+        classic: true
+        state: present
+      become: true

@@ -59,6 +59,14 @@
   ansible.builtin.import_playbook: playbooks/homebrew.yml
   tags: [homebrew]
 
+- name: snapd (AUR)
+  ansible.builtin.import_playbook: playbooks/snapd.yml
+  tags: [snapd]
+
+- name: Visual Studio Code (official snap)
+  ansible.builtin.import_playbook: playbooks/vscode.yml
+  tags: [vscode]
+
 - name: libfprint (goodix538d)
   ansible.builtin.import_playbook: playbooks/libfprint.yml
   tags: [libfprint]

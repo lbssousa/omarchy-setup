@@ -8,9 +8,10 @@ Each automation is its own playbook under `playbooks/`, imported by
 `ansible.cfg`), and each has its own tag: run one with `--tags <tag>`,
 or skip one with `--skip-tags <tag>`. Exceptions:
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
-`playbooks/bitwarden.yml`, `playbooks/texlive.yml` and
-`playbooks/gregorio.yml` are **not** imported by `site.yml` — Secure
-Boot and the BGRT boot theme touch firmware/boot, Bitwarden is an
+`playbooks/apparmor.yml`, `playbooks/bitwarden.yml`,
+`playbooks/texlive.yml` and `playbooks/gregorio.yml` are **not**
+imported by `site.yml` — Secure Boot, the BGRT boot theme and AppArmor
+touch firmware/boot, Bitwarden is an
 optional alternative to the default KeePassXC, and TeX Live (+ Gregorio,
 which depends on it) is a long download/install you run on demand — so
 they only run when called explicitly.
@@ -32,6 +33,8 @@ they only run when called explicitly.
 | Distrobox | `distrobox` | Depends on Podman. |
 | Flatpak + Flathub | `flatpak` | Installs Flatpak and enables the Flathub remote (per-user, so app installs don't need root). |
 | Homebrew | `homebrew` | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`. |
+| snapd | `snapd` | Builds and installs snapd from the AUR (no official Arch package), enables `snapd.socket` (+ `snapd.apparmor.service`), links `/snap` → `/var/lib/snapd/snap` (classic snaps expect it), waits for first-boot seeding, and exports snap's `bin` and desktop-entry dirs to the graphical session (`PATH`/`XDG_DATA_DIRS` via `environment.d`; log out and back in to pick it up). Doesn't touch the kernel cmdline: strict confinement would need AppArmor as the active LSM, which Omarchy doesn't enable by default — snapd still works, and classic snaps don't need it. |
+| Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (fails early with guidance if it's missing). |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
 | Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+SHIFT+[ resize the focused column. |
@@ -43,6 +46,7 @@ they only run when called explicitly.
 | Limine silent boot | `limine-silent-boot` | Sets `quiet: yes` (in the config header, before the first entry — otherwise Limine ignores it) and `timeout: 1` in `/boot/limine.conf` (and removes any `firmware_logo`) for a flicker-free boot: with `quiet` in effect Limine draws nothing and keeps the firmware BGRT logo on screen through its 1-second key window (press ↑/↓ to reveal the menu — not Space/Enter, which Limine treats as "boot the selected entry"; snapshots/fallback stay reachable). Re-runs `limine-update` to re-enroll the config checksum, so it also works with Secure Boot's `ENABLE_ENROLL_LIMINE_CONFIG=yes`. |
 | ble.sh | `blesh` | Loads [ble.sh](https://github.com/akinomyoga/ble.sh) by default in Bash — Omarchy doesn't — with fish-style **autosuggestions** (ghost text from history, then completion) and **syntax highlighting** as you type. Builds AUR `blesh-git` (0.4.0-devel: the stable 0.3.4 predates Bash 5.3 and warns on every shell start against Omarchy's inputrc). Wraps the `source "$OMARCHY_PATH/default/bash/rc"` line in `~/.bashrc` with `source ble.sh --noattach` before it and `ble-attach` at the end, so starship and fzf's key bindings (Ctrl-R etc.) keep working; the feature options live in `~/.blerc`. Open a new terminal to pick it up. |
 | TeX Live | `texlive` | Installs TeX Live via AUR `texlive-installer` (scheme-minimal + AISCGre-BR package selection). Not part of `just setup` — a long network install, run explicitly. |
+| AppArmor | — | Activates AppArmor as a kernel LSM: `lsm=landlock,lockdown,yama,integrity,apparmor,bpf` (the kernel is built with it but leaves it out of the default list) via a `limine-entry-tool` drop-in + `limine-update`; needs a reboot. Two variants: **`just apparmor`** (kernel LSM only — no distro profiles loaded, the desktop is unchanged, snapd still confines strict snaps with its own profiles) and **`just apparmor-profiles`** (also enables `apparmor.service`, loading `/etc/apparmor.d`; on this setup that enforces `unix-chkpwd`, `avahi-daemon`, `ping`, …). Not part of `just setup`. |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
 | Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. |
@@ -105,7 +109,7 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**Bitwarden, TeX Live, Gregorio, the BGRT boot theme, Secure Boot, the
+**Bitwarden, TeX Live, Gregorio, the BGRT boot theme, AppArmor, Secure Boot, the
 Yubikey GPG key, and the Yubikey SSH keys are separate** — not part of
 `just setup`:
 
@@ -114,6 +118,8 @@ just bitwarden     # optional; KeePassXC is the default password manager
 just texlive       # TeX Live is a long network install; run when you need it
 just gregorio      # runs `just texlive` first; builds the Gregorio engraver
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
+just apparmor      # AppArmor as a kernel LSM, no distro profiles; needs a reboot
+just apparmor-profiles  # same + apparmor.service loading /etc/apparmor.d's profiles
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
 just ssh-yubikey   # needs the Yubikey plugged in
@@ -140,6 +146,8 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/distrobox.yml` | Distrobox (tag `distrobox`) |
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
 | `playbooks/homebrew.yml` | Homebrew for Linux (tag `homebrew`) |
+| `playbooks/snapd.yml` | snapd from the AUR, enabled + `/snap` link + session env (tag `snapd`) |
+| `playbooks/vscode.yml` | Visual Studio Code, official snap (tag `vscode`) |
 | `playbooks/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |
 | `playbooks/printer.yml` | EPSON L4160 printer (tag `printer`) |
 | `playbooks/hypr-scrolling-resize.yml` | Scrolling-layout column resize (tag `hypr-scrolling-resize`) |
@@ -151,6 +159,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/blesh.yml` | ble.sh in Bash: autosuggestions + syntax highlighting, wired into `~/.bashrc` / `~/.blerc` (tag `blesh`) |
 | `playbooks/texlive.yml` | TeX Live via AUR texlive-installer — outside `site.yml` (tag `texlive`) |
 | `playbooks/gregorio.yml` | Gregorio engraver, builds from source — outside `site.yml` (tag `gregorio`) |
+| `playbooks/apparmor.yml` | AppArmor kernel LSM (+ optional distro profiles) — outside `site.yml` (`just apparmor` / `just apparmor-profiles`) |
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |

@@ -144,6 +144,11 @@ limine-silent-boot: _ensure-collections
 blesh: _ensure-collections
     ansible-playbook site.yml --tags blesh --ask-become-pass
 
+# Make the starship prompt work inside distrobox containers and show the
+# container's name (Omarchy's bash rc from /run/host + starship env_var).
+starship-distrobox: _ensure-collections
+    ansible-playbook site.yml --tags starship-distrobox
+
 # Activate AppArmor in the kernel (lsm= via a limine-entry-tool drop-in) without
 # loading the distro profiles. Needs a reboot. Not part of `just setup`.
 apparmor: _ensure-collections

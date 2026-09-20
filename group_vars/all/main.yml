@@ -554,6 +554,14 @@ blesh_script: /usr/share/blesh/ble.sh
 blesh_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
 blesh_blerc: "{{ ansible_facts.env.HOME }}/.blerc"
 
+# Starship prompt inside distrobox (playbooks/starship-distrobox.yml).
+starship_distrobox_config: "{{ ansible_facts.env.HOME }}/.config/starship.toml"
+starship_distrobox_omarchy_default_config: /usr/share/omarchy/config/starship.toml
+starship_distrobox_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
+# Look of the container-name segment in the prompt.
+starship_distrobox_symbol: "⬢"
+starship_distrobox_style: bold yellow
+
 # snapd (playbooks/snapd.yml) — daemon and tools for snap packages. No
 # official Arch package, so it's built from the AUR (unprivileged
 # clone+makepkg+pacman -U, same as blesh_* / texlive_* above). The build

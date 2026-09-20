@@ -50,14 +50,15 @@ pdf-viewer: _ensure-collections
 lazyvim: _ensure-collections
     ansible-playbook site.yml --tags lazyvim
 
-# Install TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR packages).
+# Install TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR
+# packages). Not part of `just setup` — run explicitly.
 texlive: _ensure-collections
-    ansible-playbook site.yml --tags texlive --ask-become-pass
+    ansible-playbook playbooks/texlive.yml --ask-become-pass
 
-# Build and install Gregorio (lbssousa/gregorio) from source. Requires
-# TeX Live (`just texlive`) already installed.
-gregorio: _ensure-collections
-    ansible-playbook site.yml --tags gregorio --ask-become-pass
+# Build and install Gregorio (lbssousa/gregorio) from source. Depends on
+# TeX Live — runs `just texlive` first. Not part of `just setup`.
+gregorio: texlive
+    ansible-playbook playbooks/gregorio.yml --ask-become-pass
 
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections

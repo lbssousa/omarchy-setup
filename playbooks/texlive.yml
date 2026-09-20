@@ -32,7 +32,7 @@
 # there's no official-vs-AUR comparison here: texlive-installer only
 # exists on the AUR.
 #
-# Usage: ansible-playbook site.yml --tags texlive --ask-become-pass
+# Usage: ansible-playbook playbooks/texlive.yml --ask-become-pass
 - name: TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR packages)
   hosts: localhost
   connection: local

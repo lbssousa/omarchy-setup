@@ -182,6 +182,14 @@ pdf_viewer_zathura_backend_package: zathura-pdf-mupdf
 pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
 pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
 
+# GTK4 file chooser dialogs (playbooks/file-chooser.yml) — the GTK4/
+# libadwaita xdg-desktop-portal backend (its FileChooser is Nautilus's),
+# and the per-desktop portals.conf that routes the FileChooser interface
+# to it under XDG_CURRENT_DESKTOP=Hyprland.
+file_chooser_portal_package: xdg-desktop-portal-gnome
+file_chooser_portals_conf: "{{ ansible_facts.env.HOME }}/.config/xdg-desktop-portal/hyprland-portals.conf"
+file_chooser_portal_dropin: "{{ ansible_facts.env.HOME }}/.config/systemd/user/xdg-desktop-portal-gnome.service.d/no-forced-gdk-backend.conf"
+
 # pt-BR localization (playbooks/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"
@@ -492,7 +500,7 @@ omarchy_monitor_scale: 1.0
 # omarchy_gdk_scale.
 omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 
-# Default GTK/Qt (via gtk3 platform theme) system UI font point size
+# Default GTK system UI font point size
 # (playbooks/desktop.yml). Applied directly to
 # org.gnome.desktop.interface font-name, keeping whatever font family is
 # already configured there. Deliberately smaller than the 15pt that would

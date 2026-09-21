@@ -90,7 +90,8 @@
 # with GDK_SCALE=2 (which would draw those apps at double size). Wayland
 # GTK apps use the compositor's scale instead and ignore it.
 #
-# The GTK default UI font size is set directly on
+# The GTK default UI font size (which playbooks/file-chooser.yml also
+# copies into qt5ct/qt6ct for Qt apps) is set directly on
 # org.gnome.desktop.interface font-name, keeping whatever family is already
 # configured. GTK's text-scaling-factor is always reset to its default
 # (1.0) instead: using both a multiplier and an explicit font point size at

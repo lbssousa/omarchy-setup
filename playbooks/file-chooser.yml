@@ -28,10 +28,17 @@
 #
 # Qt apps: Omarchy sets QT_QPA_PLATFORMTHEME=gtk3, which draws GTK3 dialogs
 # in-process and never asks the portal. Qt's own `xdgdesktopportal` theme
-# does ask it, so the session is switched to that. Trade-off: that theme
-# doesn't read GTK's font settings, so Qt apps fall back from the GTK UI
-# font (Adwaita Sans, omarchy_system_ui_font_pt) to fontconfig's default
-# sans at 9pt (Liberation Sans here). QT_FONT_DPI has no effect on Wayland.
+# does ask it, but reads no font settings: Qt apps fell back to fontconfig's
+# default sans at 9pt (QT_FONT_DPI / QT_WAYLAND_FORCE_DPI don't change that
+# on Wayland; the built-in `kde` theme reads a font but draws its own
+# dialogs). qt5ct/qt6ct do both: their `standard_dialogs=xdgdesktopportal`
+# option delegates the dialogs to that same Qt portal helper, and their
+# config sets the UI font. The session therefore uses QT_QPA_PLATFORMTHEME=
+# qt6ct (either name loads either plugin, so Qt5 apps like KeePassXC and
+# Qt6 apps each read their own ~/.config/qt{5,6}ct/qt{5,6}ct.conf), with
+# the font family taken from GTK's and the size from omarchy_system_ui_font_pt.
+# Only the three keys below are managed; the rest of those files (style,
+# palette, ...) is left to qt5ct/qt6ct.
 - name: GTK4 file chooser dialogs for non-GNOME apps
   hosts: localhost
   connection: local
@@ -42,6 +49,12 @@
     - name: "Install {{ file_chooser_portal_package }} (GTK4 portal backend)"
       community.general.pacman:
         name: "{{ file_chooser_portal_package }}"
+        state: present
+      become: true
+
+    - name: "Install {{ file_chooser_qt_packages | join(' and ') }} (Qt platform themes with portal dialogs + font)"
+      community.general.pacman:
+        name: "{{ file_chooser_qt_packages }}"
         state: present
       become: true
 
@@ -89,6 +102,49 @@
       changed_when: true
       failed_when: false
 
+    - name: Read the GTK UI font (its family is reused for Qt apps)
+      ansible.builtin.command: gsettings get org.gnome.desktop.interface font-name
+      register: file_chooser_gtk_font
+      changed_when: false
+
+    - name: Read the GTK monospace font (family and size are reused for Qt apps)
+      ansible.builtin.command: gsettings get org.gnome.desktop.interface monospace-font-name
+      register: file_chooser_gtk_mono_font
+      changed_when: false
+
+    - name: Work out the Qt UI and fixed-width fonts
+      ansible.builtin.set_fact:
+        file_chooser_qt_ui_family: "{{ file_chooser_gtk_font.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
+        file_chooser_qt_mono_family: "{{ file_chooser_gtk_mono_font.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
+        file_chooser_qt_mono_pt: "{{ file_chooser_gtk_mono_font.stdout | trim | trim(\"'\") | regex_search('[0-9.]+$') | default(omarchy_system_ui_font_pt, true) }}"
+
+    - name: "Set the Qt UI font ({{ file_chooser_qt_ui_family }} {{ omarchy_system_ui_font_pt }}) and portal dialogs in qt5ct/qt6ct"
+      community.general.ini_file:
+        path: "{{ ansible_facts.env.HOME }}/.config/qt{{ item.0.version }}ct/qt{{ item.0.version }}ct.conf"
+        section: "{{ item.1.section }}"
+        option: "{{ item.1.option }}"
+        value: "{{ item.1.value }}"
+        no_extra_spaces: true
+        create: true
+        mode: "0644"
+      loop: "{{ file_chooser_qt_configs | subelements('settings') }}"
+      loop_control:
+        label: "qt{{ item.0.version }}ct {{ item.1.section }}/{{ item.1.option }}"
+      vars:
+        # QFont::toString(): Qt5 and Qt6 differ in the weight scale
+        # (50 vs 400) and in the number of trailing fields.
+        file_chooser_qt_configs:
+          - version: 5
+            settings:
+              - { section: Appearance, option: standard_dialogs, value: xdgdesktopportal }
+              - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,50,0,0,0,0,0"' }
+              - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,50,0,0,0,0,0"' }
+          - version: 6
+            settings:
+              - { section: Appearance, option: standard_dialogs, value: xdgdesktopportal }
+              - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
+              - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
+
     - name: Create ~/.config/hypr/hyprland.lua from the Omarchy default, if missing
       ansible.builtin.copy:
         src: /usr/share/omarchy/config/hypr/hyprland.lua
@@ -107,5 +163,7 @@
           -- open/save dialogs instead of drawing GTK3 ones in-process.
           hl.env("GTK_USE_PORTAL", "1")
           -- Qt: the gtk3 platform theme (Omarchy's default) draws its own
-          -- GTK3 dialogs; this one asks the portal instead.
-          hl.env("QT_QPA_PLATFORMTHEME", "xdgdesktopportal")
+          -- GTK3 dialogs. qt5ct/qt6ct (configured for standard_dialogs=
+          -- xdgdesktopportal in ~/.config/qt{5,6}ct/) ask the portal
+          -- instead and keep setting the UI font.
+          hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")

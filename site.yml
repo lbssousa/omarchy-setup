@@ -23,6 +23,10 @@
   ansible.builtin.import_playbook: playbooks/pdf-viewer.yml
   tags: [pdf-viewer]
 
+- name: GTK4 file chooser dialogs for non-GNOME apps
+  ansible.builtin.import_playbook: playbooks/file-chooser.yml
+  tags: [file-chooser]
+
 - name: LazyVim plugin preferences (LaTeX extra + gregorio.nvim)
   ansible.builtin.import_playbook: playbooks/lazyvim.yml
   tags: [lazyvim]

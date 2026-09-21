@@ -1,0 +1,111 @@
+---
+# Makes the "Open file" / "Save file" dialogs of non-GNOME apps (Firefox,
+# Chromium, Electron, plain GTK apps, ...) the GTK4 ones.
+#
+# Those dialogs come from xdg-desktop-portal, which hands the FileChooser
+# interface to a backend. Omarchy ships xdg-desktop-portal-gtk, whose
+# dialog is GTK3, and Hyprland's own portal has no file chooser at all
+# (hyprland-portals.conf: default=hyprland;gtk). xdg-desktop-portal-gnome is
+# the GTK4/libadwaita backend — its file chooser is Nautilus's — but it is
+# only picked automatically under XDG_CURRENT_DESKTOP=GNOME, so it has to be
+# named explicitly for FileChooser in a per-desktop portals.conf. Everything
+# else (screencast, screenshot, ...) stays as configured upstream.
+#
+# ~/.config/xdg-desktop-portal/hyprland-portals.conf replaces the packaged
+# /usr/share/xdg-desktop-portal/hyprland-portals.conf as a whole (the files
+# aren't merged), so the packaged `default=` line is repeated here.
+#
+# Omarchy exports GDK_BACKEND=wayland,x11,* to the whole session, and
+# xdg-desktop-portal-gnome treats any forced GDK backend as "portal dialogs
+# will not work properly": it starts in a settings-only mode and never
+# shows a file chooser. A user drop-in clears the variable for that one
+# service, leaving every other app's environment alone.
+#
+# Portal use is otherwise opt-in for GTK apps and Firefox outside a
+# sandbox: GTK_USE_PORTAL=1 (exported to the session from Hyprland's config,
+# like Omarchy's own QT_QPA_PLATFORMTHEME) makes them ask the portal
+# instead of drawing their own — GTK3 — dialog.
+#
+# Qt apps: Omarchy sets QT_QPA_PLATFORMTHEME=gtk3, which draws GTK3 dialogs
+# in-process and never asks the portal. Qt's own `xdgdesktopportal` theme
+# does ask it, so the session is switched to that. Trade-off: that theme
+# doesn't read GTK's font settings, so Qt apps fall back from the GTK UI
+# font (Adwaita Sans, omarchy_system_ui_font_pt) to fontconfig's default
+# sans at 9pt (Liberation Sans here). QT_FONT_DPI has no effect on Wayland.
+- name: GTK4 file chooser dialogs for non-GNOME apps
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [file-chooser]
+
+  tasks:
+    - name: "Install {{ file_chooser_portal_package }} (GTK4 portal backend)"
+      community.general.pacman:
+        name: "{{ file_chooser_portal_package }}"
+        state: present
+      become: true
+
+    - name: Create ~/.config/xdg-desktop-portal
+      ansible.builtin.file:
+        path: "{{ file_chooser_portals_conf | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Create the xdg-desktop-portal-gnome user unit drop-in directory
+      ansible.builtin.file:
+        path: "{{ file_chooser_portal_dropin | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Route the FileChooser portal to the GNOME backend ({{ file_chooser_portals_conf }})"
+      ansible.builtin.copy:
+        content: |
+          # Managed by playbooks/file-chooser.yml — GTK4 file chooser dialogs.
+          # Replaces /usr/share/xdg-desktop-portal/hyprland-portals.conf, so
+          # its `default=` line is repeated.
+          [preferred]
+          default=hyprland;gtk
+          org.freedesktop.impl.portal.FileChooser=gnome
+        dest: "{{ file_chooser_portals_conf }}"
+        mode: "0644"
+      register: file_chooser_portals_conf_result
+
+    - name: "Clear GDK_BACKEND for the GNOME portal backend ({{ file_chooser_portal_dropin }})"
+      ansible.builtin.copy:
+        content: |
+          # Managed by playbooks/file-chooser.yml — the GNOME portal backend
+          # refuses to show dialogs when GDK_BACKEND is forced.
+          [Service]
+          UnsetEnvironment=GDK_BACKEND
+        dest: "{{ file_chooser_portal_dropin }}"
+        mode: "0644"
+      register: file_chooser_portal_dropin_result
+
+    - name: Reload the user units and restart the portals to pick up the changes
+      ansible.builtin.shell: |
+        systemctl --user daemon-reload
+        systemctl --user restart xdg-desktop-portal-gnome.service xdg-desktop-portal.service
+      when: file_chooser_portals_conf_result.changed or file_chooser_portal_dropin_result.changed
+      changed_when: true
+      failed_when: false
+
+    - name: Create ~/.config/hypr/hyprland.lua from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: /usr/share/omarchy/config/hypr/hyprland.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/hyprland.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: "Make GTK, Qt and Firefox apps ask the portal for file dialogs"
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/hyprland.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/file-chooser.yml — GTK4 file chooser)"
+        block: |
+          -- Ask xdg-desktop-portal (routed to the GTK4 backend by
+          -- ~/.config/xdg-desktop-portal/hyprland-portals.conf) for
+          -- open/save dialogs instead of drawing GTK3 ones in-process.
+          hl.env("GTK_USE_PORTAL", "1")
+          -- Qt: the gtk3 platform theme (Omarchy's default) draws its own
+          -- GTK3 dialogs; this one asks the portal instead.
+          hl.env("QT_QPA_PLATFORMTHEME", "xdgdesktopportal")

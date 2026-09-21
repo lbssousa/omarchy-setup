@@ -481,8 +481,7 @@ omarchy_text_size_px: 20
 # half-screen dwindle tile (749px) is narrower than KeePassXC's ~800px
 # minimum width; Hyprland then squeezes the window's image to fit, which
 # also skews where the mouse lands on its buttons. At 100% the tile is
-# ~950px. omarchy_text_size_px and omarchy_system_ui_font_pt compensate
-# for the smaller scale.
+# ~950px. omarchy_text_size_px compensates for the smaller scale.
 omarchy_monitor_scale: 1.0
 
 # GDK_SCALE (playbooks/desktop.yml) — the integer factor GTK/Electron read
@@ -496,9 +495,10 @@ omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 # Default GTK/Qt (via gtk3 platform theme) system UI font point size
 # (playbooks/desktop.yml). Applied directly to
 # org.gnome.desktop.interface font-name, keeping whatever font family is
-# already configured there. 15pt is the previous 12pt times the old 1.25
-# monitor scale, to keep the same apparent size at 100%.
-omarchy_system_ui_font_pt: 15
+# already configured there. Deliberately smaller than the 15pt that would
+# match the old 1.25 monitor scale (12pt * 1.25), unlike the shell bar and
+# terminals, which stay compensated.
+omarchy_system_ui_font_pt: 12
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
 # from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep
@@ -634,7 +634,7 @@ vscode_password_store: gnome-libsecret
 # Electron. It is fixed at 1.25 rather than following omarchy_monitor_scale
 # (now 1.0): that is the size VS Code had under the old 1.25 monitor scale,
 # so it keeps the same apparent size next to the text sizes raised in
-# omarchy_text_size_px / omarchy_system_ui_font_pt / zed_font_size.
+# omarchy_text_size_px / zed_font_size.
 vscode_scale_factor: 1.25
 vscode_snap_bin: "{{ snapd_bin_dir }}/code"
 vscode_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/code"

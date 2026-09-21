@@ -185,8 +185,12 @@ pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
 # GTK4 file chooser dialogs (playbooks/file-chooser.yml) — the GTK4/
 # libadwaita xdg-desktop-portal backend (its FileChooser is Nautilus's),
 # and the per-desktop portals.conf that routes the FileChooser interface
-# to it under XDG_CURRENT_DESKTOP=Hyprland.
+# to it under XDG_CURRENT_DESKTOP=Hyprland. qt5ct/qt6ct are the Qt platform
+# themes that both ask that portal for dialogs and set the Qt UI font.
 file_chooser_portal_package: xdg-desktop-portal-gnome
+file_chooser_qt_packages:
+  - qt5ct
+  - qt6ct
 file_chooser_portals_conf: "{{ ansible_facts.env.HOME }}/.config/xdg-desktop-portal/hyprland-portals.conf"
 file_chooser_portal_dropin: "{{ ansible_facts.env.HOME }}/.config/systemd/user/xdg-desktop-portal-gnome.service.d/no-forced-gdk-backend.conf"
 

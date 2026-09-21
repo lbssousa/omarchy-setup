@@ -36,7 +36,7 @@ polkit: _ensure-collections
 firefox: _ensure-collections
     {{ap}} site.yml --tags firefox
 
-# Install Zed (Omarchy theme integration), set every font size to 20px
+# Install Zed (Omarchy theme integration), set every font size to 25px
 # and the buffer font to JetBrainsMono Nerd Font.
 zed: _ensure-collections
     {{ap}} site.yml --tags zed
@@ -118,7 +118,8 @@ hypr-scrolling-resize: _ensure-collections
 printer: _ensure-collections
     {{ap}} site.yml --tags printer
 
-# Scale up shell bar + terminal text size without scaling GTK apps.
+# Set the monitor scale to 100% and compensate with larger shell/terminal
+# and GTK UI font sizes.
 text-size: _ensure-collections
     ansible-playbook site.yml --tags text-size
 

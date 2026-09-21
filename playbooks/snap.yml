@@ -181,14 +181,15 @@
 # - UI size: the snap's launcher (electron-launch) hardcodes
 #   `--ozone-platform=x11` AFTER any user flag, so VS Code always runs under
 #   XWayland, where Hyprland doesn't scale the window
-#   (xwayland.force_zero_scaling) and Electron reads GDK_SCALE instead —
-#   the integer `omarchy_gdk_scale` (2) from ~/.config/hypr/monitors.lua, not
-#   the fractional monitor scale (1.25), so the whole UI renders 60% too
-#   big. A wrapper (~/.local/bin/code, ahead of snap's bin on PATH) and user
-#   copies of the snap's desktop entries (the app library launches those
-#   through Exec=) set GDK_SCALE=1 and pass
-#   `--force-device-scale-factor=<omarchy_monitor_scale>` instead. It is a
-#   single factor: it doesn't follow a monitor with a different scale.
+#   (xwayland.force_zero_scaling) and Electron reads the integer GDK_SCALE
+#   from ~/.config/hypr/monitors.lua instead, which can't express the
+#   fractional size wanted here. A wrapper (~/.local/bin/code, ahead of
+#   snap's bin on PATH) and user copies of the snap's desktop entries (the
+#   app library launches those through Exec=) set GDK_SCALE=1 and pass
+#   `--force-device-scale-factor=<vscode_scale_factor>` instead (1.25: the
+#   size VS Code had under the old 1.25 monitor scale, kept now that the
+#   monitor scale is 100%). It is a single factor: it doesn't follow a
+#   monitor with a different scale.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags vscode
 - name: Visual Studio Code (official snap)

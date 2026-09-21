@@ -20,7 +20,10 @@ firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/om
 # so the Omarchy theme integration (omazed) comes along.
 zed_package: zed
 zed_omazed_package: omazed
-zed_font_size: 20
+# px. Zed sizes are in logical pixels, so at the 100% monitor scale
+# (omarchy_monitor_scale) this is the previous 20 times the old 1.25 scale,
+# which keeps the same apparent size.
+zed_font_size: 25
 
 # Same family Omarchy sets as the system-wide monospace default (see
 # /usr/share/omarchy/default/fontconfig/conf.avail/50-omarchy.conf) —
@@ -462,19 +465,40 @@ printer_l4160_set_default: true
 # text-scaling factor this command would otherwise leave in place is always
 # reset — the desktop's default UI font size is set directly instead, via
 # omarchy_system_ui_font_pt below.
-omarchy_text_size_px: 16
+#
+# The monitor scale is 100%, so text is sized to make up for it: 20px is
+# the previous 16px times the old 1.25 scale, and the top of the 9–20 range
+# omarchy-display-text-size accepts. It also sets the terminal font
+# (px * 9/12 = 15pt).
+omarchy_text_size_px: 20
 
 # Hyprland monitor scale factor (playbooks/desktop.yml) — the
 # compositor-level "screen scale" applied to everything on screen. Fed
 # straight into hl.monitor({ scale = ... }) in
 # ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
-omarchy_monitor_scale: 1.25
+#
+# 1.0 (100%): at 1.25 a 1920px-wide screen is only 1536 logical px, so a
+# half-screen dwindle tile (749px) is narrower than KeePassXC's ~800px
+# minimum width; Hyprland then squeezes the window's image to fit, which
+# also skews where the mouse lands on its buttons. At 100% the tile is
+# ~950px. omarchy_text_size_px and omarchy_system_ui_font_pt compensate
+# for the smaller scale.
+omarchy_monitor_scale: 1.0
+
+# GDK_SCALE (playbooks/desktop.yml) — the integer factor GTK/Electron read
+# under XWayland, where Hyprland doesn't scale windows
+# (xwayland.force_zero_scaling). Same rule as `omarchy hyprland monitor
+# scaling`: the monitor scale rounded to a whole number, so it follows
+# omarchy_monitor_scale. Written to ~/.config/hypr/monitors.lua's
+# omarchy_gdk_scale.
+omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 
 # Default GTK/Qt (via gtk3 platform theme) system UI font point size
 # (playbooks/desktop.yml). Applied directly to
 # org.gnome.desktop.interface font-name, keeping whatever font family is
-# already configured there.
-omarchy_system_ui_font_pt: 12
+# already configured there. 15pt is the previous 12pt times the old 1.25
+# monitor scale, to keep the same apparent size at 100%.
+omarchy_system_ui_font_pt: 15
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
 # from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep
@@ -605,10 +629,13 @@ vscode_snap_name: code
 vscode_argv_file: "{{ ansible_facts.env.HOME }}/.vscode/argv.json"
 vscode_password_store: gnome-libsecret
 # The snap always runs under XWayland (electron-launch hardcodes
-# --ozone-platform=x11), which reads the integer GDK_SCALE instead of
-# Hyprland's fractional monitor scale: the wrapper forces
-# omarchy_monitor_scale as the device scale factor instead.
-vscode_scale_factor: "{{ omarchy_monitor_scale }}"
+# --ozone-platform=x11), where Hyprland doesn't scale the window, so the
+# UI size comes from the device scale factor the wrapper passes to
+# Electron. It is fixed at 1.25 rather than following omarchy_monitor_scale
+# (now 1.0): that is the size VS Code had under the old 1.25 monitor scale,
+# so it keeps the same apparent size next to the text sizes raised in
+# omarchy_text_size_px / omarchy_system_ui_font_pt / zed_font_size.
+vscode_scale_factor: 1.25
 vscode_snap_bin: "{{ snapd_bin_dir }}/code"
 vscode_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/code"
 vscode_snap_desktop_dir: "{{ snapd_desktop_dir }}/applications"

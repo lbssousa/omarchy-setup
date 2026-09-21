@@ -79,9 +79,16 @@
 #
 # The Hyprland monitor scale is a compositor-level multiplier applied to
 # everything on screen (~/.config/hypr/monitors.lua's omarchy_monitor_scale,
-# fed into hl.monitor({ scale = ... })). GDK_SCALE there is left untouched
-# by this playbook — GTK apps rely on Wayland fractional scaling instead of
-# doubling up.
+# fed into hl.monitor({ scale = ... })). It is set to 100% (1.0) so that
+# tiled windows get the full logical width of the screen; the text sizes
+# below are raised by the old 1.25 scale to keep the same apparent size.
+#
+# GDK_SCALE (the same file's omarchy_gdk_scale) is the integer factor
+# X11/XWayland GTK apps read, since Hyprland doesn't scale XWayland windows.
+# It is kept at the monitor scale rounded to a whole number — the rule
+# `omarchy hyprland monitor scaling` applies — so a 100% scale isn't left
+# with GDK_SCALE=2 (which would draw those apps at double size). Wayland
+# GTK apps use the compositor's scale instead and ignore it.
 #
 # The GTK/Qt (via gtk3 platform theme, on this machine QT_QPA_PLATFORMTHEME
 # =gtk3) default UI font size is set directly on
@@ -120,6 +127,13 @@
         path: "{{ ansible_facts.env.HOME }}/.config/hypr/monitors.lua"
         regexp: "^local omarchy_monitor_scale = "
         line: "local omarchy_monitor_scale = {{ omarchy_monitor_scale }}"
+      notify: reload Hyprland
+
+    - name: "Set GDK_SCALE (X11/XWayland GTK apps) to {{ omarchy_gdk_scale }}"
+      ansible.builtin.lineinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/monitors.lua"
+        regexp: "^local omarchy_gdk_scale = "
+        line: "local omarchy_gdk_scale = {{ omarchy_gdk_scale }}"
       notify: reload Hyprland
 
     - name: Check the current text size (shell/GTK/terminals)

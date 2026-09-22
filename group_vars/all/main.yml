@@ -380,6 +380,15 @@ proton_pass_cli_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarch
 proton_pass_cli_install_dir: "{{ ansible_facts.env.HOME }}/.local/bin"
 proton_pass_cli_bin: "{{ proton_pass_cli_install_dir }}/pass-cli"
 
+# Proton Pass CLI SSH agent — a systemd --user service runs `pass-cli
+# ssh-agent start` as the long-running agent (the desktop app's own "Use
+# Proton Pass as SSH agent" toggle is a separate, GUI-only setup flow that
+# defaults to a different socket, ~/.ssh/proton-pass-ssh-agent.sock — see
+# the header comment above the CLI play). Socket path here matches
+# pass-cli's own upstream default ($HOME/.ssh/proton-pass-agent.sock), so
+# ad-hoc CLI calls agree with the systemd-managed agent.
+proton_pass_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.ssh/proton-pass-agent.sock"
+
 # Podman rootless (playbooks/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.
 podman_subuid_start: 100000

@@ -1,0 +1,6 @@
+# Static layer for IDEs and every systemd session process. Read by
+# systemd --user at startup; inherited by Hyprland, terminals, VSCode,
+# Zed, etc. Matches pass-cli's own default socket path, so ad-hoc
+# `pass-cli ssh-agent ...` calls (run without --socket-path) agree with
+# this value too.
+SSH_AUTH_SOCK={{ proton_pass_ssh_agent_socket }}

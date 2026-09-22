@@ -1,0 +1,145 @@
+---
+# Proton Pass — end-to-end encrypted password manager from Proton AG.
+# Optional alternative to KeePassXC (playbooks/keepassxc.yml) and
+# Bitwarden (playbooks/bitwarden.yml); like both of those, this playbook
+# is not imported by site.yml, so more than one password manager can be
+# installed side by side without any of them being "the default".
+#
+#   Desktop client   tags: proton-pass, proton-pass-desktop
+#   CLI (pass-cli)   tags: proton-pass, proton-pass-cli
+#
+# Usage: ./run-empowered.sh ansible-playbook playbooks/proton-pass.yml
+#
+# Desktop client: there's no official Arch or from-source AUR package yet,
+# so proton-pass-bin (the official .deb repackaged for Arch) is used —
+# the same approach as bitwarden-bin for Bitwarden. Built with makepkg
+# --nodeps as a normal user (it needs no extra runtime deps beyond the
+# base desktop stack), then installed with `pacman -U` via become,
+# rebuilding only when the installed version is missing or outdated
+# (compared via `vercmp` against the AUR's).
+#
+# The browser extension authenticates directly with a Proton account —
+# unlike KeePassXC's, it doesn't talk to the desktop client over native
+# messaging, so there's no manifest to deploy here.
+#
+# CLI: the AUR packages for it (proton-pass-cli, proton-pass-cli-bin) are
+# unreliable upstream (checksum failures, disabled AUR pushes), so
+# Proton's own official installer script is used instead — the same
+# pattern as playbooks/homebrew.yml's official-installer download.
+# Installs to ~/.local/bin, the omarchy user-tool path already exported
+# session-wide, and only runs once (skipped once `pass-cli` is present;
+# rerun after removing the binary to pick up a newer release).
+- name: Proton Pass desktop client (AUR proton-pass-bin)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [proton-pass, proton-pass-desktop]
+
+  tasks:
+    - name: Check the proton-pass-bin version on the AUR
+      ansible.builtin.uri:
+        url: "{{ proton_pass_aur_rpc_url }}"
+        return_content: true
+      register: proton_pass_aur_info
+
+    - name: Extract the AUR package version
+      ansible.builtin.set_fact:
+        proton_pass_aur_version: "{{ proton_pass_aur_info.json.results[0].Version }}"
+
+    - name: Check the currently installed proton-pass-bin version, if any
+      ansible.builtin.command: "pacman -Qi {{ proton_pass_aur_package }}"
+      environment:
+        LC_ALL: C
+      register: proton_pass_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Extract the installed proton-pass-bin version
+      ansible.builtin.set_fact:
+        proton_pass_installed_version: >-
+          {{ (proton_pass_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
+      when: proton_pass_installed.rc == 0
+
+    - name: Build and install (only if missing or outdated)
+      when: proton_pass_installed.rc != 0 or proton_pass_installed_version != proton_pass_aur_version
+      block:
+        - name: Clone/update the proton-pass-bin AUR repo
+          ansible.builtin.git:
+            repo: "{{ proton_pass_aur_git_url }}"
+            dest: "{{ proton_pass_aur_build_dir }}"
+            update: true
+
+        - name: Build the package (makepkg, no dep resolution, unprivileged)
+          ansible.builtin.command: makepkg --nodeps --noconfirm --force
+          args:
+            chdir: "{{ proton_pass_aur_build_dir }}"
+
+        - name: Install the built package
+          ansible.builtin.shell: "pacman -U --noconfirm {{ proton_pass_aur_build_dir }}/*.pkg.tar.zst"
+          become: true
+
+    - name: "Proton Pass keybinding ({{ proton_pass_hypr_keybind }}, inherited from 1Password's default)"
+      block:
+        - name: Create ~/.config/hypr
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+            state: directory
+            mode: "0755"
+
+        - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+          ansible.builtin.copy:
+            src: /usr/share/omarchy/default/hypr/bindings.lua
+            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            remote_src: true
+            force: false
+            mode: "0644"
+
+        - name: "Rebind {{ proton_pass_hypr_keybind }} from 1Password to Proton Pass"
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/proton-pass.yml — Proton Pass keybinding)"
+            block: |
+              hl.unbind("{{ proton_pass_hypr_keybind }}")
+              o.bind("{{ proton_pass_hypr_keybind }}", "Proton Pass", { launch = "proton-pass", focus = "^Proton Pass$" })
+          notify: reload Hyprland
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the bind
+      # still applies on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland
+
+- name: Proton Pass CLI (pass-cli, official installer)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [proton-pass, proton-pass-cli]
+
+  tasks:
+    - name: Check whether pass-cli is already installed
+      ansible.builtin.stat:
+        path: "{{ proton_pass_cli_bin }}"
+      register: proton_pass_cli_check
+
+    - name: Ensure ~/.local/bin exists
+      ansible.builtin.file:
+        path: "{{ proton_pass_cli_install_dir }}"
+        state: directory
+        mode: "0755"
+      when: not proton_pass_cli_check.stat.exists
+
+    - name: Download the official installer script
+      ansible.builtin.get_url:
+        url: "{{ proton_pass_cli_install_url }}"
+        dest: "{{ proton_pass_cli_install_script_path }}"
+        mode: "0700"
+      when: not proton_pass_cli_check.stat.exists
+
+    - name: Run the installer
+      ansible.builtin.command: "{{ proton_pass_cli_install_script_path }}"
+      environment:
+        PROTON_PASS_CLI_INSTALL_DIR: "{{ proton_pass_cli_install_dir }}"
+      when: not proton_pass_cli_check.stat.exists

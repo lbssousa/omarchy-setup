@@ -72,17 +72,30 @@ gregorio: _ensure-collections
 ptbr: _ensure-collections
     {{ap}} site.yml --tags ptbr
 
-# Run only the OpenSSH agent (user session) play.
+# Run only the OpenSSH agent (user session) play. Part of
+# playbooks/keepassxc.yml (optional, not part of `just setup`).
 ssh-agent: _ensure-collections
-    ansible-playbook site.yml --tags ssh-agent
+    ansible-playbook playbooks/keepassxc.yml --tags ssh-agent
 
-# Run the KeePassXC play (the tag also runs the OpenSSH agent play first).
+# Run the KeePassXC playbook (OpenSSH agent play first, then KeePassXC).
+# Optional password manager alternative, not part of `just setup`.
 keepassxc: _ensure-collections
-    {{ap}} site.yml --tags keepassxc
+    {{ap}} playbooks/keepassxc.yml
 
-# Run only the Bitwarden playbook (optional, not part of `just setup`).
+# Run only the Bitwarden playbook (optional password manager alternative,
+# not part of `just setup`).
 bitwarden: _ensure-collections
     {{ap}} playbooks/bitwarden.yml
+
+# Run the Proton Pass playbook: desktop client (AUR) + CLI (official
+# installer script). Optional password manager alternative, not part of
+# `just setup`.
+proton-pass: _ensure-collections
+    {{ap}} playbooks/proton-pass.yml
+
+# Run only the Proton Pass CLI install (no root needed).
+proton-pass-cli: _ensure-collections
+    ansible-playbook playbooks/proton-pass.yml --tags proton-pass-cli
 
 # Run only the Podman (rootless) play.
 podman: _ensure-collections

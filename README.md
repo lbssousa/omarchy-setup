@@ -156,7 +156,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `bootstrap.sh` | Installs `just`, if missing |
 | `run-empowered.sh` | Runs ansible-playbook under `run0 --empower`: one polkit authentication, then privileged tasks pass (see *Privilege* above) |
 | `site.yml` | Index: imports each `playbooks/*.yml` with its tag |
-| `playbooks/polkit.yml` | polkitd ExpirationSeconds + removal of the legacy sudoers drop-in (tag `polkit`) |
+| `playbooks/polkit.yml` | polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent no longer enabled by default) (tag `polkit`) |
 | `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
 | `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
 | `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
@@ -165,7 +165,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/keepassxc.yml` | OpenSSH agent (tag `ssh-agent`) + KeePassXC + Qt5 Wayland plugin + XDG autostart — optional password manager, outside `site.yml` (tag `keepassxc`) |
 | `playbooks/bitwarden.yml` | Bitwarden — optional password manager, outside `site.yml` (tag `bitwarden`) |
-| `playbooks/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (official installer) — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
+| `playbooks/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (official installer), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
 | `playbooks/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
 | `playbooks/homebrew.yml` | Homebrew for Linux (tag `homebrew`) |

@@ -13,7 +13,14 @@
 #    passwd_timeout: back when `become` used sudo, it kept an unattended
 #    terminal from hanging on the fingerprint prompt. run0 never reads
 #    sudoers, so the file does nothing now.
-- name: polkitd ExpirationSeconds + legacy sudoers drop-in cleanup
+#
+# 3. Disables the systemd --user OpenSSH agent (ssh-agent.socket +
+#    ssh-agent.service) if a past `just setup` run enabled it. It used
+#    to be enabled unconditionally: its only consumer, KeePassXC, was
+#    still imported by site.yml back then (playbooks/keepassxc.yml is
+#    optional now, not imported — see the README). `just keepassxc` /
+#    `just ssh-agent` re-enable it on demand.
+- name: polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent)
   hosts: localhost
   connection: local
   gather_facts: false
@@ -36,6 +43,14 @@
         path: /etc/sudoers.d/omarchy-setup-passwd-timeout
         state: absent
       become: true
+
+    - name: "Disable the OpenSSH agent (no longer enabled by just setup — see playbooks/keepassxc.yml)"
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        scope: user
+        enabled: false
+        state: stopped
+      loop: "{{ ssh_agent_units }}"
 
   handlers:
     - name: reload polkit

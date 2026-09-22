@@ -29,6 +29,28 @@
 # Installs to ~/.local/bin, the omarchy user-tool path already exported
 # session-wide, and only runs once (skipped once `pass-cli` is present;
 # rerun after removing the binary to pick up a newer release).
+#
+# CLI SSH agent vs. the desktop app's: both speak the standard SSH agent
+# protocol and read from the same account's synced vaults, so any SSH
+# client (git, ssh, ...) works against either one — but they are two
+# separate long-running processes with two different default sockets, not
+# one shared agent. `pass-cli ssh-agent start` is scriptable (its own
+# documented default socket at ~/.ssh/proton-pass-agent.sock,
+# `--socket-path` override, a plain systemd --user service to run it) and
+# is what this playbook wires up below. The desktop app's own "Use Proton
+# Pass as SSH agent" toggle (Settings → General) instead generates a
+# setup command interactively for the user to paste into a terminal,
+# exporting SSH_AUTH_SOCK to a *different* default socket
+# (~/.ssh/proton-pass-ssh-agent.sock) — Proton doesn't publish that
+# command in its docs, so it can't be reproduced headlessly here, but it
+# doesn't collide with the CLI's own socket either. Enabling both just
+# means two independent agents exist side by side; only one path can be
+# the session's SSH_AUTH_SOCK at a time (this playbook's environment.d
+# layer points at the CLI's), so pick one — either override
+# SSH_AUTH_SOCK to the desktop app's socket instead, or leave the desktop
+# toggle off and stick with `systemctl --user disable --now
+# proton-pass-ssh-agent.service` if you'd rather use the desktop app's
+# agent exclusively.
 - name: Proton Pass desktop client (AUR proton-pass-bin)
   hosts: localhost
   connection: local
@@ -143,3 +165,45 @@
       environment:
         PROTON_PASS_CLI_INSTALL_DIR: "{{ proton_pass_cli_install_dir }}"
       when: not proton_pass_cli_check.stat.exists
+
+    - name: Proton Pass CLI SSH agent — session-wide SSH_AUTH_SOCK
+      block:
+        - name: Create ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+            state: directory
+            mode: "0755"
+
+        - name: Set a static SSH_AUTH_SOCK for IDEs and session apps
+          ansible.builtin.template:
+            src: proton-pass-ssh-agent-env.conf.j2
+            dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-proton-pass-ssh-agent.conf"
+            mode: "0644"
+
+        - name: Create ~/.config/systemd/user
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+            state: directory
+            mode: "0755"
+
+        - name: Install the Proton Pass CLI SSH agent's systemd --user service
+          ansible.builtin.template:
+            src: proton-pass-ssh-agent.service.j2
+            dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/proton-pass-ssh-agent.service"
+            mode: "0644"
+          notify: reload systemd --user
+
+        - name: Enable the Proton Pass CLI SSH agent service
+          ansible.builtin.systemd:
+            name: proton-pass-ssh-agent.service
+            scope: user
+            daemon_reload: true
+            enabled: true
+            state: started
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user

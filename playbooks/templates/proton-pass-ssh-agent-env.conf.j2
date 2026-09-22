@@ -4,3 +4,11 @@
 # `pass-cli ssh-agent ...` calls (run without --socket-path) agree with
 # this value too.
 SSH_AUTH_SOCK={{ proton_pass_ssh_agent_socket }}
+
+# Must match the ssh-agent systemd service's own Environment= (see
+# playbooks/proton-pass.yml and the proton_pass_cli_linux_keyring
+# comment in group_vars/all/main.yml) — otherwise an interactive
+# `pass-cli login` run from a terminal (kernel keyring) and the
+# systemd-managed ssh-agent daemon (dbus keyring) would each read/write
+# a different, incompatible session store.
+PROTON_PASS_LINUX_KEYRING={{ proton_pass_cli_linux_keyring }}

@@ -15,11 +15,19 @@
 #    sudoers, so the file does nothing now.
 #
 # 3. Disables the systemd --user OpenSSH agent (ssh-agent.socket +
-#    ssh-agent.service) if a past `just setup` run enabled it. It used
-#    to be enabled unconditionally: its only consumer, KeePassXC, was
-#    still imported by site.yml back then (playbooks/keepassxc.yml is
-#    optional now, not imported — see the README). `just keepassxc` /
-#    `just ssh-agent` re-enable it on demand.
+#    ssh-agent.service) if a past `just setup` run enabled it, and
+#    removes the SSH_AUTH_SOCK export that came with it
+#    (~/.config/environment.d/20-ssh-agent.conf). It used to be enabled
+#    unconditionally: its only consumer, KeePassXC, was still imported
+#    by site.yml back then (playbooks/keepassxc.yml is optional now,
+#    not imported — see the README). Leaving the environment.d file
+#    behind isn't just inert: environment.d files are read in
+#    lexicographic order with later files winning, and
+#    "20-ssh-agent.conf" sorts after playbooks/proton-pass.yml's own
+#    "20-proton-pass-ssh-agent.conf", so it silently overrides
+#    SSH_AUTH_SOCK back to the disabled OpenSSH agent's (nonexistent)
+#    socket on every login. `just keepassxc` / `just ssh-agent`
+#    re-enable the agent and recreate the file on demand.
 - name: polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent)
   hosts: localhost
   connection: local
@@ -51,6 +59,11 @@
         enabled: false
         state: stopped
       loop: "{{ ssh_agent_units }}"
+
+    - name: Remove the OpenSSH agent's stale SSH_AUTH_SOCK export
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.config/environment.d/20-ssh-agent.conf"
+        state: absent
 
   handlers:
     - name: reload polkit

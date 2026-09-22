@@ -389,6 +389,21 @@ proton_pass_cli_bin: "{{ proton_pass_cli_install_dir }}/pass-cli"
 # ad-hoc CLI calls agree with the systemd-managed agent.
 proton_pass_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.ssh/proton-pass-agent.sock"
 
+# pass-cli's local encryption key backend. Defaults to the Linux kernel
+# keyring, which is wiped on every reboot — so the session persisted at
+# `pass-cli login` time silently becomes unreadable on the next boot
+# (ssh-agent.service logs "there is no session" and never recovers on
+# its own; a fresh interactive `pass-cli login` is required every time).
+# "dbus" stores it in the D-Bus Secret Service (GNOME Keyring here)
+# instead, which survives reboots as long as the keyring is unlocked —
+# true here even under SDDM autologin (no password reaches PAM, so
+# gnome-keyring's own auto-unlock fails, but this account's default
+# collection has no passphrase set, so it still ends up unlocked moments
+# after the daemon starts). Applied to both the systemd service and
+# interactive shells (below) so `pass-cli login` and the ssh-agent daemon
+# agree on where the key lives.
+proton_pass_cli_linux_keyring: dbus
+
 # Podman rootless (playbooks/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.
 podman_subuid_start: 100000

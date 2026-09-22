@@ -51,6 +51,13 @@
 # toggle off and stick with `systemctl --user disable --now
 # proton-pass-ssh-agent.service` if you'd rather use the desktop app's
 # agent exclusively.
+#
+# Session persistence across reboots: pass-cli's local encryption key
+# defaults to the Linux kernel keyring, which is wiped on every reboot —
+# so without proton_pass_cli_linux_keyring: dbus (group_vars/all/main.yml),
+# `pass-cli login` would need to be repeated interactively after every
+# single restart, forever. See that variable's comment for the fix and
+# its SDDM-autologin caveat.
 - name: Proton Pass desktop client (AUR proton-pass-bin)
   hosts: localhost
   connection: local

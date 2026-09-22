@@ -1,11 +1,19 @@
 [Unit]
 Description=Proton Pass CLI SSH agent
+After=gnome-keyring-daemon.service
+Wants=gnome-keyring-daemon.service
 StartLimitIntervalSec=0
 
 [Service]
 # Fails until `pass-cli login` has been run interactively at least once;
 # Restart=on-failure keeps retrying (RestartSec avoids a tight crash loop
-# in the meantime).
+# in the meantime). PROTON_PASS_LINUX_KEYRING=dbus keeps that logged-in
+# session surviving reboots — see the group_vars comment above
+# proton_pass_cli_linux_keyring for why the default (kernel keyring)
+# doesn't. After=/Wants= gnome-keyring-daemon.service so the Secret
+# Service is up before the first attempt, instead of relying purely on
+# the restart loop.
+Environment=PROTON_PASS_LINUX_KEYRING={{ proton_pass_cli_linux_keyring }}
 ExecStart={{ proton_pass_cli_bin }} ssh-agent start --socket-path {{ proton_pass_ssh_agent_socket }}
 Restart=on-failure
 RestartSec=5

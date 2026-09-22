@@ -250,7 +250,8 @@ ssh_agent_units:
   - ssh-agent.socket
   - ssh-agent.service
 
-# KeePassXC (playbooks/keepassxc.yml) — open-source password manager
+# KeePassXC (playbooks/keepassxc.yml — optional password manager
+# alternative, not part of `just setup`) — open-source password manager
 # with browser integration (Firefox/Chromium/Brave), SSH agent support
 # (needs the ssh-agent playbook) and system tray integration.
 keepassxc_package: keepassxc
@@ -353,6 +354,31 @@ bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
 gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
+
+# Proton Pass (playbooks/proton-pass.yml — optional password manager
+# alternative to KeePassXC/Bitwarden, not part of `just setup`).
+#
+# Desktop client: no official Arch/AUR "proton-pass" package builds from
+# source yet, so proton-pass-bin (the official .deb repackaged) is used,
+# the same way bitwarden-bin is for Bitwarden.
+proton_pass_aur_package: proton-pass-bin
+proton_pass_aur_git_url: "https://aur.archlinux.org/{{ proton_pass_aur_package }}.git"
+proton_pass_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ proton_pass_aur_package }}"
+proton_pass_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ proton_pass_aur_package }}"
+
+# Reuses Omarchy's default "Passwords" keybinding (originally bound to
+# 1Password, which this setup doesn't install).
+proton_pass_hypr_keybind: "SUPER + SHIFT + SLASH"
+
+# CLI: the AUR packages (proton-pass-cli, proton-pass-cli-bin) are
+# unreliable upstream (checksum failures / AUR pushes disabled), so
+# Proton's own official installer script is used instead — same pattern
+# as playbooks/homebrew.yml's official-installer download. Installed
+# into ~/.local/bin, which Omarchy already exports on PATH everywhere.
+proton_pass_cli_install_url: "https://proton.me/download/pass-cli/install.sh"
+proton_pass_cli_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/proton-pass-cli-install.sh"
+proton_pass_cli_install_dir: "{{ ansible_facts.env.HOME }}/.local/bin"
+proton_pass_cli_bin: "{{ proton_pass_cli_install_dir }}/pass-cli"
 
 # Podman rootless (playbooks/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.

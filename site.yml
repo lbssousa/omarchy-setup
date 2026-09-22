@@ -35,11 +35,6 @@
   ansible.builtin.import_playbook: playbooks/ptbr.yml
   tags: [ptbr]
 
-# Plays: OpenSSH agent (tag ssh-agent), then KeePassXC.
-- name: OpenSSH agent + KeePassXC
-  ansible.builtin.import_playbook: playbooks/keepassxc.yml
-  tags: [keepassxc]
-
 # Plays: Podman (tag podman), Distrobox (tag distrobox, which also runs
 # Podman first), starship prompt inside distrobox (tag starship-distrobox).
 - name: Containers (Podman, Distrobox, starship in distrobox)

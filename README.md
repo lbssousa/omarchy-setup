@@ -15,12 +15,13 @@ play with a dependency also runs the play it depends on first (e.g.
 have an umbrella tag for the whole file (`containers`, `snap`, `desktop`,
 `tex`, `yubikey`). Exceptions:
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
-`playbooks/apparmor.yml`, `playbooks/bitwarden.yml`,
-`playbooks/tex.yml` (TeX Live + Gregorio) and `playbooks/yubikey.yml` are **not**
-imported by `site.yml` — Secure Boot, the BGRT boot theme and AppArmor
-touch firmware/boot, Bitwarden is an
-optional alternative to the default KeePassXC, TeX Live (+ Gregorio,
-which depends on it) is a long download/install you run on demand, and the
+`playbooks/apparmor.yml`, `playbooks/keepassxc.yml`, `playbooks/bitwarden.yml`,
+`playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio) and
+`playbooks/yubikey.yml` are **not** imported by `site.yml` — Secure Boot, the
+BGRT boot theme and AppArmor touch firmware/boot, KeePassXC, Bitwarden and
+Proton Pass are three alternative password managers (install whichever one
+you want — none of them is the default), TeX Live (+ Gregorio, which
+depends on it) is a long download/install you run on demand, and the
 Yubikey helpers need the physical token plugged in — so
 they only run when called explicitly.
 
@@ -36,8 +37,6 @@ they only run when called explicitly.
 | LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
 | Gregorio | `gregorio` | Builds and installs the Gregorio GABC → GregorioTeX engraver from source. Depends on TeX Live (its tag also runs the TeX Live play first). Not part of `just setup`. |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
-| OpenSSH agent | `ssh-agent` | Enables the systemd --user ssh-agent at the session socket + exports `SSH_AUTH_SOCK` session-wide. Part of `playbooks/keepassxc.yml`: runs before KeePassXC, and `just keepassxc` includes it. |
-| KeePassXC | `keepassxc` | Default password manager: desktop client (native Wayland via `qt5-wayland`) + browser integration (Firefox/Chromium/Brave) + SSH agent support (via `ssh-agent`) + monochrome tray icon (minimize/close to tray) + session autostart. |
 | Podman | `podman` | Rootless container engine. Part of `playbooks/containers.yml` with Distrobox and the starship integration (umbrella tag `containers`). |
 | Distrobox | `distrobox` | Depends on Podman: the tag also runs the Podman play first. |
 | Flatpak + Flathub | `flatpak` | Installs Flatpak and enables the Flathub remote (per-user, so app installs don't need root). |
@@ -131,12 +130,15 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**Bitwarden, TeX Live, Gregorio, the BGRT boot theme, AppArmor, Secure Boot, the
-Yubikey GPG key, and the Yubikey SSH keys are separate** — not part of
-`just setup`:
+**KeePassXC, Bitwarden, Proton Pass, TeX Live, Gregorio, the BGRT boot theme,
+AppArmor, Secure Boot, the Yubikey GPG key, and the Yubikey SSH keys are
+separate** — not part of `just setup`:
 
 ```bash
-just bitwarden     # optional; KeePassXC is the default password manager
+just keepassxc     # one of three alternative password managers — pick any
+just bitwarden     # combination, or none; no password manager is the default
+just proton-pass   # desktop client (AUR) + CLI (official installer)
+just proton-pass-cli  # just the CLI, no root needed
 just texlive       # TeX Live is a long network install; run when you need it
 just gregorio      # also runs the TeX Live play first; builds the Gregorio engraver
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
@@ -161,8 +163,9 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/pdf-viewer.yml` | Zathura default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
 | `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
-| `playbooks/keepassxc.yml` | OpenSSH agent (tag `ssh-agent`) + KeePassXC + Qt5 Wayland plugin + XDG autostart (tag `keepassxc`) |
-| `playbooks/bitwarden.yml` | Bitwarden — optional, outside `site.yml` (tag `bitwarden`) |
+| `playbooks/keepassxc.yml` | OpenSSH agent (tag `ssh-agent`) + KeePassXC + Qt5 Wayland plugin + XDG autostart — optional password manager, outside `site.yml` (tag `keepassxc`) |
+| `playbooks/bitwarden.yml` | Bitwarden — optional password manager, outside `site.yml` (tag `bitwarden`) |
+| `playbooks/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (official installer) — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
 | `playbooks/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
 | `playbooks/homebrew.yml` | Homebrew for Linux (tag `homebrew`) |

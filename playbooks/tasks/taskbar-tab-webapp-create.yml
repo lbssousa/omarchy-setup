@@ -1,0 +1,187 @@
+# One brand-new Taskbar Tab — looped by playbooks/taskbar-tab-webapps.yml
+# (taskbar_tab_webapp_creates), var `webapp_create`. Needs
+# `taskbar_tab_registry_dir`, `taskbar_tab_containers` and
+# `all_taskbar_tabs` (set by the parent play) already in scope.
+#
+# Firefox has no CLI to create a Taskbar Tab — "Save as Taskbar Tab..."
+# in the page menu is the only Mozilla-supported way. This reproduces
+# what that action writes to disk: a random id, a scope with BOTH
+# hostname and prefix (confirmed 2026-09-24: Firefox's own window-open
+# code silently no-ops the whole launch — no window, no error, no crash
+# report — when `prefix` is missing, even though the Taskbar Tabs JSON
+# schema marks it optional), a favicon converted to a 256x256 PNG, and a
+# matching .desktop launcher. userContextId does NOT need to be a
+# container newly minted for this Taskbar Tab specifically — container 0
+# (no container) and a pre-existing, already-in-use container both work;
+# only the missing prefix ever made this fail. Fragile against a Firefox
+# internals change: if a freshly-created entry stops opening, open the
+# site normally, use the page menu's "Save as Taskbar Tab..." to make one
+# by hand, and diff its taskbartabs.json entry against this one.
+#
+# `tags: [taskbar-tab-webapps]` is repeated on every task here, not just
+# on the include_tasks call — a looped include_tasks with a tag only on
+# the call itself silently skips every inner task under --tags without
+# any warning (see tasks/ptbr-chromium-family-browser.yml).
+- name: "[{{ webapp_create.name }}] Check whether a Taskbar Tab already exists for {{ webapp_create.hostname }}"
+  ansible.builtin.set_fact:
+    taskbar_tab_existing: >-
+      {{
+        (all_taskbar_tabs
+          | selectattr('startUrl', 'search', webapp_create.hostname | regex_escape)
+          | list | first) | default(none)
+      }}
+  tags: [taskbar-tab-webapps]
+
+- name: "[{{ webapp_create.name }}] Skip — a Taskbar Tab already matches {{ webapp_create.hostname }}"
+  ansible.builtin.debug:
+    msg: >-
+      Taskbar Tab {{ taskbar_tab_existing.id }} already matches
+      {{ webapp_create.hostname }} ({{ taskbar_tab_existing.startUrl }}); not
+      creating another. Remove it first (or change taskbar_tab_hostname) to
+      recreate.
+  when: taskbar_tab_existing is not none
+  tags: [taskbar-tab-webapps]
+
+- name: "[{{ webapp_create.name }}] Create the Taskbar Tab"
+  tags: [taskbar-tab-webapps]
+  when: taskbar_tab_existing is none
+  block:
+    - name: "[{{ webapp_create.name }}] Look up the {{ webapp_create.container_name | default('no container (userContextId 0)') }} container id"
+      ansible.builtin.set_fact:
+        # containers.json's built-in containers (Personal/Work/Banking/
+        # Shopping) have no "name" key at all (they're localized via
+        # "l10nId" instead) — selectattr('name', 'equalto', ...) throws
+        # on those unless filtered out with selectattr('name', 'defined')
+        # first.
+        taskbar_tab_container_id: >-
+          {{
+            (taskbar_tab_containers.identities
+              | selectattr('name', 'defined')
+              | selectattr('name', 'equalto', webapp_create.container_name)
+              | map(attribute='userContextId') | list | first) | default(none)
+            if webapp_create.container_name is defined and webapp_create.container_name
+            else 0
+          }}
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Fail if the {{ webapp_create.container_name | default('') }} container doesn't exist"
+      ansible.builtin.fail:
+        msg: >-
+          No Firefox container named "{{ webapp_create.container_name }}" found in
+          {{ taskbar_tab_registry_dir }}/../containers.json. Create it first
+          (Firefox → Settings → General → Tabs → "Enable Container Tabs" →
+          Settings, or via the Firefox Multi-Account Containers extension),
+          then rerun.
+      when:
+        - webapp_create.container_name is defined
+        - (webapp_create.container_name | length) > 0
+        - taskbar_tab_container_id is none
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Generate a new Taskbar Tab id"
+      ansible.builtin.command: uuidgen
+      register: taskbar_tab_new_id_cmd
+      changed_when: false
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Set the new Taskbar Tab id"
+      ansible.builtin.set_fact:
+        taskbar_tab_new_id: "{{ taskbar_tab_new_id_cmd.stdout | lower }}"
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Fetch the site's favicon"
+      ansible.builtin.get_url:
+        url: "https://{{ webapp_create.hostname }}/favicon.ico"
+        dest: "/tmp/taskbar-tab-{{ taskbar_tab_new_id }}.ico"
+        mode: "0644"
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Convert the favicon to a 256x256 PNG"
+      ansible.builtin.command: >-
+        magick /tmp/taskbar-tab-{{ taskbar_tab_new_id }}.ico[0]
+        -resize 256x256
+        {{ taskbar_tab_registry_dir }}/icons/{{ taskbar_tab_new_id }}.png
+      changed_when: true
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Remove the downloaded .ico"
+      ansible.builtin.file:
+        path: "/tmp/taskbar-tab-{{ taskbar_tab_new_id }}.ico"
+        state: absent
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Read the current Taskbar Tabs registry"
+      ansible.builtin.slurp:
+        src: "{{ taskbar_tab_registry_dir }}/taskbartabs.json"
+      register: taskbar_tab_registry_raw
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Append this Taskbar Tab to the registry"
+      ansible.builtin.set_fact:
+        taskbar_tab_registry_updated: >-
+          {{
+            (taskbar_tab_registry_raw.content | b64decode | from_json)
+              | combine({
+                  'taskbarTabs':
+                    (taskbar_tab_registry_raw.content | b64decode | from_json).taskbarTabs
+                    + [{
+                        'id': taskbar_tab_new_id,
+                        'scopes': [{'hostname': webapp_create.hostname, 'prefix': '/'}],
+                        'userContextId': taskbar_tab_container_id | int,
+                        'startUrl': webapp_create.url,
+                        'name': webapp_create.name,
+                        'shortcutRelativePath': 'firefox.webapp-' + taskbar_tab_new_id + '.desktop',
+                      }]
+                })
+          }}
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Write the updated Taskbar Tabs registry"
+      ansible.builtin.copy:
+        dest: "{{ taskbar_tab_registry_dir }}/taskbartabs.json"
+        content: "{{ taskbar_tab_registry_updated | to_nice_json }}"
+        mode: "0644"
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Write the Taskbar Tab's .desktop launcher"
+      ansible.builtin.copy:
+        dest: "{{ ansible_facts.env.HOME }}/.local/share/applications/firefox.webapp-{{ taskbar_tab_new_id }}.desktop"
+        mode: "0644"
+        content: |
+          [Desktop Entry]
+          Type=Application
+          Version=1.5
+          Name={{ webapp_create.name }}
+          Icon={{ taskbar_tab_registry_dir }}/icons/{{ taskbar_tab_new_id }}.png
+          Exec="/usr/lib/firefox/firefox" "-taskbar-tab" "{{ taskbar_tab_new_id }}" "-new-window" "{{ webapp_create.url }}" "-profile" "{{ taskbar_tab_registry_dir | dirname }}" "-container" "{{ taskbar_tab_container_id }}"
+      tags: [taskbar-tab-webapps]
+
+    - name: Create ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
+      tags: [taskbar-tab-webapps]
+
+    - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: /usr/share/omarchy/default/hypr/bindings.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+      tags: [taskbar-tab-webapps]
+
+    - name: "[{{ webapp_create.name }}] Bind {{ webapp_create.hypr_keybind }} to the new Taskbar Tab"
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/taskbar-tab-webapps.yml — {{ webapp_create.hypr_description }} keybinding)"
+        # Lua string literals don't support "\." as an escape sequence,
+        # only "\\." (see tasks/taskbar-tab-webapp-swap.yml) — the id
+        # itself is a plain UUID (hyphens only, no dots), so only the
+        # literal "firefox.webapp-" dot needs escaping here.
+        block: |
+          hl.unbind("{{ webapp_create.hypr_keybind }}")
+          o.bind("{{ webapp_create.hypr_keybind }}", "{{ webapp_create.hypr_description }}", { launch = "gtk-launch firefox.webapp-{{ taskbar_tab_new_id }}", focus = "^firefox\\.webapp-{{ taskbar_tab_new_id }}$" })
+      notify: reload Hyprland
+      tags: [taskbar-tab-webapps]

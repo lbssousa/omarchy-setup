@@ -222,6 +222,14 @@ pdf_viewer_zathura_backend_package: zathura-pdf-mupdf
 pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
 pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
 
+# Zathura's statusbar/inputbar/notification font (playbooks/pdf-viewer.yml).
+# Zathura has a single `font` option covering all three; there's no
+# statusbar-only setting. Reuses omarchy_system_ui_font_pt so it matches
+# the rest of the desktop instead of Zathura's own default ("monospace
+# normal 9").
+pdf_viewer_zathurarc_path: "{{ ansible_facts.env.HOME }}/.config/zathura/zathurarc"
+pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
+
 # GTK4 file chooser dialogs (playbooks/file-chooser.yml) — the GTK4/
 # libadwaita xdg-desktop-portal backend (its FileChooser is Nautilus's),
 # and the per-desktop portals.conf that routes the FileChooser interface

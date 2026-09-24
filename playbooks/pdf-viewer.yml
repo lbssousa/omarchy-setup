@@ -45,3 +45,17 @@
         no_extra_spaces: true
         create: true
         mode: "0644"
+
+    - name: Create ~/.config/zathura
+      ansible.builtin.file:
+        path: "{{ pdf_viewer_zathurarc_path | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Set the statusbar/inputbar font ({{ pdf_viewer_zathurarc_path }})"
+      ansible.builtin.copy:
+        content: |
+          # Managed by playbooks/pdf-viewer.yml — statusbar/inputbar font.
+          set font "{{ pdf_viewer_zathura_font }}"
+        dest: "{{ pdf_viewer_zathurarc_path }}"
+        mode: "0644"

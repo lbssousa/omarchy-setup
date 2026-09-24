@@ -40,6 +40,7 @@ they only run when called explicitly.
 | Podman | `podman` | Rootless container engine. Part of `playbooks/containers.yml` with Distrobox and the starship integration (umbrella tag `containers`). |
 | Distrobox | `distrobox` | Depends on Podman: the tag also runs the Podman play first. |
 | Flatpak + Flathub | `flatpak` | Installs Flatpak and enables the Flathub remote (per-user, so app installs don't need root). |
+| Homebrew | `homebrew` | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`. |
 | snapd | `snapd` | Builds and installs snapd from the AUR (no official Arch package), enables `snapd.socket` (+ `snapd.apparmor.service`), links `/snap` → `/var/lib/snapd/snap` (classic snaps expect it), waits for first-boot seeding, and exports snap's `bin` and desktop-entry dirs to the graphical session (`PATH`/`XDG_DATA_DIRS` via `environment.d`; log out and back in to pick it up). Doesn't touch the kernel cmdline: strict confinement would need AppArmor as the active LSM, which Omarchy doesn't enable by default — snapd still works, and classic snaps don't need it. |
 | Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (the tag also runs the snapd play first; `playbooks/snap.yml`, umbrella tag `snap`). Also fixes two Hyprland issues: sets `"password-store": "gnome-libsecret"` in `~/.vscode/argv.json` so VS Code uses the Secret Service keyring (Electron doesn't detect one under Hyprland), and installs a `~/.local/bin/code` wrapper + user desktop entries that set the UI scale to the monitor scale (the snap is forced onto XWayland, where `GDK_SCALE=2` made the UI too big). |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
@@ -70,6 +71,9 @@ See each playbook's own header comment for implementation details.
   `wheel` group.
 - The libfprint playbook needs Podman + Distrobox already set up
   (`site.yml` already runs them in the right order).
+- The Proton Pass playbook needs Flatpak + Flathub (desktop client) and
+  Homebrew (CLI) already set up (`site.yml` already runs both in the
+  right order).
 - The Secure Boot playbook only covers Limine + limine-entry-tool.
 
 Neither `just` nor `ansible` need to be pre-installed: `./bootstrap.sh`
@@ -164,7 +168,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/keepassxc.yml` | OpenSSH agent (tag `ssh-agent`) + KeePassXC + Qt5 Wayland plugin + XDG autostart — optional password manager, outside `site.yml` (tag `keepassxc`) |
 | `playbooks/bitwarden.yml` | Bitwarden — optional password manager, outside `site.yml` (tag `bitwarden`) |
-| `playbooks/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (official installer), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
+| `playbooks/proton-pass.yml` | Proton Pass desktop (Flatpak, `me.proton.Pass`) + CLI (Homebrew, `proton-pass-cli`), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
 | `playbooks/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
 | `playbooks/snap.yml` | snapd from the AUR (`/snap` link + session env) and Visual Studio Code's official snap + keyring/UI-scale fixes (tags `snapd`, `vscode`; umbrella `snap`) |

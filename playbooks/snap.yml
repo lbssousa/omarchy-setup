@@ -232,6 +232,13 @@
         path: "{{ vscode_argv_file }}"
       register: vscode_argv
 
+    - name: Ensure ~/.vscode exists
+      ansible.builtin.file:
+        path: "{{ vscode_argv_file | dirname }}"
+        state: directory
+        mode: "0755"
+      when: not vscode_argv.stat.exists
+
     - name: Create ~/.vscode/argv.json with the keyring backend, if missing
       ansible.builtin.copy:
         content: |

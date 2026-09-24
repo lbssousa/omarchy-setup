@@ -9,14 +9,14 @@
 # the host manually, since the container doesn't share /usr with the
 # host (only $HOME).
 #
-# The driver's meson.build looks for a pkg-config package named
-# "opencv4", which current Arch doesn't ship (opencv is now the
-# API-compatible opencv5). A local .pc shim
-# (playbooks/files/libfprint-opencv4-shim.pc) redirects "opencv4" to the
-# real opencv5, linking only the modules the driver actually needs —
-# avoids the ~50 extra build dependencies of AUR's opencv4 package, and
-# avoids linking opencv5 modules with broken symbols in this
-# environment.
+# The driver's SIGFM matcher needs OpenCV. The build container
+# (playbooks/files/libfprint-build.ini) deliberately has no opencv
+# package, so meson.build's pkg-config lookup (opencv4, then opencv5)
+# always misses and it falls back to vendoring the small OpenCV subset
+# it needs from upstream source, built statically via cmake — no
+# external opencv runtime dependency on the host, only the build-time
+# ones (cmake, already-present curl/tar/sha256sum for the source
+# fetch).
 #
 # fprintd.service gets an LD_LIBRARY_PATH drop-in pointing at
 # /usr/local/lib, since the official fprintd package already depends on
@@ -74,18 +74,6 @@
         force: false
       register: libfprint_git_result
 
-    - name: Ensure the opencv4 pkg-config shim directory exists
-      ansible.builtin.file:
-        path: "{{ libfprint_opencv4_shim_dir }}"
-        state: directory
-        mode: "0755"
-
-    - name: Install the opencv4 pkg-config shim
-      ansible.builtin.copy:
-        src: libfprint-opencv4-shim.pc
-        dest: "{{ libfprint_opencv4_shim_dir }}/opencv4.pc"
-        mode: "0644"
-
     - name: Check whether the build is already configured
       ansible.builtin.stat:
         path: "{{ libfprint_checkout_dir }}/builddir/build.ninja"
@@ -94,8 +82,7 @@
     - name: Configure the build (meson setup)
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
-        "export PKG_CONFIG_PATH={{ libfprint_opencv4_shim_dir }} &&
-        cd {{ libfprint_checkout_dir }} &&
+        "cd {{ libfprint_checkout_dir }} &&
         meson setup builddir --prefix={{ libfprint_usrlocal_prefix }}
         -Ddoc=false -Dinstalled-tests=false"
       when: not libfprint_builddir_stat.stat.exists
@@ -103,8 +90,7 @@
     - name: Reconfigure the build if the fork changed
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
-        "export PKG_CONFIG_PATH={{ libfprint_opencv4_shim_dir }} &&
-        cd {{ libfprint_checkout_dir }} &&
+        "cd {{ libfprint_checkout_dir }} &&
         meson setup builddir --prefix={{ libfprint_usrlocal_prefix }}
         -Ddoc=false -Dinstalled-tests=false --reconfigure"
       when: libfprint_builddir_stat.stat.exists and libfprint_git_result.changed
@@ -112,8 +98,7 @@
     - name: Build with ninja
       ansible.builtin.shell: >
         distrobox enter {{ libfprint_container_name }} -- bash -c
-        "export PKG_CONFIG_PATH={{ libfprint_opencv4_shim_dir }} &&
-        ninja -C {{ libfprint_checkout_dir }}/builddir"
+        "ninja -C {{ libfprint_checkout_dir }}/builddir"
       register: libfprint_ninja_result
       changed_when: "'ninja: no work to do.' not in libfprint_ninja_result.stdout"
 

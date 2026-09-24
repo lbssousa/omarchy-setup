@@ -440,20 +440,15 @@ libfprint_usrlocal_prefix: /usr/local
 libfprint_usrlocal_libdir: "{{ libfprint_usrlocal_prefix }}/lib"
 
 # Runtime deps for the built library on the host (the container only
-# needs the build toolchain).
+# needs the build toolchain). No opencv here: the SIGFM matcher's
+# OpenCV subset is vendored and statically linked at build time (see
+# playbooks/libfprint.yml), so the host never needs it installed.
 libfprint_runtime_deps:
-  - opencv
   - openssl
   - glib2
   - libgusb
   - libgudev
   - pixman
-
-# pkg-config shim: the driver's meson.build looks for "opencv4", which
-# Arch no longer ships (current package is opencv5, API-compatible for
-# the modules this driver actually uses). Only used during the build via
-# PKG_CONFIG_PATH, never installed system-wide.
-libfprint_opencv4_shim_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/libfprint-pkgconfig-shim"
 
 # udev rule disabling USB autosuspend for the fingerprint reader. Kept
 # even though it didn't fix the real bug (see fprintd_desync_* below) —

@@ -121,6 +121,9 @@ gregorio_lsp_binaries:
 pinentry_omarchy_repo: https://github.com/lbssousa/pinentry-omarchy.git
 pinentry_omarchy_ref: main
 pinentry_omarchy_checkout_dir: "{{ ansible_facts.env.HOME }}/src/pinentry-omarchy"
+# Refuse to build a checkout whose commit isn't GPG-signed by a key in the
+# user's keyring (the releases are signed with the Yubikey's key).
+pinentry_omarchy_verify_commit: true
 pinentry_omarchy_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
 pinentry_omarchy_program: /usr/bin/pinentry-omarchy
 # Third-party shell plugin ids may not start with "omarchy." (reserved for

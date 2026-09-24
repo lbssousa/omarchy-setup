@@ -16,46 +16,6 @@ firefox_package: firefox
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
 
-# Firefox Taskbar Tabs replacing Omarchy's preinstalled web apps
-# (playbooks/taskbar-tab-webapps.yml, tasks/taskbar-tab-webapp-swap.yml).
-# One entry per swap: removes the Omarchy web app launcher named
-# omarchy_webapp_name (~/.local/share/applications/<name>.desktop —
-# preinstalled or `omarchy webapp install`ed, both work) and rebinds
-# hypr_keybind to `gtk-launch` the Firefox Taskbar Tab whose start URL
-# contains taskbar_tab_hostname instead. The Taskbar Tab has to already
-# exist — create it first in Firefox (page menu → "Save as Taskbar
-# Tab...", needs firefox_taskbar_tabs_pref_name above enabled) — and its
-# app id is a random UUID assigned at creation, so the playbook looks it
-# up by hostname in the Taskbar Tabs registry
-# (~/.config/mozilla/firefox/<profile>/taskbartabs/taskbartabs.json)
-# rather than taking a hardcoded id.
-taskbar_tab_webapp_swaps:
-  - omarchy_webapp_name: WhatsApp
-    taskbar_tab_hostname: web.whatsapp.com
-    hypr_keybind: "SUPER + SHIFT + ALT + G"
-    hypr_description: "WhatsApp Web"
-  - omarchy_webapp_name: YouTube
-    taskbar_tab_hostname: www.youtube.com
-    hypr_keybind: "SUPER + SHIFT + Y"
-    hypr_description: "YouTube"
-
-# Brand-new Firefox Taskbar Tabs, created directly by
-# tasks/taskbar-tab-webapp-create.yml — no Omarchy launcher to swap out,
-# no manual "Save as Taskbar Tab..." step first (unlike
-# taskbar_tab_webapp_swaps above). One entry per Taskbar Tab:
-# container_name, if set, must already exist as a Firefox container
-# (Settings → General → Tabs → "Enable Container Tabs", or the Firefox
-# Multi-Account Containers extension) — omit it to open with no
-# container. hypr_keybind is a brand-new binding, not one taken over from
-# an Omarchy default.
-taskbar_tab_webapp_creates:
-  - name: Microsoft Teams
-    url: "https://teams.cloud.microsoft/"
-    hostname: teams.cloud.microsoft
-    container_name: Microsoft
-    hypr_keybind: "SUPER + SHIFT + ALT + T"
-    hypr_description: "Microsoft Teams"
-
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
 zed_package: zed

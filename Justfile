@@ -36,14 +36,6 @@ polkit: _ensure-collections
 firefox: _ensure-collections
     {{ap}} site.yml --tags firefox
 
-# Swap Omarchy's preinstalled web apps (taskbar_tab_webapp_swaps in
-# group_vars/all/main.yml) for matching Firefox Taskbar Tabs, keeping
-# each one's Hyprland keybind, and/or create brand-new Taskbar Tabs
-# (taskbar_tab_webapp_creates — Firefox must be closed first). No root
-# needed. Not part of `just setup`.
-taskbar-tab-webapps: _ensure-collections
-    ansible-playbook playbooks/taskbar-tab-webapps.yml
-
 # Install Zed (Omarchy theme integration), set every font size to 25px
 # and the buffer font to JetBrainsMono Nerd Font.
 zed: _ensure-collections

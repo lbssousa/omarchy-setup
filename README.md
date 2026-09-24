@@ -16,28 +16,21 @@ have an umbrella tag for the whole file (`containers`, `snap`, `desktop`,
 `tex`, `yubikey`). Exceptions:
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
 `playbooks/apparmor.yml`, `playbooks/keepassxc.yml`, `playbooks/bitwarden.yml`,
-`playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio),
-`playbooks/yubikey.yml` and `playbooks/taskbar-tab-webapps.yml` are **not**
+`playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio) and
+`playbooks/yubikey.yml` are **not**
 imported by `site.yml` — Secure Boot, the
 BGRT boot theme and AppArmor touch firmware/boot, KeePassXC, Bitwarden and
 Proton Pass are three alternative password managers (install whichever one
 you want — none of them is the default), TeX Live (+ Gregorio, which
-depends on it) is a long download/install you run on demand, the
-Yubikey helpers need the physical token plugged in, and each Taskbar Tab
-entry reflects a personal preference for one site over Omarchy's default —
-`taskbar_tab_webapp_creates` also needs Firefox closed while it runs and,
-for any entry with `container_name` set, the Multi-Account Containers
-extension already installed with that container created, so it can never
-be a safe, unattended part of `just setup` —
-so
-they only run when called explicitly.
+depends on it) is a long download/install you run on demand, and the
+Yubikey helpers need the physical token plugged in — so they only run when
+called explicitly.
 
 ## What it sets up
 
 | Automation | Tag | What it does |
 |---|---|---|
 | Firefox | `firefox` | Installs Firefox and enables tab apps (Taskbar Tabs), off by default on Linux. Runs before pt-BR localization. |
-| Taskbar Tab web apps | `taskbar-tab-webapps` | Two independent lists in `group_vars/all/main.yml`, both resolving a Taskbar Tab by hostname in the Taskbar Tabs registry rather than a hardcoded app id (Firefox assigns that randomly). `taskbar_tab_webapp_swaps` (currently WhatsApp and YouTube) swaps an Omarchy preinstalled web app launcher for an already-existing Taskbar Tab — removes the Omarchy launcher (`omarchy webapp remove`) and rebinds its Hyprland keybind to `gtk-launch` the Taskbar Tab; the Taskbar Tab has to already exist (create it first in Firefox: page menu → "Save as Taskbar Tab..."). `taskbar_tab_webapp_creates` (currently Microsoft Teams) creates a brand-new Taskbar Tab directly — no Firefox UI step, no Omarchy launcher involved — writing the registry entry, a favicon converted to PNG, the `.desktop` launcher and a new Hyprland keybind itself; Firefox must be closed while it runs (see `playbooks/tasks/taskbar-tab-webapp-create.yml` for why a Taskbar Tab's `scope` needs a `prefix` field or Firefox silently refuses to open it). Not part of `just setup`. |
 | Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 25px and the buffer font to JetBrainsMono Nerd Font, and sets `use_podman` so Dev Containers use Podman instead of Docker. |
 | gregorio-lsp | `gregorio-lsp` | Installs Rust (`omarchy install dev-env rust`) if needed, then builds and installs the `gregorio-lsp`, `grelint` and `grefmt` binaries from source. |
 | PDF viewer | `pdf-viewer` | Installs Zathura (+ MuPDF backend) as the default PDF viewer and Papers as an extra, non-default viewer. Evince stays installed since Nautilus's sushi previewer depends on it. |
@@ -159,7 +152,6 @@ just apparmor-profiles  # same + apparmor.service loading /etc/apparmor.d's prof
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
 just ssh-yubikey   # needs the Yubikey plugged in
-just taskbar-tab-webapps  # swap/create Firefox Taskbar Tabs; no root needed
 ```
 
 ## Structure
@@ -171,7 +163,6 @@ just taskbar-tab-webapps  # swap/create Firefox Taskbar Tabs; no root needed
 | `site.yml` | Index: imports each `playbooks/*.yml` with its tag |
 | `playbooks/polkit.yml` | polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent no longer enabled by default) (tag `polkit`) |
 | `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
-| `playbooks/taskbar-tab-webapps.yml` | Swap Omarchy preinstalled web apps for Firefox Taskbar Tabs, and/or create brand-new ones — optional, outside `site.yml` (tag `taskbar-tab-webapps`) |
 | `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
 | `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
 | `playbooks/pdf-viewer.yml` | Zathura default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |

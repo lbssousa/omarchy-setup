@@ -369,6 +369,10 @@ homebrew_runtime_deps:
   - git
 # bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
 homebrew_bbrew_package: bbrew
+# homebrew_env_file is deployed to ~/.config/environment.d so every
+# Homebrew-installed binary reaches the session on PATH — see the
+# header comment in playbooks/homebrew.yml.
+homebrew_env_file: 42-homebrew.conf
 
 # Proton Pass (playbooks/proton-pass.yml — optional password manager
 # alternative to KeePassXC/Bitwarden, not part of `just setup`).
@@ -387,9 +391,10 @@ proton_pass_hypr_keybind: "SUPER + SHIFT + SLASH"
 # own — `proton-pass-cli` is an official Homebrew (homebrew-core)
 # formula instead, with a prebuilt x86_64_linux bottle (depends on
 # homebrew_bin/homebrew_symlink/homebrew_prefix, group_vars above).
-# Mirrored into ~/.local/bin, which Omarchy already exports on PATH
-# everywhere.
-proton_pass_cli_bin: "{{ ansible_facts.env.HOME }}/.local/bin/pass-cli"
+# Points straight at Homebrew's Cellar bin — playbooks/homebrew.yml
+# already puts {{ homebrew_prefix }}/bin on PATH session-wide (via
+# ~/.config/environment.d), so nothing needs mirroring into ~/.local/bin.
+proton_pass_cli_bin: "{{ homebrew_prefix }}/bin/pass-cli"
 
 # Proton Pass CLI SSH agent — a systemd --user service runs `pass-cli
 # ssh-agent start` as the long-running agent (the desktop app's own "Use

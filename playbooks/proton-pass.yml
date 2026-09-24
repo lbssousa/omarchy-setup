@@ -25,9 +25,9 @@
 # own. `proton-pass-cli` is an official Homebrew (homebrew-core) formula
 # instead, with a prebuilt x86_64_linux bottle, so this needs Homebrew
 # already set up (playbooks/homebrew.yml; site.yml runs it, or `just
-# homebrew`). Homebrew's own binary mirroring into ~/.local/bin only
-# happens on its own playbook run, so this play does that one symlink
-# itself rather than depending on cross-playbook ordering.
+# homebrew`). proton_pass_cli_bin points straight at Homebrew's Cellar
+# bin — playbooks/homebrew.yml already puts it on PATH session-wide, so
+# there's nothing to symlink here.
 #
 # CLI SSH agent vs. the desktop app's: both speak the standard SSH agent
 # protocol and read from the same account's synced vaults, so any SSH
@@ -149,23 +149,6 @@
       ansible.builtin.command: "{{ homebrew_symlink }} install proton-pass-cli"
       register: proton_pass_cli_brew_result
       changed_when: "'Pouring proton-pass-cli' in proton_pass_cli_brew_result.stdout"
-
-    - name: Ensure ~/.local/bin exists
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.local/bin"
-        state: directory
-        mode: "0755"
-
-    - name: Symlink pass-cli into ~/.local/bin
-      # Homebrew's own mirror (playbooks/homebrew.yml) only refreshes on
-      # its own run, so this doesn't rely on cross-playbook ordering —
-      # force: true also replaces any leftover binary from the old
-      # official-installer approach.
-      ansible.builtin.file:
-        src: "{{ homebrew_prefix }}/bin/pass-cli"
-        path: "{{ proton_pass_cli_bin }}"
-        state: link
-        force: true
 
     - name: Proton Pass CLI SSH agent — session-wide SSH_AUTH_SOCK
       block:

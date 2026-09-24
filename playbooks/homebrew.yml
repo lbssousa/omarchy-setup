@@ -1,10 +1,21 @@
 ---
 # Homebrew for Linux — installed per upstream's official script
 # (targets /home/linuxbrew/.linuxbrew). Omarchy doesn't ship it by
-# default, but some tools only publish brew formulae. `brew` is exposed
-# via a launcher script in /usr/local/bin so it's on PATH without
-# shell-profile edits, and every brew-installed binary is mirrored into
-# ~/.local/bin (overshadowed on PATH) via symlinks.
+# default, but some tools only publish brew formulae. `brew` itself is
+# exposed via a launcher script in /usr/local/bin (needed immediately,
+# even non-interactively, right after this playbook runs — see the
+# comment above that task for why a symlink doesn't work). Every other
+# Homebrew-installed binary reaches the session the same way Flatpak's
+# and snapd's binaries do (playbooks/flatpak.yml, playbooks/snap.yml):
+# {{ homebrew_prefix }}/bin(+/sbin) is appended to PATH session-wide via
+# ~/.config/environment.d, not mirrored one symlink at a time — that
+# used to be the approach here, but it meant every playbook installing
+# something via Homebrew (e.g. proton-pass-cli, playbooks/proton-pass.yml)
+# needed its own bespoke symlinking task, and anything installed
+# straight from a terminal (`brew install foo`) stayed invisible to the
+# rest of the session until this playbook was rerun. New PATH entries
+# apply to new sessions only (log out and back in to pick it up — same
+# caveat already true for snapd's PATH export).
 # bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
 - name: Homebrew
   hosts: localhost
@@ -90,37 +101,14 @@
     - name: Install bbrew (TUI for Homebrew/Flatpak) via brew
       ansible.builtin.command: "{{ homebrew_symlink }} install {{ homebrew_bbrew_package }}"
 
-    # /home/linuxbrew/.linuxbrew/bin is not on PATH (managed by mise/omarchy),
-    # so brew-installed CLIs would be unreachable. Rather than launchers per
-    # app, mirror every Homebrew binary into ~/.local/bin, the omarchy
-    # user-tool path that is already exported in every context (login, bash
-    # non-login/SSH, uwsm session, and PAM). Future brew installs automatically
-    # show up on the next run of this playbook.
-    - name: Ensure ~/.local/bin exists
+    - name: Create ~/.config/environment.d
       ansible.builtin.file:
-        path: "{{ ansible_facts.user_dir }}/.local/bin"
+        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
         state: directory
+        mode: "0755"
 
-    - name: List binaries shipped by Homebrew
-      ansible.builtin.command: ls -1 "{{ homebrew_prefix }}/bin"
-      register: homebrew_bins
-      changed_when: false
-
-    - name: Check for existing entries in ~/.local/bin before symlinking
-      ansible.builtin.stat:
-        path: "{{ ansible_facts.user_dir }}/.local/bin/{{ item }}"
-      loop: "{{ homebrew_bins.stdout_lines }}"
-      register: local_bin_tgts
-
-    - name: Symlink every Homebrew binary into ~/.local/bin
-      ansible.builtin.file:
-        src: "{{ homebrew_prefix }}/bin/{{ item.item }}"
-        path: "{{ ansible_facts.user_dir }}/.local/bin/{{ item.item }}"
-        state: link
-        force: true
-      loop: "{{ local_bin_tgts.results }}"
-      when: not item.stat.exists or item.stat.islnk
-
-    - name: Drop dangling symlinks left by uninstalled formulae
-      ansible.builtin.command: find "{{ ansible_facts.user_dir }}/.local/bin" -maxdepth 1 -type l ! -exec test -e {} \; -delete
-      changed_when: false
+    - name: Put Homebrew's bin/sbin on PATH for the session
+      ansible.builtin.template:
+        src: homebrew-env.conf.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/{{ homebrew_env_file }}"
+        mode: "0644"

@@ -372,8 +372,8 @@ proton_pass_hypr_keybind: "SUPER + SHIFT + SLASH"
 
 # CLI: the AUR packages (proton-pass-cli, proton-pass-cli-bin) are
 # unreliable upstream (checksum failures / AUR pushes disabled), so
-# Proton's own official installer script is used instead — same pattern
-# as playbooks/homebrew.yml's official-installer download. Installed
+# Proton's own official installer script is used instead — same
+# pattern of downloading an upstream installer script. Installed
 # into ~/.local/bin, which Omarchy already exports on PATH everywhere.
 proton_pass_cli_install_url: "https://proton.me/download/pass-cli/install.sh"
 proton_pass_cli_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/proton-pass-cli-install.sh"
@@ -426,21 +426,6 @@ flatpak_bazaar_package: io.github.kolunmi.Bazaar
 flatpak_system_exports_dir: /var/lib/flatpak/exports/share
 flatpak_user_exports_dir: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/exports/share"
 flatpak_env_file: 40-flatpak.conf
-
-# Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
-# /home/linuxbrew/.linuxbrew and exposed via a launcher script in
-# /usr/local/bin so `brew` is on PATH without shell-profile edits.
-homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
-homebrew_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/homebrew-install.sh"
-homebrew_prefix: /home/linuxbrew/.linuxbrew
-homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
-homebrew_symlink: /usr/local/bin/brew
-homebrew_runtime_deps:
-  - base-devel
-  - curl
-  - git
-# bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
-homebrew_bbrew_package: bbrew
 
 # libfprint (goodix538d, playbooks/libfprint.yml) — built in a distrobox
 # container, installed to /usr/local on the host.

@@ -25,7 +25,7 @@
 # CLI: the AUR packages for it (proton-pass-cli, proton-pass-cli-bin) are
 # unreliable upstream (checksum failures, disabled AUR pushes), so
 # Proton's own official installer script is used instead — the same
-# pattern as playbooks/homebrew.yml's official-installer download.
+# upstream-installer pattern used for the other CLI plays.
 # Installs to ~/.local/bin, the omarchy user-tool path already exported
 # session-wide, and only runs once (skipped once `pass-cli` is present;
 # rerun after removing the binary to pick up a newer release).

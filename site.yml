@@ -45,10 +45,6 @@
   ansible.builtin.import_playbook: playbooks/flatpak.yml
   tags: [flatpak]
 
-- name: Homebrew (Linux)
-  ansible.builtin.import_playbook: playbooks/homebrew.yml
-  tags: [homebrew]
-
 # Plays: snapd (tag snapd), Visual Studio Code (tag vscode, which also runs
 # snapd first).
 - name: snapd + Visual Studio Code

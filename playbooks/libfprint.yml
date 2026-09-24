@@ -46,8 +46,17 @@
 
   tasks:
     - name: Create/update the distrobox build container
+      # distrobox-assemble refuses to run whenever SUDO_USER/DOAS_USER is
+      # set, to stop people from accidentally creating a root-owned
+      # container via sudo/doas. This isn't that: it's an unprivileged
+      # task, but run-empowered.sh's run0 --empower sets SUDO_USER on the
+      # whole process tree for sudo-compatibility, so it trips the same
+      # check. Blank both for this task only.
       ansible.builtin.command:
         cmd: "distrobox assemble create --file {{ libfprint_distrobox_ini_file }}"
+      environment:
+        SUDO_USER: ""
+        DOAS_USER: ""
       register: libfprint_assemble_result
       changed_when: "'already exists' not in libfprint_assemble_result.stderr"
 

@@ -28,9 +28,15 @@
 # the playbook from inside the graphical session).
 #
 # The package is built, and installed as root, from whatever the checkout
-# holds. So the checked-out commit must carry a valid GPG signature
-# (verify_commit): the releases are signed with the Yubikey's OpenPGP key,
-# which playbooks/yubikey.yml imports (`just gpg-yubikey`).
+# holds. So the playbook checks out a release tag (pinentry_omarchy_ref),
+# never main, and requires that tag's GPG signature to verify and to come
+# from one of pinentry_omarchy_signing_keys:
+# - verify_commit makes the git module run `git verify-tag` for an
+#   annotated tag.
+# - gpg_allowlist pins the signer.
+# The releases are signed with the Yubikey's OpenPGP key, which
+# playbooks/yubikey.yml imports (`just gpg-yubikey`). main itself only
+# holds squash merges signed by GitHub's key, so it isn't deployable.
 #
 # The plugin is a keepLoaded service, and those survive the shell's plugin
 # hot-reload. So after the package changes, the shell is restarted to load
@@ -67,15 +73,16 @@
       ansible.builtin.command: omarchy-install-dev-env rust
       when: not pinentry_omarchy_cargo_stat.stat.exists
 
-    - name: "Clone/update the pinentry-omarchy repo ({{ pinentry_omarchy_ref }})"
+    - name: "Check out the pinentry-omarchy release ({{ pinentry_omarchy_ref }})"
       block:
-        - name: "Clone/update the pinentry-omarchy repo ({{ pinentry_omarchy_ref }}), verifying its signature"
+        - name: "Check out the pinentry-omarchy release ({{ pinentry_omarchy_ref }}), verifying its signed tag"
           ansible.builtin.git:
             repo: "{{ pinentry_omarchy_repo }}"
             dest: "{{ pinentry_omarchy_checkout_dir }}"
             version: "{{ pinentry_omarchy_ref }}"
             force: false
             verify_commit: "{{ pinentry_omarchy_verify_commit }}"
+            gpg_allowlist: "{{ pinentry_omarchy_signing_keys if pinentry_omarchy_verify_commit else [] }}"
           register: pinentry_omarchy_git_result
       rescue:
         - name: Explain a failed signature check
@@ -84,8 +91,11 @@
               Couldn't check out {{ pinentry_omarchy_repo }}
               ({{ pinentry_omarchy_ref }}) with a verified GPG signature:
               {{ ansible_failed_result.msg | default('unknown error') }}.
-              The commits are signed with the Yubikey's OpenPGP key; import
-              it first (`just gpg-yubikey`, with the token plugged in). Set
+              pinentry_omarchy_ref must be a release tag signed with one of
+              pinentry_omarchy_signing_keys (the Yubikey's OpenPGP key). A
+              branch like main won't do, because its merges are signed by
+              GitHub. If the key is missing from the keyring, import it with
+              `just gpg-yubikey` (token plugged in). Set
               pinentry_omarchy_verify_commit=false only for an unsigned fork.
 
     - name: Check whether the package is installed

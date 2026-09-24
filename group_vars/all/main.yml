@@ -355,30 +355,41 @@ gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
 
+# Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
+# /home/linuxbrew/.linuxbrew and exposed via a launcher script in
+# /usr/local/bin so `brew` is on PATH without shell-profile edits.
+homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
+homebrew_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/homebrew-install.sh"
+homebrew_prefix: /home/linuxbrew/.linuxbrew
+homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
+homebrew_symlink: /usr/local/bin/brew
+homebrew_runtime_deps:
+  - base-devel
+  - curl
+  - git
+# bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
+homebrew_bbrew_package: bbrew
+
 # Proton Pass (playbooks/proton-pass.yml — optional password manager
 # alternative to KeePassXC/Bitwarden, not part of `just setup`).
 #
-# Desktop client: no official Arch/AUR "proton-pass" package builds from
-# source yet, so proton-pass-bin (the official .deb repackaged) is used,
-# the same way bitwarden-bin is for Bitwarden.
-proton_pass_aur_package: proton-pass-bin
-proton_pass_aur_git_url: "https://aur.archlinux.org/{{ proton_pass_aur_package }}.git"
-proton_pass_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ proton_pass_aur_package }}"
-proton_pass_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ proton_pass_aur_package }}"
+# Desktop client: installed from Flathub — the official build, no AUR
+# package to track.
+proton_pass_flatpak_id: me.proton.Pass
 
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
 proton_pass_hypr_keybind: "SUPER + SHIFT + SLASH"
 
 # CLI: the AUR packages (proton-pass-cli, proton-pass-cli-bin) are
-# unreliable upstream (checksum failures / AUR pushes disabled), so
-# Proton's own official installer script is used instead — same
-# pattern of downloading an upstream installer script. Installed
-# into ~/.local/bin, which Omarchy already exports on PATH everywhere.
-proton_pass_cli_install_url: "https://proton.me/download/pass-cli/install.sh"
-proton_pass_cli_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/proton-pass-cli-install.sh"
-proton_pass_cli_install_dir: "{{ ansible_facts.env.HOME }}/.local/bin"
-proton_pass_cli_bin: "{{ proton_pass_cli_install_dir }}/pass-cli"
+# unreliable upstream (checksum failures / AUR pushes disabled), and
+# Proton's own official installer script has no update mechanism of its
+# own — `proton-pass-cli` is an official Homebrew (homebrew-core)
+# formula instead, with a prebuilt x86_64_linux bottle (depends on
+# homebrew_bin/homebrew_symlink/homebrew_prefix, group_vars above).
+# Mirrored into ~/.local/bin, which Omarchy already exports on PATH
+# everywhere.
+proton_pass_cli_bin: "{{ ansible_facts.env.HOME }}/.local/bin/pass-cli"
 
 # Proton Pass CLI SSH agent — a systemd --user service runs `pass-cli
 # ssh-agent start` as the long-running agent (the desktop app's own "Use

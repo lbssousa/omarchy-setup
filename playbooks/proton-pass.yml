@@ -10,25 +10,24 @@
 #
 # Usage: ./run-empowered.sh ansible-playbook playbooks/proton-pass.yml
 #
-# Desktop client: there's no official Arch or from-source AUR package yet,
-# so proton-pass-bin (the official .deb repackaged for Arch) is used —
-# the same approach as bitwarden-bin for Bitwarden. Built with makepkg
-# --nodeps as a normal user (it needs no extra runtime deps beyond the
-# base desktop stack), then installed with `pacman -U` via become,
-# rebuilding only when the installed version is missing or outdated
-# (compared via `vercmp` against the AUR's).
+# Desktop client: installed from Flathub (me.proton.Pass) — the official
+# build, cross-distro, no AUR package to track. Needs Flatpak + Flathub
+# already set up (playbooks/flatpak.yml; site.yml runs it in the right
+# order, or `just flatpak`).
 #
 # The browser extension authenticates directly with a Proton account —
 # unlike KeePassXC's, it doesn't talk to the desktop client over native
 # messaging, so there's no manifest to deploy here.
 #
 # CLI: the AUR packages for it (proton-pass-cli, proton-pass-cli-bin) are
-# unreliable upstream (checksum failures, disabled AUR pushes), so
-# Proton's own official installer script is used instead — the same
-# upstream-installer pattern used for the other CLI plays.
-# Installs to ~/.local/bin, the omarchy user-tool path already exported
-# session-wide, and only runs once (skipped once `pass-cli` is present;
-# rerun after removing the binary to pick up a newer release).
+# unreliable upstream (checksum failures, disabled AUR pushes), and
+# Proton's own official installer script has no update mechanism of its
+# own. `proton-pass-cli` is an official Homebrew (homebrew-core) formula
+# instead, with a prebuilt x86_64_linux bottle, so this needs Homebrew
+# already set up (playbooks/homebrew.yml; site.yml runs it, or `just
+# homebrew`). Homebrew's own binary mirroring into ~/.local/bin only
+# happens on its own playbook run, so this play does that one symlink
+# itself rather than depending on cross-playbook ordering.
 #
 # CLI SSH agent vs. the desktop app's: both speak the standard SSH agent
 # protocol and read from the same account's synced vaults, so any SSH
@@ -58,54 +57,34 @@
 # `pass-cli login` would need to be repeated interactively after every
 # single restart, forever. See that variable's comment for the fix and
 # its SDDM-autologin caveat.
-- name: Proton Pass desktop client (AUR proton-pass-bin)
+- name: Proton Pass desktop client (Flatpak)
   hosts: localhost
   connection: local
   gather_facts: true
   tags: [proton-pass, proton-pass-desktop]
 
-  tasks:
-    - name: Check the proton-pass-bin version on the AUR
-      ansible.builtin.uri:
-        url: "{{ proton_pass_aur_rpc_url }}"
-        return_content: true
-      register: proton_pass_aur_info
-
-    - name: Extract the AUR package version
-      ansible.builtin.set_fact:
-        proton_pass_aur_version: "{{ proton_pass_aur_info.json.results[0].Version }}"
-
-    - name: Check the currently installed proton-pass-bin version, if any
-      ansible.builtin.command: "pacman -Qi {{ proton_pass_aur_package }}"
-      environment:
-        LC_ALL: C
-      register: proton_pass_installed
+  pre_tasks:
+    - name: Check whether the Flathub remote is configured
+      ansible.builtin.command: flatpak remote-list
+      register: proton_pass_flatpak_check
       changed_when: false
       failed_when: false
 
-    - name: Extract the installed proton-pass-bin version
-      ansible.builtin.set_fact:
-        proton_pass_installed_version: >-
-          {{ (proton_pass_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
-      when: proton_pass_installed.rc == 0
+    - name: Fail with guidance if Flatpak/Flathub wasn't found
+      ansible.builtin.fail:
+        msg: >-
+          Flathub remote not found. Run `./run-empowered.sh
+          ansible-playbook site.yml --tags flatpak` (or `just flatpak`)
+          first.
+      when: "'flathub' not in proton_pass_flatpak_check.stdout"
 
-    - name: Build and install (only if missing or outdated)
-      when: proton_pass_installed.rc != 0 or proton_pass_installed_version != proton_pass_aur_version
-      block:
-        - name: Clone/update the proton-pass-bin AUR repo
-          ansible.builtin.git:
-            repo: "{{ proton_pass_aur_git_url }}"
-            dest: "{{ proton_pass_aur_build_dir }}"
-            update: true
-
-        - name: Build the package (makepkg, no dep resolution, unprivileged)
-          ansible.builtin.command: makepkg --nodeps --noconfirm --force
-          args:
-            chdir: "{{ proton_pass_aur_build_dir }}"
-
-        - name: Install the built package
-          ansible.builtin.shell: "pacman -U --noconfirm {{ proton_pass_aur_build_dir }}/*.pkg.tar.zst"
-          become: true
+  tasks:
+    - name: Install Proton Pass (Flatpak) system-wide
+      community.general.flatpak:
+        name: "{{ proton_pass_flatpak_id }}"
+        state: present
+        method: system
+      become: true
 
     - name: "Proton Pass keybinding ({{ proton_pass_hypr_keybind }}, inherited from 1Password's default)"
       block:
@@ -127,9 +106,14 @@
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/proton-pass.yml — Proton Pass keybinding)"
+            # The flatpak's Hyprland window class is "me.proton.Pass"
+            # (its window title is just "Proton"), not the "Proton Pass"
+            # StartupWMClass its .desktop file advertises — checked with
+            # `hyprctl clients` against a running instance. Escaped dots
+            # so the class matches literally, not "me?proton?Pass".
             block: |
               hl.unbind("{{ proton_pass_hypr_keybind }}")
-              o.bind("{{ proton_pass_hypr_keybind }}", "Proton Pass", { launch = "proton-pass", focus = "^Proton Pass$" })
+              o.bind("{{ proton_pass_hypr_keybind }}", "Proton Pass", { launch = "flatpak run {{ proton_pass_flatpak_id }}", focus = "^me\\.proton\\.Pass$" })
           notify: reload Hyprland
 
   handlers:
@@ -141,37 +125,47 @@
       failed_when: false
       listen: reload Hyprland
 
-- name: Proton Pass CLI (pass-cli, official installer)
+- name: Proton Pass CLI (pass-cli, Homebrew)
   hosts: localhost
   connection: local
   gather_facts: true
   tags: [proton-pass, proton-pass-cli]
 
-  tasks:
-    - name: Check whether pass-cli is already installed
+  pre_tasks:
+    - name: Check whether Homebrew is available
       ansible.builtin.stat:
-        path: "{{ proton_pass_cli_bin }}"
-      register: proton_pass_cli_check
+        path: "{{ homebrew_bin }}"
+      register: proton_pass_homebrew_check
+
+    - name: Fail with guidance if Homebrew wasn't found
+      ansible.builtin.fail:
+        msg: >-
+          Homebrew not found. Run `./run-empowered.sh ansible-playbook
+          site.yml --tags homebrew` (or `just homebrew`) first.
+      when: not proton_pass_homebrew_check.stat.exists
+
+  tasks:
+    - name: Install proton-pass-cli via Homebrew
+      ansible.builtin.command: "{{ homebrew_symlink }} install proton-pass-cli"
+      register: proton_pass_cli_brew_result
+      changed_when: "'Pouring proton-pass-cli' in proton_pass_cli_brew_result.stdout"
 
     - name: Ensure ~/.local/bin exists
       ansible.builtin.file:
-        path: "{{ proton_pass_cli_install_dir }}"
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
         state: directory
         mode: "0755"
-      when: not proton_pass_cli_check.stat.exists
 
-    - name: Download the official installer script
-      ansible.builtin.get_url:
-        url: "{{ proton_pass_cli_install_url }}"
-        dest: "{{ proton_pass_cli_install_script_path }}"
-        mode: "0700"
-      when: not proton_pass_cli_check.stat.exists
-
-    - name: Run the installer
-      ansible.builtin.command: "{{ proton_pass_cli_install_script_path }}"
-      environment:
-        PROTON_PASS_CLI_INSTALL_DIR: "{{ proton_pass_cli_install_dir }}"
-      when: not proton_pass_cli_check.stat.exists
+    - name: Symlink pass-cli into ~/.local/bin
+      # Homebrew's own mirror (playbooks/homebrew.yml) only refreshes on
+      # its own run, so this doesn't rely on cross-playbook ordering —
+      # force: true also replaces any leftover binary from the old
+      # official-installer approach.
+      ansible.builtin.file:
+        src: "{{ homebrew_prefix }}/bin/pass-cli"
+        path: "{{ proton_pass_cli_bin }}"
+        state: link
+        force: true
 
     - name: Proton Pass CLI SSH agent — session-wide SSH_AUTH_SOCK
       block:

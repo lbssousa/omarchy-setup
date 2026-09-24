@@ -109,6 +109,10 @@ distrobox: _ensure-collections
 flatpak: _ensure-collections
     {{ap}} site.yml --tags flatpak
 
+# Install Homebrew for Linux and symlink brew into /usr/local/bin.
+homebrew: _ensure-collections
+    {{ap}} site.yml --tags homebrew
+
 # Install snapd (AUR) and enable it (just the snapd play).
 snapd: _ensure-collections
     {{ap}} site.yml --tags snapd

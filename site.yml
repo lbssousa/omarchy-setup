@@ -88,3 +88,7 @@
 - name: ble.sh (Bash autosuggestions + syntax highlighting)
   ansible.builtin.import_playbook: playbooks/blesh.yml
   tags: [blesh]
+
+- name: pinentry-omarchy (GnuPG prompts in the polkit-style shell dialog)
+  ansible.builtin.import_playbook: playbooks/pinentry.yml
+  tags: [pinentry]

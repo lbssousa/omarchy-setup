@@ -58,6 +58,11 @@ gregorio-lsp: _ensure-collections
 pdf-viewer: _ensure-collections
     {{ap}} site.yml --tags pdf-viewer
 
+# Build/install pinentry-omarchy (GnuPG prompts in the polkit-style shell
+# dialog) and make gpg-agent use it. Run from inside the graphical session.
+pinentry: _ensure-collections
+    {{ap}} site.yml --tags pinentry
+
 # Make the open/save file dialogs of non-GNOME apps the GTK4 ones (xdg-desktop-portal-gnome).
 file-chooser: _ensure-collections
     {{ap}} site.yml --tags file-chooser

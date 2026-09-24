@@ -1,0 +1,161 @@
+---
+# pinentry-omarchy — GnuPG's PIN/passphrase prompts (Yubikey card PIN,
+# key passphrases) in the same overlay dialog as Omarchy's polkit agent,
+# instead of the stock gtk/qt/curses pinentry
+# (https://github.com/lbssousa/pinentry-omarchy).
+#
+# It has two halves: a Rust pinentry binary that gpg-agent runs, and a
+# third-party omarchy-shell plugin (lbssousa.pinentry) that draws the
+# dialog. They talk over $XDG_RUNTIME_DIR/pinentry-omarchy.sock. Without a
+# Wayland session or with the shell down, the binary execs
+# pinentry-gnome3/pinentry-curses instead, so gpg keeps working over SSH
+# or from a TTY.
+#
+# The repo's own PKGBUILD (packaging/) builds the package, which is then
+# installed with pacman:
+# - makepkg runs with --nodeps, because cargo comes from rustup in
+#   ~/.cargo (installed like playbooks/gregorio-lsp.yml does, via
+#   `omarchy-install-dev-env rust`), which pacman doesn't know about.
+# - It runs as the user, never with become: makepkg refuses to run as root.
+# - A rebuild happens only when the checkout changed or the package is
+#   missing.
+#
+# Third-party shell plugins are only discovered in
+# ~/.config/omarchy/plugins/, so the packaged plugin
+# (/usr/share/pinentry-omarchy/plugin) is symlinked there. It is then
+# enabled through the shell's IPC, which records it in
+# ~/.config/omarchy/shell.json. That step needs omarchy-shell running (run
+# the playbook from inside the graphical session).
+#
+# The plugin is a keepLoaded service, and those survive the shell's plugin
+# hot-reload. So after the package changes, the shell is restarted to load
+# the new QML.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags pinentry
+- name: pinentry-omarchy (GnuPG prompts in the polkit-style shell dialog)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [pinentry]
+
+  vars:
+    pinentry_omarchy_cargo_env:
+      PATH: "{{ pinentry_omarchy_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
+
+  tasks:
+    - name: Install build/runtime dependencies (gnupg, stock pinentry for the fallback)
+      community.general.pacman:
+        name:
+          - base-devel
+          - git
+          - gnupg
+          - pinentry
+        state: present
+      become: true
+
+    - name: Check whether Rust (cargo) is already installed
+      ansible.builtin.stat:
+        path: "{{ pinentry_omarchy_cargo_bin_dir }}/cargo"
+      register: pinentry_omarchy_cargo_stat
+
+    - name: Install Rust (omarchy-install-dev-env rust)
+      ansible.builtin.command: omarchy-install-dev-env rust
+      when: not pinentry_omarchy_cargo_stat.stat.exists
+
+    - name: "Clone/update the pinentry-omarchy repo ({{ pinentry_omarchy_ref }})"
+      ansible.builtin.git:
+        repo: "{{ pinentry_omarchy_repo }}"
+        dest: "{{ pinentry_omarchy_checkout_dir }}"
+        version: "{{ pinentry_omarchy_ref }}"
+        force: false
+      register: pinentry_omarchy_git_result
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: pacman -Q pinentry-omarchy
+      register: pinentry_omarchy_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Build and install the package
+      when: pinentry_omarchy_git_result.changed or pinentry_omarchy_installed.rc != 0
+      block:
+        - name: Build the package (makepkg)
+          ansible.builtin.command:
+            cmd: makepkg -f --nodeps --noconfirm
+            chdir: "{{ pinentry_omarchy_checkout_dir }}/packaging"
+          environment: "{{ pinentry_omarchy_cargo_env }}"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ pinentry_omarchy_checkout_dir }}/packaging"
+          register: pinentry_omarchy_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ pinentry_omarchy_packagelist.stdout_lines | first }}"
+            state: present
+          become: true
+          register: pinentry_omarchy_package_result
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ pinentry_omarchy_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ pinentry_omarchy_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ pinentry_omarchy_plugin_dir }}"
+        dest: "{{ pinentry_omarchy_plugin_link }}"
+        state: link
+        force: true
+      register: pinentry_omarchy_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ pinentry_omarchy_shell_json }}"
+      register: pinentry_omarchy_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        pinentry_omarchy_plugin_enabled: >-
+          {{ (pinentry_omarchy_shell_json_raw.content is defined)
+             and (((pinentry_omarchy_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', pinentry_omarchy_plugin_id) | list | length > 0) }}
+
+    - name: "Enable the {{ pinentry_omarchy_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ pinentry_omarchy_plugin_id }}", "{}"]
+      register: pinentry_omarchy_enable_result
+      failed_when: pinentry_omarchy_enable_result.rc != 0 or pinentry_omarchy_enable_result.stdout | trim != 'ok'
+      when: not pinentry_omarchy_plugin_enabled
+
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        (pinentry_omarchy_package_result is changed or pinentry_omarchy_link_result is changed)
+        and pinentry_omarchy_enable_result is skipped
+      changed_when: true
+
+    - name: Create ~/.gnupg
+      ansible.builtin.file:
+        path: "{{ pinentry_omarchy_gpg_agent_conf | dirname }}"
+        state: directory
+        mode: "0700"
+
+    - name: "Use pinentry-omarchy in gpg-agent ({{ pinentry_omarchy_gpg_agent_conf }})"
+      ansible.builtin.lineinfile:
+        path: "{{ pinentry_omarchy_gpg_agent_conf }}"
+        regexp: '^\s*pinentry-program\s'
+        line: "pinentry-program {{ pinentry_omarchy_program }}"
+        create: true
+        mode: "0600"
+      register: pinentry_omarchy_agent_conf_result
+
+    - name: Reload gpg-agent
+      ansible.builtin.command: gpgconf --reload gpg-agent
+      when: pinentry_omarchy_agent_conf_result.changed or pinentry_omarchy_package_result is changed
+      changed_when: true

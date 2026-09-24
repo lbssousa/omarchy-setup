@@ -115,6 +115,22 @@ gregorio_lsp_binaries:
   - grelint
   - grefmt
 
+# pinentry-omarchy (playbooks/pinentry.yml) — GnuPG prompts in the
+# polkit-style omarchy-shell dialog. Built as an Arch package from the
+# repo's own packaging/PKGBUILD with rustup's cargo.
+pinentry_omarchy_repo: https://github.com/lbssousa/pinentry-omarchy.git
+pinentry_omarchy_ref: main
+pinentry_omarchy_checkout_dir: "{{ ansible_facts.env.HOME }}/src/pinentry-omarchy"
+pinentry_omarchy_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
+pinentry_omarchy_program: /usr/bin/pinentry-omarchy
+# Third-party shell plugin ids may not start with "omarchy." (reserved for
+# first-party plugins by the shell's PluginRegistry).
+pinentry_omarchy_plugin_id: lbssousa.pinentry
+pinentry_omarchy_plugin_dir: /usr/share/pinentry-omarchy/plugin
+pinentry_omarchy_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ pinentry_omarchy_plugin_id }}"
+pinentry_omarchy_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
+pinentry_omarchy_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
+
 # LazyVim (playbooks/lazyvim.yml) — Omarchy's default Neovim distro,
 # already installed at ~/.config/nvim; this only adds the LaTeX language
 # extra and a personal plugin on top of it.

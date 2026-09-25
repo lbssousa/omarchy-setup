@@ -9,14 +9,16 @@
 # the host manually, since the container doesn't share /usr with the
 # host (only $HOME).
 #
-# The driver's SIGFM matcher needs OpenCV. The build container
-# (playbooks/files/libfprint-build.ini) deliberately has no opencv
-# package, so meson.build's pkg-config lookup (opencv4, then opencv5)
-# always misses and it falls back to vendoring the small OpenCV subset
-# it needs from upstream source, built statically via cmake — no
-# external opencv runtime dependency on the host, only the build-time
-# ones (cmake, already-present curl/tar/sha256sum for the source
-# fetch).
+# The driver's SIGFM matcher is self-contained C since
+# v1.94.10-goodix538d.2 (earlier builds vendored and statically linked
+# an OpenCV subset through cmake), so the build needs nothing beyond
+# the regular libfprint toolchain.
+#
+# The driver learns the sensor's fixed pattern from enrollment sessions
+# and keeps it in fprintd's state directory
+# (/var/lib/fprint/goodixtls53xd-fpn.bin); enroll at least 2 fingers so
+# each one is calibrated from the others. Prints enrolled with builds
+# before v1.94.10-goodix538d.2 are refused and must be re-enrolled.
 #
 # fprintd.service gets an LD_LIBRARY_PATH drop-in pointing at
 # /usr/local/lib, since the official fprintd package already depends on

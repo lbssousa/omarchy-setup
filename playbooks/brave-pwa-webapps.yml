@@ -1,0 +1,132 @@
+# Convert Omarchy's preinstalled web apps into Brave Origin PWAs, each
+# opening in its own Brave container — driven by brave_pwa_webapps in
+# group_vars/all/main.yml — and drop the leftover Firefox Taskbar Tab web
+# app shortcuts (playbooks/taskbar-tab-webapps.yml, removed) now that
+# Firefox is no longer where web apps live (see playbooks/firefox.yml,
+# still installed and untouched — only its web app shortcuts move here).
+#
+# Brave containers (brave.containers in its Preferences) are a runtime
+# feature with no CLI to create one — hamburger menu → Containers → New —
+# so this playbook only ever looks one up by name; it never creates one.
+#
+# App ids are Brave-assigned at install time (not predictable up front,
+# unlike Firefox's Taskbar Tabs where this repo generates the id itself):
+# each entry in brave_pwa_webapps force-installs its url via the
+# WebAppInstallForceList machine policy
+# (/etc/brave/policies/managed/omarchy-setup-webapps.json), which needs
+# root (this playbook needs `./run-empowered.sh`, unlike the old
+# taskbar-tab-webapps.yml). Brave (already running or not — the policy
+# loader watches that directory live) force-installs the app and, because
+# the policy also asks for a desktop shortcut, drops one this playbook
+# reads the app id from (tasks/brave-pwa-webapp-swap.yml) and then
+# deletes, replacing it with the repo's own launcher pointed at the
+# right container via `--container=`.
+#
+# Usage: ./run-empowered.sh ansible-playbook playbooks/brave-pwa-webapps.yml
+# (or `just brave-pwa-webapps`). Not part of `just setup` — like the
+# taskbar-tab-webapps.yml it replaces, this reflects a personal container
+# layout, not a fresh-install default.
+- name: Brave PWAs replacing Omarchy preinstalled web apps
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [brave-pwa-webapps]
+
+  pre_tasks:
+    - name: Check whether Brave has been run at least once
+      ansible.builtin.stat:
+        path: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
+      register: brave_prefs_stat
+      tags: [brave-pwa-webapps]
+
+    - name: Fail with guidance if Brave hasn't been run yet
+      ansible.builtin.fail:
+        msg: >-
+          ~/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences
+          not found. Open Brave at least once first (and create every
+          container named in brave_pwa_webapps — hamburger menu →
+          Containers → New), then rerun.
+      when: not brave_prefs_stat.stat.exists
+      tags: [brave-pwa-webapps]
+
+    - name: Read Brave's Preferences
+      ansible.builtin.slurp:
+        src: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
+      register: brave_prefs_raw
+      tags: [brave-pwa-webapps]
+
+    - name: Extract the configured Brave containers
+      ansible.builtin.set_fact:
+        brave_containers: "{{ (brave_prefs_raw.content | b64decode | from_json).get('brave', {}).get('containers', {}).get('list', []) }}"
+      tags: [brave-pwa-webapps]
+
+    - name: Ensure /etc/brave/policies/managed exists
+      ansible.builtin.file:
+        path: /etc/brave/policies/managed
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+      tags: [brave-pwa-webapps]
+
+    - name: Force-install every configured Brave PWA via machine policy
+      ansible.builtin.copy:
+        dest: /etc/brave/policies/managed/omarchy-setup-webapps.json
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          {
+            "WebAppInstallForceList": [
+          {% for webapp in brave_pwa_webapps %}
+              {
+                "url": {{ webapp.url | to_json }},
+                "default_launch_container": "window",
+                "create_desktop_shortcut": true
+              }{{ "," if not loop.last else "" }}
+          {% endfor %}
+            ]
+          }
+      become: true
+      tags: [brave-pwa-webapps]
+
+  tasks:
+    - name: Swap each configured web app
+      ansible.builtin.include_tasks: tasks/brave-pwa-webapp-swap.yml
+      loop: "{{ brave_pwa_webapps }}"
+      loop_control:
+        loop_var: webapp
+        label: "{{ webapp.name }}"
+      tags: [brave-pwa-webapps]
+
+    - name: Find leftover Firefox web app shortcuts
+      ansible.builtin.find:
+        paths: "{{ ansible_facts.env.HOME }}/.local/share/applications"
+        patterns: "firefox.webapp-*.desktop"
+      register: firefox_webapp_shortcuts
+      tags: [brave-pwa-webapps]
+
+    - name: Remove leftover Firefox web app shortcuts
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ firefox_webapp_shortcuts.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      tags: [brave-pwa-webapps]
+
+    - name: Refresh the desktop database
+      ansible.builtin.command: update-desktop-database "{{ ansible_facts.env.HOME }}/.local/share/applications"
+      changed_when: false
+      failed_when: false
+      tags: [brave-pwa-webapps]
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the bind
+      # still applies on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland

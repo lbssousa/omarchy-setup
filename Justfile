@@ -36,6 +36,14 @@ polkit: _ensure-collections
 firefox: _ensure-collections
     {{ap}} site.yml --tags firefox
 
+# Convert Omarchy's preinstalled web apps (brave_pwa_webapps in
+# group_vars/all/main.yml) into Brave Origin PWAs, each opening in its own
+# Brave container, and drop the leftover Firefox Taskbar Tab web app
+# shortcuts. Needs root (writes /etc/brave/policies/managed). Every
+# container named in brave_pwa_webapps must already exist in Brave.
+brave-pwa-webapps: _ensure-collections
+    {{ap}} playbooks/brave-pwa-webapps.yml
+
 # Install Zed (Omarchy theme integration), set every font size to 25px
 # and the buffer font to JetBrainsMono Nerd Font.
 zed: _ensure-collections

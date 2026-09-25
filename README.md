@@ -16,21 +16,24 @@ have an umbrella tag for the whole file (`containers`, `snap`, `desktop`,
 `tex`, `yubikey`). Exceptions:
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
 `playbooks/apparmor.yml`, `playbooks/keepassxc.yml`, `playbooks/bitwarden.yml`,
-`playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio) and
-`playbooks/yubikey.yml` are **not**
+`playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio),
+`playbooks/yubikey.yml` and `playbooks/brave-pwa-webapps.yml` are **not**
 imported by `site.yml` — Secure Boot, the
 BGRT boot theme and AppArmor touch firmware/boot, KeePassXC, Bitwarden and
 Proton Pass are three alternative password managers (install whichever one
 you want — none of them is the default), TeX Live (+ Gregorio, which
-depends on it) is a long download/install you run on demand, and the
-Yubikey helpers need the physical token plugged in — so they only run when
-called explicitly.
+depends on it) is a long download/install you run on demand, the
+Yubikey helpers need the physical token plugged in, and each
+`brave_pwa_webapps` entry reflects a personal container layout over
+Omarchy's default (its container has to already exist in Brave) — so they
+only run when called explicitly.
 
 ## What it sets up
 
 | Automation | Tag | What it does |
 |---|---|---|
 | Firefox | `firefox` | Installs Firefox and enables tab apps (Taskbar Tabs), off by default on Linux. Runs before pt-BR localization. |
+| Brave PWA web apps | `brave-pwa-webapps` | `brave_pwa_webapps` in `group_vars/all/main.yml` (currently WhatsApp, Microsoft Teams and YouTube) force-installs each url as a Brave web app via the `WebAppInstallForceList` machine policy, discovers the app id Brave assigns it, then overwrites the matching Omarchy web app launcher to open that app id inside `container_name` (`--app-id=... --container=...`) and rebinds its Hyprland keybind to it — see `playbooks/tasks/brave-pwa-webapp-swap.yml`. Each `container_name` must already exist as a Brave container (hamburger menu → Containers → New — no CLI to create one). Needs root; not part of `just setup`. |
 | Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 25px and the buffer font to JetBrainsMono Nerd Font, and sets `use_podman` so Dev Containers use Podman instead of Docker. |
 | gregorio-lsp | `gregorio-lsp` | Installs Rust (`omarchy install dev-env rust`) if needed, then builds and installs the `gregorio-lsp`, `grelint` and `grefmt` binaries from source. |
 | PDF viewer | `pdf-viewer` | Installs Zathura (+ MuPDF backend) as the default PDF viewer and Papers as an extra, non-default viewer. Evince stays installed since Nautilus's sushi previewer depends on it. |
@@ -152,6 +155,7 @@ just apparmor-profiles  # same + apparmor.service loading /etc/apparmor.d's prof
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
 just ssh-yubikey   # needs the Yubikey plugged in
+just brave-pwa-webapps  # needs root; each container must already exist in Brave
 ```
 
 ## Structure
@@ -163,6 +167,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `site.yml` | Index: imports each `playbooks/*.yml` with its tag |
 | `playbooks/polkit.yml` | polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent no longer enabled by default) (tag `polkit`) |
 | `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
+| `playbooks/brave-pwa-webapps.yml` | Swap Omarchy preinstalled web apps for Brave PWAs opening in their own container — outside `site.yml` (tag `brave-pwa-webapps`) |
 | `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
 | `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
 | `playbooks/pdf-viewer.yml` | Zathura default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |

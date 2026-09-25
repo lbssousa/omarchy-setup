@@ -16,6 +16,52 @@ firefox_package: firefox
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
 
+# Brave Origin PWAs replacing Omarchy's preinstalled web apps
+# (playbooks/brave-pwa-webapps.yml, tasks/brave-pwa-webapp-swap.yml).
+# Each entry force-installs url as a Brave web app via the
+# WebAppInstallForceList machine policy
+# (/etc/brave/policies/managed/omarchy-setup-webapps.json — needs root),
+# discovers the app id Brave assigns it, then overwrites the Omarchy web
+# app launcher named name (~/.local/share/applications/<name>.desktop —
+# preinstalled or `omarchy webapp install`ed, both work) to launch that
+# app id inside container_name via `--app-id=... --container=...`, and
+# rebinds hypr_keybind to it. container_name must already exist as a
+# Brave container (hamburger menu → Containers → New — no CLI to create
+# one) before this runs.
+# /usr/bin/brave-origin, NOT /opt/brave-origin-bin/brave-origin directly —
+# the /usr/bin wrapper reads ~/.config/brave-origin-flags.conf, which is
+# what turns on --enable-features=...Containers; skip it and --container=
+# below silently no-ops (confirmed 2026-09-24: the window still opens,
+# just with no per-container storage partition created at all).
+brave_binary: /usr/bin/brave-origin
+brave_profile_dir: Brave-Origin
+brave_profile_directory: Default
+# name doesn't need a preexisting Omarchy launcher to swap out — Microsoft
+# Teams has none, and omarchy-webapp-install creates
+# ~/.local/share/applications/<name>.desktop from scratch just as happily
+# as it overwrites an existing one. icon: "" lets omarchy-webapp-install
+# fetch the site's own favicon instead of using a bundled Omarchy icon
+# name (there isn't one for Teams).
+brave_pwa_webapps:
+  - name: WhatsApp
+    url: "https://web.whatsapp.com/"
+    icon: whatsapp
+    container_name: Meta
+    hypr_keybind: "SUPER + SHIFT + ALT + G"
+    hypr_description: "WhatsApp"
+  - name: Microsoft Teams
+    url: "https://teams.cloud.microsoft/"
+    icon: ""
+    container_name: Microsoft
+    hypr_keybind: "SUPER + SHIFT + ALT + T"
+    hypr_description: "Microsoft Teams"
+  - name: YouTube
+    url: "https://www.youtube.com/"
+    icon: youtube
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + Y"
+    hypr_description: "YouTube"
+
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
 zed_package: zed

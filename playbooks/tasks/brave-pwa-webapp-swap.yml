@@ -1,0 +1,141 @@
+# One PWA swap — looped by playbooks/brave-pwa-webapps.yml
+# (brave_pwa_webapps), var `webapp`. Needs `brave_containers` (set by the
+# parent play) already in scope.
+#
+# `tags: [brave-pwa-webapps]` is repeated on every task here, not just on
+# the include_tasks call — a looped include_tasks with a tag only on the
+# call itself silently skips every inner task under --tags without any
+# warning (see tasks/ptbr-chromium-family-browser.yml).
+- name: "[{{ webapp.name }}] Fail if the {{ webapp.container_name }} container doesn't exist"
+  ansible.builtin.fail:
+    msg: >-
+      No Brave container named "{{ webapp.container_name }}" found in
+      {{ ansible_facts.env.HOME }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences.
+      Create it first (Brave → hamburger menu → Containers → New — there's
+      no CLI to create one), then rerun.
+  when: webapp.container_name not in (brave_containers | map(attribute='name') | list)
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Clear any app id left over from a previous webapp in this loop"
+  ansible.builtin.set_fact:
+    brave_webapp_app_id: ""
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Check for an already-configured launcher"
+  ansible.builtin.stat:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"
+  register: brave_webapp_existing_launcher
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Read its Exec line, if present"
+  ansible.builtin.command:
+    argv: [grep, -m1, "^Exec=", "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"]
+  register: brave_webapp_existing_exec
+  changed_when: false
+  failed_when: false
+  when: brave_webapp_existing_launcher.stat.exists
+  tags: [brave-pwa-webapps]
+
+# Only trust an existing launcher's app id if it already points at THIS
+# container — a launcher left over from a previous container_name (or from
+# the plain omarchy-launch-webapp default) must not short-circuit
+# discovery below.
+- name: "[{{ webapp.name }}] Reuse the app id already in place, if it already targets {{ webapp.container_name }}"
+  ansible.builtin.set_fact:
+    brave_webapp_app_id: "{{ brave_webapp_existing_exec.stdout | regex_replace('.*--app-id=([a-z]+).*', '\\1') }}"
+  when:
+    - brave_webapp_existing_launcher.stat.exists
+    - brave_webapp_existing_exec.stdout is defined
+    - "'--app-id=' in brave_webapp_existing_exec.stdout"
+    - "('--container=' ~ webapp.container_name) in brave_webapp_existing_exec.stdout"
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Discover the Brave-assigned app id"
+  when: brave_webapp_app_id | length == 0
+  tags: [brave-pwa-webapps]
+  block:
+    - name: "[{{ webapp.name }}] Wait for Brave to force-install {{ webapp.url }} and create its own shortcut"
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -il "^Name={{ webapp.manifest_hint | default(webapp.name) }}" "{{ ansible_facts.env.HOME }}"/.local/share/applications/brave-*-{{ brave_profile_directory }}.desktop 2>/dev/null | head -1
+      args:
+        executable: /bin/bash
+      register: brave_webapp_discovered_file
+      changed_when: false
+      until: brave_webapp_discovered_file.stdout | length > 0
+      retries: 30
+      delay: 2
+      tags: [brave-pwa-webapps]
+
+    - name: "[{{ webapp.name }}] Extract the app id from the discovered shortcut"
+      ansible.builtin.set_fact:
+        brave_webapp_app_id: "{{ brave_webapp_discovered_file.stdout | basename | regex_replace('^brave-(.*)-' ~ brave_profile_directory ~ '\\.desktop$', '\\1') }}"
+      tags: [brave-pwa-webapps]
+
+# Brave's own shortcut never carries --container= (that's this repo's
+# addition, applied below) — drop it so it doesn't sit alongside our own
+# launcher as a second, container-less way to open the same app. Brave can
+# recreate this shortcut on its own (e.g. when it re-syncs the policy
+# after an unrelated file in the managed policy directory changes), so
+# this runs unconditionally every time, by the now-known app id, rather
+# than only right after discovery.
+- name: "[{{ webapp.name }}] Remove Brave's own auto-generated shortcut, if present"
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.desktop"
+    state: absent
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Remove Brave's own auto-generated icon, if present"
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/icons/hicolor/256x256/apps/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.png"
+    state: absent
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Install/refresh the container-aware launcher"
+  ansible.builtin.command:
+    argv:
+      - omarchy-webapp-install
+      - "{{ webapp.name }}"
+      - "{{ webapp.url }}"
+      - "{{ webapp.icon }}"
+      - "{{ brave_binary }} --profile-directory={{ brave_profile_directory }} --app-id={{ brave_webapp_app_id }} --container={{ webapp.container_name }}"
+  changed_when: true
+  tags: [brave-pwa-webapps]
+
+# omarchy-webapp-install has no StartupWMClass parameter — add it after
+# the fact so window managers/taskbars that group by it (not just this
+# playbook's own Hyprland `focus` regex below) recognize the window,
+# matching what Brave's own generated shortcut sets for the same app id.
+- name: "[{{ webapp.name }}] Set StartupWMClass on the launcher"
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"
+    regexp: "^StartupWMClass="
+    line: "StartupWMClass=crx_{{ brave_webapp_app_id }}"
+    insertafter: "^Icon="
+  tags: [brave-pwa-webapps]
+
+- name: Create ~/.config/hypr
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+    state: directory
+    mode: "0755"
+  tags: [brave-pwa-webapps]
+
+- name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+  ansible.builtin.copy:
+    src: /usr/share/omarchy/default/hypr/bindings.lua
+    dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+    remote_src: true
+    force: false
+    mode: "0644"
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Rebind {{ webapp.hypr_keybind }} to the {{ webapp.name }} Brave PWA (container: {{ webapp.container_name }})"
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+    marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/brave-pwa-webapps.yml — {{ webapp.hypr_description }} keybinding)"
+    block: |
+      hl.unbind("{{ webapp.hypr_keybind }}")
+      o.bind("{{ webapp.hypr_keybind }}", "{{ webapp.hypr_description }}", { launch = "gtk-launch \"{{ webapp.name }}\"", focus = "^brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}$" })
+  notify: reload Hyprland
+  tags: [brave-pwa-webapps]

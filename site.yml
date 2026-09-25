@@ -11,6 +11,14 @@
   ansible.builtin.import_playbook: playbooks/firefox.yml
   tags: [firefox]
 
+- name: Brave
+  ansible.builtin.import_playbook: playbooks/brave.yml
+  tags: [brave]
+
+- name: Default browser (Flathub-aware wrapper)
+  ansible.builtin.import_playbook: playbooks/default-browser.yml
+  tags: [default-browser]
+
 - name: Zed editor
   ansible.builtin.import_playbook: playbooks/zed.yml
   tags: [zed]

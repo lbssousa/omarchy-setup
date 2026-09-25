@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Managed by omarchy-setup (playbooks/default-browser.yml).
+#
+# Replaces SUPER+SHIFT+RETURN's default `{ omarchy = "browser" }` binding.
+# omarchy-launch-browser (/usr/share/omarchy/bin) resolves the command to
+# run by taking only the first whitespace-separated token of the default
+# browser's Exec= line — correct for a native binary's Exec (e.g.
+# "firefox %u"), but Flatpak's exported Exec is
+# "/usr/bin/flatpak run --branch=... com.brave.Browser ...", so that
+# lookup yields just "/usr/bin/flatpak" with the "run <app-id>" arguments
+# discarded — flatpak with no subcommand, which errors. Firefox and Brave
+# are both installed via Flatpak here (playbooks/firefox.yml,
+# playbooks/brave.yml), so this reimplements just enough of
+# omarchy-launch-browser to launch them correctly, falling back to the
+# Omarchy original for anything else xdg-settings might point at.
+set -euo pipefail
+
+default_browser=$(env -u BROWSER xdg-settings get default-web-browser)
+
+case "$default_browser" in
+{{ firefox_flatpak_id }}.desktop) flatpak_id="{{ firefox_flatpak_id }}"; private_flag="--private-window" ;;
+{{ brave_flatpak_id }}.desktop) flatpak_id="{{ brave_flatpak_id }}"; private_flag="--incognito" ;;
+*) exec /usr/share/omarchy/bin/omarchy-launch-browser "$@" ;;
+esac
+
+systemd-run --user --quiet --collect --unit="omarchy-browser-$(date +%s%N)" \
+  --property=StandardOutput=null --property=StandardError=null \
+  uwsm-app -- flatpak run "$flatpak_id" "${@/--private/$private_flag}"

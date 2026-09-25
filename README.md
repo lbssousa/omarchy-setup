@@ -17,23 +17,23 @@ have an umbrella tag for the whole file (`containers`, `snap`, `desktop`,
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
 `playbooks/apparmor.yml`, `playbooks/keepassxc.yml`, `playbooks/bitwarden.yml`,
 `playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio),
-`playbooks/yubikey.yml` and `playbooks/brave-pwa-webapps.yml` are **not**
+`playbooks/yubikey.yml` are **not**
 imported by `site.yml` — Secure Boot, the
 BGRT boot theme and AppArmor touch firmware/boot, KeePassXC, Bitwarden and
 Proton Pass are three alternative password managers (install whichever one
 you want — none of them is the default), TeX Live (+ Gregorio, which
-depends on it) is a long download/install you run on demand, the
-Yubikey helpers need the physical token plugged in, and each
-`brave_pwa_webapps` entry reflects a personal container layout over
-Omarchy's default (its container has to already exist in Brave) — so they
-only run when called explicitly.
+depends on it) is a long download/install you run on demand, and the
+Yubikey helpers need the physical token plugged in — so they only run
+when called explicitly.
 
 ## What it sets up
 
 | Automation | Tag | What it does |
 |---|---|---|
-| Firefox | `firefox` | Installs Firefox and enables tab apps (Taskbar Tabs), off by default on Linux. Runs before pt-BR localization. |
-| Brave PWA web apps | `brave-pwa-webapps` | `brave_pwa_webapps` in `group_vars/all/main.yml` (currently WhatsApp, Microsoft Teams and YouTube) force-installs each url as a Brave web app via the `WebAppInstallForceList` machine policy, discovers the app id Brave assigns it, then overwrites the matching Omarchy web app launcher to open that app id inside `container_name` (`--app-id=... --container=...`) and rebinds its Hyprland keybind to it — see `playbooks/tasks/brave-pwa-webapp-swap.yml`. Each `container_name` must already exist as a Brave container (hamburger menu → Containers → New — no CLI to create one). Needs root; not part of `just setup`. |
+| Firefox | `firefox` | Installs Firefox from Flathub (bundles every locale, so pt-BR localization doesn't need a separate language pack for it) and enables tab apps (Taskbar Tabs), off by default on Linux. Bootstraps Flatpak + the Flathub remote itself. Runs before pt-BR localization. |
+| Brave | `brave` | Installs Brave from Flathub, replacing the AUR `brave-origin-bin` package (uninstalled) that used to drive the Brave PWA web app swap (removed — see git history). Bootstraps Flatpak + the Flathub remote itself. Also removes the leftover `/etc/brave/policies/managed/omarchy-setup-webapps.json` and old `WhatsApp`/`Microsoft Teams`/`YouTube` launcher files that swap wrote. |
+| Brave PWA `.desktop` fixup | `brave-pwa-desktop-fix` | Fixes the `.desktop` files Brave's Flatpak PWA installer itself writes (`com.brave.Browser.flextop.brave-*.desktop`): shell-style quotes and an unescaped `?` in `Exec=` that violate the freedesktop.org spec, a missing `StartupNotify`, and a `StartupWMClass` in the wrong format for Wayland window matching (`crx_<id>` instead of `brave-<id>-<profile>`) — see `playbooks/files/fix-brave-pwa-desktop`. Also installs a systemd `--user` path unit that reruns the fix automatically whenever Brave installs or updates a PWA. Runs as part of `brave`; also has its own tag to rerun on its own. No root needed. |
+| Default browser | `default-browser` | Deploys `~/.local/bin/omarchy-setup-default-browser` (`<firefox\|brave>`), a stand-in for `omarchy default browser` for these two: that tool's desktop-entry table only has the native package ids (`firefox.desktop`, `brave-browser.desktop`), not the ones Flathub's builds export (`org.mozilla.firefox.desktop`, `com.brave.Browser.desktop`), so it points `xdg-settings` at a desktop file that doesn't exist. Also fixes Omarchy's default-browser keybinds (`SUPER+SHIFT+RETURN`/`B`/`ALT+B`), which fail the same way for both Flathub browsers (desktop entry not found, and even when found, `flatpak run <id>` gets truncated to bare `flatpak`): symlinks the Flatpak-exported `.desktop` files into `~/.local/share/applications`, deploys `~/.local/bin/omarchy-setup-launch-browser`, and rebinds the three keys to it. No root needed. |
 | Zed editor | `zed` | Installs Zed + omazed (Omarchy theme integration), sets every font size (UI, buffer, agent, terminal) to 25px and the buffer font to JetBrainsMono Nerd Font, and sets `use_podman` so Dev Containers use Podman instead of Docker. |
 | gregorio-lsp | `gregorio-lsp` | Installs Rust (`omarchy install dev-env rust`) if needed, then builds and installs the `gregorio-lsp`, `grelint` and `grefmt` binaries from source. |
 | PDF viewer | `pdf-viewer` | Installs Zathura (+ MuPDF backend) as the default PDF viewer and Papers as an extra, non-default viewer. Evince stays installed since Nautilus's sushi previewer depends on it. |
@@ -155,7 +155,6 @@ just apparmor-profiles  # same + apparmor.service loading /etc/apparmor.d's prof
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
 just ssh-yubikey   # needs the Yubikey plugged in
-just brave-pwa-webapps  # needs root; each container must already exist in Brave
 ```
 
 ## Structure
@@ -166,8 +165,9 @@ just brave-pwa-webapps  # needs root; each container must already exist in Brave
 | `run-empowered.sh` | Runs ansible-playbook under `run0 --empower`: one polkit authentication, then privileged tasks pass (see *Privilege* above) |
 | `site.yml` | Index: imports each `playbooks/*.yml` with its tag |
 | `playbooks/polkit.yml` | polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent no longer enabled by default) (tag `polkit`) |
-| `playbooks/firefox.yml` | Firefox + tab apps (tag `firefox`) |
-| `playbooks/brave-pwa-webapps.yml` | Swap Omarchy preinstalled web apps for Brave PWAs opening in their own container — outside `site.yml` (tag `brave-pwa-webapps`) |
+| `playbooks/firefox.yml` | Firefox (Flathub) + tab apps (tag `firefox`) |
+| `playbooks/brave.yml` | Brave (Flathub), replacing AUR `brave-origin-bin`, + the PWA `.desktop` fixup (tags `brave`, `brave-pwa-desktop-fix`) |
+| `playbooks/default-browser.yml` | `omarchy-setup-default-browser`/`omarchy-setup-launch-browser` wrappers + keybind fix for Firefox/Brave (tag `default-browser`) |
 | `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
 | `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
 | `playbooks/pdf-viewer.yml` | Zathura default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
@@ -175,7 +175,7 @@ just brave-pwa-webapps  # needs root; each container must already exist in Brave
 | `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/keepassxc.yml` | OpenSSH agent (tag `ssh-agent`) + KeePassXC + Qt5 Wayland plugin + XDG autostart — optional password manager, outside `site.yml` (tag `keepassxc`) |
-| `playbooks/bitwarden.yml` | Bitwarden — optional password manager, outside `site.yml` (tag `bitwarden`) |
+| `playbooks/bitwarden.yml` | Bitwarden (Flatpak, `com.bitwarden.desktop`), its SSH agent wired to `SSH_AUTH_SOCK`, and the polkit action biometric unlock needs — optional password manager, outside `site.yml` (tag `bitwarden`) |
 | `playbooks/proton-pass.yml` | Proton Pass desktop (Flatpak, `me.proton.Pass`) + CLI (Homebrew, `proton-pass-cli`), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
 | `playbooks/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |

@@ -8,9 +8,11 @@
 #     (~/Downloads, etc.) to their pt-BR translations, only for folders
 #     that are already enabled. Also fixes any file-manager sidebar
 #     bookmark still pointing at the old English path/label.
-#   - Firefox (ptbr-firefox): installs the pt-BR language pack and forces
-#     RequestedLocale via policies.json, since a profile created before
-#     LANG was pt_BR never renegotiates its language on its own.
+#   - Firefox (ptbr-firefox): forces RequestedLocale via policies.json,
+#     since a profile created before LANG was pt_BR never renegotiates
+#     its language on its own. No separate language pack to install —
+#     Firefox comes from Flathub (playbooks/firefox.yml), whose build
+#     already bundles every locale.
 #   - Chromium and variants (ptbr-chromium): fixes each browser's
 #     Preferences (intl.accept_languages), which controls the page
 #     language web apps like WhatsApp Web see — frozen at en-US since
@@ -135,24 +137,33 @@
           when: item.1.item.default != item.1.item.translated
       tags: [ptbr-xdg-user-dirs]
 
-    - name: Firefox pt-BR language pack
+    - name: Firefox locale (RequestedLocale — no separate language pack needed on Flathub's build)
       block:
-        - name: Check whether Firefox is installed
-          ansible.builtin.command: pacman -Q firefox
+        - name: Check whether Firefox (Flathub) is installed
+          ansible.builtin.command: "flatpak info --show-ref {{ firefox_flatpak_id }}"
           register: firefox_check
           changed_when: false
           failed_when: false
 
-        - name: Install the Firefox pt-BR language pack
-          community.general.pacman:
-            name: "{{ ptbr_firefox_i18n_package }}"
-            state: present
+        - name: Look up the arch/branch of the installed Firefox flatpak
+          vars:
+            ref_parts: "{{ firefox_check.stdout_lines[0].split('/') }}"
+          ansible.builtin.set_fact:
+            firefox_flatpak_arch: "{{ ref_parts[2] }}"
+            firefox_flatpak_branch: "{{ ref_parts[3] }}"
+          when: firefox_check.rc == 0
+
+        - name: Ensure the systemconfig extension's policies directory exists
+          ansible.builtin.file:
+            path: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/policies"
+            state: directory
+            mode: "0755"
           become: true
           when: firefox_check.rc == 0
 
         - name: Check whether Firefox's policies.json already exists
           ansible.builtin.stat:
-            path: /usr/lib/firefox/distribution/policies.json
+            path: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/policies/policies.json"
           register: firefox_policies_stat
           when: firefox_check.rc == 0
 
@@ -163,7 +174,7 @@
               ansible.builtin.set_fact:
                 firefox_policies_current: >-
                   {{
-                    (lookup('file', '/usr/lib/firefox/distribution/policies.json') | from_json)
+                    (lookup('file', '/var/lib/flatpak/extension/' + firefox_systemconfig_extension + '/' + firefox_flatpak_arch + '/' + firefox_flatpak_branch + '/policies/policies.json') | from_json)
                     if firefox_policies_stat.stat.exists
                     else {'policies': {}}
                   }}
@@ -175,7 +186,7 @@
             - name: Warn about the corrupted policies.json
               ansible.builtin.debug:
                 msg: >-
-                  /usr/lib/firefox/distribution/policies.json exists but
+                  The systemconfig extension's policies.json exists but
                   isn't valid JSON — treated as empty and will be
                   overwritten now. Any policy that only existed in that
                   file was lost.
@@ -188,16 +199,22 @@
                   | combine({'policies': {'RequestedLocale': ptbr_firefox_requested_locale}}, recursive=True)
                   | to_nice_json)
               }}
-            dest: /usr/lib/firefox/distribution/policies.json
+            dest: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/policies/policies.json"
             mode: "0644"
           become: true
           when: firefox_check.rc == 0
 
+        - name: Remove the leftover pacman Firefox policies.json, if present
+          ansible.builtin.file:
+            path: /usr/lib/firefox/distribution/policies.json
+            state: absent
+          become: true
+
         - name: Note that Firefox wasn't found (no action taken)
           ansible.builtin.debug:
             msg: >-
-              Firefox not found via pacman — {{ ptbr_firefox_i18n_package }}
-              not installed, policies.json untouched.
+              Firefox (Flathub) not found — policies.json untouched. Run
+              `just firefox` first.
           when: firefox_check.rc != 0
       tags: [ptbr-firefox]
 

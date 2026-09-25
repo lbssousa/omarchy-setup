@@ -1,0 +1,149 @@
+---
+# Installs Brave from Flathub (com.brave.Browser) — a stock,
+# Brave-maintained build available on any distro — replacing the AUR
+# brave-origin-bin package (a de-Googled fork this repo previously had
+# to track manually, driving playbooks/brave-pwa-webapps.yml, removed).
+#
+# Bootstraps Flatpak + the Flathub remote itself (same tasks as
+# playbooks/flatpak.yml, system-wide) so `just brave` keeps working
+# standalone, with no ordering dependency on that playbook — same
+# approach as playbooks/firefox.yml.
+#
+# Uninstalls brave-origin-bin and its leftover WebAppInstallForceList
+# policy (/etc/brave/policies/managed/omarchy-setup-webapps.json,
+# written by the now-removed playbooks/brave-pwa-webapps.yml). Doesn't
+# touch ~/.config/BraveSoftware/Brave-Origin (392MB+ of real profile
+# data as of 2026-09-25) — that's left in place in case anything still
+# needs it. Brave containers and PWAs that pointed at brave-origin had
+# to be recreated by hand in the new Flathub profile (done manually,
+# 2026-09-25) — not tracked by this repo, same as the Firefox Taskbar
+# Tabs web apps playbooks/brave-pwa-webapps.yml itself replaced.
+# Hyprland keybinds left over from that playbook (bindings.lua, marker
+# "playbooks/brave-pwa-webapps.yml — ... keybinding") now point at the
+# launcher names removed below — rebind those by hand too, same
+# precedent (see the Firefox Taskbar Tabs commit).
+#
+# The second play below fixes up the .desktop files the Flathub Brave
+# PWA installer itself writes (see
+# playbooks/files/fix-brave-pwa-desktop for the bugs).
+- name: Brave
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Ensure Flatpak is installed
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Brave from Flathub
+      community.general.flatpak:
+        name: "{{ brave_flatpak_id }}"
+        state: present
+        method: system
+      become: true
+
+    - name: Remove the AUR brave-origin-bin package, if present
+      community.general.pacman:
+        name: brave-origin-bin
+        state: absent
+      become: true
+
+    - name: Remove the leftover Brave web app force-install policy
+      ansible.builtin.file:
+        path: /etc/brave/policies/managed/omarchy-setup-webapps.json
+        state: absent
+      become: true
+
+    - name: Remove leftover brave-origin PWA launchers
+      # The fixed set playbooks/brave-pwa-webapps.yml used to create
+      # (see its removal commit) — the flatpak Brave PWA installer
+      # writes its own differently-named launchers instead (see the
+      # play below), so these are pure leftovers now.
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ item }}.desktop"
+        state: absent
+      loop:
+        - WhatsApp
+        - Microsoft Teams
+        - YouTube
+
+# Brave's Flatpak PWA installer ("flextop") writes .desktop files that
+# violate the freedesktop.org spec and are missing StartupNotify/have
+# the wrong StartupWMClass for Wayland window matching — see
+# playbooks/files/fix-brave-pwa-desktop for the four specific bugs. A
+# systemd --user path unit watches ~/.local/share/applications and
+# reruns the fix whenever Brave installs or updates a PWA; the fix
+# itself is idempotent, so repeated triggers (including the one caused
+# by the fix writing its own backup file into that same directory) are
+# harmless and self-limiting.
+- name: Brave Flatpak PWA .desktop fixup
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [brave, brave-pwa-desktop-fix]
+
+  tasks:
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+      tags: [brave, brave-pwa-desktop-fix]
+
+    - name: Deploy fix-brave-pwa-desktop
+      ansible.builtin.copy:
+        src: fix-brave-pwa-desktop
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-pwa-desktop"
+        mode: "0755"
+      tags: [brave, brave-pwa-desktop-fix]
+
+    - name: Create ~/.config/systemd/user
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        state: directory
+        mode: "0755"
+      tags: [brave, brave-pwa-desktop-fix]
+
+    - name: Install the fix-brave-pwa-desktop systemd --user units
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
+        mode: "0644"
+      loop:
+        - fix-brave-pwa-desktop.service
+        - fix-brave-pwa-desktop.path
+      notify: reload systemd --user
+      tags: [brave, brave-pwa-desktop-fix]
+
+    - name: Enable the fix-brave-pwa-desktop path unit
+      ansible.builtin.systemd:
+        name: fix-brave-pwa-desktop.path
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started
+      tags: [brave, brave-pwa-desktop-fix]
+
+    - name: Run fix-brave-pwa-desktop now
+      ansible.builtin.command: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-pwa-desktop"
+      register: fix_brave_pwa_desktop_result
+      changed_when: "fix_brave_pwa_desktop_result.stdout is search('Result: [1-9]')"
+      tags: [brave, brave-pwa-desktop-fix]
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user

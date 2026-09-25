@@ -1,31 +1,75 @@
 ---
-# Installs Firefox and enables "tab apps" (Taskbar Tabs — pin a site to
-# the taskbar as an app-like window), off by default on Linux even
-# though it's already stable and on by default on Windows.
+# Installs Firefox from Flathub (org.mozilla.firefox) rather than
+# pacman: the Flathub build bundles every locale itself, so no separate
+# firefox-i18n-<locale> package is needed (see playbooks/ptbr.yml,
+# which used to install one) — and enables "tab apps" (Taskbar Tabs —
+# pin a site to the taskbar as an app-like window), off by default on
+# Linux even though it's already stable and on by default on Windows.
+#
+# Bootstraps Flatpak + the Flathub remote itself (same tasks as
+# playbooks/flatpak.yml, system-wide) so `just firefox` keeps working
+# standalone, with no ordering dependency on that playbook.
 #
 # browser.taskbarTabs.enabled isn't in the fixed allowlist the
 # Preferences key in policies.json accepts, so it can't be set that way
 # (see policies.json's Firefox pt-BR block in playbooks/ptbr.yml, which
 # CAN use it for RequestedLocale). Instead, this drops a small
-# defaults/preferences/*.js file — the same mechanism the Arch package
-# itself uses for its own overrides (see vendor.js in the same
-# directory) — which only changes the *default* value: still visible
-# and user-overridable in about:config, and untouched by future Firefox
-# upgrades since it's a separate file from the package's own vendor.js.
+# defaults/pref/*.js file — which only changes the *default* value:
+# still visible and user-overridable in about:config, and untouched by
+# future Firefox upgrades. Because the Flatpak sandbox can't see the
+# host's /usr/lib/firefox, this has to go through the
+# org.mozilla.firefox.systemconfig extension directory instead (mounted
+# at /app/etc/firefox/defaults/pref inside the sandbox) rather than the
+# plain /usr/lib/firefox/browser/defaults/preferences path a
+# pacman-installed Firefox would use.
 #
 # Runs before playbooks/ptbr.yml (see site.yml) so that Firefox is
-# already installed by the time the pt-BR language pack step checks for
-# it.
+# already installed by the time the pt-BR RequestedLocale step checks
+# for it.
 - name: Firefox
   hosts: localhost
   connection: local
   gather_facts: false
 
   tasks:
-    - name: Install Firefox
+    - name: Ensure Flatpak is installed
       community.general.pacman:
-        name: "{{ firefox_package }}"
+        name: "{{ flatpak_package }}"
         state: present
+      become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Firefox from Flathub
+      community.general.flatpak:
+        name: "{{ firefox_flatpak_id }}"
+        state: present
+        method: system
+      become: true
+
+    - name: Look up the arch/branch of the installed Firefox flatpak
+      ansible.builtin.command: "flatpak info --show-ref {{ firefox_flatpak_id }}"
+      register: firefox_flatpak_ref
+      changed_when: false
+
+    - name: Parse the arch/branch out of the flatpak ref
+      vars:
+        ref_parts: "{{ firefox_flatpak_ref.stdout_lines[0].split('/') }}"
+      ansible.builtin.set_fact:
+        firefox_flatpak_arch: "{{ ref_parts[2] }}"
+        firefox_flatpak_branch: "{{ ref_parts[3] }}"
+
+    - name: Ensure the systemconfig extension's defaults/pref directory exists
+      ansible.builtin.file:
+        path: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/defaults/pref"
+        state: directory
+        mode: "0755"
       become: true
 
     - name: "Enable tab apps by default ({{ firefox_taskbar_tabs_pref_name }})"
@@ -35,6 +79,18 @@
           // Linux. Only flips the default; still user-overridable in
           // about:config.
           pref("{{ firefox_taskbar_tabs_pref_name }}", true);
-        dest: "{{ firefox_taskbar_tabs_pref_dest }}"
+        dest: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/defaults/pref/omarchy-setup.js"
         mode: "0644"
+      become: true
+
+    - name: Remove the leftover pacman Firefox install, if present
+      community.general.pacman:
+        name: firefox
+        state: absent
+      become: true
+
+    - name: Remove the leftover pacman Firefox tab-apps pref file
+      ansible.builtin.file:
+        path: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
+        state: absent
       become: true

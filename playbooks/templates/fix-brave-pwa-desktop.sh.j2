@@ -25,18 +25,48 @@
 #      the generic Brave icon/focus instead of the PWA's own.
 #      Fix: replaces StartupWMClass with the ID derived from the
 #      filename.
+#
+#   5. PWAs mapped in CONTAINER_MAP below (from brave_pwa_containers,
+#      keyed by the PWA's own Name=) don't open inside their intended
+#      Brave container (brave://settings/containers) — Brave's own PWA
+#      installer has no notion of containers, so it never adds
+#      --container=<name> to the Exec= it writes.
+#      Fix: appends --container=<name> to that Exec= line and to every
+#      jump-list Action's Exec= line, unless already present.
 set -euo pipefail
 
+declare -A CONTAINER_MAP=(
+{% for name, container in brave_pwa_containers.items() %}
+    [{{ name | to_json }}]={{ container | to_json }}
+{% endfor %}
+)
+
+{% raw %}
 APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 BACKUP_DIR="$APPS_DIR/.brave-pwa-backups"
 FIXED=0
 SKIPPED=0
 ERRORS=0
 
+container_for_file() {
+    local file="$1"
+    local name
+    name=$(sed -n 's/^Name=//p' "$file" | head -1)
+    printf '%s' "${CONTAINER_MAP[$name]:-}"
+}
+
 needs_fix() {
     local file="$1"
-    local flextop_id
+    local flextop_id container total matched
     flextop_id=$(basename "$file" .desktop | sed 's/^com\.brave\.Browser\.flextop\.//')
+    container=$(container_for_file "$file")
+
+    if [[ -n $container ]]; then
+        total=$(grep -c '^Exec=' "$file" || true)
+        matched=$(grep -Fc -- "--container=${container}" "$file" || true)
+        [[ $matched -lt $total ]] && return 0
+    fi
+
     grep -q "^Exec=.*'" "$file" 2>/dev/null \
         || grep -q "^Exec=.*[^\\\\]?" "$file" 2>/dev/null \
         || ! grep -q "^StartupNotify=" "$file" 2>/dev/null \
@@ -60,8 +90,9 @@ fix_file() {
     cp "$file" "$backup"
 
     local ok=true
-    local flextop_id
+    local flextop_id container
     flextop_id=$(basename "$file" .desktop | sed 's/^com\.brave\.Browser\.flextop\.//')
+    container=$(container_for_file "$file")
 
     # Fix 1: strip shell-style single quotes from all Exec= lines
     sed -i "/^Exec=/s/'//g" "$file" || ok=false
@@ -83,6 +114,16 @@ fix_file() {
     # "brave-hnp...-Default".
     if ! grep -q "^StartupWMClass=${flextop_id}$" "$file"; then
         sed -i "s/^StartupWMClass=.*/StartupWMClass=${flextop_id}/" "$file" || ok=false
+    fi
+
+    # Fix 5: append --container=<name> to every Exec= line lacking it
+    # (main launcher + jump-list Actions), for PWAs in CONTAINER_MAP.
+    if [[ -n $container ]]; then
+        local tmp="$file.tmp.$$"
+        awk -v c="$container" '
+            /^Exec=/ && index($0, "--container=" c) == 0 { $0 = $0 " --container=" c }
+            { print }
+        ' "$file" > "$tmp" && mv "$tmp" "$file" || ok=false
     fi
 
     if $ok; then
@@ -123,3 +164,4 @@ fi
 if [[ $ERRORS -gt 0 ]]; then
     exit 1
 fi
+{% endraw %}

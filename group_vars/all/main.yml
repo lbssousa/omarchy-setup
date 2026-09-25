@@ -28,6 +28,29 @@ firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 # Flatpak + the Flathub remote itself, same as playbooks/firefox.yml.
 brave_flatpak_id: com.brave.Browser
 
+# Brave's own Containers (brave://settings/containers, shipped in 1.92;
+# command-line support for --app-id PWA launches landed in 1.95.101 —
+# https://github.com/brave/brave-browser/issues/58019) is the mainline
+# replacement for the --container flag brave-origin-bin used to accept,
+# and for the isolation the Firefox Multi-Account Containers extension
+# gave the old Taskbar Tabs setup. A container must already exist
+# (created by hand once, in Brave: right-click a tab → "Open in
+# container", or brave://settings/containers) — this only wires an
+# already-existing PWA launcher to one, keyed by the PWA's own Name=
+# field (the PWA's install-time tab title, not the launcher name in
+# playbooks/brave.yml — e.g. Brave named the WhatsApp PWA "WhatsApp
+# Web" and the Teams one "Microsoft Teams (PWA)"; check with `grep
+# ^Name= ~/.local/share/applications/com.brave.Browser.flextop.brave-*.desktop`
+# if a mapping below stops matching after a reinstall).
+# playbooks/templates/fix-brave-pwa-desktop.sh.j2 appends
+# --container=<name> to the mapped PWA's Exec= line and every jump-list
+# Action's Exec= line, and keeps doing so every time Brave's Flatpak PWA
+# installer rewrites the .desktop file (install or update).
+brave_pwa_containers:
+  YouTube: Google
+  WhatsApp Web: Meta
+  Microsoft Teams (PWA): Microsoft
+
 # LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
 # replacing Omarchy's pre-installed native libreoffice-fresh (+ its
 # pt-BR language pack, ptbr_libreoffice_i18n_package below). Like

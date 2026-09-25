@@ -25,7 +25,9 @@
 #
 # The second play below fixes up the .desktop files the Flathub Brave
 # PWA installer itself writes (see
-# playbooks/files/fix-brave-pwa-desktop for the bugs).
+# playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the bugs), and
+# wires any PWA listed in brave_pwa_containers to its Brave container
+# (see that variable in group_vars/all/main.yml).
 - name: Brave
   hosts: localhost
   connection: local
@@ -80,8 +82,10 @@
 
 # Brave's Flatpak PWA installer ("flextop") writes .desktop files that
 # violate the freedesktop.org spec and are missing StartupNotify/have
-# the wrong StartupWMClass for Wayland window matching — see
-# playbooks/files/fix-brave-pwa-desktop for the four specific bugs. A
+# the wrong StartupWMClass for Wayland window matching, and never wire
+# a PWA to a Brave container (brave://settings/containers) — see
+# playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the five specific
+# bugs (the container one is opt-in, via brave_pwa_containers). A
 # systemd --user path unit watches ~/.local/share/applications and
 # reruns the fix whenever Brave installs or updates a PWA; the fix
 # itself is idempotent, so repeated triggers (including the one caused
@@ -102,8 +106,8 @@
       tags: [brave, brave-pwa-desktop-fix]
 
     - name: Deploy fix-brave-pwa-desktop
-      ansible.builtin.copy:
-        src: fix-brave-pwa-desktop
+      ansible.builtin.template:
+        src: fix-brave-pwa-desktop.sh.j2
         dest: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-pwa-desktop"
         mode: "0755"
       tags: [brave, brave-pwa-desktop-fix]

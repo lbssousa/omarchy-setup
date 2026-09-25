@@ -67,11 +67,20 @@
         state: absent
       become: true
 
-    - name: Remove leftover brave-origin PWA launchers
-      # The fixed set playbooks/brave-pwa-webapps.yml used to create
-      # (see its removal commit) — the flatpak Brave PWA installer
-      # writes its own differently-named launchers instead (see the
-      # play below), so these are pure leftovers now.
+    - name: Remove leftover brave-origin PWA launchers and superseded Omarchy web apps
+      # WhatsApp/Microsoft Teams/YouTube: the fixed set
+      # playbooks/brave-pwa-webapps.yml used to create (see its removal
+      # commit) — the flatpak Brave PWA installer writes its own
+      # differently-named launchers instead (see the play below), so
+      # these are pure leftovers now.
+      #
+      # Google Maps: not a leftover from this repo — Omarchy seeds this
+      # one into ~/.local/share/applications itself (its own bundled
+      # default at /usr/share/omarchy/applications isn't on
+      # XDG_DATA_DIRS, so only the seeded local copy ever showed up in
+      # the app launcher). Superseded now that a container-aware Brave
+      # PWA covers the same site (brave_pwa_containers) — remove it so
+      # the launcher doesn't list both.
       ansible.builtin.file:
         path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ item }}.desktop"
         state: absent
@@ -79,12 +88,14 @@
         - WhatsApp
         - Microsoft Teams
         - YouTube
+        - Google Maps
 
 # Brave's Flatpak PWA installer ("flextop") writes .desktop files that
-# violate the freedesktop.org spec and are missing StartupNotify/have
-# the wrong StartupWMClass for Wayland window matching, and never wire
-# a PWA to a Brave container (brave://settings/containers) — see
-# playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the five specific
+# violate the freedesktop.org spec, are missing StartupNotify, have the
+# wrong StartupWMClass for Wayland window matching, point Icon= at a
+# path Brave never actually writes to, and never wire a PWA to a Brave
+# container (brave://settings/containers) — see
+# playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the six specific
 # bugs (the container one is opt-in, via brave_pwa_containers). A
 # systemd --user path unit watches ~/.local/share/applications and
 # reruns the fix whenever Brave installs or updates a PWA; the fix

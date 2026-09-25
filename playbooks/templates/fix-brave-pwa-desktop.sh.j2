@@ -33,6 +33,16 @@
 #      --container=<name> to the Exec= it writes.
 #      Fix: appends --container=<name> to that Exec= line and to every
 #      jump-list Action's Exec= line, unless already present.
+#
+#   6. Icon= points at a path under the Flatpak's own private data dir
+#      (~/.var/app/com.brave.Browser/data/icons/hicolor/...) that Brave
+#      never actually writes to — the real icon lands in the standard
+#      ~/.local/share/icons/hicolor/<size>/apps/ tree instead (granted
+#      by the app's "~/.local/share/icons:create" Flatpak permission),
+#      which icon theme lookup already finds unaided. The stale
+#      absolute path leaves the launcher with a missing/generic icon.
+#      Fix: rewrites Icon= to the bare icon name (same value as
+#      StartupWMClass) so themed lookup resolves it.
 set -euo pipefail
 
 declare -A CONTAINER_MAP=(
@@ -55,6 +65,13 @@ container_for_file() {
     printf '%s' "${CONTAINER_MAP[$name]:-}"
 }
 
+icon_missing() {
+    local file="$1"
+    local icon_line
+    icon_line=$(sed -n 's/^Icon=//p' "$file" | head -1)
+    [[ $icon_line == /* && ! -f $icon_line ]]
+}
+
 needs_fix() {
     local file="$1"
     local flextop_id container total matched
@@ -70,7 +87,8 @@ needs_fix() {
     grep -q "^Exec=.*'" "$file" 2>/dev/null \
         || grep -q "^Exec=.*[^\\\\]?" "$file" 2>/dev/null \
         || ! grep -q "^StartupNotify=" "$file" 2>/dev/null \
-        || ! grep -q "^StartupWMClass=${flextop_id}$" "$file" 2>/dev/null
+        || ! grep -q "^StartupWMClass=${flextop_id}$" "$file" 2>/dev/null \
+        || icon_missing "$file"
 }
 
 fix_file() {
@@ -126,6 +144,13 @@ fix_file() {
         ' "$file" > "$tmp" && mv "$tmp" "$file" || ok=false
     fi
 
+    # Fix 6: rewrite a dangling absolute Icon= path to the bare icon
+    # name so themed lookup finds the real file under
+    # ~/.local/share/icons/hicolor instead.
+    if icon_missing "$file"; then
+        sed -i "s|^Icon=.*|Icon=${flextop_id}|" "$file" || ok=false
+    fi
+
     if $ok; then
         echo "  Fixed: $name  (backup: $(basename "$backup"))"
         ((FIXED++)) || true
@@ -159,6 +184,7 @@ if [[ $FIXED -gt 0 ]]; then
     echo
     echo "Updating application database..."
     update-desktop-database "$APPS_DIR" 2>/dev/null && echo "Done." || echo "Warning: update-desktop-database failed (non-critical)."
+    gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" &>/dev/null || true
 fi
 
 if [[ $ERRORS -gt 0 ]]; then

@@ -50,6 +50,7 @@ brave_pwa_containers:
   YouTube: Google
   WhatsApp Web: Meta
   Microsoft Teams (PWA): Microsoft
+  Google Maps: Google
 
 # LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
 # replacing Omarchy's pre-installed native libreoffice-fresh (+ its

@@ -556,7 +556,11 @@ flatpak_env_file: 40-flatpak.conf
 libfprint_container_name: libfprint-build
 libfprint_distrobox_ini_file: "{{ playbook_dir }}/files/libfprint-build.ini"
 libfprint_repo: https://github.com/lbssousa/libfprint.git
-libfprint_ref: goodix-538d-sigfm-gtls
+# Pinned to a release tag of the fork's goodix-538d-sigfm-gtls branch.
+# v1.94.10-goodix538d.2 changed the print format: after upgrading from an
+# earlier build, delete and re-enroll the fingerprints (fprintd-delete
+# $USER, then fprintd-enroll -f <finger> for at least 2 fingers).
+libfprint_ref: v1.94.10-goodix538d.2
 libfprint_checkout_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d"
 libfprint_stage_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-stage"
 
@@ -564,9 +568,8 @@ libfprint_usrlocal_prefix: /usr/local
 libfprint_usrlocal_libdir: "{{ libfprint_usrlocal_prefix }}/lib"
 
 # Runtime deps for the built library on the host (the container only
-# needs the build toolchain). No opencv here: the SIGFM matcher's
-# OpenCV subset is vendored and statically linked at build time (see
-# playbooks/libfprint.yml), so the host never needs it installed.
+# needs the build toolchain). The SIGFM matcher is plain C with no
+# external dependency (OpenCV was dropped in v1.94.10-goodix538d.2).
 libfprint_runtime_deps:
   - openssl
   - glib2

@@ -1,0 +1,7 @@
+[Unit]
+Description=Fixes Brave Flatpak PWA .desktop files
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/fix-brave-pwa-desktop

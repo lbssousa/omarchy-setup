@@ -10,57 +10,23 @@ ansible_local_become_success_timeout: 60
 # cover.
 polkit_expiration_seconds: 1800
 
-# Firefox (playbooks/firefox.yml) — runs before pt-BR localization, which
-# depends on Firefox already being installed.
-firefox_package: firefox
+# Firefox (playbooks/firefox.yml) — installed from Flathub, not pacman:
+# runs before pt-BR localization, which depends on Firefox already being
+# installed. Flathub's build bundles every locale itself, so
+# playbooks/ptbr.yml no longer installs a separate pt-BR language pack
+# for it (see ptbr_firefox_requested_locale below).
+firefox_flatpak_id: org.mozilla.firefox
+# Flatpak extension Firefox reads system-wide policies/prefs from,
+# since the sandbox can't see /etc/firefox — see playbooks/firefox.yml
+# and the Firefox block in playbooks/ptbr.yml.
+firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
-firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
 
-# Brave Origin PWAs replacing Omarchy's preinstalled web apps
-# (playbooks/brave-pwa-webapps.yml, tasks/brave-pwa-webapp-swap.yml).
-# Each entry force-installs url as a Brave web app via the
-# WebAppInstallForceList machine policy
-# (/etc/brave/policies/managed/omarchy-setup-webapps.json — needs root),
-# discovers the app id Brave assigns it, then overwrites the Omarchy web
-# app launcher named name (~/.local/share/applications/<name>.desktop —
-# preinstalled or `omarchy webapp install`ed, both work) to launch that
-# app id inside container_name via `--app-id=... --container=...`, and
-# rebinds hypr_keybind to it. container_name must already exist as a
-# Brave container (hamburger menu → Containers → New — no CLI to create
-# one) before this runs.
-# /usr/bin/brave-origin, NOT /opt/brave-origin-bin/brave-origin directly —
-# the /usr/bin wrapper reads ~/.config/brave-origin-flags.conf, which is
-# what turns on --enable-features=...Containers; skip it and --container=
-# below silently no-ops (confirmed 2026-09-24: the window still opens,
-# just with no per-container storage partition created at all).
-brave_binary: /usr/bin/brave-origin
-brave_profile_dir: Brave-Origin
-brave_profile_directory: Default
-# name doesn't need a preexisting Omarchy launcher to swap out — Microsoft
-# Teams has none, and omarchy-webapp-install creates
-# ~/.local/share/applications/<name>.desktop from scratch just as happily
-# as it overwrites an existing one. icon: "" lets omarchy-webapp-install
-# fetch the site's own favicon instead of using a bundled Omarchy icon
-# name (there isn't one for Teams).
-brave_pwa_webapps:
-  - name: WhatsApp
-    url: "https://web.whatsapp.com/"
-    icon: whatsapp
-    container_name: Meta
-    hypr_keybind: "SUPER + SHIFT + ALT + G"
-    hypr_description: "WhatsApp"
-  - name: Microsoft Teams
-    url: "https://teams.cloud.microsoft/"
-    icon: ""
-    container_name: Microsoft
-    hypr_keybind: "SUPER + SHIFT + ALT + T"
-    hypr_description: "Microsoft Teams"
-  - name: YouTube
-    url: "https://www.youtube.com/"
-    icon: youtube
-    container_name: Google
-    hypr_keybind: "SUPER + SHIFT + Y"
-    hypr_description: "YouTube"
+# Brave (playbooks/brave.yml) — installed from Flathub, replacing the
+# AUR brave-origin-bin package: a stock, Brave-maintained build instead
+# of a de-Googled fork this repo had to track manually. Bootstraps
+# Flatpak + the Flathub remote itself, same as playbooks/firefox.yml.
+brave_flatpak_id: com.brave.Browser
 
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
@@ -294,7 +260,6 @@ ptbr_xdg_user_dirs:
   - { name: VIDEOS, default: "Videos", translated: "Vídeos" }
   - { name: PROJECTS, default: "Projects", translated: "Projetos" }
 
-ptbr_firefox_i18n_package: firefox-i18n-pt-br
 ptbr_firefox_requested_locale:
   - pt-BR
   - en-US
@@ -403,25 +368,23 @@ keepassxc_browser_manifests:
     dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
 
 # Bitwarden (playbooks/bitwarden.yml — optional, not part of `just
-# setup`).  Prefers the AUR package, which tracks upstream releases
-# faster than the official Arch package.
-bitwarden_official_package: bitwarden
-bitwarden_aur_package: bitwarden-bin
-bitwarden_aur_git_url: "https://aur.archlinux.org/{{ bitwarden_aur_package }}.git"
-bitwarden_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ bitwarden_aur_package }}"
-bitwarden_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ bitwarden_aur_package }}"
+# setup`) — installed from Flathub: it's the officially recommended
+# Linux build (alongside Snap) for biometric unlock and automatic
+# updates (https://bitwarden.com/help/biometrics/), unlike the AUR/
+# official Arch packages this replaced.
+bitwarden_flatpak_id: com.bitwarden.desktop
 
-# Runtime deps not already covered by the Omarchy base package set.
-bitwarden_aur_runtime_deps:
-  - alsa-lib
-  - gtk3
-  - libnotify
-  - libxtst
-  - libxss
-  - libnss_nis
-  - nss
+# The polkit action Bitwarden's biometric unlock needs to even show the
+# option in its own settings — see the "Flatpak-Specific Configuration"
+# section of https://bitwarden.com/help/biometrics/, which downloads
+# this exact file (playbooks/files/com.bitwarden.Bitwarden.policy) to
+# this exact path. polkitd also scans /etc/polkit-1/actions,
+# /run/polkit-1/actions and /usr/local/share/polkit-1/actions (checked
+# via `strings` against the installed binary), but this is the one
+# Bitwarden's own docs use and the one pacman itself owns other actions
+# in (`pacman -Ql polkit | grep actions`).
+bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarden.policy
 
-bitwarden_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.bitwarden-ssh-agent.sock"
 bitwarden_ssh_agent_units:
   - bitwarden-ssh-agent.path
   - bitwarden-ssh-agent-env.service
@@ -429,6 +392,14 @@ bitwarden_ssh_agent_units:
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
 bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
+
+# Bitwarden's own "Start automatically at login" setting (Settings ->
+# App Settings) is a no-op on Linux — Electron's app.setLoginItemSettings(),
+# which the option relies on, is only implemented on Windows/macOS — so the
+# checkbox never produces a working autostart entry. The playbook deploys
+# the XDG autostart entry itself instead (same fix as KeePassXC's
+# keepassxc_autostart_desktop in playbooks/keepassxc.yml).
+bitwarden_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/com.bitwarden.desktop.desktop"
 
 # gcr-ssh-agent competes for SSH_AUTH_SOCK and must be masked for
 # Bitwarden's own agent to take over.
@@ -656,7 +627,7 @@ nightlight_solar_oncalendar: "*-*-* 00:05:00"
 # Inkscape (playbooks/inkscape.yml) — official repo. svg2tikz (an
 # Inkscape extension exporting SVG paths as TikZ/PGF for LaTeX,
 # https://github.com/xyz2tex/svg2tikz) has no official Arch package, so
-# it's built from the AUR the same way as texlive_* / bitwarden_aur_*
+# it's built from the AUR the same way as texlive_*
 # above (unprivileged clone+makepkg+pacman -U). xclip is an optional
 # runtime dependency the extension uses for its "copy to clipboard"
 # output mode.

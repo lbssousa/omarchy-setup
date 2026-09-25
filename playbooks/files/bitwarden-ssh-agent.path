@@ -1,8 +1,8 @@
 [Unit]
-Description=Watch the Bitwarden SSH agent socket
+Description=Watch the Bitwarden SSH agent socket (Flatpak)
 
 [Path]
-PathExists=%h/.bitwarden-ssh-agent.sock
+PathExists=%h/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock
 Unit=bitwarden-ssh-agent-env.service
 
 [Install]

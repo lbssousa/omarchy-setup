@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Managed by omarchy-setup (playbooks/default-browser.yml).
+#
+# omarchy-default-browser (/usr/share/omarchy/bin) only knows the
+# desktop-entry ids of the native package builds (firefox.desktop,
+# brave-browser.desktop, ...). Firefox and Brave come from Flathub here
+# (playbooks/firefox.yml, playbooks/brave.yml), whose exported desktop
+# entries are {{ firefox_flatpak_id }}.desktop / {{ brave_flatpak_id }}.desktop —
+# ids that script's case statement doesn't have, so it points
+# xdg-settings at a desktop file that doesn't exist. xdg-settings itself
+# works fine once given the right id, so this just wraps it with the
+# ones actually installed here instead of touching that Omarchy-owned
+# script (liable to be overwritten by an update anyway).
+set -euo pipefail
+
+if (($# == 0)); then
+  env -u BROWSER xdg-settings get default-web-browser
+  exit 0
+fi
+
+case "$1" in
+firefox) desktop_id="{{ firefox_flatpak_id }}.desktop"; name="Firefox"; glyph="󰈹" ;;
+brave) desktop_id="{{ brave_flatpak_id }}.desktop"; name="Brave"; glyph="󰖟" ;;
+*)
+  echo "Usage: omarchy-setup-default-browser <firefox|brave>" >&2
+  echo "For any other browser, use 'omarchy default browser <name>' instead." >&2
+  exit 1
+  ;;
+esac
+
+env -u BROWSER xdg-settings set default-web-browser "$desktop_id"
+
+omarchy-notification-send -g "$glyph" "$name is now the default browser"

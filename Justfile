@@ -32,17 +32,25 @@ setup: _ensure-collections
 polkit: _ensure-collections
     {{ap}} site.yml --tags polkit
 
-# Install Firefox and enable tab apps (Taskbar Tabs).
+# Install Firefox from Flathub and enable tab apps (Taskbar Tabs).
 firefox: _ensure-collections
     {{ap}} site.yml --tags firefox
 
-# Convert Omarchy's preinstalled web apps (brave_pwa_webapps in
-# group_vars/all/main.yml) into Brave Origin PWAs, each opening in its own
-# Brave container, and drop the leftover Firefox Taskbar Tab web app
-# shortcuts. Needs root (writes /etc/brave/policies/managed). Every
-# container named in brave_pwa_webapps must already exist in Brave.
-brave-pwa-webapps: _ensure-collections
-    {{ap}} playbooks/brave-pwa-webapps.yml
+# Install Brave from Flathub, remove the AUR brave-origin-bin package,
+# and fix up Brave's Flatpak PWA .desktop files (also runs on its own —
+# see brave-pwa-desktop-fix below).
+brave: _ensure-collections
+    {{ap}} site.yml --tags brave
+
+# Rerun just the Brave Flatpak PWA .desktop fixup (also installs the
+# systemd --user watcher that reruns it automatically). No root needed.
+brave-pwa-desktop-fix: _ensure-collections
+    ansible-playbook site.yml --tags brave-pwa-desktop-fix
+
+# Deploy omarchy-setup-default-browser, a Flathub-aware alternative to
+# `omarchy default browser` for Firefox/Brave. No root needed.
+default-browser: _ensure-collections
+    ansible-playbook site.yml --tags default-browser
 
 # Install Zed (Omarchy theme integration), set every font size to 25px
 # and the buffer font to JetBrainsMono Nerd Font.

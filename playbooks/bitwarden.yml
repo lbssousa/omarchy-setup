@@ -1,130 +1,77 @@
 ---
-# Bitwarden desktop client — prefers the AUR bitwarden-bin package, and
-# only falls back to the official Arch package once it's no longer
-# outdated relative to the AUR (compared via `vercmp` on every run). The
-# two packages conflict, so whichever loses gets removed.
+# Bitwarden desktop client — installed from Flathub. Bitwarden's own
+# docs recommend Flatpak (or Snap) over the native package for Linux:
+# both "fully support biometric unlock and automatic updates"
+# (https://bitwarden.com/help/biometrics/); optional alternative to
+# KeePassXC (playbooks/keepassxc.yml) and Proton Pass
+# (playbooks/proton-pass.yml) — like both of those, this playbook is
+# not imported by site.yml, so more than one password manager can be
+# installed side by side without any of them being "the default".
 #
-# Doesn't shell out to yay: makepkg's own sudo (for syncing missing
-# deps) needs an interactive password Ansible can't supply. Instead,
-# each privileged step runs through Ansible's own `become: true`:
-# install runtime deps via pacman, clone the AUR repo (no privilege
-# needed), build with `makepkg --nodeps` as a normal user (makepkg
-# refuses to run as root), then install the built package with
-# `pacman -U`.
+# Wires SSH_AUTH_SOCK to the Bitwarden SSH agent's socket — a static
+# export via ~/.config/environment.d/ (reaches IDEs and other session
+# apps) plus a `.path` unit that reacts once Bitwarden actually creates
+# the socket (only happens after unlock). The socket lives under the
+# Flatpak's own sandboxed data dir
+# (~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock —
+# https://bitwarden.com/help/ssh-agent/, "Flatpak Installation"), not
+# the plain ~/.bitwarden-ssh-agent.sock a native install would use.
+# gcr-ssh-agent is masked so it doesn't compete for the same variable.
 #
-# Also wires SSH_AUTH_SOCK to the Bitwarden SSH agent's socket — a
-# static export via ~/.config/environment.d/ (reaches IDEs and other
-# session apps) plus a `.path` unit that reacts once Bitwarden actually
-# creates the socket (only happens after unlock). gcr-ssh-agent is
-# masked so it doesn't compete for the same variable.
+# Installs the polkit action Bitwarden's biometric unlock needs to even
+# offer the option in its own settings — without it the toggle doesn't
+# appear at all. Flatpak's sandbox can't read the action files a native
+# install picks up automatically, so Bitwarden's docs have you drop this
+# file in manually (see bitwarden_polkit_action_dest in
+# group_vars/all/main.yml for exactly which of polkitd's several
+# scanned directories this uses and why).
+#
+# Deploys an XDG autostart entry so Bitwarden launches at session login.
+# Bitwarden's own "Start automatically at login" checkbox relies on
+# Electron's app.setLoginItemSettings(), which Electron only implements on
+# Windows/macOS — on Linux it's a silent no-op, so the checkbox never
+# writes a working autostart entry (same root cause KeePassXC's own
+# checkbox has, hence keepassxc.yml deploying its entry manually too).
 #
 # Finally, rebinds Omarchy's default "Passwords" shortcut
 # (SUPER+SHIFT+SLASH, normally 1Password) to Bitwarden, since this setup
 # doesn't install 1Password.
-- name: Bitwarden (AUR bitwarden-bin or official, whichever is newer)
+- name: Bitwarden (Flatpak) + SSH agent + polkit (biometric unlock)
   hosts: localhost
   connection: local
   gather_facts: true
 
-  tasks:
-    - name: Check the bitwarden version in the official repo
-      ansible.builtin.command: "pacman -Si {{ bitwarden_official_package }}"
-      environment:
-        LC_ALL: C
-      register: bitwarden_official_info
+  pre_tasks:
+    - name: Check whether the Flathub remote is configured
+      ansible.builtin.command: flatpak remote-list
+      register: bitwarden_flatpak_check
       changed_when: false
       failed_when: false
 
-    - name: Extract the official package version
-      ansible.builtin.set_fact:
-        bitwarden_official_version: >-
-          {{ (bitwarden_official_info.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
-      when: bitwarden_official_info.rc == 0
+    - name: Fail with guidance if Flatpak/Flathub wasn't found
+      ansible.builtin.fail:
+        msg: >-
+          Flathub remote not found. Run `./run-empowered.sh
+          ansible-playbook site.yml --tags flatpak` (or `just flatpak`)
+          first.
+      when: "'flathub' not in bitwarden_flatpak_check.stdout"
 
-    - name: Check the bitwarden-bin version on the AUR
-      ansible.builtin.uri:
-        url: "{{ bitwarden_aur_rpc_url }}"
-        return_content: true
-      register: bitwarden_aur_info
+  tasks:
+    - name: Install Bitwarden from Flathub
+      community.general.flatpak:
+        name: "{{ bitwarden_flatpak_id }}"
+        state: present
+        method: system
+      become: true
 
-    - name: Extract the AUR package version
-      ansible.builtin.set_fact:
-        bitwarden_aur_version: "{{ bitwarden_aur_info.json.results[0].Version }}"
-
-    - name: Compare the AUR version against the official one
-      ansible.builtin.command: "vercmp {{ bitwarden_aur_version }} {{ bitwarden_official_version | default('0') }}"
-      register: bitwarden_vercmp
-      changed_when: false
-      when: bitwarden_official_version is defined
-
-    - name: "Pick the package source: official only if not outdated vs. AUR"
-      ansible.builtin.set_fact:
-        bitwarden_source: >-
-          {{ 'official'
-             if (bitwarden_official_version is defined and (bitwarden_vercmp.stdout | int) <= 0)
-             else 'aur' }}
-
-    - name: "Install via pacman (official repo, version {{ bitwarden_official_version | default('?') }})"
-      when: bitwarden_source == 'official'
-      block:
-        - name: Remove AUR bitwarden-bin, if installed
-          community.general.pacman:
-            name: "{{ bitwarden_aur_package }}"
-            state: absent
-          become: true
-
-        - name: Install Bitwarden via pacman
-          community.general.pacman:
-            name: "{{ bitwarden_official_package }}"
-            state: present
-          become: true
-
-    - name: "Install via AUR (bitwarden-bin, version {{ bitwarden_aur_version }})"
-      when: bitwarden_source == 'aur'
-      block:
-        - name: Check the currently installed bitwarden-bin version, if any
-          ansible.builtin.command: "pacman -Qi {{ bitwarden_aur_package }}"
-          environment:
-            LC_ALL: C
-          register: bitwarden_aur_installed
-          changed_when: false
-          failed_when: false
-
-        - name: Extract the installed bitwarden-bin version
-          ansible.builtin.set_fact:
-            bitwarden_aur_installed_version: >-
-              {{ (bitwarden_aur_installed.stdout_lines | select('match', 'Version') | first).split(':')[1] | trim }}
-          when: bitwarden_aur_installed.rc == 0
-
-        - name: Build and install (only if missing or outdated)
-          when: bitwarden_aur_installed.rc != 0 or bitwarden_aur_installed_version != bitwarden_aur_version
-          block:
-            - name: Remove the official package, if installed
-              community.general.pacman:
-                name: "{{ bitwarden_official_package }}"
-                state: absent
-              become: true
-
-            - name: Install bitwarden-bin's runtime dependencies
-              community.general.pacman:
-                name: "{{ bitwarden_aur_runtime_deps }}"
-                state: present
-              become: true
-
-            - name: Clone/update the bitwarden-bin AUR repo
-              ansible.builtin.git:
-                repo: "{{ bitwarden_aur_git_url }}"
-                dest: "{{ bitwarden_aur_build_dir }}"
-                update: true
-
-            - name: Build the package (makepkg, no dep resolution, unprivileged)
-              ansible.builtin.command: makepkg --nodeps --noconfirm --force
-              args:
-                chdir: "{{ bitwarden_aur_build_dir }}"
-
-            - name: Install the built package
-              ansible.builtin.shell: "pacman -U --noconfirm {{ bitwarden_aur_build_dir }}/*.pkg.tar.zst"
-              become: true
+    - name: Remove the AUR/official Bitwarden packages, if present
+      community.general.pacman:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - bitwarden
+        - bitwarden-bin
+      become: true
 
     - name: Bitwarden SSH agent — session-wide SSH_AUTH_SOCK
       block:
@@ -171,6 +118,30 @@
             enabled: true
             state: started
 
+    - name: Install the Bitwarden polkit action (biometric unlock)
+      ansible.builtin.copy:
+        src: com.bitwarden.Bitwarden.policy
+        dest: "{{ bitwarden_polkit_action_dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      notify: restart polkit
+
+    - name: "Autostart Bitwarden at session login ({{ bitwarden_autostart_desktop }})"
+      block:
+        - name: Create ~/.config/autostart
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/autostart"
+            state: directory
+            mode: "0755"
+
+        - name: Deploy the Bitwarden XDG autostart entry
+          ansible.builtin.template:
+            src: bitwarden-autostart.desktop.j2
+            dest: "{{ bitwarden_autostart_desktop }}"
+            mode: "0644"
+
     - name: "Bitwarden keybinding ({{ bitwarden_hypr_keybind }}, inherited from 1Password's default)"
       block:
         - name: Create ~/.config/hypr
@@ -191,9 +162,16 @@
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/bitwarden.yml — Bitwarden keybinding)"
+            # The Electron app runs under XWayland (checked with
+            # `hyprctl clients` against a running instance — xwayland: 1),
+            # so its window class is the plain X11 WM_CLASS "bitwarden",
+            # not a Wayland xdg_toplevel.app_id derived from the flatpak
+            # id (unlike Proton Pass's own Flatpak in
+            # playbooks/proton-pass.yml, which is native Wayland and
+            # class "me.proton.Pass").
             block: |
               hl.unbind("{{ bitwarden_hypr_keybind }}")
-              o.bind("{{ bitwarden_hypr_keybind }}", "Bitwarden", { launch = "bitwarden", focus = "^Bitwarden$" })
+              o.bind("{{ bitwarden_hypr_keybind }}", "Bitwarden", { launch = "flatpak run {{ bitwarden_flatpak_id }}", focus = "^bitwarden$" })
           register: bitwarden_hypr_binding
           notify: reload Hyprland
 
@@ -203,6 +181,13 @@
         daemon_reload: true
         scope: user
       listen: reload systemd --user
+
+    - name: restart polkit
+      ansible.builtin.systemd:
+        name: polkit
+        state: restarted
+      become: true
+      listen: restart polkit
 
     - name: reload Hyprland
       # Only has an effect inside a real Hyprland session; the bind

@@ -224,9 +224,21 @@
         state: present
       become: true
 
-    # VS Code writes argv.json (JSONC, full of comments) on first run, so
-    # it's edited in place instead of rewritten; only a missing file (VS
-    # Code never started yet) is created from scratch.
+    # VS Code writes argv.json (JSONC: comments and, at times, a trailing
+    # comma) on first run and keeps adding to it (crash-reporter-id, a
+    # locale set via "Configure Display Language", ...), so it's edited in
+    # place instead of rewritten from scratch.
+    #
+    # Comments/trailing-commas are stripped before parsing (from_json can't
+    # handle either) and dropped from the rewritten file — VS Code
+    # regenerates its own boilerplate comments as needed, so losing them is
+    # harmless. Parsing properly (instead of the line-based edit this
+    # replaced) is what makes this idempotent: a text insert keyed off
+    # "insert after the opening brace" or "replace the existing key's line"
+    # tends to leave stray commas/lines behind across repeated runs — e.g. it
+    # once corrupted this exact file into invalid JSON, which silently
+    # dropped every setting in it, including this one (so VS Code stopped
+    # using the keyring at all).
     - name: Check for ~/.vscode/argv.json
       ansible.builtin.stat:
         path: "{{ vscode_argv_file }}"
@@ -239,23 +251,46 @@
         mode: "0755"
       when: not vscode_argv.stat.exists
 
-    - name: Create ~/.vscode/argv.json with the keyring backend, if missing
+    - name: Read the current ~/.vscode/argv.json, if any
+      ansible.builtin.slurp:
+        path: "{{ vscode_argv_file }}"
+      register: vscode_argv_raw
+      when: vscode_argv.stat.exists
+
+    # Falls back to an empty object if argv.json isn't valid JSON even after
+    # stripping comments/trailing commas (e.g. corrupted by a past version of
+    # this task, or hand-edited into a broken state), instead of failing the
+    # whole play over what's ultimately a cache file: the keys below get
+    # written back regardless, and VS Code regenerates anything else it
+    # needs (crash-reporter-id, ...) on next launch.
+    - name: Parse argv.json (comments/trailing commas stripped first)
+      when: vscode_argv.stat.exists
+      block:
+        - name: Parse argv.json (comments/trailing commas stripped first)
+          ansible.builtin.set_fact:
+            vscode_argv_data: >-
+              {{
+                (vscode_argv_raw.content | b64decode
+                  | regex_replace('(?m)^\s*//.*$', '')
+                  | regex_replace('(?m)^\s*,\s*$', '')
+                  | regex_replace(',(\s*[}\]])', '\1')
+                ) | from_json
+              }}
+      rescue:
+        - name: Warn that the existing argv.json wasn't valid JSON
+          ansible.builtin.debug:
+            msg: >-
+              {{ vscode_argv_file }} wasn't valid JSON (even with comments
+              and trailing commas stripped) — rewriting it from scratch.
+        - name: Start from an empty object
+          ansible.builtin.set_fact:
+            vscode_argv_data: {}
+
+    - name: "Write argv.json with the {{ vscode_password_store }} keyring backend set"
       ansible.builtin.copy:
-        content: |
-          {
-          	"password-store": "{{ vscode_password_store }}"
-          }
+        content: "{{ (vscode_argv_data | default({})) | combine({'password-store': vscode_password_store}) | to_nice_json }}\n"
         dest: "{{ vscode_argv_file }}"
         mode: "0644"
-      when: not vscode_argv.stat.exists
-
-    - name: "Use the {{ vscode_password_store }} keyring backend"
-      ansible.builtin.lineinfile:
-        path: "{{ vscode_argv_file }}"
-        regexp: '^\s*"password-store"\s*:'
-        insertafter: '^\{'
-        line: "\t\"password-store\": \"{{ vscode_password_store }}\","
-      when: vscode_argv.stat.exists
 
     - name: Create ~/.local/bin
       ansible.builtin.file:

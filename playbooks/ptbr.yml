@@ -17,7 +17,10 @@
 #     Preferences (intl.accept_languages), which controls the page
 #     language web apps like WhatsApp Web see — frozen at en-US since
 #     profile creation, with no official policy for this in Chromium.
-#   - LibreOffice (ptbr-libreoffice): installs the pt-BR language pack.
+#   - LibreOffice (ptbr-libreoffice): installs the pt-BR language pack —
+#     only if the native libreoffice-fresh is still installed. A no-op
+#     once playbooks/libreoffice.yml has replaced it with the Flathub
+#     build, which (like Firefox above) already bundles every locale.
 #   - Man pages (ptbr-man-pages): installs man-pages-pt_br.
 #   - OCR (ptbr-ocr): installs tesseract-data-por and sets
 #     OMARCHY_OCR_LANGS for omarchy-capture-text.
@@ -244,7 +247,10 @@
           ansible.builtin.debug:
             msg: >-
               libreoffice-fresh not found via pacman —
-              {{ ptbr_libreoffice_i18n_package }} not installed.
+              {{ ptbr_libreoffice_i18n_package }} not installed. Either
+              not installed at all, or already replaced by the Flathub
+              build (playbooks/libreoffice.yml), which bundles pt-BR
+              already and needs no separate package.
           when: libreoffice_check.rc != 0
       tags: [ptbr-libreoffice]
 

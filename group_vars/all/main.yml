@@ -28,6 +28,38 @@ firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 # Flatpak + the Flathub remote itself, same as playbooks/firefox.yml.
 brave_flatpak_id: com.brave.Browser
 
+# LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
+# replacing Omarchy's pre-installed native libreoffice-fresh (+ its
+# pt-BR language pack, ptbr_libreoffice_i18n_package below). Like
+# Firefox above, Flathub's build bundles every locale itself (see
+# assemble-flatpak.sh in LibreOffice's own source, which folds every
+# non-en-US Langpack-*.xcd into the app rather than shipping it as a
+# separate extension), so no separate language pack is needed —
+# playbooks/ptbr.yml's LibreOffice step already no-ops once
+# libreoffice-fresh is gone.
+libreoffice_flatpak_id: org.libreoffice.LibreOffice
+# Omarchy's app launcher hides these native components
+# (/usr/share/omarchy/default/omarchy/launcher.hides) so only
+# Writer/Calc/Impress show up. LibreOffice's own Flatpak packaging
+# (solenv/bin/assemble-flatpak-desktop.sh) renames each to
+# "{{ libreoffice_flatpak_id }}.<component>.desktop" (the StartCenter
+# becomes the bare "{{ libreoffice_flatpak_id }}.desktop") — ids that
+# static, Omarchy-owned hides list doesn't recognize, so
+# playbooks/libreoffice.yml hides them itself via NoDisplay=true
+# overrides in ~/.local/share/applications instead (same curation,
+# just keyed to the ids the Flatpak actually exports).
+libreoffice_hidden_components:
+  - id: "{{ libreoffice_flatpak_id }}"
+    name: LibreOffice Start Center
+  - id: "{{ libreoffice_flatpak_id }}.base"
+    name: LibreOffice Base
+  - id: "{{ libreoffice_flatpak_id }}.draw"
+    name: LibreOffice Draw
+  - id: "{{ libreoffice_flatpak_id }}.math"
+    name: LibreOffice Math
+  - id: "{{ libreoffice_flatpak_id }}.xsltfilter"
+    name: LibreOffice XSLT Filter
+
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
 zed_package: zed

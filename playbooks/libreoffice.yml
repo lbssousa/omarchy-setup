@@ -1,0 +1,132 @@
+---
+# Replaces Omarchy's pre-installed native LibreOffice
+# (omarchy-base.packages: libreoffice-fresh) with the Flathub build
+# (org.libreoffice.LibreOffice) — Flathub's own recommended distribution
+# channel, bundling every UI locale itself (see
+# libreoffice_flatpak_id in group_vars/all/main.yml).
+#
+# Bootstraps Flatpak + the Flathub remote itself (system-wide), same
+# approach as playbooks/firefox.yml / playbooks/brave.yml, so `just
+# libreoffice` keeps working standalone.
+#
+# Removes libreoffice-fresh and its pt-BR language pack
+# (ptbr_libreoffice_i18n_package) — the language pack becomes pure
+# leftover cruft once the native package is gone, since the Flatpak
+# already bundles pt-BR (and every other locale). Doesn't touch shared
+# libraries libreoffice-fresh pulled in (e.g. libcdr) — pacman leaves
+# those alone too unless something else also depends on them.
+#
+# Omarchy's app launcher curates LibreOffice down to just
+# Writer/Calc/Impress via a static, Omarchy-owned hides list keyed to
+# the native desktop-entry ids (libreoffice-base, -draw, -math,
+# -startcenter, -xsltfilter — see launcher.hides in
+# /usr/share/omarchy/default/omarchy). The Flatpak exports those same
+# components under different ids
+# (libreoffice_hidden_components in group_vars/all/main.yml), which
+# that list doesn't recognize, so this playbook hides them itself:
+# NoDisplay=true stub .desktop files in ~/.local/share/applications
+# (a user-writable, XDG-standard override location) shadow the real
+# Flatpak-exported entries for exactly those ids — verified against
+# Omarchy's own hidden-entry scanner
+# (/usr/share/omarchy/shell/services/hidden-entries.sh), which scans
+# ~/.local/share/applications first and skips any id it already saw.
+# Writer/Calc/Impress get no such override, so they keep showing up
+# normally from the Flatpak's own exported entries.
+#
+# Omarchy's default Hyprland keybinds (checked across
+# /usr/share/omarchy/default/hypr/bindings/*.lua) don't bind anything
+# to LibreOffice, so there's normally nothing to reassign — the last
+# play below checks for one anyway (including this user's own
+# ~/.config/hypr/bindings.lua overrides) and warns instead of silently
+# doing nothing, in case a keybind was added by hand since.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags libreoffice
+- name: LibreOffice (Flatpak, replacing the pre-installed native build)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Ensure Flatpak is installed
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install LibreOffice from Flathub
+      community.general.flatpak:
+        name: "{{ libreoffice_flatpak_id }}"
+        state: present
+        method: system
+      become: true
+
+    - name: "Remove the pre-installed native LibreOffice package and its pt-BR language pack"
+      # Both in one transaction — removing libreoffice-fresh on its own
+      # fails ("breaks dependency ... required by
+      # libreoffice-fresh-pt-br") whenever the language pack is
+      # installed, since it depends on the base package.
+      community.general.pacman:
+        name:
+          - libreoffice-fresh
+          - "{{ ptbr_libreoffice_i18n_package }}"
+        state: absent
+      become: true
+
+    - name: Create ~/.local/share/applications
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/share/applications"
+        state: directory
+        mode: "0755"
+
+    - name: "Hide LibreOffice's secondary components from the app launcher (same curation as Omarchy's launcher.hides)"
+      ansible.builtin.template:
+        src: libreoffice-hide.desktop.j2
+        dest: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ item.id }}.desktop"
+        mode: "0644"
+      loop: "{{ libreoffice_hidden_components }}"
+      loop_control:
+        label: "{{ item.id }}"
+
+    - name: Reassign any LibreOffice keybind to the Flatpak
+      block:
+        - name: Check Omarchy's default keybinds for a LibreOffice reference
+          ansible.builtin.shell: grep -ril libreoffice /usr/share/omarchy/default/hypr/bindings/*.lua || true
+          register: omarchy_libreoffice_binding_check
+          changed_when: false
+
+        - name: Check this user's own bindings.lua for a LibreOffice reference
+          ansible.builtin.shell: >-
+            grep -il libreoffice "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua" 2>/dev/null || true
+          register: user_libreoffice_binding_check
+          changed_when: false
+
+        - name: Warn that a LibreOffice keybind needs reassigning by hand
+          ansible.builtin.debug:
+            msg: >-
+              A LibreOffice reference was found in:
+              {{ (omarchy_libreoffice_binding_check.stdout_lines + user_libreoffice_binding_check.stdout_lines) | join(', ') }}
+              — reassign it to the Flatpak by hand, the same
+              hl.unbind()/o.bind() pattern playbooks/bitwarden.yml uses
+              for its own keybind, launching "flatpak run
+              {{ libreoffice_flatpak_id }}.<component>" (see
+              libreoffice_hidden_components in group_vars/all/main.yml
+              for the component ids, or use the bare
+              {{ libreoffice_flatpak_id }} for the Start Center).
+          when: (omarchy_libreoffice_binding_check.stdout_lines | length > 0) or (user_libreoffice_binding_check.stdout_lines | length > 0)
+
+        - name: No LibreOffice keybind found — nothing to reassign
+          ansible.builtin.debug:
+            msg: >-
+              Checked Omarchy's default keybinds and this user's
+              ~/.config/hypr/bindings.lua: neither binds anything to
+              LibreOffice, so there's nothing to reassign to the
+              Flatpak.
+          when: (omarchy_libreoffice_binding_check.stdout_lines | length == 0) and (user_libreoffice_binding_check.stdout_lines | length == 0)

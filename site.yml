@@ -19,6 +19,10 @@
   ansible.builtin.import_playbook: playbooks/default-browser.yml
   tags: [default-browser]
 
+- name: LibreOffice
+  ansible.builtin.import_playbook: playbooks/libreoffice.yml
+  tags: [libreoffice]
+
 - name: Zed editor
   ansible.builtin.import_playbook: playbooks/zed.yml
   tags: [zed]

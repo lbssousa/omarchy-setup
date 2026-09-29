@@ -65,6 +65,13 @@ libreoffice: _ensure-collections
 zed: _ensure-collections
     {{ap}} site.yml --tags zed
 
+# Replace the native Kdenlive/OBS Studio/Pinta/Xournal++ that Omarchy
+# pre-installs with their Flathub builds (see
+# docs/flathub-migration-survey.md). Edit flathub_app_migrations in
+# group_vars/all/main.yml to migrate a subset.
+flathub-apps: _ensure-collections
+    {{ap}} site.yml --tags flathub-apps
+
 # Install Rust (if needed) and build/install gregorio-lsp, grelint and
 # grefmt from source.
 gregorio-lsp: _ensure-collections

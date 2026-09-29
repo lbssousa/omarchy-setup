@@ -63,6 +63,35 @@ brave_pwa_containers:
 default_browser_desktop_id: "{{ firefox_flatpak_id }}.desktop"
 default_browser_name: Firefox
 
+# Native GUI apps Omarchy pre-installs (all in
+# /usr/share/omarchy/install/omarchy-base.packages) replaced by their
+# Flathub builds (playbooks/flathub-apps.yml) — the subset
+# docs/flathub-migration-survey.md found safe to move. See that
+# playbook's header for what's excluded and why.
+#
+# Every entry keeps the SAME desktop-entry id in both builds, so
+# nothing has to be re-curated afterwards (no launcher NoDisplay
+# stubs, no mimeapps rewrite, no window-rule edits) — the id is the
+# contract, and the playbook fails if a Flatpak ever stops honouring
+# it.
+flathub_app_migrations:
+  - name: Kdenlive
+    flatpak_id: org.kde.kdenlive
+    native_packages:
+      - kdenlive
+  - name: OBS Studio
+    flatpak_id: com.obsproject.Studio
+    native_packages:
+      - obs-studio
+  - name: Pinta
+    flatpak_id: com.github.PintaProject.Pinta
+    native_packages:
+      - pinta
+  - name: Xournal++
+    flatpak_id: com.github.xournalpp.xournalpp
+    native_packages:
+      - xournalpp
+
 # LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
 # replacing Omarchy's pre-installed native libreoffice-fresh (+ its
 # pt-BR language pack, ptbr_libreoffice_i18n_package below). Like

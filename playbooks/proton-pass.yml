@@ -24,8 +24,9 @@
 # Proton's own official installer script has no update mechanism of its
 # own. `proton-pass-cli` is an official Homebrew (homebrew-core) formula
 # instead, with a prebuilt x86_64_linux bottle, so this needs Homebrew
-# already set up (playbooks/homebrew.yml; site.yml runs it, or `just
-# homebrew`). proton_pass_cli_bin points straight at Homebrew's Cellar
+# already set up — but not one the main run installs: playbooks/homebrew.yml
+# is not imported by site.yml, so `just setup` leaves it out; run `just
+# homebrew` first. proton_pass_cli_bin points straight at Homebrew's Cellar
 # bin — playbooks/homebrew.yml already puts it on PATH session-wide, so
 # there's nothing to symlink here.
 #
@@ -140,8 +141,8 @@
     - name: Fail with guidance if Homebrew wasn't found
       ansible.builtin.fail:
         msg: >-
-          Homebrew not found. Run `./run-empowered.sh ansible-playbook
-          site.yml --tags homebrew` (or `just homebrew`) first.
+          Homebrew not found. Run `just homebrew` (or
+          `./run-empowered.sh ansible-playbook playbooks/homebrew.yml`) first.
       when: not proton_pass_homebrew_check.stat.exists
 
   tasks:

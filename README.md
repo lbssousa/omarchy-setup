@@ -17,12 +17,13 @@ have an umbrella tag for the whole file (`containers`, `snap`, `desktop`,
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
 `playbooks/apparmor.yml`, `playbooks/keepassxc.yml`, `playbooks/bitwarden.yml`,
 `playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio),
-`playbooks/yubikey.yml` are **not**
+`playbooks/homebrew.yml`, `playbooks/yubikey.yml` are **not**
 imported by `site.yml` — Secure Boot, the
 BGRT boot theme and AppArmor touch firmware/boot, KeePassXC, Bitwarden and
 Proton Pass are three alternative password managers (install whichever one
 you want — none of them is the default), TeX Live (+ Gregorio, which
-depends on it) is a long download/install you run on demand, and the
+depends on it) is a long download/install you run on demand, Homebrew is
+only needed by the tools that install formulae from it, and the
 Yubikey helpers need the physical token plugged in — so they only run
 when called explicitly.
 
@@ -46,7 +47,6 @@ when called explicitly.
 | Podman | `podman` | Rootless container engine. Part of `playbooks/containers.yml` with Distrobox and the starship integration (umbrella tag `containers`). |
 | Distrobox | `distrobox` | Depends on Podman: the tag also runs the Podman play first. |
 | Flatpak + Flathub | `flatpak` | Installs Flatpak and enables the Flathub remote (per-user, so app installs don't need root). |
-| Homebrew | `homebrew` | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`. |
 | snapd | `snapd` | Builds and installs snapd from the AUR (no official Arch package), enables `snapd.socket` (+ `snapd.apparmor.service`), links `/snap` → `/var/lib/snapd/snap` (classic snaps expect it), waits for first-boot seeding, and exports snap's `bin` and desktop-entry dirs to the graphical session (`PATH`/`XDG_DATA_DIRS` via `environment.d`; log out and back in to pick it up). Doesn't touch the kernel cmdline: strict confinement would need AppArmor as the active LSM, which Omarchy doesn't enable by default — snapd still works, and classic snaps don't need it. |
 | Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (the tag also runs the snapd play first; `playbooks/snap.yml`, umbrella tag `snap`). Also fixes two Hyprland issues: sets `"password-store": "gnome-libsecret"` in `~/.vscode/argv.json` so VS Code uses the Secret Service keyring (Electron doesn't detect one under Hyprland), and installs a `~/.local/bin/code` wrapper + user desktop entries that set the UI scale to the monitor scale (the snap is forced onto XWayland, where `GDK_SCALE=2` made the UI too big). |
 | libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
@@ -60,6 +60,7 @@ when called explicitly.
 | Limine silent boot | `limine-silent-boot` | Sets `quiet: yes` (in the config header, before the first entry — otherwise Limine ignores it) and `timeout: 1` in `/boot/limine.conf` (and removes any `firmware_logo`) for a flicker-free boot: with `quiet` in effect Limine draws nothing and keeps the firmware BGRT logo on screen through its 1-second key window (press ↑/↓ to reveal the menu — not Space/Enter, which Limine treats as "boot the selected entry"; snapshots/fallback stay reachable). Re-runs `limine-update` to re-enroll the config checksum, so it also works with Secure Boot's `ENABLE_ENROLL_LIMINE_CONFIG=yes`. |
 | ble.sh | `blesh` | Loads [ble.sh](https://github.com/akinomyoga/ble.sh) by default in Bash — Omarchy doesn't — with fish-style **autosuggestions** (ghost text from history, then completion) and **syntax highlighting** as you type. Builds AUR `blesh-git` (0.4.0-devel: the stable 0.3.4 predates Bash 5.3 and warns on every shell start against Omarchy's inputrc). Wraps the `source "$OMARCHY_PATH/default/bash/rc"` line in `~/.bashrc` with `source ble.sh --noattach` before it and `ble-attach` at the end, so starship and fzf's key bindings (Ctrl-R etc.) keep working; the feature options live in `~/.blerc`. Open a new terminal to pick it up. |
 | Starship in distrobox | `starship-distrobox` | Makes the prompt work inside distrobox containers and show which one you're in (`⬢ <container> <dir> <branch> ❯`). Omarchy's `~/.bashrc` sources `$OMARCHY_PATH/default/bash/rc`, which doesn't exist in the container (its `/usr` is the image's; the host's is at `/run/host`), so starship never started: a `~/.bashrc` block points `OMARCHY_PATH` at `/run/host` inside distrobox and falls back to the host's starship binary (same Arch userland; another distro may need its own). The name comes from `CONTAINER_ID`, exported by `distrobox-enter`, through starship's `env_var` module in `~/.config/starship.toml` (blank on the host). |
+| Homebrew | — | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`, then puts `bin`/`sbin` on the session `PATH` via `environment.d` (log out and back in to pick it up). Not part of `just setup` — run explicitly with `just homebrew`; only the tooling that installs formulae from it (e.g. the Proton Pass CLI) needs it. |
 | TeX Live | `texlive` | Installs TeX Live via AUR `texlive-installer` (scheme-minimal + AISCGre-BR package selection). Not part of `just setup` — a long network install, run explicitly. Shares `playbooks/tex.yml` with Gregorio (umbrella tag `tex`). |
 | AppArmor | — | Activates AppArmor as a kernel LSM: `lsm=landlock,lockdown,yama,integrity,apparmor,bpf` (the kernel is built with it but leaves it out of the default list) via a `limine-entry-tool` drop-in + `limine-update`; needs a reboot. Two variants: **`just apparmor`** (kernel LSM only — no distro profiles loaded, the desktop is unchanged, snapd still confines strict snaps with its own profiles) and **`just apparmor-profiles`** (also enables `apparmor.service`, loading `/etc/apparmor.d`; on this setup that enforces `unix-chkpwd`, `avahi-daemon`, `ping`, …). Not part of `just setup`. |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
@@ -77,9 +78,9 @@ See each playbook's own header comment for implementation details.
   `wheel` group.
 - The libfprint playbook needs Podman + Distrobox already set up
   (`site.yml` already runs them in the right order).
-- The Proton Pass playbook needs Flatpak + Flathub (desktop client) and
-  Homebrew (CLI) already set up (`site.yml` already runs both in the
-  right order).
+- The Proton Pass playbook needs Flatpak + Flathub (`site.yml` already
+  runs it in the right order) and Homebrew (`just homebrew` — not part of
+  `just setup`).
 - The Secure Boot playbook only covers Limine + limine-entry-tool.
 
 Neither `just` nor `ansible` need to be pre-installed: `./bootstrap.sh`
@@ -139,15 +140,16 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**KeePassXC, Bitwarden, Proton Pass, TeX Live, Gregorio, the BGRT boot theme,
-AppArmor, Secure Boot, the Yubikey GPG key, and the Yubikey SSH keys are
-separate** — not part of `just setup`:
+**KeePassXC, Bitwarden, Proton Pass, Homebrew, TeX Live, Gregorio, the BGRT
+boot theme, AppArmor, Secure Boot, the Yubikey GPG key, and the Yubikey SSH
+keys are separate** — not part of `just setup`:
 
 ```bash
 just keepassxc     # one of three alternative password managers — pick any
 just bitwarden     # combination, or none; no password manager is the default
 just proton-pass   # desktop client (AUR) + CLI (official installer)
 just proton-pass-cli  # just the CLI, no root needed
+just homebrew      # Linuxbrew; needed by the Proton Pass CLI and `brew install`
 just texlive       # TeX Live is a long network install; run when you need it
 just gregorio      # also runs the TeX Live play first; builds the Gregorio engraver
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
@@ -181,6 +183,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/proton-pass.yml` | Proton Pass desktop (Flatpak, `me.proton.Pass`) + CLI (Homebrew, `proton-pass-cli`), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
 | `playbooks/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
 | `playbooks/flatpak.yml` | Flatpak + Flathub remote (tag `flatpak`) |
+| `playbooks/homebrew.yml` | Homebrew for Linux in `/home/linuxbrew/.linuxbrew`, `brew` launcher in `/usr/local/bin`, `bin`/`sbin` on the session `PATH` — outside `site.yml` (`just homebrew`) |
 | `playbooks/snap.yml` | snapd from the AUR (`/snap` link + session env) and Visual Studio Code's official snap + keyring/UI-scale fixes (tags `snapd`, `vscode`; umbrella `snap`) |
 | `playbooks/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |
 | `playbooks/printer.yml` | EPSON L4160 printer (tag `printer`) |
@@ -194,6 +197,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |
+| `docs/flathub-migration-survey.md` | Survey of the native GUI apps that Flathub could replace, which ones are load-bearing for Omarchy's shell, and the redundancies to cut first — reference material, no playbook implements it |
 | `playbooks/yubikey.yml` | Yubikey GPG key + resident SSH keys — outside `site.yml` (tags `gpg-yubikey`, `ssh-yubikey`; umbrella `yubikey`) |
 | `playbooks/files/` | Static files copied as-is |
 | `playbooks/templates/` | Jinja2 templates |

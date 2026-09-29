@@ -17,6 +17,13 @@
 # apply to new sessions only (log out and back in to pick it up — same
 # caveat already true for snapd's PATH export).
 # bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
+#
+# Not imported by site.yml: Homebrew is only needed by the tooling that
+# installs formulae from it (e.g. the Proton Pass CLI,
+# playbooks/proton-pass.yml) and by whatever you `brew install` yourself,
+# so it is not part of `just setup` — run it explicitly with `just homebrew`.
+#
+# Usage: ./run-empowered.sh ansible-playbook playbooks/homebrew.yml
 - name: Homebrew
   hosts: localhost
   connection: local

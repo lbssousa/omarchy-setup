@@ -4,15 +4,54 @@
 # non-default viewer — both still reachable from a file manager's "Open
 # With", just not what double-clicking a PDF opens.
 #
+# Zathura itself comes from Flathub (org.pwmt.zathura) rather than the
+# Arch package, so this play replaces pdf_viewer_zathura_native_packages
+# (zathura + the MuPDF backend) with the Flatpak. Bootstraps Flatpak +
+# the Flathub remote itself (system-wide), same approach as
+# playbooks/firefox.yml / playbooks/brave.yml / playbooks/libreoffice.yml,
+# so `just pdf-viewer` keeps working standalone.
+#
+# This is the cheap case of the pattern those playbooks document, for
+# the same reason LibreOffice wasn't: the native build and the Flatpak
+# export the SAME desktop-entry id (org.pwmt.zathura.desktop — neither
+# side overrides `desktop-file-name`), so the mimeapps.list default
+# below survives the swap untouched. No launcher NoDisplay stubs, no
+# id remapping, no keybind reassignment (nothing in
+# /usr/share/omarchy references zathura). The play asserts that id at
+# run time and stops rather than leaving a half-migrated box behind —
+# the mimeapps default is only as good as the id it points at.
+#
+# Two behaviour changes come with the Flatpak, both worth knowing before
+# filing this as "Zathura is broken now":
+#
+#   1. The rendering backend changes. Zathura ships no backend of its
+#      own: the Arch build needed zathura-pdf-mupdf (MuPDF), while the
+#      Flatpak bundles zathura-pdf-poppler — same upstream version
+#      (2026.07.18) either way, so this isn't a version regression,
+#      just a different engine, and zathura-pdf-mupdf is removed with
+#      the native packages. In exchange the Flatpak carries two
+#      backends the Arch pair didn't: zathura-djvu and zathura-ps.
+#      zathurarc needs no `set backend` line — whichever one is in play
+#      is the only one there is.
+#   2. The sandbox only grants ~/Documents and ~/Downloads, so a PDF
+#      from anywhere else (a USB stick, a project tree, /tmp) will be
+#      refused. Most PDFs land in Downloads, so this is usually
+#      invisible; pdf_viewer_zathura_extra_paths is the escape hatch if
+#      yours don't.
+#
+# The launcher is left with exactly one Zathura entry, and that needed
+# no NoDisplay stubs: the Flatpak exports four ids (the app plus one per
+# bundled backend) but ships NoDisplay=true on the three backend ones
+# already. The native pair exported two *visible* copies of the same
+# entry — zathura-pdf-mupdf ships its own org.pwmt.zathura.desktop
+# clone, byte-identical Exec included — so the launcher had been showing
+# "Zathura" twice, and the swap quietly fixes that.
+#
 # Evince itself is left installed: Nautilus's quick-previewer (sushi)
 # hard-depends on it at the package level (`pacman -Si sushi` lists
 # evince under "Depends On"), so removing evince would cascade into
 # removing sushi and losing Space-to-preview for every file type, not
-# just PDFs.
-#
-# Zathura itself ships no PDF backend — zathura-pdf-mupdf provides that
-# (MuPDF rendering; the alternative, zathura-pdf-poppler, is dropped in
-# favor of it here).
+# just PDFs. Papers stays native too — this play only moves Zathura.
 #
 # The default-application mapping is set in the user's own
 # ~/.config/mimeapps.list rather than
@@ -21,20 +60,85 @@
 # a future package update. A per-user mimeapps.list already takes
 # precedence over the system-wide one (XDG Desktop Entry spec), so this
 # doesn't need to touch the package-owned file at all.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags pdf-viewer
 - name: PDF viewer (Zathura default, Papers optional, Evince kept for sushi)
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
-    - name: Install Zathura + MuPDF backend, and Papers
+    - name: Ensure Flatpak is installed
       community.general.pacman:
-        name:
-          - "{{ pdf_viewer_zathura_package }}"
-          - "{{ pdf_viewer_zathura_backend_package }}"
-          - "{{ pdf_viewer_papers_package }}"
+        name: "{{ flatpak_package }}"
         state: present
       become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Zathura from Flathub
+      community.general.flatpak:
+        name: "{{ pdf_viewer_zathura_flatpak_id }}"
+        state: present
+        method: system
+      become: true
+
+    - name: Read Zathura's effective filesystem permissions
+      # The manifest's grants plus whatever `flatpak override` has added,
+      # i.e. what the sandbox will actually let it open.
+      ansible.builtin.command:
+        cmd: flatpak info --show-permissions --system {{ pdf_viewer_zathura_flatpak_id }}
+      register: pdf_viewer_zathura_permissions
+      changed_when: false
+      when: pdf_viewer_zathura_extra_paths | length > 0
+
+    - name: Grant Zathura the extra paths from pdf_viewer_zathura_extra_paths
+      # `flatpak override` adds to the existing grants rather than
+      # replacing them — clearing needs an explicit --nofilesystem — so
+      # the manifest's own ~/Documents and ~/Downloads stay granted, and
+      # this only ever runs for paths the app can't reach yet (hence
+      # changed_when, and hence re-running is a no-op).
+      ansible.builtin.command:
+        cmd: >-
+          flatpak override --system
+          {{ pdf_viewer_zathura_missing_paths | map('regex_replace', '^(.+)$', '--filesystem=\1') | join(' ') }}
+          {{ pdf_viewer_zathura_flatpak_id }}
+      vars:
+        pdf_viewer_zathura_granted_paths: >-
+          {{ (pdf_viewer_zathura_permissions.stdout_lines | default([])
+             | select('match', '^filesystems\s*[=:]') | map('regex_replace', '^filesystems\s*[=:]\s*', '')
+             | first | default(''))
+             | split(';') | map('trim') | reject('equalto', '') | list }}
+        pdf_viewer_zathura_missing_paths: >-
+          {{ pdf_viewer_zathura_extra_paths | difference(pdf_viewer_zathura_granted_paths) }}
+      when: pdf_viewer_zathura_missing_paths | length > 0
+      changed_when: true
+
+    - name: Look for Zathura's exported desktop entry
+      ansible.builtin.stat:
+        path: "{{ flatpak_system_exports_dir }}/applications/{{ pdf_viewer_zathura_flatpak_id }}.desktop"
+      register: pdf_viewer_zathura_exported_entry
+
+    - name: Expect the Flatpak to still export the desktop id the default points at
+      ansible.builtin.assert:
+        that: pdf_viewer_zathura_exported_entry.stat.exists
+        fail_msg: >-
+          {{ pdf_viewer_zathura_flatpak_id }} did not export
+          {{ flatpak_system_exports_dir }}/applications/{{ pdf_viewer_zathura_flatpak_id }}.desktop.
+          Its desktop-entry id has changed upstream, so
+          {{ pdf_viewer_mimeapps_path }} — which points at
+          {{ pdf_viewer_zathura_desktop_id }} — would resolve to nothing
+          and double-clicking a PDF would fall back to another viewer.
+          Fix pdf_viewer_zathura_desktop_id in
+          group_vars/all/main.yml to the new id before re-running this
+          play; nothing else here needs to change.
+        quiet: true
 
     - name: "Set Zathura as the default PDF viewer ({{ pdf_viewer_mimeapps_path }})"
       community.general.ini_file:
@@ -46,7 +150,54 @@
         create: true
         mode: "0644"
 
-    - name: Create ~/.config/zathura
+    - name: Install Papers (extra, non-default viewer)
+      community.general.pacman:
+        name: "{{ pdf_viewer_papers_package }}"
+        state: present
+      become: true
+
+    # After the assert above, so the box is never left without a viewer
+    # even if the Flatpak turned out to be a dead end. Nothing depends
+    # on these two packages, so this can't cascade.
+    - name: Remove the native Zathura and its MuPDF backend
+      community.general.pacman:
+        name: "{{ pdf_viewer_zathura_native_packages }}"
+        state: absent
+      become: true
+
+    - name: Look for leftover native Zathura desktop entries
+      # Two, not one: zathura-pdf-mupdf ships a duplicate of the same
+      # entry (see the header).
+      ansible.builtin.stat:
+        path: "/usr/share/applications/{{ item }}.desktop"
+      loop:
+        - org.pwmt.zathura
+        - org.pwmt.zathura-pdf-mupdf
+      register: pdf_viewer_zathura_native_entry
+
+    - name: Warn about any native desktop entry that survived
+      # Same id in two XDG_DATA_DIRS directories is legal but ambiguous,
+      # and the launcher shows whichever it scans first — here that
+      # would be an entry whose `Exec=zathura` binary no longer exists.
+      ansible.builtin.debug:
+        msg: >-
+          {{ pdf_viewer_zathura_leftover | map(attribute='item')
+          | list | join(', ') }} — the native desktop entry is still in
+          /usr/share/applications, so it competes with the Flatpak's
+          export under the same id while pointing at a `zathura` binary
+          that is no longer installed. Check `pacman -Qo` to see what
+          still provides it.
+      vars:
+        pdf_viewer_zathura_leftover: >-
+          {{ pdf_viewer_zathura_native_entry.results | selectattr('stat.exists') | list }}
+      when: pdf_viewer_zathura_leftover | length > 0
+
+    - name: Create the Flatpak config dir Zathura actually reads
+      # XDG_CONFIG_HOME inside the sandbox is ~/.var/app/<id>/config, so
+      # this is the path Zathura itself looks in, not ~/.config/zathura
+      # (which the sandbox doesn't expose at all). The old location is
+      # still "working" in the sense that nothing errors — it just isn't
+      # read, which is worse.
       ansible.builtin.file:
         path: "{{ pdf_viewer_zathurarc_path | dirname }}"
         state: directory
@@ -59,3 +210,25 @@
           set font "{{ pdf_viewer_zathura_font }}"
         dest: "{{ pdf_viewer_zathurarc_path }}"
         mode: "0644"
+
+    - name: Look for the pre-Flatpak zathurarc this play used to write
+      ansible.builtin.stat:
+        path: "{{ pdf_viewer_zathura_stale_zathurarc_path }}"
+      register: pdf_viewer_zathura_stale_zathurarc
+
+    - name: Read it, to confirm it's ours before deleting
+      ansible.builtin.slurp:
+        src: "{{ pdf_viewer_zathura_stale_zathurarc_path }}"
+      register: pdf_viewer_zathura_stale_zathurarc_content
+      when: pdf_viewer_zathura_stale_zathurarc.stat.exists
+
+    - name: Remove the pre-Flatpak zathurarc the sandbox can't see
+      # Gated on our own marker comment rather than just "the file is
+      # there": if the user has hand-edited ~/.config/zathura/zathurarc,
+      # that's their file and this leaves it alone.
+      ansible.builtin.file:
+        path: "{{ pdf_viewer_zathura_stale_zathurarc_path }}"
+        state: absent
+      when:
+        - pdf_viewer_zathura_stale_zathurarc.stat.exists
+        - "'Managed by playbooks/pdf-viewer.yml' in (pdf_viewer_zathura_stale_zathurarc_content.content | b64decode)"

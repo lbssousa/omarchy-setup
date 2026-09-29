@@ -1,0 +1,161 @@
+---
+# Replaces the native GUI apps Omarchy pre-installs with their Flathub
+# builds, for the subset docs/flathub-migration-survey.md found safe to
+# move: Kdenlive, OBS Studio, Pinta and Xournal++ (all four are in
+# /usr/share/omarchy/install/omarchy-base.packages, so this strips them
+# from a stock install rather than from a local addition). Which apps
+# are in the set is data — see flathub_app_migrations in
+# group_vars/all/main.yml.
+#
+# Why these are cheap, unlike the LibreOffice swap in
+# playbooks/libreoffice.yml: every one keeps the SAME desktop-entry id
+# in both builds. Verified on the native side against
+# /usr/share/applications/*.desktop; the Flatpak side is re-checked at
+# run time by the "expect the Flatpak to export" task below, because
+# that id is the whole contract here — no launcher NoDisplay stubs to
+# write, no mimeapps.list to rewrite, no window rule to add. The three
+# costs the LibreOffice playbook documents simply don't arise.
+#
+# The window rules are the one thing that does change, and in the
+# Flatpak's favour: /usr/share/omarchy/default/hypr/apps/system.lua
+# lists the *Flatpak* classes org.kde.kdenlive, com.obsproject.Studio
+# and com.github.PintaProject.Pinta in its no-opacity/no-default-opacity
+# rules, but the native builds report kdenlive, obs and Pinta (their
+# StartupWMClass) — so on a stock install those rules silently never
+# matched and the three windows picked up the desktop's default
+# opacity. The swap is what makes them start matching. Xournal++ is
+# unaffected either way: com.github.xournalpp.xournalpp already is its
+# native class and it has no rule.
+#
+# Deliberately NOT migrated here (survey sections "available on
+# Flathub, but they break Omarchy" / "No Flathub equivalent"):
+#   - mpv + mpv-mpris: the login shell resolves `mpv` off the session
+#     PATH (shell/Commons/Util.qml) and the webcam-overlay window rule
+#     keys on mpv's class; the Flatpak sandbox hides both.
+#   - localsend: omarchy-menu.jsonc launches the bare `localsend`
+#     binary, which the Flatpak doesn't provide.
+#   - evince: must stay native — Nautilus's sushi quick-previewer
+#     hard-depends on the package (see playbooks/pdf-viewer.yml).
+#   - chromium: Omarchy's install/config/browser-policy.sh and
+#     default/hypr/apps/browser.lua both target the native binary.
+#   - tensaku, aether, btop, foot, imv, neovim, gcr, cliamp,
+#     nautilus, gnome-disk-utility, system-config-printer: no Flathub
+#     build, or wired into Omarchy's own shell.
+#
+# Zed, Zathura and Papers are out of scope for a different reason:
+# none of the three is in omarchy-base.packages. Zed is a local
+# addition, and its Dev Containers need the Podman socket passed into
+# the sandbox first (undecided — survey item 3). Zathura and Papers
+# are installed by playbooks/pdf-viewer.yml, so swapping them means
+# changing that playbook too; Zathura is otherwise an easy swap (same
+# desktop id, so pdf_viewer_mimeapps_path is untouched) — Flathub's
+# build bundles zathura-pdf-poppler rather than Arch's
+# zathura-pdf-mupdf, so the rendering backend changes with it.
+#
+# Bootstraps Flatpak + the Flathub remote itself (system-wide), the
+# same tasks as playbooks/firefox.yml, so `just flathub-apps` keeps
+# working standalone.
+#
+# The isolation isn't total, and for Kdenlive it barely exists: its
+# Flathub manifest asks for `--filesystem=host` (the whole home
+# directory) and `--device=all`, so a compromised Kdenlive reaches
+# everything. OBS Studio is narrower but pulls the NDI and
+# BlackMagicLibs sub-apps' own portals. Worth knowing before assuming a
+# swap here is a sandboxing win — Pinta and Xournal++ are the ones that
+# actually give something back.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags flathub-apps
+- name: Flathub app migrations (native -> Flatpak)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Ensure Flatpak is installed
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install each app from Flathub
+      community.general.flatpak:
+        name: "{{ item.flatpak_id }}"
+        state: present
+        method: system
+      become: true
+      loop: "{{ flathub_app_migrations }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    # The whole point of these four being cheap. An id change here is
+    # not cosmetic: it would silently drop the app out of the launcher's
+    # curation and out of any rule keyed on the id, and for an app with
+    # a Hyprland window rule it would take the no-opacity treatment with
+    # it. Better to stop than to leave a half-migrated box behind.
+    - name: Look for each Flatpak's exported desktop entry
+      ansible.builtin.stat:
+        path: "{{ flatpak_system_exports_dir }}/applications/{{ item.flatpak_id }}.desktop"
+      loop: "{{ flathub_app_migrations }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: flathub_app_exported_entry
+
+    - name: Expect each Flatpak to still export the desktop id its native build used
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: >-
+          {{ item.item.flatpak_id }} did not export
+          {{ flatpak_system_exports_dir }}/applications/{{ item.item.flatpak_id }}.desktop.
+          Its desktop-entry id has changed upstream, so the app
+          launcher and every id-keyed rule (Hyprland window rules,
+          mimeapps defaults) would stop matching it. Add the new id to
+          flathub_app_migrations in group_vars/all/main.yml and
+          re-derive those rules from it before re-running this play.
+        quiet: true
+      loop: "{{ flathub_app_exported_entry.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    - name: Remove each app's native package(s)
+      # One transaction per app, so a package that depends on another
+      # of the same set (see pdf-viewer.yml's libreoffice-fresh +
+      # language pack, same shape) is removed in the right order.
+      community.general.pacman:
+        name: "{{ item.native_packages }}"
+        state: absent
+      become: true
+      loop: "{{ flathub_app_migrations }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Look for a leftover native desktop entry for each app
+      ansible.builtin.stat:
+        path: "/usr/share/applications/{{ item.flatpak_id }}.desktop"
+      loop: "{{ flathub_app_migrations }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: flathub_app_native_entry
+
+    - name: Warn about any native desktop entry that survived
+      # Two entries with the same id in different XDG_DATA_DIRS
+      # directories is legal but ambiguous, and the launcher shows
+      # whichever it scans first.
+      ansible.builtin.debug:
+        msg: >-
+          {{ flathub_app_leftover_entry | map(attribute='item.name')
+          | list | join(', ') }} — a native desktop entry is still in
+          /usr/share/applications, so the native and Flatpak entries now
+          compete under the same id and the launcher shows whichever it
+          scans first. Check `pacman -Qo` to see what else provides it.
+      vars:
+        flathub_app_leftover_entry: >-
+          {{ flathub_app_native_entry.results | selectattr('stat.exists') | list }}
+      when: flathub_app_leftover_entry | length > 0

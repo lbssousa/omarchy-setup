@@ -27,6 +27,13 @@
   ansible.builtin.import_playbook: playbooks/zed.yml
   tags: [zed]
 
+# Kdenlive, OBS Studio, Pinta and Xournal++ — the native builds Omarchy
+# pre-installs, replaced by their Flathub builds. One tag for the set;
+# trim flathub_app_migrations in group_vars/all/main.yml to narrow it.
+- name: Flathub app migrations (native -> Flatpak)
+  ansible.builtin.import_playbook: playbooks/flathub-apps.yml
+  tags: [flathub-apps]
+
 - name: gregorio-lsp
   ansible.builtin.import_playbook: playbooks/gregorio-lsp.yml
   tags: [gregorio-lsp]

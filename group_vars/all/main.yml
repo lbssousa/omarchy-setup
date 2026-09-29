@@ -52,6 +52,17 @@ brave_pwa_containers:
   Microsoft Teams (PWA): Microsoft
   Google Maps: Google
 
+# Default browser the main run leaves behind
+# (playbooks/default-browser.yml) — the Flathub Firefox's exported
+# desktop id, not firefox.desktop, for the same reason
+# omarchy-default-browser can't be used here (see that playbook's
+# header). Switch to "{{ brave_flatpak_id }}.desktop" to leave Brave as
+# the default instead; the user-facing omarchy-setup-default-browser
+# wrapper can still flip it at any time, it just doesn't pin the
+# choice on every run.
+default_browser_desktop_id: "{{ firefox_flatpak_id }}.desktop"
+default_browser_name: Firefox
+
 # LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
 # replacing Omarchy's pre-installed native libreoffice-fresh (+ its
 # pt-BR language pack, ptbr_libreoffice_i18n_package below). Like

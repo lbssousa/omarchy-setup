@@ -21,6 +21,15 @@ firefox_flatpak_id: org.mozilla.firefox
 # and the Firefox block in playbooks/ptbr.yml.
 firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
+# Firefox's "Default font size" (Settings > General > Fonts and Colors >
+# Advanced; font.size.variable.x-western in about:config), px. Firefox's
+# browser chrome follows org.gnome.desktop.interface font-name directly (see
+# omarchy_system_ui_font_pt), so this is only the default size for page
+# text. 17px is what 13pt renders to at the standard 96dpi — the same +1
+# as the GTK bump above, written as an integer px because that's what the
+# pref takes. Playbooks/firefox.yml drops it as a defaults/pref file, so
+# it's a default like the browser's own 16px, not a forced value.
+firefox_default_font_size_px: 17
 
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
 # (playbooks/firefox-pwa-keybinds.yml). Omarchy binds YouTube to
@@ -738,9 +747,10 @@ omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 # (playbooks/desktop.yml). Applied directly to
 # org.gnome.desktop.interface font-name, keeping whatever font family is
 # already configured there. Deliberately smaller than the 15pt that would
-# match the old 1.25 monitor scale (12pt * 1.25), unlike the shell bar and
-# terminals, which stay compensated.
-omarchy_system_ui_font_pt: 12
+# match the old 1.25 monitor scale (13pt * 1.25, rounded), unlike the shell
+# bar and terminals, which stay compensated. Raised a point from the 12pt
+# Omarchy leaves behind.
+omarchy_system_ui_font_pt: 13
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
 # from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep

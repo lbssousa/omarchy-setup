@@ -81,6 +81,7 @@ zed.
 | OBS Studio | `com.obsproject.Studio` | `playbooks/flathub-apps.yml` |
 | Pinta | `com.github.PintaProject.Pinta` | `playbooks/flathub-apps.yml` |
 | Xournal++ | `com.github.xournalpp.xournalpp` | `playbooks/flathub-apps.yml` |
+| Zathura | `org.pwmt.zathura` | `playbooks/pdf-viewer.yml` |
 
 The first four are the reference implementations for the pattern this
 repo uses. Read `playbooks/libreoffice.yml` before starting another
@@ -89,7 +90,7 @@ swap — its header comment documents the three recurring costs
 reassignment) and `playbooks/default-browser.yml` documents a fourth
 (the `omarchy default browser` table only knows native ids).
 
-The last four are `playbooks/flathub-apps.yml`, and they hit **none** of
+The next four are `playbooks/flathub-apps.yml`, and they hit **none** of
 those four costs: every one keeps the same desktop-entry id in both
 builds (confirmed on the native side against
 `/usr/share/applications/*.desktop`, on the Flatpak side by the fact
@@ -97,6 +98,16 @@ that none of the four Flathub manifests sets `desktop-file-name`, so
 each exports `<app-id>.desktop`). The play asserts that at run time and
 stops if it ever stops holding. The swap also *fixes* a latent bug —
 see the window-rule note in the play's header.
+
+Zathura is the same story with one trap this doc got wrong at first:
+sharing a desktop id is necessary but nowhere near sufficient when the
+play *also* writes the app's config. Inside a Flatpak, `XDG_CONFIG_HOME`
+is `~/.var/app/<app-id>/config` and `~/.config` isn't visible at all, so
+the statusbar font this repo has always written to `~/.config/zathura`
+kept "working" — the file was rewritten on every run, and Zathura never
+read it. The play now writes where Zathura looks and deletes the old
+file. Worth checking on any future swap that touches an app's config,
+which is why it's called out here rather than left in the play.
 
 ## Candidates: Flathub has it, nothing load-bearing breaks
 
@@ -106,7 +117,7 @@ migrated" above.
 
 | # | Native | Flathub id | Notes |
 |---|---|---|---|
-| 1 | Zathura 2026.07.18 | `org.pwmt.zathura` | `pdf_viewer_zathura_desktop_id` is `org.pwmt.zathura.desktop` — **identical for native and Flatpak**, so the `mimeapps.list` default in `playbooks/pdf-viewer.yml` survives untouched, as does the `~/.config/zathura` statusbar font. **Not** an Omarchy default though: `playbooks/pdf-viewer.yml` installs it, so the swap belongs in that play (moving it to `flathub-apps.yml` would make the two reinstall each other). One behaviour change to weigh: the Flathub build bundles **zathura-pdf-poppler**, not Arch's `zathura-pdf-mupdf`, so the rendering backend changes with it (both are then removed). |
+| 1 | Zathura 2026.07.18 | `org.pwmt.zathura` | `pdf_viewer_zathura_desktop_id` is `org.pwmt.zathura.desktop` — **identical for native and Flatpak**, so the `mimeapps.list` default in `playbooks/pdf-viewer.yml` survives untouched. **Not** an Omarchy default though: `playbooks/pdf-viewer.yml` installs it, so the swap belongs in that play (moving it to `flathub-apps.yml` would make the two reinstall each other). **Done.** Two things the swap costs: the Flathub build bundles **zathura-pdf-poppler**, not Arch's `zathura-pdf-mupdf` (same upstream version, different engine — and it also carries djvu + ps backends the Arch pair didn't), and the sandbox only grants `~/Documents` + `~/Downloads`. It also fixes the launcher, which had been showing "Zathura" twice — `zathura-pdf-mupdf` ships a second, unhidden copy of the same desktop entry. See the play's header for the config-path trap, which is the one genuinely surprising part. |
 | 2 | Kdenlive 26.08.0 | `org.kde.kdenlive` | Window class is already in Omarchy's no-opacity rules (`system.lua:41`), so the Flatpak's class match is unchanged. Flatpak tracks upstream faster than `extra`. **Done.** |
 | 3 | OBS Studio 32.2.2 | `com.obsproject.Studio` | Also already in `system.lua:41`. **Not** part of Omarchy's capture pipeline — that's `gpu-screen-recorder` (`omarchy-menu.jsonc:55`, `ScreenRecording.qml:18`), which stays native. The Flatpak needs the `org.freedesktop.portal.Desktop` ScreenCast portal, already present via `xdg-desktop-portal-hyprland`. **Done.** |
 | 4 | Pinta 3.1.2 | `com.github.PintaProject.Pinta` | Same app, same window class (already in `system.lua:41`). Trivial swap. **Done.** |
@@ -177,22 +188,23 @@ sit next to:
    per-app work, good way to validate the pattern a fourth time.
    **Done** (`flathub-apps.yml`).
 2. **Kdenlive + OBS + Zathura** — the Qt6 cluster, in one pass. Window
-   classes already match in `system.lua:41`. Kdenlive and OBS are
-   **done**; Zathura is still open, and is the one that needs a
-   decision rather than code — see its row in the candidates table.
+   classes already match in `system.lua:41`. All three are **done**;
+   Zathura went in `pdf-viewer.yml` rather than `flathub-apps.yml`,
+   since that play owns the app.
 3. **Zed** — needs a decision on the Podman socket in Dev Containers
    before it can move.
 4. **Papers** — only if it's actually used; otherwise delete it from
    `playbooks/pdf-viewer.yml` instead of migrating it.
 
-The four that are done share one playbook, one `flathub_app_migrations`
+The four that share a playbook do so because they need no per-app data
+beyond name / Flatpak id / native package: one `flathub_app_migrations`
 list in `group_vars/all/main.yml`, one `Justfile` recipe
-(`just flathub-apps`) and one `site.yml` import — rather than four of
-each, because they need no per-app data beyond name / Flatpak id /
-native package. Whatever comes next is a bigger job than that, and
-should get its own play (Zed and Zathura both would: the first needs
-Podman wiring, the second has to change `playbooks/pdf-viewer.yml`
-too), following the `libreoffice.yml` template.
+(`just flathub-apps`), one `site.yml` import. Zathura is the exception
+that proves the rule — it went into `playbooks/pdf-viewer.yml` instead,
+because that play already owns it (Zathura, the default-viewer
+mapping, the statusbar font), and moving it to the umbrella play would
+have had the two reinstall each other. Zed, if it ever moves, will need
+a play of its own too — for the Podman socket, not for the app.
 
 ## Open questions for the review
 

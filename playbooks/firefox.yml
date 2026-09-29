@@ -83,6 +83,23 @@
         mode: "0644"
       become: true
 
+    - name: "Set the default page font size to {{ firefox_default_font_size_px }}px (font.size.variable.x-western)"
+      # Same defaults/pref mechanism as the taskbar-tabs pref above, so
+      # it's a default rather than a locked policy (what policies.json's
+      # fixed allowlist would accept anyway). The browser chrome already
+      # follows the GTK font set by playbooks/desktop.yml; this only
+      # raises the default size for page text, one step above Firefox's
+      # own 16px (see firefox_default_font_size_px in group_vars).
+      ansible.builtin.copy:
+        content: |
+          // Default size for page text — one step above Firefox's own
+          // 16px, matching the 13pt GTK bump. Only flips the default;
+          // still user-overridable in about:config.
+          pref("font.size.variable.x-western", {{ firefox_default_font_size_px }});
+        dest: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/defaults/pref/omarchy-setup-font.js"
+        mode: "0644"
+      become: true
+
     - name: Remove the leftover pacman Firefox install, if present
       community.general.pacman:
         name: firefox

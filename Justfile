@@ -137,8 +137,10 @@ flatpak: _ensure-collections
     {{ap}} site.yml --tags flatpak
 
 # Install Homebrew for Linux and symlink brew into /usr/local/bin.
+# Not part of `just setup` — run explicitly (`playbooks/homebrew.yml` is
+# not imported by site.yml).
 homebrew: _ensure-collections
-    {{ap}} site.yml --tags homebrew
+    {{ap}} playbooks/homebrew.yml
 
 # Install snapd (AUR) and enable it (just the snapd play).
 snapd: _ensure-collections

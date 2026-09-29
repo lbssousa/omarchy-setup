@@ -22,6 +22,39 @@ firefox_flatpak_id: org.mozilla.firefox
 firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 
+# Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
+# (playbooks/firefox-pwa-keybinds.yml). Omarchy binds YouTube to
+# SUPER+SHIFT+Y and WhatsApp to SUPER+SHIFT+ALT+G through
+# omarchy-launch-webapp, which only knows the Chromium family's --app= flag
+# and falls back to chromium.desktop for every other default browser —
+# Firefox included, and Firefox is the default here (see
+# default_browser_desktop_id below). The tab apps are pinned by hand in
+# Firefox (right-click a tab -> "Pin to taskbar"), not by this repo: Firefox
+# owns the launchers it writes, the same division of labour
+# playbooks/brave.yml keeps for the Brave PWAs.
+#
+# One launcher per pinned site, at
+# <dir>/<firefox_flatpak_id>.webapp-<uuid>.desktop. The uuid is generated per
+# install and the Exec= line inside hardcodes the profile path, so neither is
+# something a keybind can name — desktop_name (the pinned tab's own title,
+# the one field that survives a reinstall) is the stable handle, and the
+# keybind goes through a wrapper that resolves it at launch time.
+# Microsoft Teams has no Omarchy keybind of its own, so it takes the same
+# SUPER+SHIFT+ALT+<letter> shape as WhatsApp.
+firefox_webapp_desktop_dir: "{{ ansible_facts.env.HOME }}/.local/share/applications"
+firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/{{ firefox_flatpak_id }}.webapp-*.desktop"
+firefox_taskbar_app_launcher: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
+firefox_taskbar_apps:
+  - label: YouTube
+    desktop_name: YouTube
+    keybind: "SUPER + SHIFT + Y"
+  - label: WhatsApp
+    desktop_name: WhatsApp Web
+    keybind: "SUPER + SHIFT + ALT + G"
+  - label: Microsoft Teams
+    desktop_name: Microsoft Teams (PWA)
+    keybind: "SUPER + SHIFT + ALT + T"
+
 # Brave (playbooks/brave.yml) — installed from Flathub, replacing the
 # AUR brave-origin-bin package: a stock, Brave-maintained build instead
 # of a de-Googled fork this repo had to track manually. Bootstraps

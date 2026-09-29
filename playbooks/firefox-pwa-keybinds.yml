@@ -1,0 +1,93 @@
+---
+# Repoints the webapp Hyprland keybinds at the Firefox Taskbar Tabs
+# ("tab apps") — sites pinned to the Firefox taskbar, each opening as its
+# own app-like window — instead of the omarchy-launch-webapp launchers
+# Omarchy binds by default. Everything lives in the user's home, so no
+# root (see the Justfile recipe).
+#
+# Why the defaults can't be left alone: omarchy-launch-webapp
+# (/usr/share/omarchy/bin) only knows the Chromium family's --app= flag and
+# falls back to chromium.desktop for any other default browser — Firefox
+# included, and Firefox is this machine's default (see
+# default_browser_desktop_id in group_vars/all/main.yml).
+#
+# The tab apps themselves are pinned by hand in Firefox (right-click a tab
+# -> "Pin to taskbar"), not by this repo: Firefox owns the launchers it
+# writes, the same division of labour playbooks/brave.yml keeps for the
+# Brave PWAs. This only rebinds the keys, and skips any app that isn't
+# pinned yet, so on a machine where they haven't been created Omarchy's own
+# webapp bindings keep working for it instead of dying silently.
+- name: Firefox Taskbar Tabs keybindings
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [firefox-pwa-keybinds]
+
+  tasks:
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy omarchy-setup-launch-firefox-taskbar-app
+      ansible.builtin.template:
+        src: launch-firefox-taskbar-app.sh.j2
+        dest: "{{ firefox_taskbar_app_launcher }}"
+        mode: "0755"
+
+    - name: Create ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
+
+    - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: /usr/share/omarchy/default/hypr/bindings.lua
+        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: List the taskbar apps actually pinned to the Firefox taskbar
+      # The Name= each launcher carries, one per line. Parsed the same way
+      # the wrapper does, so the two can't disagree on what counts as pinned.
+      ansible.builtin.shell: |
+        for name in {{ firefox_taskbar_apps | map(attribute='desktop_name') | map('quote') | join(' ') }}; do
+          for entry in {{ firefox_webapp_desktop_glob }}; do
+            [[ -f "$entry" ]] || continue
+            if [[ "$(sed -n 's/^Name=//p' "$entry" | head -n1)" == "$name" ]]; then
+              printf '%s\n' "$name"
+              break
+            fi
+          done
+        done
+      register: firefox_taskbar_apps_pinned
+      changed_when: false
+
+    - name: "Rebind the webapp keys ({{ firefox_taskbar_apps_pinned.stdout_lines | join(', ') }})"
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/firefox-pwa-keybinds.yml — Firefox Taskbar Tabs keybindings)"
+        # Launched through the wrapper rather than omarchy-launch-or-focus
+        # (which is what the default WhatsApp binding uses): it matches
+        # windows by class or title, and a Firefox tab app's title is
+        # whatever the page currently says, so the match would be a guess.
+        # desktop_name goes through quote(), which for a Name= with no
+        # apostrophe in it is also valid Lua.
+        block: |
+          {% for app in firefox_taskbar_apps if app.desktop_name in firefox_taskbar_apps_pinned.stdout_lines %}
+          hl.unbind("{{ app.keybind }}")
+          o.bind("{{ app.keybind }}", "{{ app.label }}", { launch = "{{ firefox_taskbar_app_launcher }} {{ app.desktop_name | quote }}" })
+          {% endfor %}
+      when: firefox_taskbar_apps_pinned.stdout_lines | length > 0
+      notify: reload Hyprland
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the binds still
+      # apply on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false

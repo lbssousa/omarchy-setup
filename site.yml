@@ -11,6 +11,13 @@
   ansible.builtin.import_playbook: playbooks/firefox.yml
   tags: [firefox]
 
+# Point the webapp keybinds (YouTube, WhatsApp, Microsoft Teams) at the sites
+# pinned to the Firefox taskbar. Separate from the play above because the
+# tab apps it binds to are pinned by hand, not installed by anything.
+- name: Firefox Taskbar Tabs keybindings
+  ansible.builtin.import_playbook: playbooks/firefox-pwa-keybinds.yml
+  tags: [firefox-pwa-keybinds]
+
 - name: Brave
   ansible.builtin.import_playbook: playbooks/brave.yml
   tags: [brave]

@@ -32,7 +32,8 @@ setup: _ensure-collections
 polkit: _ensure-collections
     {{ap}} site.yml --tags polkit
 
-# Install Firefox from Flathub and enable tab apps (Taskbar Tabs).
+# Install Firefox from Flathub and turn tab apps (Taskbar Tabs) on by
+# default.
 firefox: _ensure-collections
     {{ap}} site.yml --tags firefox
 
@@ -47,7 +48,8 @@ brave: _ensure-collections
 brave-pwa-desktop-fix: _ensure-collections
     ansible-playbook site.yml --tags brave-pwa-desktop-fix
 
-# Deploy omarchy-setup-default-browser, a Flathub-aware alternative to
+# Make the Flathub Firefox the default browser (unless it already is), and
+# deploy omarchy-setup-default-browser, a Flathub-aware alternative to
 # `omarchy default browser` for Firefox/Brave. No root needed.
 default-browser: _ensure-collections
     ansible-playbook site.yml --tags default-browser

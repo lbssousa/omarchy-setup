@@ -52,6 +52,16 @@
 #
 # Neither fix touches omarchy-launch-browser itself — an Omarchy-owned
 # file, liable to be overwritten by an update.
+#
+# Deploying the wrapper is only half of it: a fresh run also *sets* the
+# default browser (default_browser_desktop_id — the Flathub Firefox),
+# so `just setup` leaves a working default behind instead of Omarchy's
+# stock chromium.desktop, which by then points at a browser this
+# setup replaced. xdg-settings is the same mechanism
+# omarchy-default-browser uses, called directly with the right desktop
+# id; the wrapper isn't reused because it also sends a desktop
+# notification via busctl --user, which fails outside a graphical
+# session (this play is often run over SSH).
 - name: Default browser (Flathub-aware wrapper)
   hosts: localhost
   connection: local
@@ -85,6 +95,26 @@
       loop:
         - "{{ firefox_flatpak_id }}"
         - "{{ brave_flatpak_id }}"
+
+    # After the symlinks above: xdg-settings resolves a desktop id to a
+    # command by walking ${XDG_DATA_HOME:-$HOME/.local/share}:
+    # ${XDG_DATA_DIRS:-/usr/local/share:/usr/share} only, never
+    # /var/lib/flatpak/exports/share, and exits "file missing" if the id
+    # doesn't resolve. BROWSER has to be unset for the same reason
+    # omarchy-default-browser and the wrapper unset it: the Omarchy
+    # session exports BROWSER=omarchy-launch-browser, and xdg-settings
+    # refuses to change the http/https handlers while it's set.
+    - name: Read the current default web browser
+      ansible.builtin.command: env -u BROWSER xdg-settings get default-web-browser
+      register: default_browser_current
+      changed_when: false
+      # A profile with nothing set at all exits 4 rather than 0; that's
+      # simply "not our id", which the set below already handles.
+      failed_when: false
+
+    - name: "Make {{ default_browser_name }} the default browser ({{ default_browser_desktop_id }})"
+      ansible.builtin.command: env -u BROWSER xdg-settings set default-web-browser {{ default_browser_desktop_id }}
+      when: default_browser_current.stdout | default('') | trim != default_browser_desktop_id
 
     - name: Deploy omarchy-setup-launch-browser
       ansible.builtin.template:

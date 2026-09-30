@@ -5,7 +5,7 @@ Ansible automation for setting up a freshly installed
 
 Each automation is a play under `playbooks/`, imported by `site.yml`;
 automations that depend on each other (Podman → Distrobox, snapd → VS Code,
-TeX Live → Gregorio, the OpenSSH agent → KeePassXC) or that share a theme
+the OpenSSH agent → KeePassXC) or that share a theme
 (the desktop tweaks, the Yubikey helpers) live together in one playbook
 file. All of them share the same privilege escalation (run0, see
 `ansible.cfg`), and each automation has its own tag: run one with
@@ -13,19 +13,18 @@ file. All of them share the same privilege escalation (run0, see
 play with a dependency also runs the play it depends on first (e.g.
 `--tags distrobox` sets Podman up first), and files with several plays
 have an umbrella tag for the whole file (`containers`, `snap`, `desktop`,
-`tex`, `yubikey`). Exceptions:
+`yubikey`). Exceptions:
 `playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
 `playbooks/apparmor.yml`, `playbooks/keepassxc.yml`, `playbooks/bitwarden.yml`,
-`playbooks/proton-pass.yml`, `playbooks/tex.yml` (TeX Live + Gregorio),
-`playbooks/homebrew.yml`, `playbooks/yubikey.yml` are **not**
-imported by `site.yml` — Secure Boot, the
-BGRT boot theme and AppArmor touch firmware/boot, KeePassXC, Bitwarden and
-Proton Pass are three alternative password managers (install whichever one
-you want — none of them is the default), TeX Live (+ Gregorio, which
-depends on it) is a long download/install you run on demand, Homebrew is
-only needed by the tools that install formulae from it, and the
-Yubikey helpers need the physical token plugged in — so they only run
-when called explicitly.
+`playbooks/proton-pass.yml`, `playbooks/homebrew.yml`, `playbooks/yubikey.yml`
+are **not** imported by `site.yml` — Secure Boot, the BGRT boot theme and
+AppArmor touch firmware/boot, KeePassXC, Bitwarden and Proton Pass are three
+alternative password managers (install whichever one you want — none of them
+is the default), Homebrew is only needed by the tools that install formulae
+from it, and the Yubikey helpers need the physical token plugged in — so
+they only run when called explicitly. TeX Live, LilyPond and Gregorio are a
+separate tool entirely (`local-typesetting/`, `just typesetting`) — a
+standalone shell script, not an Ansible playbook (see below).
 
 ## What it sets up
 
@@ -43,7 +42,6 @@ when called explicitly.
 | pinentry-omarchy | `pinentry` | Builds and installs [pinentry-omarchy](https://github.com/lbssousa/pinentry-omarchy) (Rust pinentry + omarchy-shell plugin) from its own PKGBUILD, installing Rust first if needed. It builds the release tag in `pinentry_omarchy_ref` only after verifying the tag's GPG signature against the Yubikey's key (`pinentry_omarchy_signing_keys`). Links and enables the `lbssousa.pinentry` shell plugin and sets `pinentry-program` in `~/.gnupg/gpg-agent.conf`, so GnuPG PIN and passphrase prompts (e.g. the Yubikey card PIN) use the same overlay dialog as the polkit agent. Without a Wayland session it falls back to pinentry-gnome3/curses. Must run inside the graphical session (enabling the plugin goes through the shell's IPC). |
 | GTK4 file dialogs | `file-chooser` | Makes the open/save file dialogs of non-GNOME apps (Firefox, Chromium, Electron, GTK and Qt apps) the GTK4 ones. Installs `xdg-desktop-portal-gnome` (its FileChooser is Nautilus's) and routes the FileChooser portal to it for Hyprland (`~/.config/xdg-desktop-portal/hyprland-portals.conf`), clears the session's forced `GDK_BACKEND` for that one service (otherwise it starts in a settings-only mode and shows no dialogs), and exports `GTK_USE_PORTAL=1` from `~/.config/hypr/hyprland.lua`. Qt apps (Qt5 like KeePassXC, and Qt6) use `qt5ct`/`qt6ct` as their platform theme (`QT_QPA_PLATFORMTHEME=qt6ct`) instead of Omarchy's `gtk3`, which draws GTK3 dialogs in-process: their `standard_dialogs=xdgdesktopportal` option asks the portal, and they also set the Qt UI font to GTK's family at `omarchy_system_ui_font_pt` (Qt's plain `xdgdesktopportal` theme would give portal dialogs but a 9pt fallback font). Log out and back in (or restart the app) to pick it up. |
 | LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
-| Gregorio | `gregorio` | Builds and installs the Gregorio GABC → GregorioTeX engraver from source. Depends on TeX Live (its tag also runs the TeX Live play first). Not part of `just setup`. |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Firefox/Chromium/LibreOffice/man pages/OCR language. |
 | Podman | `podman` | Rootless container engine. Part of `playbooks/containers.yml` with Distrobox and the starship integration (umbrella tag `containers`). |
 | Distrobox | `distrobox` | Depends on Podman: the tag also runs the Podman play first. |
@@ -56,13 +54,13 @@ when called explicitly.
 | Screen scale + text size | `text-size` | Sets the Hyprland monitor scale to 100% (and `GDK_SCALE` to match) and compensates with larger text: shell bar + terminals at 20px (15pt terminal font) and the GTK UI font at 12pt (Qt follows it through the `file-chooser` play), with GTK's text-scaling factor left at 1.0. |
 | Night light | `nightlight-solar` | Syncs hyprsunset to real sunrise/sunset daily. |
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |
-| Inkscape + svg2tikz | `inkscape` | Installs Inkscape and the [svg2tikz](https://github.com/xyz2tex/svg2tikz) extension (AUR `python-svg2tikz`) for exporting SVG paths as TikZ/PGF code for LaTeX. Also points fontconfig at TeX Live's own fonts, so Latin Modern and other TeX families show up in Inkscape's (and every fontconfig app's) font picker. |
+| Inkscape + svg2tikz | `inkscape` | Installs Inkscape and the [svg2tikz](https://github.com/xyz2tex/svg2tikz) extension (AUR `python-svg2tikz`) for exporting SVG paths as TikZ/PGF code for LaTeX. |
 | Omadwaita themes | `omadwaita-themes` | Installs three Adwaita-based Omarchy themes whose terminal palettes come from Adwaita's nine accent colors, WCAG-AA-checked on their background: **Omadwaita** (dark TUI, light GTK — a `theme-set` hook flips GTK back to light), **Omadwaita Light** and **Omadwaita Dark**. All three use the Adwaita icon theme and share one wallpaper set (devotional paintings and wallpapers, `playbooks/files/omadwaita/backgrounds/`, migrated from the former Sacred Heart theme), plus a generated fallback wallpaper (the Omarchy logo on a gradient in the theme's palette). Browsers (Chromium, Brave, Chrome, Edge) get a per-theme `chromium.theme` seed color so their accent has Adwaita blue's hue instead of an arbitrary one derived from the neutral background. Omarchy never recolors GTK (it only picks `Adwaita`/`Adwaita-dark` from the theme's `mode`), so GTK apps keep the stock Adwaita palette. Installs only; apply with `omarchy-theme-set "Omadwaita"`. |
 | Limine silent boot | `limine-silent-boot` | Sets `quiet: yes` (in the config header, before the first entry — otherwise Limine ignores it) and `timeout: 1` in `/boot/limine.conf` (and removes any `firmware_logo`) for a flicker-free boot: with `quiet` in effect Limine draws nothing and keeps the firmware BGRT logo on screen through its 1-second key window (press ↑/↓ to reveal the menu — not Space/Enter, which Limine treats as "boot the selected entry"; snapshots/fallback stay reachable). Re-runs `limine-update` to re-enroll the config checksum, so it also works with Secure Boot's `ENABLE_ENROLL_LIMINE_CONFIG=yes`. |
 | ble.sh | `blesh` | Loads [ble.sh](https://github.com/akinomyoga/ble.sh) by default in Bash — Omarchy doesn't — with fish-style **autosuggestions** (ghost text from history, then completion) and **syntax highlighting** as you type. Builds AUR `blesh-git` (0.4.0-devel: the stable 0.3.4 predates Bash 5.3 and warns on every shell start against Omarchy's inputrc). Wraps the `source "$OMARCHY_PATH/default/bash/rc"` line in `~/.bashrc` with `source ble.sh --noattach` before it and `ble-attach` at the end, so starship and fzf's key bindings (Ctrl-R etc.) keep working; the feature options live in `~/.blerc`. Open a new terminal to pick it up. |
 | Starship in distrobox | `starship-distrobox` | Makes the prompt work inside distrobox containers and show which one you're in (`⬢ <container> <dir> <branch> ❯`). Omarchy's `~/.bashrc` sources `$OMARCHY_PATH/default/bash/rc`, which doesn't exist in the container (its `/usr` is the image's; the host's is at `/run/host`), so starship never started: a `~/.bashrc` block points `OMARCHY_PATH` at `/run/host` inside distrobox and falls back to the host's starship binary (same Arch userland; another distro may need its own). The name comes from `CONTAINER_ID`, exported by `distrobox-enter`, through starship's `env_var` module in `~/.config/starship.toml` (blank on the host). |
 | Homebrew | — | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and symlinks `brew` into `/usr/local/bin`, then puts `bin`/`sbin` on the session `PATH` via `environment.d` (log out and back in to pick it up). Not part of `just setup` — run explicitly with `just homebrew`; only the tooling that installs formulae from it (e.g. the Proton Pass CLI) needs it. |
-| TeX Live | `texlive` | Installs TeX Live via AUR `texlive-installer` (scheme-minimal + AISCGre-BR package selection). Not part of `just setup` — a long network install, run explicitly. Shares `playbooks/tex.yml` with Gregorio (umbrella tag `tex`). |
+| TeX Live + LilyPond + Gregorio | — | Not an Ansible playbook: `local-typesetting/install-typesetting.sh` (`just typesetting`) installs TeX Live and LilyPond under `/opt`, builds Gregorio from source, and registers TeX Live's fonts with fontconfig, directly on the host with `sudo` — no containers. Not part of `just setup` — a long network install, run explicitly. See [`local-typesetting/README.md`](local-typesetting/README.md). |
 | AppArmor | — | Activates AppArmor as a kernel LSM: `lsm=landlock,lockdown,yama,integrity,apparmor,bpf` (the kernel is built with it but leaves it out of the default list) via a `limine-entry-tool` drop-in + `limine-update`; needs a reboot. Two variants: **`just apparmor`** (kernel LSM only — no distro profiles loaded, the desktop is unchanged, snapd still confines strict snaps with its own profiles) and **`just apparmor-profiles`** (also enables `apparmor.service`, loading `/etc/apparmor.d`; on this setup that enforces `unix-chkpwd`, `avahi-daemon`, `ping`, …). Not part of `just setup`. |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
@@ -141,9 +139,9 @@ Run a single automation with `just <name>` (see the Justfile) or
 
 The playbooks are idempotent — rerunning is safe.
 
-**KeePassXC, Bitwarden, Proton Pass, Homebrew, TeX Live, Gregorio, the BGRT
-boot theme, AppArmor, Secure Boot, the Yubikey GPG key, and the Yubikey SSH
-keys are separate** — not part of `just setup`:
+**KeePassXC, Bitwarden, Proton Pass, Homebrew, the typesetting toolchain, the
+BGRT boot theme, AppArmor, Secure Boot, the Yubikey GPG key, and the Yubikey
+SSH keys are separate** — not part of `just setup`:
 
 ```bash
 just keepassxc     # one of three alternative password managers — pick any
@@ -151,8 +149,7 @@ just bitwarden     # combination, or none; no password manager is the default
 just proton-pass   # desktop client (AUR) + CLI (official installer)
 just proton-pass-cli  # just the CLI, no root needed
 just homebrew      # Linuxbrew; needed by the Proton Pass CLI and `brew install`
-just texlive       # TeX Live is a long network install; run when you need it
-just gregorio      # also runs the TeX Live play first; builds the Gregorio engraver
+just typesetting   # TeX Live + LilyPond + Gregorio, no containers (long network install)
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
 just apparmor      # AppArmor as a kernel LSM, no distro profiles; needs a reboot
 just apparmor-profiles  # same + apparmor.service loading /etc/apparmor.d's profiles
@@ -194,7 +191,7 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/omadwaita-themes.yml` | Omadwaita / Omadwaita Light / Omadwaita Dark Omarchy themes (tag `omadwaita-themes`) |
 | `playbooks/limine-silent-boot.yml` | Limine silent boot — quiet (header-only) + `timeout: 1`, re-enrolls config checksum (tag `limine-silent-boot`) |
 | `playbooks/blesh.yml` | ble.sh in Bash: autosuggestions + syntax highlighting, wired into `~/.bashrc` / `~/.blerc` (tag `blesh`) |
-| `playbooks/tex.yml` | TeX Live via AUR texlive-installer + Gregorio engraver built from source — outside `site.yml` (tags `texlive`, `gregorio`; umbrella `tex`) |
+| `local-typesetting/` | TeX Live + LilyPond (`/opt`) + Gregorio, built directly on the host (no containers, no Ansible) — `just typesetting` |
 | `playbooks/apparmor.yml` | AppArmor kernel LSM (+ optional distro profiles) — outside `site.yml` (`just apparmor` / `just apparmor-profiles`) |
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |

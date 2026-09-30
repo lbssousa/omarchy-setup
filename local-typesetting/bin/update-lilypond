@@ -1,0 +1,13 @@
+#!/bin/bash
+# Rebuilds/reinstalls LilyPond at a given version, reusing the same
+# install-lilypond.sh logic used by the initial install.
+#
+# Usage: update-lilypond [version]   (e.g. update-lilypond 2.26.4; defaults
+# to "latest", resolving lilypond/lilypond's latest GitLab release)
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    exec run0 "$0" "$@"
+fi
+
+VERSION="${1:-latest}" /opt/local-typesetting/scripts/install-lilypond.sh

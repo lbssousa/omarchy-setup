@@ -18,7 +18,7 @@
 # break Bash. The blocks sit below Omarchy's non-interactive `return`.
 #
 # ble.sh has no official Arch package, so it's built from the AUR (blesh-git)
-# the same unprivileged clone+makepkg+pacman -U way as playbooks/tex.yml,
+# the same unprivileged clone+makepkg+pacman -U way as
 # playbooks/bitwarden.yml and playbooks/inkscape.yml. See blesh_* in
 # group_vars/all/main.yml for why blesh-git and not the stable blesh.
 #

@@ -1,0 +1,11 @@
+#!/bin/bash
+# Updates TeX Live itself and every installed package via tlmgr, then
+# refreshes fontconfig's cache (tlmgr install/update can add new font files).
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+    exec run0 "$0" "$@"
+fi
+
+tlmgr update --self --all
+fc-cache -f

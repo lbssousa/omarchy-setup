@@ -104,15 +104,11 @@ file-chooser: _ensure-collections
 lazyvim: _ensure-collections
     ansible-playbook site.yml --tags lazyvim
 
-# Install TeX Live (AUR texlive-installer, scheme-minimal + AISCGre-BR
-# packages). Not part of `just setup` — run explicitly.
-texlive: _ensure-collections
-    {{ap}} playbooks/tex.yml --tags texlive
-
-# Build and install Gregorio (lbssousa/gregorio) from source. Depends on
-# TeX Live — the tag also runs the TeX Live play first. Not part of `just setup`.
-gregorio: _ensure-collections
-    {{ap}} playbooks/tex.yml --tags gregorio
+# Install TeX Live, LilyPond and Gregorio directly on this machine (no
+# containers, no Ansible) — see local-typesetting/README.md. A long
+# network install; not part of `just setup`. Needs sudo.
+typesetting:
+    ./local-typesetting/install-typesetting.sh
 
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections

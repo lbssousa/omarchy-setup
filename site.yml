@@ -114,3 +114,7 @@
 - name: pinentry-omarchy (GnuPG prompts in the polkit-style shell dialog)
   ansible.builtin.import_playbook: playbooks/pinentry.yml
   tags: [pinentry]
+
+- name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
+  ansible.builtin.import_playbook: playbooks/openssh-askpass.yml
+  tags: [openssh-askpass]

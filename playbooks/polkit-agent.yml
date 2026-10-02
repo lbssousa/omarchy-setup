@@ -1,0 +1,79 @@
+---
+# Replaces Omarchy's polkit agent (omarchy.polkit) with polkit-omarchy
+# (lbssousa.polkit), which adds a "Touch your security key" prompt for
+# pam_u2f instead of a password field whose Enter does nothing.
+#
+# The plugin is copied from the local project directory to /usr/share
+# and linked into ~/.config/omarchy/plugins. Its manifest declares
+# clonedFrom: omarchy.polkit, so enabling it disables the built-in agent
+# (and `omarchy plugin disable lbssousa.polkit` brings it back).
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags polkit-agent
+- name: polkit-omarchy (polkit agent with security key touch prompt)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [polkit-agent]
+
+  tasks:
+    - name: Check the project directory exists
+      ansible.builtin.stat:
+        path: "{{ polkit_agent_project_dir }}/plugin/manifest.json"
+      register: polkit_agent_dir_stat
+
+    - name: Fail if the project directory is missing
+      ansible.builtin.fail:
+        msg: "Project directory {{ polkit_agent_project_dir }} not found."
+      when: not polkit_agent_dir_stat.stat.exists
+
+    - name: Install the plugin to /usr/share
+      ansible.builtin.copy:
+        src: "{{ polkit_agent_project_dir }}/plugin/"
+        dest: "{{ polkit_agent_plugin_dir }}/"
+        mode: preserve
+        remote_src: true
+      become: true
+      register: polkit_agent_copy_result
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ polkit_agent_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the shell plugin ({{ polkit_agent_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ polkit_agent_plugin_dir }}"
+        dest: "{{ polkit_agent_plugin_link }}"
+        state: link
+        force: true
+      register: polkit_agent_link_result
+
+    - name: Let the shell discover the plugin
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, rescanPlugins]
+      when: polkit_agent_link_result is changed
+      changed_when: false
+
+    - name: List the shell plugins
+      ansible.builtin.command:
+        argv: [omarchy-plugin-list, --json]
+      register: polkit_agent_plugin_list
+      changed_when: false
+
+    - name: "Enable {{ polkit_agent_plugin_id }} (disables omarchy.polkit)"
+      ansible.builtin.command:
+        argv: [omarchy-plugin-enable, "{{ polkit_agent_plugin_id }}"]
+      register: polkit_agent_enable_result
+      when: >-
+        not (polkit_agent_plugin_list.stdout | from_json
+             | selectattr('id', 'equalto', polkit_agent_plugin_id)
+             | selectattr('enabled') | list | length > 0)
+
+    - name: Restart the shell to load the new agent code
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        polkit_agent_copy_result is changed
+        or polkit_agent_link_result is changed
+        or polkit_agent_enable_result is changed
+      changed_when: true

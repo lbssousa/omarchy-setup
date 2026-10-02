@@ -237,6 +237,25 @@ pinentry_omarchy_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plug
 pinentry_omarchy_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
 pinentry_omarchy_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
 
+# ssh-askpass-omarchy (playbooks/ssh-askpass.yml) — SSH prompts in the
+# polkit-style omarchy-shell dialog. Built locally via cargo from the
+# user's project directory.
+ssh_askpass_project_dir: "{{ ansible_facts.env.HOME }}/Projetos/lbssousa/ssh-askpass-omarchy"
+ssh_askpass_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
+ssh_askpass_program: /usr/bin/ssh-askpass-omarchy
+ssh_askpass_plugin_dir: /usr/share/ssh-askpass-omarchy/plugin
+ssh_askpass_plugin_id: lbssousa.ssh_askpass
+ssh_askpass_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ ssh_askpass_plugin_id }}"
+ssh_askpass_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
+ssh_askpass_environment_conf: "{{ ansible_facts.env.HOME }}/.config/environment.d/90-ssh-askpass.conf"
+
+# polkit-omarchy (playbooks/polkit-agent.yml) — Omarchy's polkit agent
+# plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
+polkit_agent_project_dir: "{{ ansible_facts.env.HOME }}/Projetos/lbssousa/polkit-omarchy"
+polkit_agent_plugin_dir: /usr/share/polkit-omarchy/plugin
+polkit_agent_plugin_id: lbssousa.polkit
+polkit_agent_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ polkit_agent_plugin_id }}"
+
 # openssh with askpass touch notifications (playbooks/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
 openssh_askpass_packaging_repo: https://gitlab.archlinux.org/archlinux/packaging/packages/openssh.git
@@ -252,6 +271,7 @@ openssh_askpass_makedepends:
   - openssl
   - pam
   - zlib
+
 
 # LazyVim (playbooks/lazyvim.yml) — Omarchy's default Neovim distro,
 # already installed at ~/.config/nvim; this only adds the LaTeX language

@@ -1,0 +1,127 @@
+---
+# Installs ssh-askpass-omarchy from the local project directory.
+# This compiles the Rust binary, installs it to /usr/bin,
+# links the shell plugin, enables it via omarchy-shell IPC,
+# and configures SSH to use it.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags ssh-askpass
+- name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [ssh-askpass]
+
+  vars:
+    ssh_askpass_cargo_env:
+      PATH: "{{ ssh_askpass_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
+
+  tasks:
+    - name: Check whether the project directory exists
+      ansible.builtin.stat:
+        path: "{{ ssh_askpass_project_dir }}"
+      register: ssh_askpass_dir_stat
+
+    - name: Ensure the project directory exists
+      ansible.builtin.fail:
+        msg: "Project directory {{ ssh_askpass_project_dir }} not found."
+      when: not ssh_askpass_dir_stat.stat.exists
+
+    - name: Check whether Rust (cargo) is already installed
+      ansible.builtin.stat:
+        path: "{{ ssh_askpass_cargo_bin_dir }}/cargo"
+      register: ssh_askpass_cargo_stat
+
+    - name: Install Rust (omarchy-install-dev-env rust)
+      ansible.builtin.command: omarchy-install-dev-env rust
+      when: not ssh_askpass_cargo_stat.stat.exists
+
+    - name: Build the ssh-askpass-omarchy binary
+      ansible.builtin.command:
+        cmd: cargo build --release
+        chdir: "{{ ssh_askpass_project_dir }}"
+      environment: "{{ ssh_askpass_cargo_env }}"
+      register: ssh_askpass_build_result
+
+    - name: Create system directories for ssh-askpass-omarchy
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /usr/bin
+        - "{{ ssh_askpass_plugin_dir }}"
+      become: true
+
+    - name: Install the binary to /usr/bin
+      ansible.builtin.copy:
+        src: "{{ ssh_askpass_project_dir }}/target/release/ssh-askpass-omarchy"
+        dest: "{{ ssh_askpass_program }}"
+        mode: "0755"
+        remote_src: true
+      become: true
+
+    - name: Install the plugin to /usr/share
+      ansible.builtin.copy:
+        src: "{{ ssh_askpass_project_dir }}/plugin/"
+        dest: "{{ ssh_askpass_plugin_dir }}/"
+        mode: preserve
+        remote_src: true
+      become: true
+      register: ssh_askpass_copy_result
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ ssh_askpass_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ ssh_askpass_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ ssh_askpass_plugin_dir }}"
+        dest: "{{ ssh_askpass_plugin_link }}"
+        state: link
+        force: true
+      register: ssh_askpass_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ ssh_askpass_shell_json }}"
+      register: ssh_askpass_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        ssh_askpass_plugin_enabled: >-
+          {{ (ssh_askpass_shell_json_raw.content is defined)
+             and (((ssh_askpass_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', ssh_askpass_plugin_id) | list | length > 0) }}
+
+    - name: "Enable the {{ ssh_askpass_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ ssh_askpass_plugin_id }}", "{}"]
+      register: ssh_askpass_enable_result
+      failed_when: ssh_askpass_enable_result.rc != 0 or ssh_askpass_enable_result.stdout | trim != 'ok'
+      when: not ssh_askpass_plugin_enabled
+
+    # A keepLoaded service doesn't reload when its files change, so new
+    # plugin code (not just a new link) needs a restart too.
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        (ssh_askpass_link_result is changed or ssh_askpass_copy_result is changed)
+        and ssh_askpass_enable_result is skipped
+      changed_when: true
+
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ ssh_askpass_environment_conf | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Configure SSH to use ssh-askpass-omarchy ({{ ssh_askpass_environment_conf }})"
+      ansible.builtin.copy:
+        content: |
+          SSH_ASKPASS={{ ssh_askpass_program }}
+          SSH_ASKPASS_REQUIRE=prefer
+        dest: "{{ ssh_askpass_environment_conf }}"
+        mode: "0644"

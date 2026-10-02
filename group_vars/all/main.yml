@@ -10,25 +10,12 @@ ansible_local_become_success_timeout: 60
 # cover.
 polkit_expiration_seconds: 1800
 
-# Firefox (playbooks/firefox.yml) — installed from Flathub, not pacman:
-# runs before pt-BR localization, which depends on Firefox already being
-# installed. Flathub's build bundles every locale itself, so
-# playbooks/ptbr.yml no longer installs a separate pt-BR language pack
-# for it (see ptbr_firefox_requested_locale below).
-firefox_flatpak_id: org.mozilla.firefox
-# Flatpak extension Firefox reads system-wide policies/prefs from,
-# since the sandbox can't see /etc/firefox — see playbooks/firefox.yml
-# and the Firefox block in playbooks/ptbr.yml.
-firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
+# Firefox (playbooks/firefox.yml) — runs before pt-BR localization, which
+# depends on Firefox already being installed.
+firefox_package: firefox
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
-# Firefox's "Default font size" (Settings > General > Fonts and Colors >
-# Advanced; font.size.variable.x-western in about:config), px. Firefox's
-# browser chrome follows org.gnome.desktop.interface font-name directly (see
-# omarchy_system_ui_font_pt), so this is only the default size for page
-# text. 17px is what 13pt renders to at the standard 96dpi — the same +1
-# as the GTK bump above, written as an integer px because that's what the
-# pref takes. Playbooks/firefox.yml drops it as a defaults/pref file, so
-# it's a default like the browser's own 16px, not a forced value.
+firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
+firefox_font_size_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup-font.js
 firefox_default_font_size_px: 17
 
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
@@ -51,7 +38,7 @@ firefox_default_font_size_px: 17
 # Microsoft Teams has no Omarchy keybind of its own, so it takes the same
 # SUPER+SHIFT+ALT+<letter> shape as WhatsApp.
 firefox_webapp_desktop_dir: "{{ ansible_facts.env.HOME }}/.local/share/applications"
-firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/{{ firefox_flatpak_id }}.webapp-*.desktop"
+firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/firefox.webapp-*.desktop"
 firefox_taskbar_app_launcher: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
 firefox_taskbar_apps:
   - label: YouTube
@@ -102,7 +89,7 @@ brave_pwa_containers:
 # the default instead; the user-facing omarchy-setup-default-browser
 # wrapper can still flip it at any time, it just doesn't pin the
 # choice on every run.
-default_browser_desktop_id: "{{ firefox_flatpak_id }}.desktop"
+default_browser_desktop_id: "firefox.desktop"
 default_browser_name: Firefox
 
 # Native GUI apps Omarchy pre-installs (all in
@@ -133,38 +120,6 @@ flathub_app_migrations:
     flatpak_id: com.github.xournalpp.xournalpp
     native_packages:
       - xournalpp
-
-# LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
-# replacing Omarchy's pre-installed native libreoffice-fresh (+ its
-# pt-BR language pack, ptbr_libreoffice_i18n_package below). Like
-# Firefox above, Flathub's build bundles every locale itself (see
-# assemble-flatpak.sh in LibreOffice's own source, which folds every
-# non-en-US Langpack-*.xcd into the app rather than shipping it as a
-# separate extension), so no separate language pack is needed —
-# playbooks/ptbr.yml's LibreOffice step already no-ops once
-# libreoffice-fresh is gone.
-libreoffice_flatpak_id: org.libreoffice.LibreOffice
-# Omarchy's app launcher hides these native components
-# (/usr/share/omarchy/default/omarchy/launcher.hides) so only
-# Writer/Calc/Impress show up. LibreOffice's own Flatpak packaging
-# (solenv/bin/assemble-flatpak-desktop.sh) renames each to
-# "{{ libreoffice_flatpak_id }}.<component>.desktop" (the StartCenter
-# becomes the bare "{{ libreoffice_flatpak_id }}.desktop") — ids that
-# static, Omarchy-owned hides list doesn't recognize, so
-# playbooks/libreoffice.yml hides them itself via NoDisplay=true
-# overrides in ~/.local/share/applications instead (same curation,
-# just keyed to the ids the Flatpak actually exports).
-libreoffice_hidden_components:
-  - id: "{{ libreoffice_flatpak_id }}"
-    name: LibreOffice Start Center
-  - id: "{{ libreoffice_flatpak_id }}.base"
-    name: LibreOffice Base
-  - id: "{{ libreoffice_flatpak_id }}.draw"
-    name: LibreOffice Draw
-  - id: "{{ libreoffice_flatpak_id }}.math"
-    name: LibreOffice Math
-  - id: "{{ libreoffice_flatpak_id }}.xsltfilter"
-    name: LibreOffice XSLT Filter
 
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
@@ -387,6 +342,7 @@ ptbr_chromium_family_config_dirs:
   - vivaldi
 
 # "libreoffice-fresh-pt" is European Portuguese; pt-BR needs the -br suffix.
+ptbr_firefox_i18n_package: firefox-i18n-pt-br
 ptbr_libreoffice_i18n_package: libreoffice-fresh-pt-br
 ptbr_man_pages_package: man-pages-pt_br
 

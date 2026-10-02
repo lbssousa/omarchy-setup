@@ -94,11 +94,13 @@ pdf-viewer: _ensure-collections
 
 # Build/install pinentry-omarchy (GnuPG prompts in the polkit-style shell
 # dialog) and make gpg-agent use it. Run from inside the graphical session.
+# Needs the Yubikey's GPG key in the keyring (`just gpg-yubikey` first).
 pinentry: _ensure-collections
     {{ap}} site.yml --tags pinentry
 
 # Build/install ssh-askpass-omarchy (SSH prompts in the polkit-style shell
 # dialog) and configure SSH to use it. Run from inside the graphical session.
+# Needs the Yubikey's GPG key in the keyring (`just gpg-yubikey` first).
 ssh-askpass: _ensure-collections
     {{ap}} site.yml --tags ssh-askpass
 
@@ -110,6 +112,7 @@ openssh-askpass: _ensure-collections
 
 # Replace Omarchy's polkit agent with polkit-omarchy (touch prompt for
 # pam_u2f security keys). Run from inside the graphical session.
+# Needs the Yubikey's GPG key in the keyring (`just gpg-yubikey` first).
 polkit-agent: _ensure-collections
     {{ap}} site.yml --tags polkit-agent
 

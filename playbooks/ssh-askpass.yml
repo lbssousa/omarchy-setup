@@ -1,7 +1,13 @@
 ---
-# Installs ssh-askpass-omarchy from a local clone of
-# https://github.com/lbssousa/ssh-askpass-omarchy (ssh_askpass_project_dir).
-# This compiles the Rust binary, installs it to /usr/bin,
+# Installs ssh-askpass-omarchy (https://github.com/lbssousa/ssh-askpass-omarchy)
+# from a release tag (ssh_askpass_ref), checked out in
+# ssh_askpass_checkout_dir only after the tag's GPG signature verifies and
+# comes from one of ssh_askpass_signing_keys: the build runs as the user,
+# and the result is installed as root. Releases are signed tags made on the
+# merged commit (see the "Releases" section of its README); main only holds
+# GitHub-signed squash merges, so it isn't deployable.
+# This compiles the Rust binary (--locked, from the repo's Cargo.lock),
+# installs it to /usr/bin,
 # links the shell plugin, enables it via omarchy-shell IPC,
 # and configures SSH to use it.
 #
@@ -17,18 +23,59 @@
       PATH: "{{ ssh_askpass_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
 
   tasks:
-    - name: Check whether the project directory exists
-      ansible.builtin.stat:
-        path: "{{ ssh_askpass_project_dir }}"
-      register: ssh_askpass_dir_stat
+    - name: Install git and gnupg (the signature check needs both)
+      community.general.pacman:
+        name:
+          - git
+          - gnupg
+        state: present
+      become: true
 
-    - name: Ensure the project directory exists
+    - name: Check that the release signing key is in the GPG keyring
+      ansible.builtin.command: "gpg --list-keys --with-colons {{ item }}"
+      loop: "{{ ssh_askpass_signing_keys }}"
+      register: ssh_askpass_key_check
+      changed_when: false
+      failed_when: false
+      when: ssh_askpass_verify_commit
+
+    - name: Fail early if the signing key is missing (run `just gpg-yubikey`)
       ansible.builtin.fail:
         msg: >-
-          Project directory {{ ssh_askpass_project_dir }} not found. Clone
-          it first: git clone https://github.com/lbssousa/ssh-askpass-omarchy.git
-          {{ ssh_askpass_project_dir }}
-      when: not ssh_askpass_dir_stat.stat.exists
+          ssh-askpass-omarchy is deployed from a release tag whose GPG signature is
+          verified, and the signing key isn't in your keyring yet
+          ({{ ssh_askpass_signing_keys | join(', ') }}). Import it first with
+          `just gpg-yubikey` (Yubikey plugged in): that playbook is a
+          dependency of this one. Set ssh_askpass_verify_commit=false only
+          for an unsigned fork.
+      when: >-
+        ssh_askpass_verify_commit
+        and (ssh_askpass_key_check.results | selectattr('rc', 'ne', 0) | list | length) > 0
+
+    - name: "Check out the ssh-askpass-omarchy release ({{ ssh_askpass_ref }}), verifying its signed tag"
+      block:
+        - name: "Check out the ssh-askpass-omarchy release ({{ ssh_askpass_ref }}), verifying its signed tag"
+          ansible.builtin.git:
+            repo: "{{ ssh_askpass_repo }}"
+            dest: "{{ ssh_askpass_checkout_dir }}"
+            version: "{{ ssh_askpass_ref }}"
+            force: false
+            verify_commit: "{{ ssh_askpass_verify_commit }}"
+            gpg_allowlist: "{{ ssh_askpass_signing_keys if ssh_askpass_verify_commit else [] }}"
+          register: ssh_askpass_git_result
+      rescue:
+        - name: Explain a failed signature check
+          ansible.builtin.fail:
+            msg: >-
+              Couldn't check out {{ ssh_askpass_repo }}
+              ({{ ssh_askpass_ref }}) with a verified GPG signature:
+              {{ ansible_failed_result.msg | default('unknown error') }}.
+              ssh_askpass_ref must be a release tag signed with one of
+              ssh_askpass_signing_keys (the Yubikey's OpenPGP key). A branch
+              like main won't do, because its merges are signed by GitHub.
+              If the key is missing from the keyring, import it with
+              `just gpg-yubikey` (token plugged in). Set
+              ssh_askpass_verify_commit=false only for an unsigned fork.
 
     - name: Check whether Rust (cargo) is already installed
       ansible.builtin.stat:
@@ -41,8 +88,8 @@
 
     - name: Build the ssh-askpass-omarchy binary
       ansible.builtin.command:
-        cmd: cargo build --release
-        chdir: "{{ ssh_askpass_project_dir }}"
+        cmd: cargo build --release --locked
+        chdir: "{{ ssh_askpass_checkout_dir }}"
       environment: "{{ ssh_askpass_cargo_env }}"
       register: ssh_askpass_build_result
 
@@ -58,7 +105,7 @@
 
     - name: Install the binary to /usr/bin
       ansible.builtin.copy:
-        src: "{{ ssh_askpass_project_dir }}/target/release/ssh-askpass-omarchy"
+        src: "{{ ssh_askpass_checkout_dir }}/target/release/ssh-askpass-omarchy"
         dest: "{{ ssh_askpass_program }}"
         mode: "0755"
         remote_src: true
@@ -66,7 +113,7 @@
 
     - name: Install the plugin to /usr/share
       ansible.builtin.copy:
-        src: "{{ ssh_askpass_project_dir }}/plugin/"
+        src: "{{ ssh_askpass_checkout_dir }}/plugin/"
         dest: "{{ ssh_askpass_plugin_dir }}/"
         mode: preserve
         remote_src: true

@@ -193,9 +193,15 @@ pinentry_omarchy_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell
 pinentry_omarchy_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
 
 # ssh-askpass-omarchy (playbooks/ssh-askpass.yml) — SSH prompts in the
-# polkit-style omarchy-shell dialog. Built locally via cargo from a clone
-# of https://github.com/lbssousa/ssh-askpass-omarchy.
-ssh_askpass_project_dir: "{{ ansible_facts.env.HOME }}/Projetos/lbssousa/ssh-askpass-omarchy"
+# polkit-style omarchy-shell dialog. Built locally via cargo from a signed
+# release tag of the repo; bump the ref to deploy a new release.
+ssh_askpass_repo: https://github.com/lbssousa/ssh-askpass-omarchy.git
+ssh_askpass_ref: v0.2.0
+ssh_askpass_checkout_dir: "{{ ansible_facts.env.HOME }}/src/ssh-askpass-omarchy"
+# Refuse to build unless the tag's GPG signature verifies and was made by
+# one of these keys (same as pinentry-omarchy's).
+ssh_askpass_verify_commit: true
+ssh_askpass_signing_keys: "{{ pinentry_omarchy_signing_keys }}"
 ssh_askpass_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
 ssh_askpass_program: /usr/bin/ssh-askpass-omarchy
 ssh_askpass_plugin_dir: /usr/share/ssh-askpass-omarchy/plugin
@@ -206,8 +212,16 @@ ssh_askpass_environment_conf: "{{ ansible_facts.env.HOME }}/.config/environment.
 
 # polkit-omarchy (playbooks/polkit-agent.yml) — Omarchy's polkit agent
 # plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
-# Installed from a clone of https://github.com/lbssousa/polkit-omarchy.
-polkit_agent_project_dir: "{{ ansible_facts.env.HOME }}/Projetos/lbssousa/polkit-omarchy"
+# Installed from a signed release tag of
+# https://github.com/lbssousa/polkit-omarchy; bump the ref to deploy a new
+# release.
+polkit_agent_repo: https://github.com/lbssousa/polkit-omarchy.git
+polkit_agent_ref: v0.1.0
+polkit_agent_checkout_dir: "{{ ansible_facts.env.HOME }}/src/polkit-omarchy"
+# Refuse to install unless the tag's GPG signature verifies and was made by
+# one of these keys (same as pinentry-omarchy's).
+polkit_agent_verify_commit: true
+polkit_agent_signing_keys: "{{ pinentry_omarchy_signing_keys }}"
 polkit_agent_plugin_dir: /usr/share/polkit-omarchy/plugin
 polkit_agent_plugin_id: lbssousa.polkit
 polkit_agent_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ polkit_agent_plugin_id }}"

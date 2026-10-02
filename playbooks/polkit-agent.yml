@@ -3,11 +3,16 @@
 # (lbssousa.polkit), which adds a "Touch your security key" prompt for
 # pam_u2f instead of a password field whose Enter does nothing.
 #
-# The plugin is copied from a local clone of
-# https://github.com/lbssousa/polkit-omarchy (polkit_agent_project_dir)
-# to /usr/share and linked into ~/.config/omarchy/plugins. Its manifest declares
-# clonedFrom: omarchy.polkit, so enabling it disables the built-in agent
-# (and `omarchy plugin disable lbssousa.polkit` brings it back).
+# The plugin (https://github.com/lbssousa/polkit-omarchy) is deployed from
+# a release tag (polkit_agent_ref), checked out in polkit_agent_checkout_dir
+# only after the tag's GPG signature verifies and comes from one of
+# polkit_agent_signing_keys: it runs inside the shell as the authentication
+# agent, and a copy of it is installed as root. Releases are signed tags
+# made on the merged commit; main only holds GitHub-signed squash merges.
+# The plugin is copied to /usr/share and linked into
+# ~/.config/omarchy/plugins. Its manifest declares clonedFrom:
+# omarchy.polkit, so enabling it disables the built-in agent (and
+# `omarchy plugin disable lbssousa.polkit` brings it back).
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags polkit-agent
 - name: polkit-omarchy (polkit agent with security key touch prompt)
@@ -17,22 +22,63 @@
   tags: [polkit-agent]
 
   tasks:
-    - name: Check the project directory exists
-      ansible.builtin.stat:
-        path: "{{ polkit_agent_project_dir }}/plugin/manifest.json"
-      register: polkit_agent_dir_stat
+    - name: Install git and gnupg (the signature check needs both)
+      community.general.pacman:
+        name:
+          - git
+          - gnupg
+        state: present
+      become: true
 
-    - name: Fail if the project directory is missing
+    - name: Check that the release signing key is in the GPG keyring
+      ansible.builtin.command: "gpg --list-keys --with-colons {{ item }}"
+      loop: "{{ polkit_agent_signing_keys }}"
+      register: polkit_agent_key_check
+      changed_when: false
+      failed_when: false
+      when: polkit_agent_verify_commit
+
+    - name: Fail early if the signing key is missing (run `just gpg-yubikey`)
       ansible.builtin.fail:
         msg: >-
-          Project directory {{ polkit_agent_project_dir }} not found. Clone
-          it first: git clone https://github.com/lbssousa/polkit-omarchy.git
-          {{ polkit_agent_project_dir }}
-      when: not polkit_agent_dir_stat.stat.exists
+          polkit-omarchy is deployed from a release tag whose GPG signature is
+          verified, and the signing key isn't in your keyring yet
+          ({{ polkit_agent_signing_keys | join(', ') }}). Import it first with
+          `just gpg-yubikey` (Yubikey plugged in): that playbook is a
+          dependency of this one. Set polkit_agent_verify_commit=false only
+          for an unsigned fork.
+      when: >-
+        polkit_agent_verify_commit
+        and (polkit_agent_key_check.results | selectattr('rc', 'ne', 0) | list | length) > 0
+
+    - name: "Check out the polkit-omarchy release ({{ polkit_agent_ref }}), verifying its signed tag"
+      block:
+        - name: "Check out the polkit-omarchy release ({{ polkit_agent_ref }}), verifying its signed tag"
+          ansible.builtin.git:
+            repo: "{{ polkit_agent_repo }}"
+            dest: "{{ polkit_agent_checkout_dir }}"
+            version: "{{ polkit_agent_ref }}"
+            force: false
+            verify_commit: "{{ polkit_agent_verify_commit }}"
+            gpg_allowlist: "{{ polkit_agent_signing_keys if polkit_agent_verify_commit else [] }}"
+          register: polkit_agent_git_result
+      rescue:
+        - name: Explain a failed signature check
+          ansible.builtin.fail:
+            msg: >-
+              Couldn't check out {{ polkit_agent_repo }}
+              ({{ polkit_agent_ref }}) with a verified GPG signature:
+              {{ ansible_failed_result.msg | default('unknown error') }}.
+              polkit_agent_ref must be a release tag signed with one of
+              polkit_agent_signing_keys (the Yubikey's OpenPGP key). A branch
+              like main won't do, because its merges are signed by GitHub.
+              If the key is missing from the keyring, import it with
+              `just gpg-yubikey` (token plugged in). Set
+              polkit_agent_verify_commit=false only for an unsigned fork.
 
     - name: Install the plugin to /usr/share
       ansible.builtin.copy:
-        src: "{{ polkit_agent_project_dir }}/plugin/"
+        src: "{{ polkit_agent_checkout_dir }}/plugin/"
         dest: "{{ polkit_agent_plugin_dir }}/"
         mode: preserve
         remote_src: true

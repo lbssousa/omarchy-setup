@@ -73,6 +73,27 @@
       ansible.builtin.command: omarchy-install-dev-env rust
       when: not pinentry_omarchy_cargo_stat.stat.exists
 
+    - name: Check that the release signing key is in the GPG keyring
+      ansible.builtin.command: "gpg --list-keys --with-colons {{ item }}"
+      loop: "{{ pinentry_omarchy_signing_keys }}"
+      register: pinentry_omarchy_key_check
+      changed_when: false
+      failed_when: false
+      when: pinentry_omarchy_verify_commit
+
+    - name: Fail early if the signing key is missing (run `just gpg-yubikey`)
+      ansible.builtin.fail:
+        msg: >-
+          pinentry-omarchy is deployed from a release tag whose GPG signature is
+          verified, and the signing key isn't in your keyring yet
+          ({{ pinentry_omarchy_signing_keys | join(', ') }}). Import it first with
+          `just gpg-yubikey` (Yubikey plugged in): that playbook is a
+          dependency of this one. Set pinentry_omarchy_verify_commit=false only
+          for an unsigned fork.
+      when: >-
+        pinentry_omarchy_verify_commit
+        and (pinentry_omarchy_key_check.results | selectattr('rc', 'ne', 0) | list | length) > 0
+
     - name: "Check out the pinentry-omarchy release ({{ pinentry_omarchy_ref }})"
       block:
         - name: "Check out the pinentry-omarchy release ({{ pinentry_omarchy_ref }}), verifying its signed tag"

@@ -3,8 +3,9 @@
 # (lbssousa.polkit), which adds a "Touch your security key" prompt for
 # pam_u2f instead of a password field whose Enter does nothing.
 #
-# The plugin is copied from the local project directory to /usr/share
-# and linked into ~/.config/omarchy/plugins. Its manifest declares
+# The plugin is copied from a local clone of
+# https://github.com/lbssousa/polkit-omarchy (polkit_agent_project_dir)
+# to /usr/share and linked into ~/.config/omarchy/plugins. Its manifest declares
 # clonedFrom: omarchy.polkit, so enabling it disables the built-in agent
 # (and `omarchy plugin disable lbssousa.polkit` brings it back).
 #
@@ -23,7 +24,10 @@
 
     - name: Fail if the project directory is missing
       ansible.builtin.fail:
-        msg: "Project directory {{ polkit_agent_project_dir }} not found."
+        msg: >-
+          Project directory {{ polkit_agent_project_dir }} not found. Clone
+          it first: git clone https://github.com/lbssousa/polkit-omarchy.git
+          {{ polkit_agent_project_dir }}
       when: not polkit_agent_dir_stat.stat.exists
 
     - name: Install the plugin to /usr/share

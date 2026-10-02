@@ -1,5 +1,6 @@
 ---
-# Installs ssh-askpass-omarchy from the local project directory.
+# Installs ssh-askpass-omarchy from a local clone of
+# https://github.com/lbssousa/ssh-askpass-omarchy (ssh_askpass_project_dir).
 # This compiles the Rust binary, installs it to /usr/bin,
 # links the shell plugin, enables it via omarchy-shell IPC,
 # and configures SSH to use it.
@@ -23,7 +24,10 @@
 
     - name: Ensure the project directory exists
       ansible.builtin.fail:
-        msg: "Project directory {{ ssh_askpass_project_dir }} not found."
+        msg: >-
+          Project directory {{ ssh_askpass_project_dir }} not found. Clone
+          it first: git clone https://github.com/lbssousa/ssh-askpass-omarchy.git
+          {{ ssh_askpass_project_dir }}
       when: not ssh_askpass_dir_stat.stat.exists
 
     - name: Check whether Rust (cargo) is already installed

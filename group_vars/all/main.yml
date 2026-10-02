@@ -193,8 +193,8 @@ pinentry_omarchy_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell
 pinentry_omarchy_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
 
 # ssh-askpass-omarchy (playbooks/ssh-askpass.yml) — SSH prompts in the
-# polkit-style omarchy-shell dialog. Built locally via cargo from the
-# user's project directory.
+# polkit-style omarchy-shell dialog. Built locally via cargo from a clone
+# of https://github.com/lbssousa/ssh-askpass-omarchy.
 ssh_askpass_project_dir: "{{ ansible_facts.env.HOME }}/Projetos/lbssousa/ssh-askpass-omarchy"
 ssh_askpass_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
 ssh_askpass_program: /usr/bin/ssh-askpass-omarchy
@@ -206,6 +206,7 @@ ssh_askpass_environment_conf: "{{ ansible_facts.env.HOME }}/.config/environment.
 
 # polkit-omarchy (playbooks/polkit-agent.yml) — Omarchy's polkit agent
 # plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
+# Installed from a clone of https://github.com/lbssousa/polkit-omarchy.
 polkit_agent_project_dir: "{{ ansible_facts.env.HOME }}/Projetos/lbssousa/polkit-omarchy"
 polkit_agent_plugin_dir: /usr/share/polkit-omarchy/plugin
 polkit_agent_plugin_id: lbssousa.polkit

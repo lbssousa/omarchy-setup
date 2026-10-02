@@ -1,0 +1,101 @@
+---
+# openssh with security key touch notifications through SSH_ASKPASS.
+#
+# When ssh runs in a terminal, OpenSSH's notify_start() (readpass.c)
+# writes "Confirm user presence for key …" to the terminal and never runs
+# the askpass. That happens even with SSH_ASKPASS_REQUIRE=prefer, which
+# read_passphrase() honours for the PIN prompt just before. So the FIDO
+# PIN shows up in ssh-askpass-omarchy's dialog but the touch request
+# doesn't. files/openssh/askpass-notify.patch makes notify_start() honour
+# SSH_ASKPASS_REQUIRE the same way (proposed upstream; drop this playbook
+# once an OpenSSH release carries it).
+#
+# The playbook rebuilds the installed openssh version from Arch's own
+# packaging (the tag matching `pacman -Q openssh`) with the patch added
+# and pkgrel suffixed (10.5p1-1 -> 10.5p1-1.1):
+# - It's the same build as the repo's plus one patch. The tarball is
+#   pinned by the checksums in Arch's PKGBUILD, so makepkg skips the
+#   PGP check (that would need Damien Miller's key in the user keyring).
+# - --nodeps because of linux-headers, the only makedepend Omarchy
+#   doesn't have (it runs its own kernel). glibc's linux-api-headers are
+#   enough, and configure still enables the seccomp sandbox. The other
+#   makedepends are installed below.
+# - The suffixed release sorts after the official build of the same
+#   version and before its next one. So `pacman -Syu` keeps pulling
+#   security updates, and they replace this package with the unpatched
+#   one. Run this playbook again afterwards (the touch request just
+#   falls back to the terminal in between).
+# - Nothing happens while the installed package already carries the
+#   suffix.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags openssh-askpass
+- name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [openssh-askpass]
+
+  tasks:
+    - name: Find the installed openssh version
+      ansible.builtin.command: pacman -Q openssh
+      register: openssh_askpass_installed
+      changed_when: false
+
+    - name: Work out the version and whether it's already patched
+      ansible.builtin.set_fact:
+        openssh_askpass_version: "{{ openssh_askpass_installed.stdout.split()[1] }}"
+        openssh_askpass_patched: >-
+          {{ openssh_askpass_installed.stdout.split()[1]
+             is search(openssh_askpass_pkgrel_suffix | regex_escape ~ '$') }}
+
+    - name: Build and install the patched package
+      when: not openssh_askpass_patched
+      block:
+        - name: Install the build dependencies (all makedepends but linux-headers)
+          community.general.pacman:
+            name: "{{ openssh_askpass_makedepends }}"
+            state: present
+          become: true
+
+        - name: "Check out Arch's openssh packaging ({{ openssh_askpass_version }})"
+          ansible.builtin.git:
+            repo: "{{ openssh_askpass_packaging_repo }}"
+            dest: "{{ openssh_askpass_build_dir }}"
+            version: "{{ openssh_askpass_version }}"
+            depth: 1
+            force: true
+
+        - name: Copy the patch next to the PKGBUILD
+          ansible.builtin.copy:
+            src: files/openssh/askpass-notify.patch
+            dest: "{{ openssh_askpass_build_dir }}/askpass-notify.patch"
+            mode: "0644"
+
+        - name: Add the patch to the PKGBUILD
+          ansible.builtin.script:
+            cmd: >-
+              files/openssh/patch-pkgbuild.py
+              {{ openssh_askpass_build_dir }}/PKGBUILD
+              {{ openssh_askpass_build_dir }}/askpass-notify.patch
+              {{ openssh_askpass_pkgrel_suffix }}
+            executable: python3
+
+        - name: Build the package (makepkg, with the test suite)
+          ansible.builtin.command:
+            cmd: makepkg -f --nodeps --skippgpcheck --noconfirm
+            chdir: "{{ openssh_askpass_build_dir }}"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ openssh_askpass_build_dir }}"
+          register: openssh_askpass_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: >-
+              {{ openssh_askpass_packagelist.stdout_lines
+                 | reject('search', '-debug-') | first }}
+            state: present
+          become: true

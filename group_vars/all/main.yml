@@ -237,6 +237,22 @@ pinentry_omarchy_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plug
 pinentry_omarchy_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
 pinentry_omarchy_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
 
+# openssh with askpass touch notifications (playbooks/openssh-askpass.yml)
+# — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
+openssh_askpass_packaging_repo: https://gitlab.archlinux.org/archlinux/packaging/packages/openssh.git
+openssh_askpass_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/openssh"
+openssh_askpass_pkgrel_suffix: ".1"
+openssh_askpass_makedepends:
+  - base-devel
+  - git
+  - krb5
+  - libedit
+  - libfido2
+  - libxcrypt
+  - openssl
+  - pam
+  - zlib
+
 # LazyVim (playbooks/lazyvim.yml) — Omarchy's default Neovim distro,
 # already installed at ~/.config/nvim; this only adds the LaTeX language
 # extra and a personal plugin on top of it.

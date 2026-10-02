@@ -96,6 +96,12 @@ pdf-viewer: _ensure-collections
 pinentry: _ensure-collections
     {{ap}} site.yml --tags pinentry
 
+# Rebuild Arch's openssh with the patch that sends security key touch
+# requests to SSH_ASKPASS when ssh runs in a terminal. Re-run after each
+# openssh update from the repos.
+openssh-askpass: _ensure-collections
+    {{ap}} site.yml --tags openssh-askpass
+
 # Make the open/save file dialogs of non-GNOME apps the GTK4 ones (xdg-desktop-portal-gnome).
 file-chooser: _ensure-collections
     {{ap}} site.yml --tags file-chooser

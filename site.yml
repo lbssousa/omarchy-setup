@@ -115,6 +115,14 @@
   ansible.builtin.import_playbook: playbooks/pinentry.yml
   tags: [pinentry]
 
+- name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
+  ansible.builtin.import_playbook: playbooks/ssh-askpass.yml
+  tags: [ssh-askpass]
+
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   ansible.builtin.import_playbook: playbooks/openssh-askpass.yml
   tags: [openssh-askpass]
+
+- name: polkit-omarchy (polkit agent with security key touch prompt)
+  ansible.builtin.import_playbook: playbooks/polkit-agent.yml
+  tags: [polkit-agent]

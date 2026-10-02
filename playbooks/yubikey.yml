@@ -5,6 +5,11 @@
 #   GPG public key      tags: yubikey, gpg-yubikey   (`just gpg-yubikey`)
 #   Resident SSH keys   tags: yubikey, ssh-yubikey   (`just ssh-yubikey`)
 #
+# The GPG public key is a dependency of playbooks/pinentry.yml,
+# playbooks/ssh-askpass.yml and playbooks/polkit-agent.yml: they deploy
+# release tags and refuse to build unless the tag's signature verifies
+# against this key, so run `just gpg-yubikey` before them.
+#
 # Usage: ./run-empowered.sh ansible-playbook playbooks/yubikey.yml --tags gpg-yubikey
 
 # Yubikey GPG public key — imports it, assigns ultimate trust, and

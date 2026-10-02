@@ -75,8 +75,9 @@ zed: _ensure-collections
 # pre-installs with their Flathub builds (see
 # docs/flathub-migration-survey.md). Edit flathub_app_migrations in
 # group_vars/all/main.yml to migrate a subset.
+# Not part of `just setup` — run explicitly.
 flathub-apps: _ensure-collections
-    {{ap}} site.yml --tags flathub-apps
+    {{ap}} playbooks/flathub-apps.yml
 
 # Install Rust (if needed) and build/install gregorio-lsp, grelint and
 # grefmt from source.

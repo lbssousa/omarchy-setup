@@ -26,8 +26,9 @@
 #    "20-ssh-agent.conf" sorts after playbooks/proton-pass.yml's own
 #    "20-proton-pass-ssh-agent.conf", so it silently overrides
 #    SSH_AUTH_SOCK back to the disabled OpenSSH agent's (nonexistent)
-#    socket on every login. `just keepassxc` / `just ssh-agent`
-#    re-enable the agent and recreate the file on demand.
+#    socket on every login. `just ssh-agent` re-enables the agent and
+#    recreates the file on demand; playbooks/keepassxc.yml leaves it alone
+#    (keepassxc_ssh_agent_enabled is false by default).
 - name: polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent)
   hosts: localhost
   connection: local
@@ -52,7 +53,7 @@
         state: absent
       become: true
 
-    - name: "Disable the OpenSSH agent (no longer enabled by just setup — see playbooks/keepassxc.yml)"
+    - name: "Disable the OpenSSH agent (off by default — see playbooks/keepassxc.yml)"
       ansible.builtin.systemd:
         name: "{{ item }}"
         scope: user

@@ -11,6 +11,10 @@
 # both only because the environment happens to be ready by then. Wait up to
 # the timeout for both signals, then launch regardless so a slowly starting
 # desktop never swallows the autostart entry.
+#
+# `flatpak run` because the Flatpak exports no bare `keepassxc` on the host
+# PATH — its exported binary is keepassxc-wrapper, which is a native-messaging
+# shim, not the GUI app.
 set -euo pipefail
 
 timeout=${KEEPASSXC_AUTOSTART_TIMEOUT:-60}
@@ -31,4 +35,4 @@ for ((i = 0; i < timeout; i++)); do
   sleep 1
 done
 
-exec keepassxc "$@"
+exec flatpak run {{ keepassxc_flatpak_id }} "$@"

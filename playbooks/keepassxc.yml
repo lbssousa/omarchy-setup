@@ -1,19 +1,24 @@
 ---
-# Password manager: the OpenSSH agent, then KeePassXC on top of it.
+# Password manager: KeePassXC, optionally acting as a client for an OpenSSH
+# agent.
 #
-#   OpenSSH agent       tags: keepassxc, ssh-agent
+#   OpenSSH agent       tags: keepassxc, ssh-agent   (opt-in)
 #   KeePassXC           tags: keepassxc
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags keepassxc
 
-# OpenSSH agent (systemd --user) — enables the standard ssh-agent socket
-# and service at the session runtime socket, and exports SSH_AUTH_SOCK
-# session-wide via environment.d so IDEs, KeePassXC and other CLI tools
-# all talk to the same agent.
+# OpenSSH agent (systemd --user) — opt-in via keepassxc_ssh_agent_enabled
+# (false by default), so `just keepassxc` installs the password manager
+# without turning an agent on: playbooks/polkit.yml disables the agent and
+# removes its SSH_AUTH_SOCK export as legacy cleanup, and that off state is
+# the default. Everything below runs only with the switch on — `just ssh-agent`
+# (or -e keepassxc_ssh_agent_enabled=true) then enables the standard
+# ssh-agent socket and service at the session runtime socket, and exports
+# SSH_AUTH_SOCK session-wide via environment.d so IDEs, KeePassXC and other
+# CLI tools all talk to the same agent.
 #
-# Prerequisite for the KeePassXC play below, which acts as a client for
-# this agent. This play also carries the `keepassxc` tag, so
-# `just keepassxc` sets the agent up first.
+# KeePassXC plays the client for this agent; the play below follows the same
+# switch on its side, so the two are never half-enabled.
 - name: OpenSSH agent (user session, SSH_AUTH_SOCK export)
   hosts: localhost
   connection: local
@@ -21,50 +26,69 @@
   tags: [keepassxc, ssh-agent]
 
   tasks:
-    - name: Create ~/.config/environment.d
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
-        state: directory
-        mode: "0755"
+    - name: Set up the OpenSSH agent (only when keepassxc_ssh_agent_enabled)
+      when: keepassxc_ssh_agent_enabled | bool
+      block:
+        - name: Create ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+            state: directory
+            mode: "0755"
 
-    - name: Export SSH_AUTH_SOCK session-wide
-      ansible.builtin.template:
-        src: ssh-agent-env.conf.j2
-        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-ssh-agent.conf"
-        mode: "0644"
+        - name: Export SSH_AUTH_SOCK session-wide
+          ansible.builtin.template:
+            src: ssh-agent-env.conf.j2
+            dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-ssh-agent.conf"
+            mode: "0644"
 
-    - name: "Enable the OpenSSH agent ({{ ssh_agent_socket }})"
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        scope: user
-        daemon_reload: true
-        enabled: true
-        state: started
-      loop: "{{ ssh_agent_units }}"
+        - name: "Enable the OpenSSH agent ({{ ssh_agent_socket }})"
+          ansible.builtin.systemd:
+            name: "{{ item }}"
+            scope: user
+            daemon_reload: true
+            enabled: true
+            state: started
+          loop: "{{ ssh_agent_units }}"
 
 # KeePassXC — open-source password manager with browser integration,
 # SSH agent support and system tray integration.
 #
-# Installs KeePassXC from the official Arch repos, then writes a
-# pre-seeded keepassxc.ini that enables:
+# Installs KeePassXC from Flathub and removes the native package, then
+# writes a pre-seeded keepassxc.ini that enables:
 #   - Browser integration (Firefox, Chromium, Brave, Brave Origin)
-#   - SSH Agent support (OpenSSH backend — requires the OpenSSH agent
-#     play above, which provides the agent this client connects to)
+#   - SSH Agent support (off by default; opt-in with
+#     keepassxc_ssh_agent_enabled, which also enables the OpenSSH agent play
+#     above — KeePassXC is the client, that play is the agent)
 #   - KeeShare (active set bootstrapped, success notifications quieted)
 #   - Monochrome light tray icon (high-contrast on dark panels),
 #     colored passwords and monospace notes,
 #     minimization to tray, and close-to-tray behavior
 #   - Launch at startup (XDG autostart)
 #
-# The extra-repo keepassxc package is a Qt5 build, so the Qt5 Wayland QPA
-# plugin (qt5-wayland) is installed as well. Omarchy's Wayland session
-# exports QT_QPA_PLATFORM=wayland;xcb, and without the plugin the app aborts
-# at login before the autostart can show its tray icon.
+# The swap is cheap for the same reason playbooks/flathub-apps.yml's four
+# apps are: both builds export the same desktop-entry id
+# (org.keepassxc.KeePassXC.desktop — asserted at run time below, because
+# an id change upstream would silently drop KeePassXC out of Omarchy's
+# launcher) and report the same window class (StartupWMClass=keepassxc,
+# which is what the keybind at the bottom and Omarchy's own rules key on).
+# What does move is the config path — inside the sandbox XDG_CONFIG_HOME is
+# ~/.var/app/<id>/config and ~/.config isn't visible at all, so the
+# pre-seeded ini has to be written there or every option below is a no-op
+# the sandbox never reads. The pre-Flatpak config is migrated across and
+# then deleted, which is the same trap playbooks/pdf-viewer.yml documents
+# for Zathura (see keepassxc_config_dir in group_vars/all/main.yml).
+#
+# The Qt5 Wayland QPA plugin (qt5-wayland) that the native Qt5 build
+# needed is gone with it: the Flatpak bundles its own Qt, so Omarchy's
+# QT_QPA_PLATFORM=wayland;xcb just works and there is no host plugin to
+# install.
 #
 # KeePassXC only writes its XDG autostart entry when the "Launch KeePassXC
 # at system startup" checkbox is saved in the settings dialog, so the
 # playbook deploys the same org.keepassxc.KeePassXC.desktop itself
 # (force: false — an entry the user or KeePassXC already wrote is kept).
+# It lands in ~/.config/autostart, a different directory from the Flatpak's
+# export, so the two don't compete under the same id.
 #
 # systemd's XDG autostart fires desktop entries before quickshell has
 # registered the system tray (org.kde.StatusNotifierWatcher) and before
@@ -73,42 +97,124 @@
 # light theme with no appindicator icon; a manual restart fixes both only
 # because the environment is ready by then. The autostart Exec therefore
 # runs a readiness wrapper that waits for the tray and the color-scheme,
-# then execs KeePassXC.
+# then execs KeePassXC — via `flatpak run`, since the sandbox exports no
+# bare keepassxc on the host PATH.
 #
 # The native messaging host manifests are deployed by this playbook to
 # the Firefox/Chromium/Brave/Brave-Origin locations; the user still
 # needs to install the KeePassXC-Browser extension in each browser and
-# connect it.
+# connect it. The manifests point at the Flatpak's exported wrapper
+# (keepassxc_proxy_path), which is what dispatches to keepassxc-proxy.
 #
 # A udev rule locks every open database as soon as the YubiKey is
 # unplugged (matched on USB PRODUCT, since the reader is removable and
 # ID_VENDOR_ID/ID_MODEL_ID aren't reliably available on "remove" events).
 # Ported from lbssousa/nix-config's
-# modules/system/security/keepassxc-yubikey-lock.nix.
+# modules/system/security/keepassxc-yubikey-lock.nix. Unaffected by the
+# swap: a sandboxed app's owned bus names are proxied onto the host's
+# session bus, so org.keepassxc.KeePassXC.MainWindow still resolves.
 - name: KeePassXC (password manager with browser + SSH agent integration)
   hosts: localhost
   connection: local
   gather_facts: true
   tags: [keepassxc]
 
+  pre_tasks:
+    - name: Ensure Flatpak is installed
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
   tasks:
-    - name: Install KeePassXC
-      community.general.pacman:
-        name: "{{ keepassxc_package }}"
+    - name: Install KeePassXC from Flathub
+      community.general.flatpak:
+        name: "{{ keepassxc_flatpak_id }}"
         state: present
+        method: system
       become: true
 
-    - name: Install the Qt5 Wayland platform plugin
+    # Same desktop id in both builds, which is the whole reason this swap
+    # is cheap. It isn't cosmetic though: a change upstream would drop
+    # KeePassXC out of Omarchy's launcher and out of any rule keyed on the
+    # id. Better to stop than to leave a half-migrated box behind.
+    - name: Look for the Flatpak's exported desktop entry
+      ansible.builtin.stat:
+        path: "{{ flatpak_system_exports_dir }}/applications/{{ keepassxc_flatpak_id }}.desktop"
+      register: keepassxc_flatpak_entry
+
+    - name: Expect the Flatpak to still export the desktop id the native build used
+      ansible.builtin.assert:
+        that: keepassxc_flatpak_entry.stat.exists
+        fail_msg: >-
+          {{ keepassxc_flatpak_id }} did not export
+          {{ flatpak_system_exports_dir }}/applications/{{ keepassxc_flatpak_id }}.desktop.
+          Its desktop-entry id has changed upstream, so the app launcher and
+          every id-keyed rule (Hyprland window rules, mimeapps defaults,
+          the autostart entry deployed below) would stop matching it.
+          Re-derive those from the new id before re-running this play.
+        quiet: true
+
+    - name: Remove the native KeePassXC package
       community.general.pacman:
-        name: "{{ keepassxc_wayland_plugin_package }}"
-        state: present
+        name: "{{ keepassxc_native_package }}"
+        state: absent
       become: true
 
-    - name: Create ~/.config/keepassxc
+    - name: Look for a leftover native desktop entry
+      ansible.builtin.stat:
+        path: "/usr/share/applications/{{ keepassxc_flatpak_id }}.desktop"
+      register: keepassxc_native_entry
+
+    - name: Warn about any native desktop entry that survived
+      # Two entries with the same id in different XDG_DATA_DIRS
+      # directories is legal but ambiguous, and the launcher shows
+      # whichever it scans first — here that would be an entry whose
+      # Exec=keepassxc binary is no longer installed.
+      ansible.builtin.debug:
+        msg: >-
+          /usr/share/applications/{{ keepassxc_flatpak_id }}.desktop
+          is still there, so the native and Flatpak entries compete under
+          the same id while the native one points at a `keepassxc` binary
+          that is no longer installed. Check `pacman -Qo` to see what else
+          provides it.
+      when: keepassxc_native_entry.stat.exists
+
+    - name: Create the Flatpak config dir KeePassXC actually reads
+      # XDG_CONFIG_HOME inside the sandbox is ~/.var/app/<id>/config, so
+      # this is the path KeePassXC itself looks in, not
+      # ~/.config/keepassxc (which the sandbox doesn't expose at all).
       ansible.builtin.file:
         path: "{{ keepassxc_config_dir }}"
         state: directory
         mode: "0755"
+
+    - name: Look for the pre-Flatpak keepassxc.ini this play used to seed
+      ansible.builtin.stat:
+        path: "{{ keepassxc_native_config_ini }}"
+      register: keepassxc_native_config
+
+    # force: false, so an ini the Flatpak has already written (or the user
+    # has hand-tuned) is kept — the options below are all idempotent writes
+    # on top of it either way, but an existing file also carries state this
+    # play doesn't manage (the KeeShare "Own" identity, unlocked-database
+    # state), which a blind overwrite would drop.
+    - name: Carry the pre-Flatpak config over, if the Flatpak has none yet
+      ansible.builtin.copy:
+        src: "{{ keepassxc_native_config_ini }}"
+        dest: "{{ keepassxc_config_ini }}"
+        remote_src: true
+        mode: "0644"
+        force: false
+      when: keepassxc_native_config.stat.exists
 
     - name: Set KeePassXC config version
       community.general.ini_file:
@@ -164,12 +270,12 @@
         mode: "0644"
       loop: "{{ keepassxc_browser_manifests }}"
 
-    - name: Enable SSH Agent integration
+    - name: "Set SSH Agent integration ({{ 'on' if keepassxc_ssh_agent_enabled | bool else 'off' }})"
       community.general.ini_file:
         path: "{{ keepassxc_config_ini }}"
         section: SSHAgent
         option: Enabled
-        value: "true"
+        value: "{{ keepassxc_ssh_agent_enabled | bool | ternary('true', 'false') }}"
         mode: "0644"
 
     - name: Use OpenSSH backend for the SSH agent
@@ -179,6 +285,7 @@
         option: UseOpenSSH
         value: "true"
         mode: "0644"
+      when: keepassxc_ssh_agent_enabled | bool
 
     - name: Set SSH_AUTH_SOCK override for the SSH agent
       community.general.ini_file:
@@ -187,6 +294,7 @@
         option: AuthSockOverride
         value: "{{ keepassxc_ssh_agent_socket }}"
         mode: "0644"
+      when: keepassxc_ssh_agent_enabled | bool
 
     - name: Set KeeShare active configuration
       community.general.ini_file:
@@ -279,13 +387,31 @@
         mode: "0644"
         force: false
 
+    # force: false above deliberately keeps an entry KeePassXC wrote itself
+    # (it only writes one once the "Launch at startup" checkbox has been
+    # saved, and it localizes the fields), so the three launcher-critical
+    # keys have to be re-pointed here — force: false means the template
+    # never got a chance to. TryExec in particular: an entry KeePassXC
+    # wrote says TryExec=keepassxc, and systemd drops a desktop entry whose
+    # TryExec doesn't resolve, which is exactly what removing the native
+    # package leaves behind. Same for Icon, whose flatpak replacement is
+    # named after the app id.
     - name: Point the autostart entry at the readiness wrapper
       community.general.ini_file:
         path: "{{ keepassxc_autostart_desktop }}"
         section: Desktop Entry
-        option: Exec
-        value: "{{ keepassxc_autostart_wrapper }}"
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
         mode: "0644"
+      loop:
+        - option: Exec
+          value: "{{ keepassxc_autostart_wrapper }}"
+        - option: TryExec
+          value: flatpak
+        - option: Icon
+          value: "{{ keepassxc_flatpak_id }}"
+      loop_control:
+        label: "{{ item.option }}"
 
     - name: "Auto-lock KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }}) is unplugged"
       become: true
@@ -303,6 +429,18 @@
             mode: "0644"
           notify: reload udev rules
 
+    - name: Remove the pre-Flatpak config the sandbox can't see
+      # Only once the Flatpak's own config exists, so the content is either
+      # already carried over or superseded by something KeePassXC itself
+      # wrote. Left in place it would keep looking authoritative while
+      # nothing ever reads it.
+      ansible.builtin.file:
+        path: "{{ keepassxc_native_config_dir }}"
+        state: absent
+      when:
+        - keepassxc_native_config.stat.exists
+        - keepassxc_config_ini is file
+
     - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
       block:
         - name: Create ~/.config/hypr
@@ -319,13 +457,17 @@
             force: false
             mode: "0644"
 
+        # Same window class either build — StartupWMClass=keepassxc in both
+        # desktop entries — so only the launch command moves. (Unlike
+        # playbooks/bitwarden.yml's bind, this isn't the Flatpak's app id:
+        # KeePassXC's flatpak keeps its native class.)
         - name: "Rebind {{ keepassxc_hypr_keybind }} from 1Password to KeePassXC"
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/keepassxc.yml — KeePassXC keybinding)"
             block: |
               hl.unbind("{{ keepassxc_hypr_keybind }}")
-              o.bind("{{ keepassxc_hypr_keybind }}", "KeePassXC", { launch = "keepassxc", focus = "^KeePassXC$" })
+              o.bind("{{ keepassxc_hypr_keybind }}", "KeePassXC", { launch = "flatpak run {{ keepassxc_flatpak_id }}", focus = "^KeePassXC$" })
           notify: reload Hyprland
 
   handlers:

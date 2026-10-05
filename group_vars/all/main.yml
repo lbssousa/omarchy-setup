@@ -512,10 +512,19 @@ keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.ru
 # has to name the wrapper, which is also what makes `flatpak run
 # <id> cli` work. See files/bin/keepassxc-wrapper in the installed app.
 keepassxc_proxy_path: "{{ flatpak_system_exports_bin_dir }}/{{ keepassxc_flatpak_id }}"
+# The Firefox Flatpak doesn't read the host's native messaging directories
+# (and this xdg-desktop-portal has no NativeMessaging portal): its
+# `persistent=.mozilla` maps ~/.mozilla in the sandbox to this directory on
+# the host. The manifest there points at a relay script (see
+# keepassxc-proxy-relay.py.j2) at its sandbox path, since keepassxc-proxy
+# itself can't run inside Firefox's runtime.
+keepassxc_firefox_nmh_dir: "{{ ansible_facts.env.HOME }}/.var/app/{{ firefox_flatpak_id }}/.mozilla/native-messaging-hosts"
+keepassxc_firefox_relay_name: keepassxc-proxy-relay.py
+keepassxc_firefox_relay_sandbox_path: "{{ ansible_facts.env.HOME }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
 keepassxc_browser_manifests:
   - name: Firefox
     src: keepassxc-browser-firefox.json.j2
-    dest: "{{ ansible_facts.env.HOME }}/.config/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
+    dest: "{{ keepassxc_firefox_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
   - name: Chromium
     src: keepassxc-browser-chromium.json.j2
     dest: "{{ ansible_facts.env.HOME }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"

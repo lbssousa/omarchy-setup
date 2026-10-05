@@ -270,6 +270,22 @@
         mode: "0644"
       loop: "{{ keepassxc_browser_manifests }}"
 
+    - name: Deploy the relay the Firefox Flatpak runs as its native messaging host
+      ansible.builtin.template:
+        src: keepassxc-proxy-relay.py.j2
+        dest: "{{ keepassxc_firefox_nmh_dir }}/{{ keepassxc_firefox_relay_name }}"
+        mode: "0755"
+
+    - name: Let the Firefox Flatpak reach KeePassXC's browser socket
+      ansible.builtin.command:
+        argv:
+          - flatpak
+          - override
+          - --user
+          - "--filesystem=xdg-run/app/{{ keepassxc_flatpak_id }}"
+          - "{{ firefox_flatpak_id }}"
+      changed_when: false
+
     - name: "Set SSH Agent integration ({{ 'on' if keepassxc_ssh_agent_enabled | bool else 'off' }})"
       community.general.ini_file:
         path: "{{ keepassxc_config_ini }}"

@@ -75,9 +75,8 @@ zed: _ensure-collections
 # pre-installs with their Flathub builds (see
 # docs/flathub-migration-survey.md). Edit flathub_app_migrations in
 # group_vars/all/main.yml to migrate a subset.
-# Not part of `just setup` — run explicitly.
 flathub-apps: _ensure-collections
-    {{ap}} playbooks/flathub-apps.yml
+    {{ap}} site.yml --tags flathub-apps
 
 # Install Rust (if needed) and build/install gregorio-lsp, grelint and
 # grefmt from source.
@@ -116,6 +115,14 @@ openssh-askpass: _ensure-collections
 polkit-agent: _ensure-collections
     {{ap}} site.yml --tags polkit-agent
 
+# Install the list of third-party shell plugins in omarchy_plugins
+# (group_vars/all/main.yml) — Radio Atlas first — cloned by
+# `omarchy plugin add`, pinned to each entry's ref, and placed in the bar
+# section the entry asks for. Run from inside the graphical session; root is
+# only needed if one of the plugins' runtime dependencies is missing.
+plugins: _ensure-collections
+    {{ap}} site.yml --tags plugins
+
 # Make the open/save file dialogs of non-GNOME apps the GTK4 ones (xdg-desktop-portal-gnome).
 file-chooser: _ensure-collections
     {{ap}} site.yml --tags file-chooser
@@ -134,13 +141,18 @@ typesetting:
 ptbr: _ensure-collections
     {{ap}} site.yml --tags ptbr
 
-# Run only the OpenSSH agent (user session) play. Part of
-# playbooks/keepassxc.yml (optional, not part of `just setup`).
+# Run only the OpenSSH agent (user session) play, opting in to it
+# (keepassxc_ssh_agent_enabled is false by default, so `just keepassxc`
+# leaves the agent off). Part of playbooks/keepassxc.yml (optional, not
+# part of `just setup`). No root needed.
 ssh-agent: _ensure-collections
-    ansible-playbook playbooks/keepassxc.yml --tags ssh-agent
+    ansible-playbook playbooks/keepassxc.yml --tags ssh-agent -e keepassxc_ssh_agent_enabled=true
 
-# Run the KeePassXC playbook (OpenSSH agent play first, then KeePassXC).
-# Optional password manager alternative, not part of `just setup`.
+# Run the KeePassXC playbook. Installs KeePassXC from Flathub and removes
+# the native package. Optional password manager alternative, not part of
+# `just setup`. The SSH agent stays off; add
+# -e keepassxc_ssh_agent_enabled=true here (or run `just ssh-agent`) to have
+# KeePassXC act as a client for it as well.
 keepassxc: _ensure-collections
     {{ap}} playbooks/keepassxc.yml
 

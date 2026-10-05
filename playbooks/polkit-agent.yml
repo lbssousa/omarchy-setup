@@ -12,7 +12,9 @@
 # The plugin is copied to /usr/share and linked into
 # ~/.config/omarchy/plugins. Its manifest declares clonedFrom:
 # omarchy.polkit, so enabling it disables the built-in agent (and
-# `omarchy plugin disable lbssousa.polkit` brings it back).
+# `omarchy plugin disable lbssousa.polkit` brings it back). The last two
+# tasks re-read the shell's plugin list and fail the run unless that swap
+# actually took, since a plugin that is merely linked stays inert.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags polkit-agent
 - name: polkit-omarchy (polkit agent with security key touch prompt)
@@ -100,9 +102,13 @@
       register: polkit_agent_link_result
 
     - name: Let the shell discover the plugin
+      # Not conditional on the link having changed: omarchy-plugin-enable
+      # fails outright ("plugin '<id>' is not known; run: omarchy-shell
+      # shell rescanPlugins") when the registry hasn't seen the link yet,
+      # which is exactly the state a run that died between the two tasks
+      # above leaves behind. A rescan is cheap and idempotent.
       ansible.builtin.command:
         argv: [omarchy-shell, shell, rescanPlugins]
-      when: polkit_agent_link_result is changed
       changed_when: false
 
     - name: List the shell plugins
@@ -111,7 +117,7 @@
       register: polkit_agent_plugin_list
       changed_when: false
 
-    - name: "Enable {{ polkit_agent_plugin_id }} (disables omarchy.polkit)"
+    - name: "Enable {{ polkit_agent_plugin_id }} (disables {{ polkit_agent_replaces_id }})"
       ansible.builtin.command:
         argv: [omarchy-plugin-enable, "{{ polkit_agent_plugin_id }}"]
       register: polkit_agent_enable_result
@@ -127,3 +133,33 @@
         or polkit_agent_link_result is changed
         or polkit_agent_enable_result is changed
       changed_when: true
+
+    # The swap is only real if both halves hold: ours loaded, Omarchy's
+    # not. A clone that merely got linked is silently inert (the shell
+    # keeps running omarchy.polkit), and neither task above fails in that
+    # case, so assert it here rather than trusting the exit status.
+    - name: List the shell plugins again (after the restart)
+      ansible.builtin.command:
+        argv: [omarchy-plugin-list, --json]
+      register: polkit_agent_plugin_list_final
+      changed_when: false
+
+    - name: Assert {{ polkit_agent_plugin_id }} replaced {{ polkit_agent_replaces_id }}
+      vars:
+        final_plugins: "{{ polkit_agent_plugin_list_final.stdout | from_json }}"
+        clone: "{{ final_plugins | selectattr('id', 'equalto', polkit_agent_plugin_id) | first | default({}) }}"
+        replaced: "{{ final_plugins | selectattr('id', 'equalto', polkit_agent_replaces_id) | first | default({}) }}"
+      ansible.builtin.fail:
+        msg: >-
+          {{ polkit_agent_plugin_id }} did not take over from
+          {{ polkit_agent_replaces_id }}: ours is
+          {{ 'enabled' if clone.enabled | default(false) else 'missing or disabled' }},
+          the built-in is
+          {{ 'disabled' if not (replaced.enabled | default(false)) else 'still enabled' }}.
+          Check `omarchy-plugin-list` and
+          `~/.config/omarchy/shell.json` (disabledPlugins); enable it by
+          hand with `omarchy plugin enable {{ polkit_agent_plugin_id }}`,
+          which also disables {{ polkit_agent_replaces_id }} again.
+      when: >
+        not (clone.enabled | default(false))
+        or (replaced.enabled | default(false))

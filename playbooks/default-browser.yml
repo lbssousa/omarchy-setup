@@ -93,6 +93,7 @@
         state: link
         force: true
       loop:
+        - "{{ firefox_flatpak_id }}"
         - "{{ brave_flatpak_id }}"
 
     # After the symlinks above: xdg-settings resolves a desktop id to a

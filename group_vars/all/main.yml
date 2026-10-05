@@ -10,12 +10,25 @@ ansible_local_become_success_timeout: 60
 # cover.
 polkit_expiration_seconds: 1800
 
-# Firefox (playbooks/firefox.yml) — runs before pt-BR localization, which
-# depends on Firefox already being installed.
-firefox_package: firefox
+# Firefox (playbooks/firefox.yml) — installed from Flathub, not pacman:
+# runs before pt-BR localization, which depends on Firefox already being
+# installed. Flathub's build bundles every locale itself, so
+# playbooks/ptbr.yml no longer installs a separate pt-BR language pack
+# for it (see ptbr_firefox_requested_locale below).
+firefox_flatpak_id: org.mozilla.firefox
+# Flatpak extension Firefox reads system-wide policies/prefs from,
+# since the sandbox can't see /etc/firefox — see playbooks/firefox.yml
+# and the Firefox block in playbooks/ptbr.yml.
+firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
-firefox_taskbar_tabs_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
-firefox_font_size_pref_dest: /usr/lib/firefox/browser/defaults/preferences/omarchy-setup-font.js
+# Firefox's "Default font size" (Settings > General > Fonts and Colors >
+# Advanced; font.size.variable.x-western in about:config), px. Firefox's
+# browser chrome follows org.gnome.desktop.interface font-name directly (see
+# omarchy_system_ui_font_pt), so this is only the default size for page
+# text. 17px is what 13pt renders to at the standard 96dpi — the same +1
+# as the GTK bump above, written as an integer px because that's what the
+# pref takes. Playbooks/firefox.yml drops it as a defaults/pref file, so
+# it's a default like the browser's own 16px, not a forced value.
 firefox_default_font_size_px: 17
 
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
@@ -38,7 +51,7 @@ firefox_default_font_size_px: 17
 # Microsoft Teams has no Omarchy keybind of its own, so it takes the same
 # SUPER+SHIFT+ALT+<letter> shape as WhatsApp.
 firefox_webapp_desktop_dir: "{{ ansible_facts.env.HOME }}/.local/share/applications"
-firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/firefox.webapp-*.desktop"
+firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/{{ firefox_flatpak_id }}.webapp-*.desktop"
 firefox_taskbar_app_launcher: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
 firefox_taskbar_apps:
   - label: YouTube
@@ -89,7 +102,7 @@ brave_pwa_containers:
 # the default instead; the user-facing omarchy-setup-default-browser
 # wrapper can still flip it at any time, it just doesn't pin the
 # choice on every run.
-default_browser_desktop_id: "firefox.desktop"
+default_browser_desktop_id: "{{ firefox_flatpak_id }}.desktop"
 default_browser_name: Firefox
 
 # Native GUI apps Omarchy pre-installs (all in
@@ -120,6 +133,38 @@ flathub_app_migrations:
     flatpak_id: com.github.xournalpp.xournalpp
     native_packages:
       - xournalpp
+
+# LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
+# replacing Omarchy's pre-installed native libreoffice-fresh (+ its
+# pt-BR language pack, ptbr_libreoffice_i18n_package below). Like
+# Firefox above, Flathub's build bundles every locale itself (see
+# assemble-flatpak.sh in LibreOffice's own source, which folds every
+# non-en-US Langpack-*.xcd into the app rather than shipping it as a
+# separate extension), so no separate language pack is needed —
+# playbooks/ptbr.yml's LibreOffice step already no-ops once
+# libreoffice-fresh is gone.
+libreoffice_flatpak_id: org.libreoffice.LibreOffice
+# Omarchy's app launcher hides these native components
+# (/usr/share/omarchy/default/omarchy/launcher.hides) so only
+# Writer/Calc/Impress show up. LibreOffice's own Flatpak packaging
+# (solenv/bin/assemble-flatpak-desktop.sh) renames each to
+# "{{ libreoffice_flatpak_id }}.<component>.desktop" (the StartCenter
+# becomes the bare "{{ libreoffice_flatpak_id }}.desktop") — ids that
+# static, Omarchy-owned hides list doesn't recognize, so
+# playbooks/libreoffice.yml hides them itself via NoDisplay=true
+# overrides in ~/.local/share/applications instead (same curation,
+# just keyed to the ids the Flatpak actually exports).
+libreoffice_hidden_components:
+  - id: "{{ libreoffice_flatpak_id }}"
+    name: LibreOffice Start Center
+  - id: "{{ libreoffice_flatpak_id }}.base"
+    name: LibreOffice Base
+  - id: "{{ libreoffice_flatpak_id }}.draw"
+    name: LibreOffice Draw
+  - id: "{{ libreoffice_flatpak_id }}.math"
+    name: LibreOffice Math
+  - id: "{{ libreoffice_flatpak_id }}.xsltfilter"
+    name: LibreOffice XSLT Filter
 
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
@@ -225,6 +270,11 @@ polkit_agent_signing_keys: "{{ pinentry_omarchy_signing_keys }}"
 polkit_agent_plugin_dir: /usr/share/polkit-omarchy/plugin
 polkit_agent_plugin_id: lbssousa.polkit
 polkit_agent_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ polkit_agent_plugin_id }}"
+# The first-party plugin the clone's manifest declares as clonedFrom.
+# Enabling the clone makes the shell add this one to its disabled list
+# (PluginRegistry.setEnabled), which is the actual swap; kept here so the
+# play can assert both halves of it at the end of the run.
+polkit_agent_replaces_id: omarchy.polkit
 
 # openssh with askpass touch notifications (playbooks/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
@@ -357,7 +407,6 @@ ptbr_chromium_family_config_dirs:
   - vivaldi
 
 # "libreoffice-fresh-pt" is European Portuguese; pt-BR needs the -br suffix.
-ptbr_firefox_i18n_package: firefox-i18n-pt-br
 ptbr_libreoffice_i18n_package: libreoffice-fresh-pt-br
 ptbr_man_pages_package: man-pages-pt_br
 
@@ -369,6 +418,15 @@ ptbr_ocr_langs: "por+eng"
 # enables the standard user-scope agent (socket + service) at the session
 # runtime socket and exports SSH_AUTH_SOCK session-wide via environment.d
 # so IDEs, CLI tools and KeePassXC can reach the same agent.
+#
+# keepassxc_ssh_agent_enabled picks the variant: false (the default) is a
+# no-op — the agent is not enabled, since playbooks/polkit.yml disables it as
+# legacy cleanup and nothing else in this setup consumes SSH_AUTH_SOCK; true
+# enables it, together with KeePassXC's own SSH agent integration, which acts
+# as a client for it (both sides follow the same switch, so they're never
+# half-on). Override on the command line with `-e
+# keepassxc_ssh_agent_enabled=true` (or `just ssh-agent`).
+keepassxc_ssh_agent_enabled: false
 ssh_agent_socket: "/run/user/{{ ansible_facts.user_uid }}/ssh-agent.socket"
 ssh_agent_units:
   - ssh-agent.socket
@@ -376,16 +434,33 @@ ssh_agent_units:
 
 # KeePassXC (playbooks/keepassxc.yml — optional password manager
 # alternative, not part of `just setup`) — open-source password manager
-# with browser integration (Firefox/Chromium/Brave), SSH agent support
-# (needs the ssh-agent playbook) and system tray integration.
-keepassxc_package: keepassxc
-# The extra-repo keepassxc is a Qt5 build; Omarchy's Wayland session exports
-# QT_QPA_PLATFORM=wayland;xcb, so the Qt5 Wayland QPA plugin is required for
-# KeePassXC to start at all. Without it the autostart aborts at login with
-# "qt.qpa.plugin: Could not find the Qt platform plugin \"wayland\"".
-keepassxc_wayland_plugin_package: qt5-wayland
-keepassxc_config_dir: "{{ ansible_facts.env.HOME }}/.config/keepassxc"
+# with browser integration (Firefox/Chromium/Brave), system tray integration
+# and opt-in SSH agent support (the agent play above, see
+# keepassxc_ssh_agent_enabled).
+#
+# Installed from Flathub, replacing the native package: the same rationale
+# as Bitwarden's play — upstream ships and debugs the Flatpak as a
+# first-class target, and Flathub tracks it faster than `extra`. The
+# migration is cheap for the same reason playbooks/flathub-apps.yml's four
+# apps are: both builds export the same desktop-entry id
+# (org.keepassxc.KeePassXC.desktop, asserted at run time by that play), and
+# the window class is unchanged (StartupWMClass=keepassxc either way). Only
+# the config path and the proxy path move, both below.
+keepassxc_flatpak_id: org.keepassxc.KeePassXC
+# The native package the Flatpak replaces. Removed by the same play.
+keepassxc_native_package: keepassxc
+# XDG_CONFIG_HOME inside the sandbox is ~/.var/app/<id>/config, and
+# ~/.config isn't visible at all — so this is the path the Flatpak actually
+# reads. Writing keepassxc.ini to ~/.config/keepassxc instead would keep
+# reporting success while KeePassXC never sees a single option; the play
+# migrates the old file across and deletes it (same trap and same fix as
+# Zathura's in playbooks/pdf-viewer.yml — see
+# pdf_viewer_zathurarc_path and docs/flathub-migration-survey.md).
+keepassxc_config_dir: "{{ ansible_facts.env.HOME }}/.var/app/{{ keepassxc_flatpak_id }}/config/keepassxc"
 keepassxc_config_ini: "{{ keepassxc_config_dir }}/keepassxc.ini"
+# The pre-Flatpak config the play used to seed, kept only to migrate it.
+keepassxc_native_config_dir: "{{ ansible_facts.env.HOME }}/.config/keepassxc"
+keepassxc_native_config_ini: "{{ keepassxc_native_config_dir }}/keepassxc.ini"
 # Upstream schema version — KeePassXC bumps this on migration.
 keepassxc_config_version: "2"
 # "colorful" = full-color tray icon matching KeePassXC's branding.
@@ -395,7 +470,8 @@ keepassxc_tray_icon_appearance: colorful
 # out of version control and configured interactively.
 keepassxc_keepshare_active: '<?xml version=\"1.0\"?><KeeShare><Active/></KeeShare>\n'
 # KeePassXC acts as a client for the OpenSSH agent; its override pins the
-# socket provided by playbooks/keepassxc.yml.
+# socket provided by playbooks/keepassxc.yml (only written when
+# keepassxc_ssh_agent_enabled is true).
 keepassxc_ssh_agent_socket: "{{ ssh_agent_socket }}"
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
@@ -426,7 +502,16 @@ keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.ru
 # the manifests directly ("isBrowserEnabled" is just file existence), so
 # no GUI clicking is needed; the browser extension still has to be
 # installed and connected by the user.
-keepassxc_proxy_path: /usr/bin/keepassxc-proxy
+#
+# The Flatpak exports one binary, flatpak_system_exports_bin_dir/<id>, and
+# it is keepassxc-wrapper: a shim that inspects argv and re-execs the real
+# binary — keepassxc-proxy for a browser's native-messaging handshake,
+# keepassxc-cli for `keepassxc-proxy cli`, keepassxc otherwise. So the
+# manifest cannot name a bare keepassxc-proxy (the Flatpak doesn't export
+# one, /usr/bin/keepassxc-proxy disappears with the native package) — it
+# has to name the wrapper, which is also what makes `flatpak run
+# <id> cli` work. See files/bin/keepassxc-wrapper in the installed app.
+keepassxc_proxy_path: "{{ flatpak_system_exports_bin_dir }}/{{ keepassxc_flatpak_id }}"
 keepassxc_browser_manifests:
   - name: Firefox
     src: keepassxc-browser-firefox.json.j2
@@ -571,6 +656,10 @@ flatpak_bazaar_package: io.github.kolunmi.Bazaar
 # ~/.config/environment.d so the session sees flatpak apps.
 flatpak_system_exports_dir: /var/lib/flatpak/exports/share
 flatpak_user_exports_dir: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/exports/share"
+# Only the system-wide installs export binaries (a user install exports
+# under ~/.local/bin instead). Used where a host-side program has to name
+# a Flatpak's entry point — see keepassxc_proxy_path.
+flatpak_system_exports_bin_dir: /var/lib/flatpak/exports/bin
 flatpak_env_file: 40-flatpak.conf
 
 # libfprint (goodix538d, playbooks/libfprint.yml) — built in a distrobox
@@ -845,8 +934,52 @@ vscode_desktop_entries:
 # command line with `-e apparmor_load_profiles=true` (or `just
 # apparmor-profiles`).
 apparmor_package: apparmor
-apparmor_lsm: landlock,lockdown,yama,integrity,apparmor,bpf
+apparmor_lsm: landlock,lockdown,yama,integrity,bpf
 apparmor_limine_dropin: /etc/limine-entry-tool.d/apparmor.conf
 apparmor_service: apparmor.service
 apparmor_active_lsm_file: /sys/kernel/security/lsm
 apparmor_load_profiles: false
+
+# Omarchy shell plugins (playbooks/plugins.yml) — this desktop's list of
+# third-party plugins, applied by `just plugins`. Append one entry per plugin;
+# the play installs the whole list, so the list is the only place to edit.
+#
+# Plugins are arbitrary unsandboxed QML running inside the long-lived
+# omarchy-shell, which is why each entry names a repo explicitly and pins a
+# ref rather than tracking a branch: this list is the review `omarchy plugin
+# add` asks for. Fields:
+#   id:       the id the plugin's manifest declares (`omarchy plugin list`);
+#             the play fails if a clone on disk doesn't carry it
+#   repo:     git URL `omarchy plugin add` clones
+#   ref:      tag/branch/commit the clone is pinned to — bump it to update.
+#             `omarchy plugin update` fast-forwards a pinned checkout off its
+#             tag (it stays detached, so the next run pins it back); bump the
+#             ref instead
+#   section:  bar section for the widget's icon (left/center/right), omitted
+#             for plugins with no bar widget. With a section but no index the
+#             shell anchors the widget right after omarchy.tray, i.e. first
+#             in that group (PluginRegistry.barTarget)
+#   packages: runtime dependencies, installed only when `pacman -T` reports
+#             one missing (on Omarchy they all ship already)
+omarchy_plugins:
+  # Radio Atlas — world radio on a rotatable globe in the bar, playing
+  # through Omarchy's mpv/mpv-mpris so omarchy.media keeps the usual
+  # transport controls. MIT, first place in the first Omarchy plugin
+  # competition. Its dependencies are what its README lists, minus the ones
+  # that are part of any Arch base install (coreutils, util-linux).
+  - name: Radio Atlas
+    repo: https://github.com/AksharP5/omarchy-radio-atlas.git
+    id: akshar.radio-atlas
+    ref: v0.1.9
+    section: right
+    packages:
+      - bubblewrap
+      - curl
+      - iproute2
+      - jq
+      - mpv
+      - mpv-mpris
+      - python
+      - socat
+omarchy_plugins_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins"
+omarchy_plugins_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"

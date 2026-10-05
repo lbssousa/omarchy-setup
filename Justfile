@@ -277,7 +277,13 @@ secureboot: _ensure-collections
 gpg-yubikey: _ensure-collections
     {{ap}} playbooks/yubikey.yml --tags gpg-yubikey
 
-# Prepare for downloading the Yubikey's resident FIDO2 SSH keys. Needs
-# the Yubikey plugged in.
-ssh-yubikey: _ensure-collections
-    {{ap}} playbooks/yubikey.yml --tags ssh-yubikey
+# Import the Yubikey's resident FIDO2 SSH keys and configure SSH to use
+# one for GitHub (10-minute ControlMaster). Standalone script, not
+# Ansible: the FIDO2 PIN prompt needs a real terminal. Needs the Yubikey
+# plugged in.
+ssh-yubikey:
+    scripts/ssh-yubikey.sh import
+
+# Undo the GitHub SSH drop-in — for migrating to an ssh-agent.
+ssh-yubikey-disable:
+    scripts/ssh-yubikey.sh disable

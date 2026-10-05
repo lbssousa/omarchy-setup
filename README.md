@@ -68,8 +68,8 @@ standalone shell script, not an Ansible playbook (see below).
 | AppArmor | — | Activates AppArmor as a kernel LSM: `lsm=landlock,lockdown,yama,integrity,apparmor,bpf` (the kernel is built with it but leaves it out of the default list) via a `limine-entry-tool` drop-in + `limine-update`; needs a reboot. Two variants: **`just apparmor`** (kernel LSM only — no distro profiles loaded, the desktop is unchanged, snapd still confines strict snaps with its own profiles) and **`just apparmor-profiles`** (also enables `apparmor.service`, loading `/etc/apparmor.d`; on this setup that enforces `unix-chkpwd`, `avahi-daemon`, `ping`, …). Not part of `just setup`. |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
-| Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. **A dependency of `pinentry`, `ssh-askpass` and `polkit-agent`**: they deploy signed release tags and stop at the start if this key isn't in the keyring, so run it first. Shares `playbooks/yubikey.yml` with the SSH keys (umbrella tag `yubikey`). |
-| Yubikey SSH keys | `ssh-yubikey` | Prepares for downloading resident FIDO2 keys. Not part of `just setup`. |
+| Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. **A dependency of `pinentry`, `ssh-askpass` and `polkit-agent`**: they deploy signed release tags and stop at the start if this key isn't in the keyring, so run it first. Lives in `playbooks/yubikey.yml` (umbrella tag `yubikey`). |
+| Yubikey SSH keys | `ssh-yubikey` | Not Ansible — `scripts/ssh-yubikey.sh` (the FIDO2 PIN prompt needs a real terminal). Downloads the resident FIDO2 keys with `ssh-keygen -K` into `~/.ssh` (never overwriting) and writes `~/.ssh/config.d/10-yubikey-github.conf`: `github.com` authenticates with `id_ed25519_sk_rk_github.com_lbssousa` (override with `GITHUB_KEY=`), `ControlMaster auto` + `ControlPersist 10m`, so the PIN/touch is asked once per 10 minutes. Adds one `Include config.d/*.conf` line to `~/.ssh/config`. **To migrate to an ssh-agent: `just ssh-yubikey-disable`** (deletes the drop-in). Also `scripts/ssh-yubikey.sh status`/`enable`. Not part of `just setup`. |
 
 See each playbook's own header comment for implementation details.
 
@@ -160,7 +160,8 @@ just apparmor      # AppArmor as a kernel LSM, no distro profiles; needs a reboo
 just apparmor-profiles  # same + apparmor.service loading /etc/apparmor.d's profiles
 just secureboot    # see docs/secureboot.md for the full walkthrough
 just gpg-yubikey   # needs the Yubikey plugged in
-just ssh-yubikey   # needs the Yubikey plugged in
+just ssh-yubikey   # needs the Yubikey plugged in; script, prompts for the FIDO2 PIN
+just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh-agent)
 ```
 
 ## Structure
@@ -206,7 +207,8 @@ just ssh-yubikey   # needs the Yubikey plugged in
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |
 | `docs/flathub-migration-survey.md` | Survey of the native GUI apps that Flathub could replace, which ones are load-bearing for Omarchy's shell, and the redundancies to cut first. The five safe cases are implemented (four in `playbooks/flathub-apps.yml`, Zathura in `playbooks/pdf-viewer.yml`); the rest is reference material, no playbook acts on it |
-| `playbooks/yubikey.yml` | Yubikey GPG key + resident SSH keys — outside `site.yml` (tags `gpg-yubikey`, `ssh-yubikey`; umbrella `yubikey`) |
+| `playbooks/yubikey.yml` | Yubikey GPG key — outside `site.yml` (tags `gpg-yubikey`, `yubikey`) |
+| `scripts/ssh-yubikey.sh` | Resident SSH keys import + GitHub SSH drop-in (`just ssh-yubikey`, `just ssh-yubikey-disable`) |
 | `playbooks/files/` | Static files copied as-is |
 | `playbooks/templates/` | Jinja2 templates |
 | `playbooks/tasks/` | Reusable tasks included via `include_tasks` |

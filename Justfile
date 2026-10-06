@@ -156,9 +156,10 @@ ssh-agent: _ensure-collections
 keepassxc: _ensure-collections
     {{ap}} playbooks/keepassxc.yml
 
-# Create the rclone config + systemd --user mounts for Google Drive (secrets
-# from the sibling nix-secrets/nix-keys clones; not part of `just setup`).
-# Only the package install needs root.
+# Create the rclone config + systemd --user mounts for Google Drive. Needs
+# RCLONE_GDRIVE_CLIENT_ID and RCLONE_GDRIVE_CLIENT_SECRET in the environment on
+# the first run (reused from rclone.conf afterwards). Not part of `just setup`;
+# only the package install needs root.
 rclone-gdrive: _ensure-collections
     {{ap}} playbooks/rclone-gdrive.yml
 

@@ -10,11 +10,15 @@
 #
 # Mount points: ~/Google Drive/<email>/<My Drive|Shared with Me>.
 #
-# The OAuth client_id/client_secret are not in this repo: they are decrypted
-# at run time from nix-secrets' secrets.yaml (abutre/google_drive/rclone/*)
-# with sops and the personal age key (nix-keys, git-crypt-unlocked, or
-# ~/.config/sops/age/keys.txt). Neither the key nor the plaintext is ever
-# logged or written anywhere but the 0600 rclone.conf.
+# The Google API OAuth client_id/client_secret are not in this repo: you
+# supply them through the environment
+#
+#   RCLONE_GDRIVE_CLIENT_ID=... RCLONE_GDRIVE_CLIENT_SECRET=... just rclone-gdrive
+#
+# or -e rclone_gdrive_client_id=... -e rclone_gdrive_client_secret=...
+# When omitted they are reused from the existing ~/.config/rclone/rclone.conf
+# (so only the first run needs them). They are never logged or written
+# anywhere but the 0600 rclone.conf.
 #
 # rclone.conf is rewritten on every run, but the `token = ` line rclone
 # stored after the OAuth login is preserved, so re-running never forces a
@@ -25,9 +29,9 @@
 # Until a token exists the services are enabled but not started (they would
 # only fail); re-run this play after the login to start them.
 #
-# Tag "never": needs nix-secrets + nix-keys cloned and unlocked, so it only
-# runs on request (`just rclone-gdrive`). No root needed except for the
-# pacman packages (rclone, sops, age, fuse3).
+# Tag "never": needs the OAuth credentials, so it only runs on request
+# (`just rclone-gdrive`). No root needed except for the pacman packages
+# (rclone, fuse3).
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags rclone-gdrive
 - name: rclone — Google Drive mounts
@@ -37,50 +41,11 @@
   tags: [rclone-gdrive]
 
   tasks:
-    - name: Install rclone, sops, age and fuse3
+    - name: Install rclone and fuse3
       ansible.builtin.package:
-        name: [rclone, sops, age, fuse3]
+        name: [rclone, fuse3]
         state: present
       become: true
-
-    - name: Locate the personal age key
-      ansible.builtin.stat:
-        path: "{{ item }}"
-      loop: "{{ rclone_gdrive_age_key_candidates }}"
-      register: rclone_gdrive_age_keys
-
-    - name: Check that nix-secrets' secrets.yaml exists
-      ansible.builtin.stat:
-        path: "{{ rclone_gdrive_secrets_file }}"
-      register: rclone_gdrive_secrets_stat
-
-    - name: Fail with instructions if the age key or the secrets are missing
-      ansible.builtin.fail:
-        msg: >-
-          Need nix-secrets' secrets.yaml ({{ rclone_gdrive_secrets_file }})
-          and the personal age key (one of {{ rclone_gdrive_age_key_candidates }}).
-          Clone lbssousa/nix-secrets and lbssousa/nix-keys next to this repo
-          and run `git-crypt unlock` in nix-keys, or pass
-          -e rclone_gdrive_secrets_file=... and put the key at
-          ~/.config/sops/age/keys.txt.
-      when: >-
-        not rclone_gdrive_secrets_stat.stat.exists
-        or (rclone_gdrive_age_keys.results | selectattr('stat.exists') | list | length == 0)
-
-    - name: Decrypt the rclone OAuth credentials with sops
-      ansible.builtin.command:
-        argv:
-          - sops
-          - --decrypt
-          - --extract
-          - '["abutre"]["google_drive"]["rclone"]["{{ item }}"]'
-          - "{{ rclone_gdrive_secrets_file }}"
-      environment:
-        SOPS_AGE_KEY_FILE: "{{ (rclone_gdrive_age_keys.results | selectattr('stat.exists') | first).item }}"
-      loop: [client_id, client_secret]
-      register: rclone_gdrive_creds
-      changed_when: false
-      no_log: true
 
     - name: Read the existing rclone.conf, if any (to keep its OAuth token)
       ansible.builtin.slurp:
@@ -96,6 +61,28 @@
               | regex_findall('(?m)^token = (.*)$') | first | default('')) }}
       no_log: true
 
+    - name: Resolve the OAuth credentials (supplied, or from rclone.conf)
+      ansible.builtin.set_fact:
+        rclone_gdrive_client_id_resolved: >-
+          {{ rclone_gdrive_client_id | default('', true)
+              or (rclone_gdrive_existing_text | regex_findall('(?m)^client_id = (.+)$') | first | default('')) }}
+        rclone_gdrive_client_secret_resolved: >-
+          {{ rclone_gdrive_client_secret | default('', true)
+              or (rclone_gdrive_existing_text | regex_findall('(?m)^client_secret = (.+)$') | first | default('')) }}
+      vars:
+        rclone_gdrive_existing_text: "{{ rclone_gdrive_existing.content | default('') | b64decode }}"
+      no_log: true
+
+    - name: Fail if the Google OAuth credentials are missing
+      ansible.builtin.fail:
+        msg: >-
+          The Google API OAuth credentials are missing. Provide them with
+          RCLONE_GDRIVE_CLIENT_ID and RCLONE_GDRIVE_CLIENT_SECRET
+          (environment) or -e rclone_gdrive_client_id=... -e
+          rclone_gdrive_client_secret=...; only the first run needs them,
+          later runs reuse the ones in rclone.conf.
+      when: rclone_gdrive_client_id_resolved | length == 0 or rclone_gdrive_client_secret_resolved | length == 0
+
     - name: Create the config directories
       ansible.builtin.file:
         path: "{{ item }}"
@@ -110,15 +97,15 @@
         state: directory
         mode: "0755"
 
-    - name: Write rclone.conf (credentials from sops, token preserved)
+    - name: Write rclone.conf (OAuth credentials, token preserved)
       ansible.builtin.template:
         src: rclone.conf.j2
         dest: "{{ rclone_gdrive_config_file }}"
         mode: "0600"
       no_log: true
       vars:
-        rclone_gdrive_client_id: "{{ rclone_gdrive_creds.results[0].stdout }}"
-        rclone_gdrive_client_secret: "{{ rclone_gdrive_creds.results[1].stdout }}"
+        rclone_gdrive_client_id: "{{ rclone_gdrive_client_id_resolved }}"
+        rclone_gdrive_client_secret: "{{ rclone_gdrive_client_secret_resolved }}"
 
     - name: Write the Google Drive e-mail env file
       ansible.builtin.copy:

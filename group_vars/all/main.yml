@@ -994,23 +994,15 @@ omarchy_plugins_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins"
 omarchy_plugins_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
 
 # Google Drive mounted through rclone (playbooks/rclone-gdrive.yml). Mirrors
-# nix-config's home/users/abutre/rclone.nix: the OAuth client_id/client_secret
-# come from nix-secrets (sops, age-encrypted), the e-mail is public data from
-# nix-secrets' flake.nix (abutre.googleDriveEmail).
+# nix-config's home/users/abutre/rclone.nix. The e-mail isn't a secret.
 rclone_gdrive_email: lbsousajr@gmail.com
 rclone_bin: /usr/bin/rclone
 rclone_gdrive_remote: Google Drive
 rclone_gdrive_config_file: "{{ ansible_facts.env.HOME }}/.config/rclone/rclone.conf"
-# nix-secrets / nix-keys are looked up as siblings of this repo
-# directory (the layout nix-config's install.sh auto-detects). Override with
-# -e rclone_gdrive_secrets_file=... when they live elsewhere.
-rclone_gdrive_secrets_file: "{{ inventory_dir }}/../nix-secrets/secrets.yaml"
-# First existing file wins. The first is where nix-config's Home Manager
-# activation puts the personal age key; the second is the unlocked
-# (git-crypt) nix-keys clone.
-rclone_gdrive_age_key_candidates:
-  - "{{ ansible_facts.env.HOME }}/.config/sops/age/keys.txt"
-  - "{{ inventory_dir }}/../nix-keys/sops/age/abutre/keys.txt"
+# Google API OAuth credentials: read from the environment on each run (or
+# -e); empty = reuse the ones in the existing rclone.conf.
+rclone_gdrive_client_id: "{{ lookup('ansible.builtin.env', 'RCLONE_GDRIVE_CLIENT_ID') }}"
+rclone_gdrive_client_secret: "{{ lookup('ansible.builtin.env', 'RCLONE_GDRIVE_CLIENT_SECRET') }}"
 # One systemd instance (rclone-google-drive@<name>.service) per entry.
 rclone_gdrive_instances:
   - name: my-drive

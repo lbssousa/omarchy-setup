@@ -133,3 +133,10 @@
 - name: Omarchy shell plugins
   ansible.builtin.import_playbook: playbooks/plugins.yml
   tags: [plugins]
+
+# Google Drive (My Drive + Shared with Me) mounted with rclone. Tag "never":
+# needs nix-secrets and nix-keys cloned and unlocked, so it only runs on
+# request (--tags rclone-gdrive / `just rclone-gdrive`).
+- name: rclone — Google Drive mounts
+  ansible.builtin.import_playbook: playbooks/rclone-gdrive.yml
+  tags: [rclone-gdrive, never]

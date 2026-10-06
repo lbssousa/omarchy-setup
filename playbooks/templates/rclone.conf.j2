@@ -1,0 +1,11 @@
+[{{ rclone_gdrive_remote }}]
+type = drive
+client_id = {{ rclone_gdrive_client_id }}
+client_secret = {{ rclone_gdrive_client_secret }}
+scope = drive
+{% if rclone_gdrive_token %}
+token = {{ rclone_gdrive_token }}
+{% else %}
+token =
+{% endif %}
+team_drive =

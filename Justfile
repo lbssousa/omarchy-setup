@@ -156,6 +156,12 @@ ssh-agent: _ensure-collections
 keepassxc: _ensure-collections
     {{ap}} playbooks/keepassxc.yml
 
+# Create the rclone config + systemd --user mounts for Google Drive (secrets
+# from the sibling nix-secrets/nix-keys clones; not part of `just setup`).
+# Only the package install needs root.
+rclone-gdrive: _ensure-collections
+    {{ap}} playbooks/rclone-gdrive.yml
+
 # Run only the Bitwarden playbook (optional password manager alternative,
 # not part of `just setup`).
 bitwarden: _ensure-collections

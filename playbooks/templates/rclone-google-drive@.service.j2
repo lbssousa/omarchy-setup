@@ -1,0 +1,38 @@
+[Unit]
+Description=rclone: Remote FUSE filesystem for Google Drive (%i)
+Documentation=man:rclone(1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+EnvironmentFile=%h/.config/systemd/user/rclone-google-drive@%i.env
+EnvironmentFile=%h/.config/rclone/google-drive-email.env
+
+ExecStartPre=-/usr/bin/mkdir -p "%h/Google Drive/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
+
+# $$ is systemd's escape for a literal $: bash does the expansion, so
+# MOUNT_DIR ("Shared with Me") keeps its spaces.
+ExecStart=/usr/bin/bash -c 'exec {{ rclone_bin }} mount \
+  --config="{{ rclone_gdrive_config_file }}" \
+  --cache-dir="$$HOME/.cache/rclone/vfs/$$CACHE_SLUG" \
+  --dir-cache-time 5000h \
+  --poll-interval 10s \
+  --vfs-cache-mode writes \
+  --vfs-cache-max-size 10G \
+  --vfs-read-chunk-size 120M \
+  --vfs-read-ahead 1G \
+  --vfs-cache-max-age 5000h \
+  --bwlimit-file 100M \
+  --log-level INFO \
+  --log-file "$$HOME/.cache/rclone/google-drive-%i.log" \
+  --umask 022 \
+  $$EXTRA_FLAGS \
+  "{{ rclone_gdrive_remote }}:" "$$HOME/Google Drive/$$GOOGLE_DRIVE_EMAIL/$$MOUNT_DIR"'
+
+ExecStop=/usr/bin/fusermount3 -uz "%h/Google Drive/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,46 @@
+---
+# One PAM stack of playbooks/pam-auth-order.yml (pam_file).
+- name: "Read {{ pam_file }}"
+  ansible.builtin.slurp:
+    src: "{{ pam_file }}"
+  register: pam_order_raw
+  failed_when: false
+
+- name: "Work out the module order in {{ pam_file }}"
+  ansible.builtin.set_fact:
+    pam_order_lines: >-
+      {{ (pam_order_raw.content | default('') | b64decode).splitlines()
+         | select('match', '^\s*auth\s') | list }}
+    pam_order_u2f: >-
+      {{ (pam_order_raw.content | default('') | b64decode).splitlines()
+         | select('match', '^\s*auth\s.*pam_u2f\.so') | list | first | default('') }}
+
+- name: "Move pam_u2f below pam_fprintd in {{ pam_file }}"
+  when:
+    - pam_order_u2f != ''
+    - pam_order_lines | select('search', 'pam_fprintd\.so') | list | length > 0
+    - >-
+      (pam_order_lines | map('regex_search', 'pam_u2f\.so|pam_fprintd\.so') | list
+       | select | first) == 'pam_u2f.so'
+  become: true
+  block:
+    - name: "Drop the pam_u2f line from {{ pam_file }}"
+      ansible.builtin.lineinfile:
+        path: "{{ pam_file }}"
+        regexp: '^\s*auth\s.*pam_u2f\.so'
+        state: absent
+        backup: true
+
+    - name: "Re-add it right after pam_fprintd in {{ pam_file }}"
+      ansible.builtin.lineinfile:
+        path: "{{ pam_file }}"
+        insertafter: '^\s*auth\s.*pam_fprintd\.so'
+        line: "{{ pam_order_u2f }}"
+
+- name: "Cap pam_fprintd's wait in {{ pam_file }}"
+  ansible.builtin.replace:
+    path: "{{ pam_file }}"
+    regexp: '^(\s*auth\s+\S+\s+pam_fprintd\.so)(?:[ \t]+(?:max-tries|timeout)=\d+)*[ \t]*$'
+    replace: '\1 max-tries={{ pam_auth_order_fprintd_max_tries }} timeout={{ pam_auth_order_fprintd_timeout }}'
+  become: true
+  when: pam_order_raw.content is defined

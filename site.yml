@@ -7,6 +7,13 @@
   ansible.builtin.import_playbook: playbooks/polkit.yml
   tags: [polkit]
 
+# Fingerprint, then FIDO2/U2F key, then password, in the sudo and polkit PAM
+# stacks (Omarchy's setup scripts each insert at the top, so the order
+# otherwise depends on which ran last). A no-op when either is not set up.
+- name: PAM auth order (fingerprint, then FIDO2/U2F, then password)
+  ansible.builtin.import_playbook: playbooks/pam-auth-order.yml
+  tags: [pam-auth-order]
+
 - name: Firefox
   ansible.builtin.import_playbook: playbooks/firefox.yml
   tags: [firefox]

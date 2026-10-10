@@ -1,0 +1,47 @@
+---
+# Order of the authentication methods in the sudo and polkit (pkexec) PAM
+# stacks: fingerprint (pam_fprintd), then FIDO2/U2F key (pam_u2f), then the
+# password (pam_unix, via system-auth for sudo).
+#
+# Omarchy's omarchy-setup-security-fingerprint and
+# omarchy-setup-security-fido2 each insert their line at the top of
+# /etc/pam.d/sudo and /etc/pam.d/polkit-1 (`sed -i '1i ...'`), so the stack
+# ends up with whichever script ran last first. Both modules are
+# `sufficient`, and PAM tries them one after the other: with the key first,
+# pam_u2f blocks until it is touched and the reader is never offered, with
+# the fingerprint first, the key only prompts after pam_fprintd gives up.
+# This play pins the order, whichever script ran last.
+#
+# It only ever moves the pam_u2f line to just after the pam_fprintd line
+# (keeping its options), and only when it is above it. A stack missing
+# either module, or already in order, is left alone, so it is safe to run on
+# a machine with only one of the two set up and to run again after re-running
+# either Omarchy script. The password stays last: sudo's falls through to
+# `auth include system-auth`, polkit-1's is its own pam_unix line.
+#
+# It also caps how long pam_fprintd may hold the stack before the key is
+# asked for (max-tries / timeout below): the default is 3 tries within 30 s,
+# during which touching the key does nothing. A failed or timed-out
+# fingerprint falls through to the key, then to the password.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags pam-auth-order
+- name: PAM auth order (fingerprint, then FIDO2/U2F, then password)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [pam-auth-order]
+
+  vars:
+    pam_auth_order_files:
+      - /etc/pam.d/sudo
+      - /etc/pam.d/polkit-1
+    # pam_fprintd's own defaults are max-tries=3, timeout=30.
+    pam_auth_order_fprintd_max_tries: 1
+    pam_auth_order_fprintd_timeout: 10
+
+  tasks:
+    - name: Put pam_u2f after pam_fprintd in each stack
+      ansible.builtin.include_tasks: tasks/pam-auth-order-file.yml
+      loop: "{{ pam_auth_order_files }}"
+      loop_control:
+        loop_var: pam_file

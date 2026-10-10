@@ -1,7 +1,9 @@
 ---
 # One Chromium-family browser at a time — looped by playbooks/ptbr.yml
-# (ptbr_chromium_family_config_dirs), var `browser_config_dir` = path
-# relative to ~/.config.
+# (ptbr_chromium_family_config_dirs), var `browser_config_dir` = the
+# profile directory relative to $HOME (~/.config/<dir> for native
+# installs, ~/.var/app/<app-id>/config/<dir> for Flathub ones such as the
+# Flathub Brave).
 #
 # Forces intl.accept_languages/selected_languages in the profile's
 # Preferences file directly (no official policy covers this), only if
@@ -13,22 +15,27 @@
 # the include_tasks call — a looped include_tasks with a tag only on
 # the call itself silently skips every inner task under --tags without
 # any warning.
+- name: "[{{ browser_config_dir }}] Resolve the profile directory"
+  ansible.builtin.set_fact:
+    browser_profile_base: "{{ ansible_facts.env.HOME }}/{{ browser_config_dir }}"
+  tags: [ptbr-chromium]
+
 - name: "[{{ browser_config_dir }}] Locate the Default profile's Preferences"
   ansible.builtin.stat:
-    path: "{{ ansible_facts.env.HOME }}/.config/{{ browser_config_dir }}/Default/Preferences"
+    path: "{{ browser_profile_base }}/Default/Preferences"
   register: browser_prefs_stat
   tags: [ptbr-chromium]
 
 - name: "[{{ browser_config_dir }}] Check whether it's running (profile SingletonLock)"
   ansible.builtin.stat:
-    path: "{{ ansible_facts.env.HOME }}/.config/{{ browser_config_dir }}/SingletonLock"
+    path: "{{ browser_profile_base }}/SingletonLock"
   register: browser_lock_stat
   when: browser_prefs_stat.stat.exists
   tags: [ptbr-chromium]
 
 - name: "[{{ browser_config_dir }}] Load the current Preferences"
   ansible.builtin.set_fact:
-    browser_prefs_current: "{{ lookup('file', ansible_facts.env.HOME + '/.config/' + browser_config_dir + '/Default/Preferences') | from_json }}"
+    browser_prefs_current: "{{ lookup('file', browser_profile_base + '/Default/Preferences') | from_json }}"
   when:
     - browser_prefs_stat.stat.exists
     - not browser_lock_stat.stat.exists
@@ -43,7 +50,7 @@
                                'selected_languages': ptbr_chromium_accept_languages}}, recursive=True)
           | to_json)
       }}
-    dest: "{{ ansible_facts.env.HOME }}/.config/{{ browser_config_dir }}/Default/Preferences"
+    dest: "{{ browser_profile_base }}/Default/Preferences"
     mode: "0600"
   register: browser_prefs_patched
   when:
@@ -71,8 +78,8 @@
   ansible.builtin.debug:
     msg: >-
       {{ browser_config_dir }} is running (profile at
-      ~/.config/{{ browser_config_dir }}) — editing Preferences now
-      would be overwritten on exit. Close all its windows (including
+      {{ browser_profile_base }}) — editing Preferences now would be
+      overwritten on exit. Close all its windows (including
       omarchy-launch-webapp web apps) and rerun `just ptbr` (or
       `ansible-playbook playbooks/ptbr.yml --tags ptbr-chromium`).
   when:

@@ -17,8 +17,9 @@
 # SSH_AUTH_SOCK session-wide via environment.d so IDEs, KeePassXC and other
 # CLI tools all talk to the same agent.
 #
-# KeePassXC plays the client for this agent; the play below follows the same
-# switch on its side, so the two are never half-enabled.
+# KeePassXC can use this agent as its SSH agent client, but the play no
+# longer pre-seeds KeePassXC's own settings — its SSH agent integration is
+# left for the user to switch on in-app.
 - name: OpenSSH agent (user session, SSH_AUTH_SOCK export)
   hosts: localhost
   connection: local
@@ -53,17 +54,11 @@
 # KeePassXC — open-source password manager with browser integration,
 # SSH agent support and system tray integration.
 #
-# Installs KeePassXC from Flathub and removes the native package, then
-# writes a pre-seeded keepassxc.ini that enables:
-#   - Browser integration (Firefox, Chromium, Brave, Brave Origin)
-#   - SSH Agent support (off by default; opt-in with
-#     keepassxc_ssh_agent_enabled, which also enables the OpenSSH agent play
-#     above — KeePassXC is the client, that play is the agent)
-#   - KeeShare (active set bootstrapped, success notifications quieted)
-#   - Monochrome light tray icon (high-contrast on dark panels),
-#     colored passwords and monospace notes,
-#     minimization to tray, and close-to-tray behavior
-#   - Launch at startup (XDG autostart)
+# Installs KeePassXC from Flathub and removes the native package. It
+# leaves KeePassXC's own settings untouched — no pre-seeded keepassxc.ini
+# — so the app comes up with its stock defaults and the user configures
+# it in-app. The browser native-messaging manifests, the YubiKey
+# auto-lock rule and the autostart entry (all below) are still deployed.
 #
 # The swap is cheap for the same reason playbooks/flathub-apps.yml's four
 # apps are: both builds export the same desktop-entry id
@@ -71,12 +66,6 @@
 # an id change upstream would silently drop KeePassXC out of Omarchy's
 # launcher) and report the same window class (StartupWMClass=keepassxc,
 # which is what the keybind at the bottom and Omarchy's own rules key on).
-# What does move is the config path — inside the sandbox XDG_CONFIG_HOME is
-# ~/.var/app/<id>/config and ~/.config isn't visible at all, so the
-# pre-seeded ini has to be written there or every option below is a no-op
-# the sandbox never reads. The pre-Flatpak config is migrated across and
-# then deleted, which is the same trap playbooks/pdf-viewer.yml documents
-# for Zathura (see keepassxc_config_dir in group_vars/all/main.yml).
 #
 # The Qt5 Wayland QPA plugin (qt5-wayland) that the native Qt5 build
 # needed is gone with it: the Flatpak bundles its own Qt, so Omarchy's
@@ -188,74 +177,6 @@
           provides it.
       when: keepassxc_native_entry.stat.exists
 
-    - name: Create the Flatpak config dir KeePassXC actually reads
-      # XDG_CONFIG_HOME inside the sandbox is ~/.var/app/<id>/config, so
-      # this is the path KeePassXC itself looks in, not
-      # ~/.config/keepassxc (which the sandbox doesn't expose at all).
-      ansible.builtin.file:
-        path: "{{ keepassxc_config_dir }}"
-        state: directory
-        mode: "0755"
-
-    - name: Look for the pre-Flatpak keepassxc.ini this play used to seed
-      ansible.builtin.stat:
-        path: "{{ keepassxc_native_config_ini }}"
-      register: keepassxc_native_config
-
-    # force: false, so an ini the Flatpak has already written (or the user
-    # has hand-tuned) is kept — the options below are all idempotent writes
-    # on top of it either way, but an existing file also carries state this
-    # play doesn't manage (the KeeShare "Own" identity, unlocked-database
-    # state), which a blind overwrite would drop.
-    - name: Carry the pre-Flatpak config over, if the Flatpak has none yet
-      ansible.builtin.copy:
-        src: "{{ keepassxc_native_config_ini }}"
-        dest: "{{ keepassxc_config_ini }}"
-        remote_src: true
-        mode: "0644"
-        force: false
-      when: keepassxc_native_config.stat.exists
-
-    - name: Set KeePassXC config version
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: General
-        option: ConfigVersion
-        value: "{{ keepassxc_config_version }}"
-        mode: "0644"
-
-    - name: Minimize entry editor after unlocking
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: General
-        option: MinimizeAfterUnlock
-        value: "true"
-        mode: "0644"
-
-    - name: Enable browser integration
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: Browser
-        option: Enabled
-        value: "true"
-        mode: "0644"
-
-    - name: Clear browser custom proxy location
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: Browser
-        option: CustomProxyLocation
-        value: ""
-        mode: "0644"
-
-    - name: Update keepassxc-proxy path on binary upgrade
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: Browser
-        option: UpdateBinaryPath
-        value: "true"
-        mode: "0644"
-
     - name: Create native messaging host directories
       ansible.builtin.file:
         path: "{{ item.dest | dirname }}"
@@ -268,121 +189,27 @@
         src: "{{ item.src }}"
         dest: "{{ item.dest }}"
         mode: "0644"
+      vars:
+        keepassxc_browser_manifest_path: "{{ item.manifest_path | default(keepassxc_proxy_path) }}"
       loop: "{{ keepassxc_browser_manifests }}"
 
-    - name: Deploy the relay the Firefox Flatpak runs as its native messaging host
+    - name: Deploy the relay the Flatpak browsers run as their native messaging host
       ansible.builtin.template:
-        src: keepassxc-proxy-relay.py.j2
-        dest: "{{ keepassxc_firefox_nmh_dir }}/{{ keepassxc_firefox_relay_name }}"
+        src: "{{ item.relay_src }}"
+        dest: "{{ item.relay_dest }}"
         mode: "0755"
+      loop: "{{ keepassxc_browser_manifests | selectattr('relay_src', 'defined') }}"
 
-    - name: Let the Firefox Flatpak reach KeePassXC's browser socket
+    - name: Let the Flatpak browsers reach KeePassXC's browser socket
       ansible.builtin.command:
         argv:
           - flatpak
           - override
           - --user
           - "--filesystem=xdg-run/app/{{ keepassxc_flatpak_id }}"
-          - "{{ firefox_flatpak_id }}"
+          - "{{ item }}"
+      loop: "{{ keepassxc_flatpak_browsers }}"
       changed_when: false
-
-    - name: "Set SSH Agent integration ({{ 'on' if keepassxc_ssh_agent_enabled | bool else 'off' }})"
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: SSHAgent
-        option: Enabled
-        value: "{{ keepassxc_ssh_agent_enabled | bool | ternary('true', 'false') }}"
-        mode: "0644"
-
-    - name: Use OpenSSH backend for the SSH agent
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: SSHAgent
-        option: UseOpenSSH
-        value: "true"
-        mode: "0644"
-      when: keepassxc_ssh_agent_enabled | bool
-
-    - name: Set SSH_AUTH_SOCK override for the SSH agent
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: SSHAgent
-        option: AuthSockOverride
-        value: "{{ keepassxc_ssh_agent_socket }}"
-        mode: "0644"
-      when: keepassxc_ssh_agent_enabled | bool
-
-    - name: Set KeeShare active configuration
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: KeeShare
-        option: Active
-        value: "{{ keepassxc_keepshare_active }}"
-        mode: "0644"
-
-    - name: Quiet KeePassXC success notifications in KeeShare
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: KeeShare
-        option: QuietSuccess
-        value: "true"
-        mode: "0644"
-
-    - name: Show system tray icon
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: ShowTrayIcon
-        value: "true"
-        mode: "0644"
-
-    - name: Use full-color tray icon matching KeePassXC's branding
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: TrayIconAppearance
-        value: "{{ keepassxc_tray_icon_appearance }}"
-        mode: "0644"
-
-    - name: Use colored passwords
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: ColorPasswords
-        value: "true"
-        mode: "0644"
-
-    - name: Use monospace font for notes
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: MonospaceNotes
-        value: "true"
-        mode: "0644"
-
-    - name: Minimize to tray instead of taskbar
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: MinimizeToTray
-        value: "true"
-        mode: "0644"
-
-    - name: Close button minimizes to tray instead of quitting
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: MinimizeOnClose
-        value: "true"
-        mode: "0644"
-
-    - name: Launch KeePassXC at session startup
-      community.general.ini_file:
-        path: "{{ keepassxc_config_ini }}"
-        section: GUI
-        option: LaunchAtStartup
-        value: "true"
-        mode: "0644"
 
     - name: Deploy the KeePassXC autostart readiness wrapper
       ansible.builtin.template:
@@ -444,18 +271,6 @@
             dest: "{{ keepassxc_yubikey_lock_udev_rule }}"
             mode: "0644"
           notify: reload udev rules
-
-    - name: Remove the pre-Flatpak config the sandbox can't see
-      # Only once the Flatpak's own config exists, so the content is either
-      # already carried over or superseded by something KeePassXC itself
-      # wrote. Left in place it would keep looking authoritative while
-      # nothing ever reads it.
-      ansible.builtin.file:
-        path: "{{ keepassxc_native_config_dir }}"
-        state: absent
-      when:
-        - keepassxc_native_config.stat.exists
-        - keepassxc_config_ini is file
 
     - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
       block:

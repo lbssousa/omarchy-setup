@@ -1,0 +1,7 @@
+[Unit]
+Description=Fixes Omarchy web app .desktop files (Brave container wiring)
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/fix-brave-omarchy-webapp-containers

@@ -12,9 +12,8 @@
 # reflect a rustup install that just happened earlier in this same run).
 #
 # Builds happen directly on the host with `cargo install --path ...
-# --locked --force` — no build container, unlike playbooks/libfprint.yml:
-# there's no system library to isolate here, and Omarchy already ships a
-# C toolchain for cargo's own linking. --force is safe because the
+# --locked --force` — no system library to replace or isolate here, and
+# Omarchy already ships a C toolchain for cargo's own linking. --force is safe because the
 # install tasks only run when the checkout changed or a binary is
 # missing (see gregorio_lsp_needs_build below); --locked builds against
 # the repo's own Cargo.lock.

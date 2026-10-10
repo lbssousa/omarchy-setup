@@ -1,6 +1,0 @@
-# {{ ansible_managed }}
-# Makes fprintd.service load the built libfprint (goodixtls53xd driver)
-# from {{ libfprint_usrlocal_libdir }} instead of the official Arch
-# package's libfprint-2.so.2, which lacks that driver.
-[Service]
-Environment=LD_LIBRARY_PATH={{ libfprint_usrlocal_libdir }}

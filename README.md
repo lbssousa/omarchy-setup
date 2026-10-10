@@ -53,7 +53,7 @@ standalone shell script, not an Ansible playbook (see below).
 | Flatpak + Flathub | `flatpak` | Installs Flatpak, enables the Flathub remote system-wide (so the apps and launchers are there for every user, not just this one) and installs Bazaar, the Flathub app store. The app-installing plays (`firefox`, `brave`, `libreoffice`, `pdf-viewer`, `flathub-apps`) each bootstrap Flatpak + the remote themselves, so they work standalone; this play is the umbrella one. |
 | snapd | `snapd` | Builds and installs snapd from the AUR (no official Arch package), enables `snapd.socket` (+ `snapd.apparmor.service`), links `/snap` → `/var/lib/snapd/snap` (classic snaps expect it), waits for first-boot seeding, and exports snap's `bin` and desktop-entry dirs to the graphical session (`PATH`/`XDG_DATA_DIRS` via `environment.d`; log out and back in to pick it up). Doesn't touch the kernel cmdline: strict confinement would need AppArmor as the active LSM, which Omarchy doesn't enable by default — snapd still works, and classic snaps don't need it. |
 | Visual Studio Code | `vscode` | Installs VS Code from Microsoft's official snap (`--classic`). Depends on `snapd` (the tag also runs the snapd play first; `playbooks/snap.yml`, umbrella tag `snap`). Also fixes two Hyprland issues: sets `"password-store": "gnome-libsecret"` in `~/.vscode/argv.json` so VS Code uses the Secret Service keyring (Electron doesn't detect one under Hyprland), and installs a `~/.local/bin/code` wrapper + user desktop entries that set the UI scale to the monitor scale (the snap is forced onto XWayland, where `GDK_SCALE=2` made the UI too big). |
-| libfprint (goodix538d) | `libfprint` | Builds and installs a fingerprint driver fork, plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
+| libfprint (goodix538d) | `libfprint` | Builds a fingerprint driver fork (lbssousa/libfprint) as a PKGBUILD package with makepkg and installs it in place of the official `libfprint` / `libfprint-git` (it `provides`/`conflicts` with them, so fprintd keeps working and `pacman -Syu` won't swap it back), plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
 | Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+] resize the focused column. This and the next two are plays of `playbooks/desktop.yml` (umbrella tag `desktop`). |
 | Screen scale + text size | `text-size` | Sets the Hyprland monitor scale to 100% (and `GDK_SCALE` to match) and compensates with larger text: shell bar + terminals at 20px (15pt terminal font) and the GTK UI font at 12pt (Qt follows it through the `file-chooser` play), with GTK's text-scaling factor left at 1.0. |
@@ -81,8 +81,8 @@ See each playbook's own header comment for implementation details.
   systemd and `xdg-user-dirs`).
 - `run0` (part of systemd, so already there on Arch) and a user in the
   `wheel` group.
-- The libfprint playbook needs Podman + Distrobox already set up
-  (`site.yml` already runs them in the right order).
+- The libfprint playbook builds with `makepkg` on the host (no container);
+  it replaces the official `libfprint`/`libfprint-git` via `pacman -U`.
 - The Proton Pass playbook needs Flatpak + Flathub (`site.yml` already
   runs it in the right order) and Homebrew (`just homebrew` — not part of
   `just setup`).

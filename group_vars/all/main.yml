@@ -732,31 +732,41 @@ flatpak_user_exports_dir: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/exp
 flatpak_system_exports_bin_dir: /var/lib/flatpak/exports/bin
 flatpak_env_file: 40-flatpak.conf
 
-# libfprint (goodix538d, playbooks/libfprint.yml) — built in a distrobox
-# container, installed to /usr/local on the host.
-libfprint_container_name: libfprint-build
-libfprint_distrobox_ini_file: "{{ playbook_dir }}/files/libfprint-build.ini"
+# libfprint (goodix538d, playbooks/libfprint.yml) — built with makepkg from
+# templates/libfprint-goodix538d.PKGBUILD.j2 and installed with pacman -U,
+# replacing the official libfprint (and Omarchy's libfprint-git).
 libfprint_repo: https://github.com/lbssousa/libfprint.git
 # Pinned to a release tag of the fork's goodix-538d-sigfm-gtls branch.
 # v1.94.10-goodix538d.2 changed the print format: after upgrading from an
 # earlier build, delete and re-enroll the fingerprints (fprintd-delete
 # $USER, then fprintd-enroll -f <finger> for at least 2 fingers).
 libfprint_ref: v1.94.10-goodix538d.2
-libfprint_checkout_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d"
-libfprint_stage_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-stage"
+# pkgver can't contain hyphens or a leading "v": v1.94.10-goodix538d.2 ->
+# 1.94.10.goodix538d.2. Bump libfprint_pkgrel for packaging-only changes.
+libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.') }}"
+libfprint_pkgrel: "1"
+libfprint_build_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-pkg"
 
-libfprint_usrlocal_prefix: /usr/local
-libfprint_usrlocal_libdir: "{{ libfprint_usrlocal_prefix }}/lib"
+# Build-time deps only; the runtime ones are the PKGBUILD's depends=(),
+# which pacman -U resolves from the repos.
+libfprint_makedepends:
+  - git
+  - glib2-devel
+  - meson
+  - gobject-introspection
 
-# Runtime deps for the built library on the host (the container only
-# needs the build toolchain). The SIGFM matcher is plain C with no
-# external dependency (OpenCV was dropped in v1.94.10-goodix538d.2).
-libfprint_runtime_deps:
-  - openssl
-  - glib2
-  - libgusb
-  - libgudev
-  - pixman
+# Paths the previous (distrobox + /usr/local) install left behind; the
+# playbook removes them now that the package ships everything in /usr.
+libfprint_legacy_paths:
+  - /usr/local/lib/libfprint-2.so
+  - /usr/local/lib/libfprint-2.so.2
+  - /usr/local/lib/libfprint-2.so.2.0.0
+  - /usr/local/lib/pkgconfig/libfprint-2.pc
+  - /usr/local/lib/girepository-1.0/FPrint-2.0.typelib
+  - /usr/local/include/libfprint-2
+  - /usr/local/share/gir-1.0/FPrint-2.0.gir
+  - /etc/udev/rules.d/70-libfprint-2.rules
+  - /etc/systemd/system/fprintd.service.d/override.conf
 
 # udev rule disabling USB autosuspend for the fingerprint reader. Kept
 # even though it didn't fix the real bug (see fprintd_desync_* below) —

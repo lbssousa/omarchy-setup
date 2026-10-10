@@ -15,7 +15,7 @@ ExecStartPre=/usr/bin/mkdir -p "%h/.cache/rclone"
 ExecStartPre=-/usr/bin/mkdir -p "%h/${GOOGLE_DRIVE_BASE}/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
 
 # $$ is systemd's escape for a literal $: bash does the expansion, so
-# GOOGLE_DRIVE_BASE ("Público/Google Drive") and MOUNT_DIR ("Shared with Me")
+# GOOGLE_DRIVE_BASE ("Público/Google Drive") and MOUNT_DIR ("Compartilhados Comigo")
 # keep their spaces.
 ExecStart=/usr/bin/bash -c 'exec {{ rclone_bin }} mount \
   --config="{{ rclone_gdrive_config_file }}" \

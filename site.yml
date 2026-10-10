@@ -134,7 +134,7 @@
 - name: Omarchy shell plugins
   ansible.builtin.import_playbook: playbooks/plugins.yml
 
-# Google Drive (My Drive + Shared with Me) mounted with rclone. Tag "never":
+# Google Drive (Meu Drive + Compartilhados Comigo) mounted with rclone. Tag "never":
 # needs the Google OAuth credentials, so it only runs on
 # request (--tags rclone-gdrive / `just rclone-gdrive`).
 - name: rclone — Google Drive mounts

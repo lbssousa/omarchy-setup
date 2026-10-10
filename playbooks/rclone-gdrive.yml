@@ -1,6 +1,6 @@
 ---
 # Google Drive mounted with rclone (FUSE), one systemd --user service per
-# mount ("My Drive" and "Shared with Me"). Same layout as nix-config's
+# mount ("Meu Drive" and "Compartilhados Comigo"). Same layout as nix-config's
 # home/users/abutre/rclone.nix, minus Nix:
 #
 #   ~/.config/rclone/rclone.conf                         remote "Google Drive"
@@ -8,7 +8,7 @@
 #   ~/.config/systemd/user/rclone-google-drive@<i>.env   MOUNT_DIR/CACHE_SLUG/EXTRA_FLAGS
 #   ~/.config/rclone/google-drive-email.env              GOOGLE_DRIVE_EMAIL/GOOGLE_DRIVE_BASE
 #
-# Mount points: ~/Público/Google Drive/<email>/<My Drive|Shared with Me>
+# Mount points: ~/Público/Google Drive/<email>/<Meu Drive|Compartilhados Comigo>
 # (base configurable in rclone_gdrive_base_dir, relative to $HOME).
 #
 # The Google API OAuth client_id/client_secret are not in this repo: you

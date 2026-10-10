@@ -1079,10 +1079,10 @@ rclone_gdrive_client_secret: "{{ lookup('ansible.builtin.env', 'RCLONE_GDRIVE_CL
 # One systemd instance (rclone-google-drive@<name>.service) per entry.
 rclone_gdrive_instances:
   - name: my-drive
-    mount_dir: My Drive
+    mount_dir: Meu Drive
     cache_slug: google-drive
     extra_flags: ""
   - name: shared-with-me
-    mount_dir: Shared with Me
+    mount_dir: Compartilhados Comigo
     cache_slug: google-drive-shared-with-me
     extra_flags: "--drive-shared-with-me"

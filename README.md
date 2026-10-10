@@ -181,10 +181,7 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 | `playbooks/flathub-apps.yml` | Native Kdenlive/OBS Studio/Pinta/Xournal++ -> their Flathub builds, native packages removed (tag `flathub-apps`) |
 | `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
 | `playbooks/pdf-viewer.yml` | Zathura (Flathub) as default, replacing the native `zathura` + MuPDF backend, + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
-| `playbooks/pinentry.yml` | pinentry-omarchy package, shell plugin, gpg-agent `pinentry-program` (tag `pinentry`) |
-| `playbooks/ssh-askpass.yml` | ssh-askpass-omarchy binary, shell plugin, `SSH_ASKPASS` environment (tag `ssh-askpass`) |
-| `playbooks/polkit-agent.yml` | polkit-omarchy shell plugin replacing `omarchy.polkit` (tag `polkit-agent`) |
-| `playbooks/plugins.yml` | This desktop's third-party shell plugin list (`omarchy_plugins`): `omarchy plugin add`, pinned to each entry's ref, enabled and placed in the bar section the entry asks for (tag `plugins`) |
+| `playbooks/plugins.yml` | This desktop's third-party shell plugin list (`omarchy_plugins`): `omarchy plugin add`, pinned to each entry's ref, enabled and placed in the bar section the entry asks for (tag `plugins`); plus the plugins that ship their own binary, each deployed from a GPG-signed release tag, as separate plays of the same file: pinentry-omarchy package + gpg-agent `pinentry-program` (tag `pinentry`), ssh-askpass-omarchy binary + `SSH_ASKPASS` environment (tag `ssh-askpass`), polkit-omarchy replacing `omarchy.polkit` (tag `polkit-agent`) |
 | `playbooks/openssh-askpass.yml` | openssh rebuilt with the askpass notification patch (tag `openssh-askpass`) |
 | `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |

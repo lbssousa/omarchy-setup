@@ -115,28 +115,17 @@
   ansible.builtin.import_playbook: playbooks/blesh.yml
   tags: [blesh]
 
-- name: pinentry-omarchy (GnuPG prompts in the polkit-style shell dialog)
-  ansible.builtin.import_playbook: playbooks/pinentry.yml
-  tags: [pinentry]
-
-- name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
-  ansible.builtin.import_playbook: playbooks/ssh-askpass.yml
-  tags: [ssh-askpass]
-
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   ansible.builtin.import_playbook: playbooks/openssh-askpass.yml
   tags: [openssh-askpass]
 
-- name: polkit-omarchy (polkit agent with security key touch prompt)
-  ansible.builtin.import_playbook: playbooks/polkit-agent.yml
-  tags: [polkit-agent]
-
-# This desktop's own list of third-party shell plugins — Radio Atlas first.
-# Which plugins, which pins and which bar section each icon goes to are all
-# data (omarchy_plugins in group_vars/all/main.yml).
+# Third-party shell plugins: this desktop's own list (omarchy_plugins in
+# group_vars/all/main.yml — Radio Atlas first) plus pinentry-omarchy,
+# ssh-askpass-omarchy and polkit-omarchy. No tags here on purpose: each play
+# in the file carries its own (plugins, pinentry, ssh-askpass, polkit-agent),
+# and a tag on the import would be inherited by all of them.
 - name: Omarchy shell plugins
   ansible.builtin.import_playbook: playbooks/plugins.yml
-  tags: [plugins]
 
 # Google Drive (My Drive + Shared with Me) mounted with rclone. Tag "never":
 # needs the Google OAuth credentials, so it only runs on

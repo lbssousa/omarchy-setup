@@ -6,9 +6,10 @@
 #   ~/.config/rclone/rclone.conf                         remote "Google Drive"
 #   ~/.config/systemd/user/rclone-google-drive@.service  template unit
 #   ~/.config/systemd/user/rclone-google-drive@<i>.env   MOUNT_DIR/CACHE_SLUG/EXTRA_FLAGS
-#   ~/.config/rclone/google-drive-email.env              GOOGLE_DRIVE_EMAIL
+#   ~/.config/rclone/google-drive-email.env              GOOGLE_DRIVE_EMAIL/GOOGLE_DRIVE_BASE
 #
-# Mount points: ~/Google Drive/<email>/<My Drive|Shared with Me>.
+# Mount points: ~/Público/Google Drive/<email>/<My Drive|Shared with Me>
+# (base configurable in rclone_gdrive_base_dir, relative to $HOME).
 #
 # The Google API OAuth client_id/client_secret are not in this repo: you
 # supply them through the environment
@@ -110,8 +111,17 @@
     - name: Write the Google Drive e-mail env file
       ansible.builtin.copy:
         dest: "{{ rclone_gdrive_config_file | dirname }}/google-drive-email.env"
-        content: "GOOGLE_DRIVE_EMAIL={{ rclone_gdrive_email }}\n"
+        content: |
+          GOOGLE_DRIVE_EMAIL={{ rclone_gdrive_email }}
+          GOOGLE_DRIVE_BASE={{ rclone_gdrive_base_dir }}
         mode: "0644"
+
+    - name: Create the Google Drive mount point folders under ~/Público
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/{{ rclone_gdrive_base_dir }}/{{ rclone_gdrive_email }}/{{ item.mount_dir }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ rclone_gdrive_instances }}"
 
     - name: Write the per-mount env files
       ansible.builtin.copy:

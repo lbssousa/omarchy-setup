@@ -215,7 +215,8 @@ snapd: _ensure-collections
 vscode: _ensure-collections
     {{ap}} site.yml --tags vscode
 
-# Build and install libfprint (goodix538d). Requires podman + distrobox.
+# Build the libfprint (goodix538d) fork as a package and install it in place
+# of the official libfprint. Uses makepkg on the host (no container).
 libfprint: _ensure-collections
     {{ap}} site.yml --tags libfprint
 
@@ -275,7 +276,8 @@ apparmor: _ensure-collections
 apparmor-profiles: _ensure-collections
     {{ap}} playbooks/apparmor.yml -e apparmor_load_profiles=true
 
-# Remove the libfprint build container (keeps the installed driver).
+# Remove the leftover libfprint build container from before libfprint was
+# packaged with a PKGBUILD (keeps the installed driver).
 libfprint-destroy-container:
     distrobox rm -f libfprint-build
 

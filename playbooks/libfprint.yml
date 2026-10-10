@@ -1,13 +1,23 @@
----
 # libfprint (goodix538d) — builds and installs the
 # https://github.com/lbssousa/libfprint fork (goodixtls53xd driver, for
-# the Goodix 27c6:538d fingerprint reader) into /usr/local.
+# the Goodix 27c6:538d fingerprint reader) as an Arch package, replacing
+# the official libfprint (and Omarchy's libfprint-git, if present).
 #
-# Builds in a distrobox container, keeping the build toolchain
-# (meson/gcc/headers) off the host and disposable (`distrobox rm -f
-# libfprint-build`). The build stages into DESTDIR and gets copied to
-# the host manually, since the container doesn't share /usr with the
-# host (only $HOME).
+# The package is built with makepkg from templates/libfprint-goodix538d.PKGBUILD.j2
+# on the host, as the user (makepkg refuses to run as root), and
+# installed with `pacman -U`. It `provides=(libfprint libfprint-2.so=2-64)`
+# and `conflicts=(libfprint libfprint-git)`, so fprintd's dependencies
+# stay satisfied and pacman removes the stock package in the same
+# transaction (--ask=4: conflicting packages are removed without a
+# prompt, which --noconfirm alone would answer "no" to). Because the
+# fork is installed into /usr like the official one, nothing needs
+# LD_LIBRARY_PATH any more: the fprintd.service drop-in and the
+# /usr/local copy the playbook used to install are removed.
+#
+# Rebuilds only when the installed libfprint-goodix538d doesn't match
+# the version derived from libfprint_ref. A later `pacman -Syu` never
+# swaps it for the official package (it provides libfprint); bump
+# libfprint_ref and rerun to move to a newer fork release.
 #
 # The driver's SIGFM matcher is self-contained C since
 # v1.94.10-goodix538d.2 (earlier builds vendored and statically linked
@@ -20,138 +30,83 @@
 # each one is calibrated from the others. Prints enrolled with builds
 # before v1.94.10-goodix538d.2 are refused and must be re-enrolled.
 #
-# fprintd.service gets an LD_LIBRARY_PATH drop-in pointing at
-# /usr/local/lib, since the official fprintd package already depends on
-# the official libfprint (same soname, no goodixtls53xd driver).
-#
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags libfprint
-# (needs podman + distrobox already set up).
 - name: libfprint (goodix538d)
   hosts: localhost
   connection: local
   gather_facts: true
 
-  pre_tasks:
-    - name: Ensure distrobox is available
-      ansible.builtin.command: distrobox --version
-      register: libfprint_distrobox_check
+  tasks:
+    - name: Find the installed libfprint-goodix538d version
+      ansible.builtin.command: pacman -Q libfprint-goodix538d
+      register: libfprint_installed
       changed_when: false
       failed_when: false
 
-    - name: Fail with guidance if distrobox wasn't found
-      ansible.builtin.fail:
-        msg: >-
-          distrobox not found. Run `./run-empowered.sh ansible-playbook
-          site.yml --tags distrobox` (or `just distrobox`, which sets
-          Podman up first) first.
-      when: libfprint_distrobox_check.rc != 0
+    - name: Work out whether the package is already up to date
+      ansible.builtin.set_fact:
+        libfprint_pkg_current: >-
+          {{ libfprint_installed.rc == 0
+             and libfprint_installed.stdout.split()[1] == libfprint_pkgver ~ '-' ~ libfprint_pkgrel }}
 
-  tasks:
-    - name: Create/update the distrobox build container
-      # distrobox-assemble refuses to run whenever SUDO_USER/DOAS_USER is
-      # set, to stop people from accidentally creating a root-owned
-      # container via sudo/doas. This isn't that: it's an unprivileged
-      # task, but run-empowered.sh's run0 --empower sets SUDO_USER on the
-      # whole process tree for sudo-compatibility, so it trips the same
-      # check. Blank both for this task only.
-      ansible.builtin.command:
-        cmd: "distrobox assemble create --file {{ libfprint_distrobox_ini_file }}"
-      environment:
-        SUDO_USER: ""
-        DOAS_USER: ""
-      register: libfprint_assemble_result
-      changed_when: "'already exists' not in libfprint_assemble_result.stderr"
-
-    - name: Install host runtime dependencies
-      community.general.pacman:
-        name: "{{ libfprint_runtime_deps }}"
-        state: present
-      become: true
-
-    - name: Clone/update the libfprint fork
-      ansible.builtin.git:
-        repo: "{{ libfprint_repo }}"
-        dest: "{{ libfprint_checkout_dir }}"
-        version: "{{ libfprint_ref }}"
-        force: false
-      register: libfprint_git_result
-
-    - name: Check whether the build is already configured
-      ansible.builtin.stat:
-        path: "{{ libfprint_checkout_dir }}/builddir/build.ninja"
-      register: libfprint_builddir_stat
-
-    - name: Configure the build (meson setup)
-      ansible.builtin.shell: >
-        distrobox enter {{ libfprint_container_name }} -- bash -c
-        "cd {{ libfprint_checkout_dir }} &&
-        meson setup builddir --prefix={{ libfprint_usrlocal_prefix }}
-        -Ddoc=false -Dinstalled-tests=false"
-      when: not libfprint_builddir_stat.stat.exists
-
-    - name: Reconfigure the build if the fork changed
-      ansible.builtin.shell: >
-        distrobox enter {{ libfprint_container_name }} -- bash -c
-        "cd {{ libfprint_checkout_dir }} &&
-        meson setup builddir --prefix={{ libfprint_usrlocal_prefix }}
-        -Ddoc=false -Dinstalled-tests=false --reconfigure"
-      when: libfprint_builddir_stat.stat.exists and libfprint_git_result.changed
-
-    - name: Build with ninja
-      ansible.builtin.shell: >
-        distrobox enter {{ libfprint_container_name }} -- bash -c
-        "ninja -C {{ libfprint_checkout_dir }}/builddir"
-      register: libfprint_ninja_result
-      changed_when: "'ninja: no work to do.' not in libfprint_ninja_result.stdout"
-
-    - name: Stage the install (DESTDIR)
-      ansible.builtin.shell: >
-        distrobox enter {{ libfprint_container_name }} -- bash -c
-        "rm -rf {{ libfprint_stage_dir }} &&
-        DESTDIR={{ libfprint_stage_dir }} ninja -C {{ libfprint_checkout_dir }}/builddir install"
-
-    - name: Verify the built library's runtime dependencies resolve
-      ansible.builtin.shell: >
-        ldd {{ libfprint_stage_dir }}{{ libfprint_usrlocal_libdir }}/libfprint-2.so.2.0.0
-        | grep -q "not found" && exit 1 || exit 0
-      changed_when: false
-
-    - name: Host install (privileged) — /usr/local, udev, systemd drop-in only
-      become: true
+    - name: Build and install the libfprint-goodix538d package
+      when: not libfprint_pkg_current
       block:
-        - name: Ensure the /usr/local destination directories exist
+        - name: Install the build dependencies
+          community.general.pacman:
+            name: "{{ libfprint_makedepends }}"
+            state: present
+          become: true
+
+        - name: Create the build directory
           ansible.builtin.file:
-            path: "{{ item }}"
+            path: "{{ libfprint_build_dir }}"
             state: directory
             mode: "0755"
-          loop:
-            - "{{ libfprint_usrlocal_libdir }}"
-            - "{{ libfprint_usrlocal_prefix }}/include"
-            - "{{ libfprint_usrlocal_prefix }}/share"
 
-        - name: Copy library, headers, pkgconfig and gir/typelib to /usr/local
-          # `cp -a` preserves the libfprint-2.so{,.2} symlinks that
-          # ansible.builtin.copy would drop — without them, the linker
-          # falls back to the official libfprint-2.so.2 (no
-          # goodixtls53xd driver) and fprintd stops seeing the reader.
+        - name: Write the PKGBUILD
+          ansible.builtin.template:
+            src: libfprint-goodix538d.PKGBUILD.j2
+            dest: "{{ libfprint_build_dir }}/PKGBUILD"
+            mode: "0644"
+
+        - name: Build the package (makepkg)
+          ansible.builtin.command:
+            cmd: makepkg -f --noconfirm
+            chdir: "{{ libfprint_build_dir }}"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ libfprint_build_dir }}"
+          register: libfprint_packagelist
+          changed_when: false
+
+        - name: Install the package (replacing libfprint / libfprint-git)
           ansible.builtin.command:
             cmd: >-
-              cp -a
-              {{ libfprint_stage_dir }}{{ libfprint_usrlocal_prefix }}/{{ item }}/.
-              {{ libfprint_usrlocal_prefix }}/{{ item }}/
-          loop:
-            - lib
-            - include
-            - share
-          changed_when: true
+              pacman -U --noconfirm --ask=4
+              {{ libfprint_packagelist.stdout_lines | reject('search', '-debug-') | first }}
+          become: true
+          notify:
+            - reload udev rules
+            - restart fprintd
 
-        - name: Install the udev rule
-          ansible.builtin.copy:
-            src: "{{ libfprint_stage_dir }}/usr/lib/udev/rules.d/70-libfprint-2.rules"
-            dest: /etc/udev/rules.d/70-libfprint-2.rules
-            remote_src: true
-            mode: "0644"
-          notify: reload udev rules
+    - name: Host configuration (privileged)
+      become: true
+      block:
+        - name: Remove the legacy /usr/local install and fprintd.service drop-in
+          # Left over from when the fork was built in a distrobox and
+          # copied to /usr/local; the /etc udev rule copy would shadow
+          # the package's own in /usr/lib/udev/rules.d.
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop: "{{ libfprint_legacy_paths }}"
+          notify:
+            - reload systemd
+            - reload udev rules
+            - restart fprintd
 
         - name: "Install udev rule — disable USB autosuspend for the reader ({{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }})"
           ansible.builtin.template:
@@ -189,21 +144,6 @@
           notify:
             - reload systemd
             - enable and start fprintd-desync-watchdog
-
-        - name: Create the fprintd.service drop-in directory
-          ansible.builtin.file:
-            path: /etc/systemd/system/fprintd.service.d
-            state: directory
-            mode: "0755"
-
-        - name: Point fprintd.service at /usr/local
-          ansible.builtin.template:
-            src: fprintd-override.conf.j2
-            dest: /etc/systemd/system/fprintd.service.d/override.conf
-            mode: "0644"
-          notify:
-            - reload systemd
-            - restart fprintd
 
   handlers:
     # Handlers don't inherit `become: true` from the block that

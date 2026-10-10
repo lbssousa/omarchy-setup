@@ -1,0 +1,35 @@
+# {{ ansible_managed }}
+# Maintainer: {{ ansible_facts.user_id }}
+#
+# Fork of libfprint with the goodixtls53xd driver (Goodix 27c6:538d),
+# https://github.com/lbssousa/libfprint. Installs into /usr like the
+# official package and takes its place.
+pkgname=libfprint-goodix538d
+pkgver={{ libfprint_pkgver }}
+pkgrel={{ libfprint_pkgrel }}
+pkgdesc='Library for fingerprint readers (lbssousa fork with the Goodix 538d driver)'
+url='{{ libfprint_repo | regex_replace('\.git$', '') }}'
+arch=(x86_64)
+license=(LGPL-2.1-or-later)
+depends=(gcc-libs glib2 glibc libgudev libgusb openssl pixman)
+makedepends=(git glib2-devel gobject-introspection meson)
+provides=(libfprint libfprint-2.so=2-64)
+conflicts=(libfprint libfprint-git)
+source=("libfprint::git+{{ libfprint_repo }}#tag={{ libfprint_ref }}")
+b2sums=(SKIP)
+
+build() {
+  meson setup build libfprint \
+    --prefix=/usr \
+    --libexecdir=lib \
+    --sbindir=bin \
+    --buildtype=plain \
+    -Ddoc=false \
+    -Dgtk-examples=false \
+    -Dinstalled-tests=false
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "$pkgdir"
+}

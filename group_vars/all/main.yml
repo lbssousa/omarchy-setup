@@ -223,7 +223,7 @@ gregorio_lsp_binaries:
   - grelint
   - grefmt
 
-# pinentry-omarchy (playbooks/pinentry.yml) — GnuPG prompts in the
+# pinentry-omarchy (playbooks/plugins.yml) — GnuPG prompts in the
 # polkit-style omarchy-shell dialog. Built as an Arch package from the
 # repo's own packaging/PKGBUILD with rustup's cargo.
 pinentry_omarchy_repo: https://github.com/lbssousa/pinentry-omarchy.git
@@ -250,7 +250,7 @@ pinentry_omarchy_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plug
 pinentry_omarchy_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
 pinentry_omarchy_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
 
-# ssh-askpass-omarchy (playbooks/ssh-askpass.yml) — SSH prompts in the
+# ssh-askpass-omarchy (playbooks/plugins.yml) — SSH prompts in the
 # polkit-style omarchy-shell dialog. Built locally via cargo from a signed
 # release tag of the repo; bump the ref to deploy a new release.
 ssh_askpass_repo: https://github.com/lbssousa/ssh-askpass-omarchy.git
@@ -268,7 +268,7 @@ ssh_askpass_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{
 ssh_askpass_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
 ssh_askpass_environment_conf: "{{ ansible_facts.env.HOME }}/.config/environment.d/90-ssh-askpass.conf"
 
-# polkit-omarchy (playbooks/polkit-agent.yml) — Omarchy's polkit agent
+# polkit-omarchy (playbooks/plugins.yml) — Omarchy's polkit agent
 # plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
 # Installed from a signed release tag of
 # https://github.com/lbssousa/polkit-omarchy; bump the ref to deploy a new

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Managed by omarchy-setup (playbooks/default-browser.yml).
+#
+# One-token command for the brave-browser.desktop shim's Exec= line.
+# omarchy-launch-webapp / omarchy-launch-browser take only the first
+# whitespace-separated token of the default browser's Exec=, which for
+# the Flathub build's own entry is a bare /usr/bin/flatpak. Everything
+# they append (--app=<url>, --incognito, a URL) arrives here as arguments.
+exec /usr/bin/flatpak run {{ brave_flatpak_id }} "$@"

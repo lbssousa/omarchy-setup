@@ -19,7 +19,7 @@ default_browser=$(env -u BROWSER xdg-settings get default-web-browser)
 
 case "$default_browser" in
 {{ firefox_flatpak_id }}.desktop) flatpak_id="{{ firefox_flatpak_id }}"; private_flag="--private-window" ;;
-{{ brave_flatpak_id }}.desktop) flatpak_id="{{ brave_flatpak_id }}"; private_flag="--incognito" ;;
+{{ brave_shim_desktop_id }}|{{ brave_flatpak_id }}.desktop) flatpak_id="{{ brave_flatpak_id }}"; private_flag="--incognito" ;;
 *) exec /usr/share/omarchy/bin/omarchy-launch-browser "$@" ;;
 esac
 

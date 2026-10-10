@@ -7,7 +7,9 @@
 # (playbooks/firefox.yml, playbooks/brave.yml), whose exported desktop
 # entries are {{ firefox_flatpak_id }}.desktop / {{ brave_flatpak_id }}.desktop —
 # ids that script's case statement doesn't have, so it points
-# xdg-settings at a desktop file that doesn't exist. xdg-settings itself
+# xdg-settings at a desktop file that doesn't exist. Brave is set through
+# the shim {{ brave_shim_desktop_id }} instead (see brave_shim_desktop_id in
+# group_vars/all/main.yml), the id Omarchy's web app launcher accepts. xdg-settings itself
 # works fine once given the right id, so this just wraps it with the
 # ones actually installed here instead of touching that Omarchy-owned
 # script (liable to be overwritten by an update anyway).
@@ -20,7 +22,7 @@ fi
 
 case "$1" in
 firefox) desktop_id="{{ firefox_flatpak_id }}.desktop"; name="Firefox"; glyph="󰈹" ;;
-brave) desktop_id="{{ brave_flatpak_id }}.desktop"; name="Brave"; glyph="󰖟" ;;
+brave) desktop_id="{{ brave_shim_desktop_id }}"; name="Brave"; glyph="󰖟" ;;
 *)
   echo "Usage: omarchy-setup-default-browser <firefox|brave>" >&2
   echo "For any other browser, use 'omarchy default browser <name>' instead." >&2

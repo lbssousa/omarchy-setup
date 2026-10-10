@@ -32,6 +32,11 @@ setup: _ensure-collections
 polkit: _ensure-collections
     {{ap}} site.yml --tags polkit
 
+# Pin the sudo/polkit PAM order: fingerprint, then FIDO2/U2F key, then
+# password (rerun after omarchy-setup-security-fingerprint/-fido2).
+pam-auth-order: _ensure-collections
+    {{ap}} site.yml --tags pam-auth-order
+
 # Install Firefox from Flathub and turn tab apps (Taskbar Tabs) on by
 # default.
 firefox: _ensure-collections

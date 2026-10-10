@@ -5,9 +5,12 @@
 #   - locale + LANG/LANGUAGE (ptbr-locale): enables pt_BR.UTF-8 without
 #     removing other locales, and sets LANG/LANGUAGE in /etc/locale.conf.
 #   - xdg-user-dirs (ptbr-xdg-user-dirs): renames personal folders
-#     (~/Downloads, etc.) to their pt-BR translations, only for folders
-#     that are already enabled. Also fixes any file-manager sidebar
-#     bookmark still pointing at the old English path/label.
+#     (~/Downloads, etc.) to their pt-BR translations, and creates the
+#     mapped folders that never existed yet — typically the ones
+#     xdg-user-dirs leaves disabled, pointing at $HOME — flipping their
+#     user-dirs.dirs entries to the translated names too. Also fixes any
+#     file-manager sidebar bookmark still pointing at the old English
+#     path/label.
 #   - Firefox (ptbr-firefox): forces RequestedLocale via policies.json,
 #     since a profile created before LANG was pt_BR never renegotiates
 #     its language on its own. No separate language pack to install —
@@ -17,6 +20,9 @@
 #     Preferences (intl.accept_languages), which controls the page
 #     language web apps like WhatsApp Web see — frozen at en-US since
 #     profile creation, with no official policy for this in Chromium.
+#     Profile dirs are resolved per install type (see
+#     ptbr_chromium_family_config_dirs), so the Flathub Brave's profile
+#     under ~/.var/app is patched too, not just the ~/.config ones.
 #   - LibreOffice (ptbr-libreoffice): installs the pt-BR language pack —
 #     only if the native libreoffice-fresh is still installed. A no-op
 #     once playbooks/libreoffice.yml has replaced it with the Flathub
@@ -107,6 +113,31 @@
             - current_path != (ansible_facts.env.HOME | regex_replace('/+$', ''))
             - current_path != desired_path
           changed_when: true
+
+        - name: Create missing XDG folders (pt-BR names) and enable them in user-dirs.dirs
+          # The rename above only touches folders that already existed
+          # (with an English or other custom name). Folders that were
+          # never created — typically the ones xdg-user-dirs leaves
+          # disabled, pointing at "$HOME/" — were skipped, so e.g.
+          # "Modelos" or "Público" simply never came into being. This
+          # task creates each mapped folder that doesn't exist on disk
+          # yet and points its user-dirs.dirs entry at the translated
+          # name (which also flips that entry from the "$HOME/" disabled
+          # form). Folders already present (in pt-BR or left as-is)
+          # are left alone, and so is a folder the user re-disables
+          # later by hand.
+          vars:
+            desired_path: "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
+          ansible.builtin.shell: >-
+            if [ ! -d "{{ desired_path }}" ]; then mkdir -p "{{ desired_path }}" &&
+            xdg-user-dirs-update --set {{ result.item.name }} "{{ desired_path }}" &&
+            echo created; fi
+          register: xdg_created
+          loop: "{{ xdg_current.results }}"
+          loop_control:
+            loop_var: result
+            label: "{{ result.item.translated }}"
+          changed_when: "xdg_created.stdout == 'created'"
 
         - name: Locate GTK bookmarks files (file-manager sidebar)
           ansible.builtin.find:

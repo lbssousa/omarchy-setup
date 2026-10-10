@@ -39,7 +39,8 @@ firefox: _ensure-collections
 
 # Install Brave from Flathub, remove the AUR brave-origin-bin package,
 # and fix up Brave's Flatpak PWA .desktop files (also runs on its own —
-# see brave-pwa-desktop-fix below).
+# see brave-pwa-desktop-fix below) plus Omarchy's web app container
+# wiring (see brave-webapp-containers below).
 brave: _ensure-collections
     {{ap}} site.yml --tags brave
 
@@ -47,6 +48,14 @@ brave: _ensure-collections
 # systemd --user watcher that reruns it automatically). No root needed.
 brave-pwa-desktop-fix: _ensure-collections
     ansible-playbook site.yml --tags brave-pwa-desktop-fix
+
+# Rerun just the Omarchy web app -> Brave container wiring (also installs
+# the systemd --user watcher that reruns it when the launchers change).
+# Launchers listed in brave_omarchy_webapp_containers get a trailing
+# --container=<name> on their Exec=, so they open inside that Brave
+# container. No root needed.
+brave-webapp-containers: _ensure-collections
+    ansible-playbook site.yml --tags brave-webapp-containers
 
 # Rebind the YouTube/WhatsApp/Microsoft Teams keys to the sites pinned to the
 # Firefox taskbar (the tab apps themselves are pinned by hand in Firefox).

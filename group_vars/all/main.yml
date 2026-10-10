@@ -95,6 +95,36 @@ brave_pwa_containers:
   Microsoft Teams (PWA): Microsoft
   Google Maps: Google
 
+# Omarchy's native web apps (YouTube, WhatsApp, Google Maps, ...) are
+# launchers in ~/.local/share/applications whose Exec runs
+# `omarchy-launch-webapp <url>`; with Brave the default browser that
+# opens a Brave --app= window in the profile's default (non-container)
+# partition. Brave supports `--container=<name>` together with `--app=`
+# since 1.95.x (brave/brave-browser#58019 landed via brave-core#38964 —
+# same family of switches as brave_pwa_containers above), so a launcher
+# can opt into a storage-isolated container by appending the flag to its
+# Exec=. This map wires each launcher, keyed by its own Name= field/path
+# (the desktop file name minus .desktop, e.g. "YouTube"), to an existing
+# Brave container:
+# playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2 appends
+# --container=<name> to every Exec= line (dropping a stale
+# --container=<other> first) and reruns whenever a launcher is written
+# or rewritten (systemd --user path unit, tag brave-webapp-containers).
+# Key only launchers you actually have: `omarchy-webapp-install` writes
+# `$APP_NAME.desktop`, so a new "GitHub" launcher is wired in by adding
+# `GitHub: GitHub` below and rerunning `just brave-webapp-containers`.
+#
+# NOTE: distinct from brave_pwa_containers, which wires PWAs installed by
+# Brave itself (com.brave.Browser.flextop.brave-*.desktop) to the same
+# containers; this one wires Omarchy's own --app= launchers.
+brave_omarchy_webapp_containers:
+  Google Contacts: Google
+  Google Maps: Google
+  Google Messages: Google
+  Google Photos: Google
+  WhatsApp: Meta
+  YouTube: Google
+
 # Desktop id of the shim entry playbooks/default-browser.yml writes to
 # ~/.local/share/applications, standing in for the Flathub Brave
 # (com.brave.Browser.desktop) under the id Omarchy's own tooling knows.
@@ -386,10 +416,15 @@ ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"
 ptbr_language_fallback: "pt_BR:pt:en"
 
+# Each folder below is a personal XDG folder this play takes care of in
+# its pt-BR form. Folders already present are renamed to the translated
+# name and re-pointed in user-dirs.dirs; folders that don't exist on
+# disk yet (e.g. the ones xdg-user-dirs starts out disabled, pointing at
+# "$HOME/") are created and enabled. "default" is the stock
+# (pre-translation) English folder name — used to find and fix
+# file-manager sidebar bookmarks still pointing at it (see the GTK
+# bookmarks task below).
 ptbr_xdg_user_dirs:
-  # "default" is the stock (pre-translation) English folder name — used
-  # to find and fix file-manager sidebar bookmarks still pointing at it
-  # (see the GTK bookmarks task below).
   - { name: DESKTOP, default: "Desktop", translated: "Área de Trabalho" }
   - { name: DOWNLOAD, default: "Downloads", translated: "Downloads" }
   - { name: TEMPLATES, default: "Templates", translated: "Modelos" }
@@ -408,16 +443,22 @@ ptbr_firefox_requested_locale:
 # language, not the browser's own UI language).
 ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
 
-# Profile directories (relative to ~/.config) fixed by
-# playbooks/tasks/ptbr-chromium-family-browser.yml. Opera and Helium are
-# excluded: unconfirmed profile layout on this machine.
+# Profile directories fixed by
+# playbooks/tasks/ptbr-chromium-family-browser.yml. Each entry is a path
+# relative to $HOME: native installs live under ~/.config/<dir>, Flathub
+# installs under ~/.var/app/<app-id>/config/<dir> (the Flathub Brave
+# entry below is what the browser really uses now — the ~/.config one is
+# left over from before playbooks/brave.yml moved Brave to Flathub, where
+# the play's intl fix never reached the live profile). Opera and Helium
+# are excluded: unconfirmed profile layout on this machine.
 ptbr_chromium_family_config_dirs:
-  - chromium
-  - BraveSoftware/Brave-Browser
-  - BraveSoftware/Brave-Origin
-  - google-chrome
-  - microsoft-edge
-  - vivaldi
+  - .config/chromium
+  - .config/BraveSoftware/Brave-Browser
+  - .config/BraveSoftware/Brave-Origin
+  - .config/google-chrome
+  - .config/microsoft-edge
+  - .config/vivaldi
+  - .var/app/com.brave.Browser/config/BraveSoftware/Brave-Browser
 
 # "libreoffice-fresh-pt" is European Portuguese; pt-BR needs the -br suffix.
 ptbr_libreoffice_i18n_package: libreoffice-fresh-pt-br
@@ -435,10 +476,11 @@ ptbr_ocr_langs: "por+eng"
 # keepassxc_ssh_agent_enabled picks the variant: false (the default) is a
 # no-op — the agent is not enabled, since playbooks/polkit.yml disables it as
 # legacy cleanup and nothing else in this setup consumes SSH_AUTH_SOCK; true
-# enables it, together with KeePassXC's own SSH agent integration, which acts
-# as a client for it (both sides follow the same switch, so they're never
-# half-on). Override on the command line with `-e
-# keepassxc_ssh_agent_enabled=true` (or `just ssh-agent`).
+# enables it and exports SSH_AUTH_SOCK for any client. KeePassXC can act as a
+# client, but its SSH agent integration is no longer pre-seeded by the play —
+# enable it in-app and it picks the socket up from SSH_AUTH_SOCK. Override on
+# the command line with `-e keepassxc_ssh_agent_enabled=true` (or `just
+# ssh-agent`).
 keepassxc_ssh_agent_enabled: false
 ssh_agent_socket: "/run/user/{{ ansible_facts.user_uid }}/ssh-agent.socket"
 ssh_agent_units:
@@ -458,34 +500,10 @@ ssh_agent_units:
 # apps are: both builds export the same desktop-entry id
 # (org.keepassxc.KeePassXC.desktop, asserted at run time by that play), and
 # the window class is unchanged (StartupWMClass=keepassxc either way). Only
-# the config path and the proxy path move, both below.
+# the browser-integration proxy path moves, below.
 keepassxc_flatpak_id: org.keepassxc.KeePassXC
 # The native package the Flatpak replaces. Removed by the same play.
 keepassxc_native_package: keepassxc
-# XDG_CONFIG_HOME inside the sandbox is ~/.var/app/<id>/config, and
-# ~/.config isn't visible at all — so this is the path the Flatpak actually
-# reads. Writing keepassxc.ini to ~/.config/keepassxc instead would keep
-# reporting success while KeePassXC never sees a single option; the play
-# migrates the old file across and deletes it (same trap and same fix as
-# Zathura's in playbooks/pdf-viewer.yml — see
-# pdf_viewer_zathurarc_path and docs/flathub-migration-survey.md).
-keepassxc_config_dir: "{{ ansible_facts.env.HOME }}/.var/app/{{ keepassxc_flatpak_id }}/config/keepassxc"
-keepassxc_config_ini: "{{ keepassxc_config_dir }}/keepassxc.ini"
-# The pre-Flatpak config the play used to seed, kept only to migrate it.
-keepassxc_native_config_dir: "{{ ansible_facts.env.HOME }}/.config/keepassxc"
-keepassxc_native_config_ini: "{{ keepassxc_native_config_dir }}/keepassxc.ini"
-# Upstream schema version — KeePassXC bumps this on migration.
-keepassxc_config_version: "2"
-# "colorful" = full-color tray icon matching KeePassXC's branding.
-keepassxc_tray_icon_appearance: colorful
-# KeeShare active-set XML (escaped for storage in keepassxc.ini). The
-# secret KeeShare "Own" identity key is machine-specific, so it is left
-# out of version control and configured interactively.
-keepassxc_keepshare_active: '<?xml version=\"1.0\"?><KeeShare><Active/></KeeShare>\n'
-# KeePassXC acts as a client for the OpenSSH agent; its override pins the
-# socket provided by playbooks/keepassxc.yml (only written when
-# keepassxc_ssh_agent_enabled is true).
-keepassxc_ssh_agent_socket: "{{ ssh_agent_socket }}"
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
 keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
@@ -525,32 +543,62 @@ keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.ru
 # has to name the wrapper, which is also what makes `flatpak run
 # <id> cli` work. See files/bin/keepassxc-wrapper in the installed app.
 keepassxc_proxy_path: "{{ flatpak_system_exports_bin_dir }}/{{ keepassxc_flatpak_id }}"
-# The Firefox Flatpak doesn't read the host's native messaging directories
-# (and this xdg-desktop-portal has no NativeMessaging portal): its
-# `persistent=.mozilla` maps ~/.mozilla in the sandbox to this directory on
-# the host. The manifest there points at a relay script (see
-# keepassxc-proxy-relay.py.j2) at its sandbox path, since keepassxc-proxy
-# itself can't run inside Firefox's runtime.
+# Flatpak browsers don't read the host's native messaging directories (and
+# this xdg-desktop-portal has no NativeMessaging portal), so each manifest
+# has to land inside that browser's own sandbox tree:
+#   - Firefox: `persistent=.mozilla` maps ~/.mozilla in the sandbox to
+#     ~/.var/app/<firefox>/.mozilla on the host.
+#   - Brave (a Flatpak here): flatpak sets the sandbox's XDG_CONFIG_HOME to
+#     ~/.var/app/<brave>/config, and Chromium-family native messaging hosts
+#     live at $XDG_CONFIG_HOME/BraveSoftware/<profile>/NativeMessagingHosts.
+# The Flatpak-browser manifests point at a relay script
+# (keepassxc-proxy-relay.py.j2) deployed beside them at their sandbox path,
+# since keepassxc-proxy itself can't run inside a browser's runtime (it
+# needs KeePassXC's Qt); the relay speaks Python's stdlib to KeePassXC's
+# socket. Host-installed browsers can still name the Flatpak's exported
+# wrapper directly (keepassxc_proxy_path).
 keepassxc_firefox_nmh_dir: "{{ ansible_facts.env.HOME }}/.var/app/{{ firefox_flatpak_id }}/.mozilla/native-messaging-hosts"
 keepassxc_firefox_relay_name: keepassxc-proxy-relay.py
 keepassxc_firefox_relay_sandbox_path: "{{ ansible_facts.env.HOME }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
+# Brave sandbox base: the app's own config tree, which flatpak exposes as
+# the sandbox's XDG_CONFIG_HOME (~/.config/BraveSoftware/... on a native
+# install).
+keepassxc_brave_config_dir: "{{ ansible_facts.env.HOME }}/.var/app/{{ brave_flatpak_id }}/config"
+keepassxc_brave_nmh_dir: "{{ keepassxc_brave_config_dir }}/BraveSoftware/Brave-Browser/NativeMessagingHosts"
+keepassxc_brave_origin_nmh_dir: "{{ keepassxc_brave_config_dir }}/BraveSoftware/Brave-Origin/NativeMessagingHosts"
+keepassxc_brave_relay_name: keepassxc-proxy-relay.py
+keepassxc_brave_relay_sandbox_path: "{{ keepassxc_brave_nmh_dir }}/{{ keepassxc_brave_relay_name }}"
+keepassxc_brave_origin_relay_sandbox_path: "{{ keepassxc_brave_origin_nmh_dir }}/{{ keepassxc_brave_relay_name }}"
+# The Flatpak browsers need an override to reach KeePassXC's browser socket
+# at xdg-run/app/<keepassxc_flatpak_id> from inside their sandboxes.
+keepassxc_flatpak_browsers:
+  - "{{ firefox_flatpak_id }}"
+  - "{{ brave_flatpak_id }}"
 keepassxc_browser_manifests:
   - name: Firefox
     src: keepassxc-browser-firefox.json.j2
     dest: "{{ keepassxc_firefox_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
+    relay_src: keepassxc-proxy-relay.py.j2
+    relay_dest: "{{ keepassxc_firefox_nmh_dir }}/{{ keepassxc_firefox_relay_name }}"
   - name: Chromium
     src: keepassxc-browser-chromium.json.j2
     dest: "{{ ansible_facts.env.HOME }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+    manifest_path: "{{ keepassxc_proxy_path }}"
   - name: Brave
     src: keepassxc-browser-chromium.json.j2
-    dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Browser/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+    dest: "{{ keepassxc_brave_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
+    manifest_path: "{{ keepassxc_brave_relay_sandbox_path }}"
+    relay_src: keepassxc-proxy-relay.py.j2
+    relay_dest: "{{ keepassxc_brave_nmh_dir }}/{{ keepassxc_brave_relay_name }}"
   # Brave-Origin is a separate Brave profile directory (not the stable
   # Brave-Browser one) — it keeps its own NativeMessagingHosts folder, so
-  # it needs its own manifest entry or the extension can't reach
-  # keepassxc-proxy.
+  # it needs its own manifest entry or the extension can't reach the relay.
   - name: Brave Origin
     src: keepassxc-browser-chromium.json.j2
-    dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+    dest: "{{ keepassxc_brave_origin_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
+    manifest_path: "{{ keepassxc_brave_origin_relay_sandbox_path }}"
+    relay_src: keepassxc-proxy-relay.py.j2
+    relay_dest: "{{ keepassxc_brave_origin_nmh_dir }}/{{ keepassxc_brave_relay_name }}"
 
 # Bitwarden (playbooks/bitwarden.yml — optional, not part of `just
 # setup`) — installed from Flathub: it's the officially recommended

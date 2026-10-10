@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Appends --container=<name> to the Exec= of Omarchy's native web app
+# launchers — ~/.local/share/applications/*.desktop whose Exec runs
+# `omarchy-launch-webapp <url>` — so Brave (the Flathub build) opens each
+# inside its intended container (brave://settings/containers) instead of
+# the profile's default partition.
+#
+# Why this exists: omarchy-launch-webapp passes every extra argument
+# through to the browser (it builds `--app=<url>` then "${@:2}"), so a
+# launcher needs only a trailing `--container=<name>` to open inside a
+# container. Brave has accepted --container together with --app since
+# 1.95.x (brave/brave-browser#58019 landed via brave-core#38964), which
+# the Flathub build qualifies for. But Omarchy writes its launchers with
+# no container at all, so every web app lands in the shared default
+# partition. This script appends the flag (dropping a stale
+# --container=<other> first, so a re-mapped launcher moves) to converge
+# on the CONTAINER_MAP below, keyed by the launcher's own Name= field —
+# see brave_omarchy_webapp_containers in group_vars/all/main.yml.
+#
+# Only ~/.local/share/applications is touched: the stock launchers in
+# /usr/share/omarchy/applications are left alone (they are templates,
+# not the live entries), and so are the Brave shim and Brave's own PWA
+# entries (those belong to fix-brave-pwa-desktop.sh). Idempotent; runs
+# from the playbook and from a systemd --user path unit that reruns it
+# whenever a web app launcher is installed or rewritten (e.g. by
+# omarchy-webapp-install).
+set -euo pipefail
+
+declare -A CONTAINER_MAP=(
+{% for name, container in brave_omarchy_webapp_containers.items() %}
+    [{{ name | to_json }}]={{ container | to_json }}
+{% endfor %}
+)
+
+{% raw %}
+APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+BACKUP_DIR="$APPS_DIR/.brave-omarchy-webapp-backups"
+FIXED=0
+SKIPPED=0
+ERRORS=0
+
+is_omarchy_webapp() {
+    grep -q '^Exec=.*omarchy-launch-webapp' "$1" 2>/dev/null
+}
+
+container_for_file() {
+    local file="$1" name
+    name=$(sed -n 's/^Name=//p' "$file" | head -1)
+    printf '%s' "${CONTAINER_MAP[$name]:-}"
+}
+
+needs_fix() {
+    local file="$1" container total matched
+    container=$(container_for_file "$file")
+    [[ -z $container ]] && return 1
+    total=$(grep -c '^Exec=' "$file" || true)
+    matched=$(grep -Fc -- "--container=${container}" "$file" || true)
+    [[ $matched -lt $total ]]
+}
+
+fix_file() {
+    local file="$1" name container
+    name=$(basename "$file")
+    container=$(container_for_file "$file")
+
+    if ! needs_fix "$file"; then
+        if [[ -n $container ]]; then
+            echo "  OK (already in container '$container'): $name"
+        else
+            echo "  OK (no container mapped, stays default): $name"
+        fi
+        ((SKIPPED++)) || true
+        return 0
+    fi
+
+    mkdir -p "$BACKUP_DIR"
+    local backup
+    backup="$BACKUP_DIR/$name.$(date +%Y%m%d-%H%M%S).bak"
+    cp "$file" "$backup"
+
+    local ok=true tmp
+    tmp="$file.tmp.$$"
+    # Strip any --container=<value> (wherever it sits) from every Exec=
+    # line, then append the mapped one. Awk keeps the container name as
+    # data, so no shell quoting issues.
+    awk -v c="$container" '
+        /^Exec=/ {
+            gsub(/--container=[^ ]*/, "")
+            gsub(/  +/, " ")
+            $0 = $0 " --container=" c
+        }
+        { print }
+    ' "$file" > "$tmp" && mv "$tmp" "$file" || ok=false
+
+    if $ok; then
+        echo "  Fixed: $name -> container '$container'  (backup: $(basename "$backup"))"
+        ((FIXED++)) || true
+    else
+        echo "  ERROR fixing: $name" >&2
+        cp "$backup" "$file"
+        ((ERRORS++)) || true
+    fi
+}
+
+echo "Checking Omarchy web app launchers for Brave containers in:"
+echo "  $APPS_DIR"
+echo "  (map:"
+{% endraw %}
+{% for name, container in brave_omarchy_webapp_containers.items() %}
+echo "    {{ name }} -> {{ container }}"
+{% endfor %}
+{% raw %}
+echo "  )"
+echo
+
+shopt -s nullglob
+files=("$APPS_DIR"/*.desktop)
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    echo "No .desktop files in $APPS_DIR."
+    exit 0
+fi
+
+for f in "${files[@]}"; do
+    is_omarchy_webapp "$f" || continue
+    fix_file "$f"
+done
+
+echo
+echo "Result: $FIXED fixed | $SKIPPED already OK | $ERRORS error(s)"
+
+if [[ $FIXED -gt 0 ]]; then
+    echo
+    echo "Updating application database..."
+    update-desktop-database "$APPS_DIR" 2>/dev/null && echo "Done." || echo "Warning: update-desktop-database failed (non-critical)."
+fi
+
+if [[ $ERRORS -gt 0 ]]; then
+    exit 1
+fi
+{% endraw %}

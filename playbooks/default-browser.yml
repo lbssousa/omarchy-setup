@@ -125,7 +125,8 @@
         mode: "0644"
 
     # Certify the shim against the Omarchy actually installed: the
-    # launcher must still accept brave-browser* and still read the
+    # launcher must still accept brave* (which covers the
+    # brave-browser.desktop shim id) and still read the
     # command as the first token of the entry's Exec=, which is what the
     # shim is built for. Skipped where Omarchy isn't present.
     - name: Check that omarchy-launch-webapp accepts the Brave shim
@@ -139,14 +140,14 @@
       register: omarchy_launch_webapp_src
       when: omarchy_launch_webapp.stat.exists
 
-    - name: Assert it still resolves brave-browser* through the entry's first Exec= token
+    - name: Assert it still resolves brave* through the entry's first Exec= token
       ansible.builtin.assert:
         that:
-          - "'brave-browser' in (omarchy_launch_webapp_src.content | b64decode)"
+          - "'brave' in (omarchy_launch_webapp_src.content | b64decode)"
           - "'--app' in (omarchy_launch_webapp_src.content | b64decode)"
         fail_msg: >-
           /usr/share/omarchy/bin/omarchy-launch-webapp no longer matches
-          brave-browser* / --app=: the brave-browser.desktop shim
+          brave* / --app=: the {{ brave_shim_desktop_id }} shim
           (playbooks/default-browser.yml) needs revisiting, or Omarchy web
           apps will fall back to Chromium.
       when: omarchy_launch_webapp.stat.exists

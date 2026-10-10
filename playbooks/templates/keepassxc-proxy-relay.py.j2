@@ -1,14 +1,15 @@
 #!/usr/bin/python3
 # Managed by omarchy-setup (playbooks/keepassxc.yml). Do not edit.
 #
-# Native messaging host for KeePassXC-Browser inside the Firefox Flatpak.
-# keepassxc-proxy can't run there (it needs KeePassXC's own Qt runtime), so
-# this does what it does with the Python the Firefox runtime ships: strip the
-# native messaging length prefix off what Firefox sends and write the bare JSON
-# to KeePassXC's browser socket, and length-prefix each JSON reply on the way
-# back (the socket speaks unframed JSON).
+# Native messaging host for KeePassXC-Browser inside the Flatpak browsers
+# (Firefox and Brave). keepassxc-proxy can't run there (it needs
+# KeePassXC's own Qt runtime), so this does what it does with the Python
+# the browser runtime ships: strip the native messaging length prefix off
+# what the browser sends and write the bare JSON to KeePassXC's browser
+# socket, and length-prefix each JSON reply on the way back (the socket
+# speaks unframed JSON).
 # The socket lives in xdg-run/app/{{ keepassxc_flatpak_id }}, which the
-# Firefox Flatpak gets an override for.
+# Flatpak browsers get an override for.
 import json
 import os
 import socket

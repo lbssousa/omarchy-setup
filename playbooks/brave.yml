@@ -27,7 +27,10 @@
 # PWA installer itself writes (see
 # playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the bugs), and
 # wires any PWA listed in brave_pwa_containers to its Brave container
-# (see that variable in group_vars/all/main.yml).
+# (see that variable in group_vars/all/main.yml). The third play wires
+# Omarchy's *own* web app launchers (the --app= ones, see
+# playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2 and
+# brave_omarchy_webapp_containers) to the same containers.
 - name: Brave
   hosts: localhost
   connection: local
@@ -139,6 +142,81 @@
       register: fix_brave_pwa_desktop_result
       changed_when: "fix_brave_pwa_desktop_result.stdout is search('Result: [1-9]')"
       tags: [brave, brave-pwa-desktop-fix]
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user
+
+# Omarchy's native web apps (YouTube, WhatsApp, Google Maps, ...; see
+# ~/.local/share/applications) are launchers whose Exec runs
+# `omarchy-launch-webapp <url>`. With Brave the default browser that
+# opens a Brave --app= window in the profile's default (non-container)
+# partition. Brave supports `--container=<name>` together with `--app=`
+# since 1.95.x (brave/brave-browser#58019 landed via brave-core#38964),
+# so a launcher can opt into a storage-isolated container by appending
+# --container=<name> to its Exec=. This play converges the launchers
+# mapped in brave_omarchy_webapp_containers (group_vars/all/main.yml) on
+# their container, idempotently, and installs a systemd --user path unit
+# that reruns the fix whenever a web app launcher appears or is rewritten
+# (e.g. by omarchy-webapp-install) — the same wiring pattern the PWA
+# fixup below/above uses. Container names must already exist in Brave
+# (brave://settings/containers).
+- name: Brave Omarchy web app container wiring
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [brave, brave-webapp-containers]
+
+  tasks:
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+      tags: [brave, brave-webapp-containers]
+
+    - name: Deploy fix-brave-omarchy-webapp-containers
+      ansible.builtin.template:
+        src: fix-brave-omarchy-webapp-containers.sh.j2
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-omarchy-webapp-containers"
+        mode: "0755"
+      tags: [brave, brave-webapp-containers]
+
+    - name: Create ~/.config/systemd/user
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        state: directory
+        mode: "0755"
+      tags: [brave, brave-webapp-containers]
+
+    - name: Install the fix-brave-omarchy-webapp-containers systemd --user units
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
+        mode: "0644"
+      loop:
+        - fix-brave-omarchy-webapp-containers.service
+        - fix-brave-omarchy-webapp-containers.path
+      notify: reload systemd --user
+      tags: [brave, brave-webapp-containers]
+
+    - name: Enable the fix-brave-omarchy-webapp-containers path unit
+      ansible.builtin.systemd:
+        name: fix-brave-omarchy-webapp-containers.path
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started
+      tags: [brave, brave-webapp-containers]
+
+    - name: Run fix-brave-omarchy-webapp-containers now
+      ansible.builtin.command: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-omarchy-webapp-containers"
+      register: fix_brave_omarchy_webapp_containers_result
+      changed_when: "fix_brave_omarchy_webapp_containers_result.stdout is search('Result: [1-9]')"
+      tags: [brave, brave-webapp-containers]
 
   handlers:
     - name: reload systemd --user

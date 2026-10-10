@@ -54,7 +54,8 @@ brave-pwa-desktop-fix: _ensure-collections
 firefox-pwa-keybinds: _ensure-collections
     ansible-playbook site.yml --tags firefox-pwa-keybinds
 
-# Make the Flathub Firefox the default browser (unless it already is), and
+# Make the Flathub Brave the default browser (unless it already is), via a
+# brave-browser.desktop shim so Omarchy's native web apps run on it, and
 # deploy omarchy-setup-default-browser, a Flathub-aware alternative to
 # `omarchy default browser` for Firefox/Brave. No root needed.
 default-browser: _ensure-collections

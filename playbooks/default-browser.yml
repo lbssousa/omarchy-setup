@@ -53,11 +53,27 @@
 # Neither fix touches omarchy-launch-browser itself — an Omarchy-owned
 # file, liable to be overwritten by an update.
 #
-# Deploying the wrapper is only half of it: a fresh run also *sets* the
-# default browser (default_browser_desktop_id — the Flathub Firefox),
-# so `just setup` leaves a working default behind instead of Omarchy's
-# stock chromium.desktop, which by then points at a browser this
-# setup replaced. xdg-settings is the same mechanism
+# Omarchy's native web apps (omarchy-launch-webapp, which every web
+# app launcher, its keybinds and omarchy-launch-or-focus-webapp go
+# through) have the same two problems and a third: the case statement
+# only accepts the Chromium family's native desktop ids
+# (brave-browser*, ...) and falls back to chromium.desktop for
+# anything else — com.brave.Browser.desktop included. Rather than
+# rewriting every launcher and keybind (and again after each
+# omarchy-webapp-install), this play makes the id Omarchy expects
+# resolve: a hidden ~/.local/share/applications/brave-browser.desktop
+# shim whose Exec= is a one-token wrapper script
+# (~/.local/bin/omarchy-setup-brave) that runs the Flatpak with
+# whatever arguments (--app=<url>, ...) Omarchy appends, and the
+# default browser is set to that shim id. Omarchy's own scripts then
+# work unmodified — omarchy-default-browser's `brave` case uses the
+# same id — and the Omarchy web apps open in the Flathub Brave.
+#
+# Deploying the wrappers is only half of it: a fresh run also *sets*
+# the default browser (default_browser_desktop_id — Brave through the
+# shim), so `just setup` leaves a working default behind instead of
+# Omarchy's stock chromium.desktop, which by then points at a browser
+# this setup replaced. xdg-settings is the same mechanism
 # omarchy-default-browser uses, called directly with the right desktop
 # id; the wrapper isn't reused because it also sends a desktop
 # notification via busctl --user, which fails outside a graphical
@@ -95,6 +111,52 @@
       loop:
         - "{{ firefox_flatpak_id }}"
         - "{{ brave_flatpak_id }}"
+
+    - name: Deploy omarchy-setup-brave (one-token Exec= for the brave-browser.desktop shim)
+      ansible.builtin.template:
+        src: brave-shim.sh.j2
+        dest: "{{ brave_shim_launcher }}"
+        mode: "0755"
+
+    - name: "Install the {{ brave_shim_desktop_id }} shim for the Flathub Brave"
+      ansible.builtin.template:
+        src: brave-browser.desktop.j2
+        dest: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ brave_shim_desktop_id }}"
+        mode: "0644"
+
+    # Certify the shim against the Omarchy actually installed: the
+    # launcher must still accept brave-browser* and still read the
+    # command as the first token of the entry's Exec=, which is what the
+    # shim is built for. Skipped where Omarchy isn't present.
+    - name: Check that omarchy-launch-webapp accepts the Brave shim
+      ansible.builtin.stat:
+        path: /usr/share/omarchy/bin/omarchy-launch-webapp
+      register: omarchy_launch_webapp
+
+    - name: Read omarchy-launch-webapp
+      ansible.builtin.slurp:
+        src: /usr/share/omarchy/bin/omarchy-launch-webapp
+      register: omarchy_launch_webapp_src
+      when: omarchy_launch_webapp.stat.exists
+
+    - name: Assert it still resolves brave-browser* through the entry's first Exec= token
+      ansible.builtin.assert:
+        that:
+          - "'brave-browser' in (omarchy_launch_webapp_src.content | b64decode)"
+          - "'--app' in (omarchy_launch_webapp_src.content | b64decode)"
+        fail_msg: >-
+          /usr/share/omarchy/bin/omarchy-launch-webapp no longer matches
+          brave-browser* / --app=: the brave-browser.desktop shim
+          (playbooks/default-browser.yml) needs revisiting, or Omarchy web
+          apps will fall back to Chromium.
+      when: omarchy_launch_webapp.stat.exists
+
+    - name: Resolve the shim's Exec= the way omarchy-launch-webapp does
+      ansible.builtin.shell: |
+        sed -n 's/^Exec=\([^ ]*\).*/\1/p' "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ brave_shim_desktop_id }}" | head -1
+      register: brave_shim_exec
+      changed_when: false
+      failed_when: brave_shim_exec.stdout != brave_shim_launcher
 
     # After the symlinks above: xdg-settings resolves a desktop id to a
     # command by walking ${XDG_DATA_HOME:-$HOME/.local/share}:

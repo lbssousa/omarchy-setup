@@ -32,7 +32,8 @@ firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 firefox_default_font_size_px: 17
 
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
-# (playbooks/firefox-pwa-keybinds.yml). Omarchy binds YouTube to
+# (playbooks/firefox-pwa-keybinds.yml, opt-in only now that Brave is the
+# default browser: --tags firefox-pwa-keybinds). Omarchy binds YouTube to
 # SUPER+SHIFT+Y and WhatsApp to SUPER+SHIFT+ALT+G through
 # omarchy-launch-webapp, which only knows the Chromium family's --app= flag
 # and falls back to chromium.desktop for every other default browser —
@@ -94,16 +95,28 @@ brave_pwa_containers:
   Microsoft Teams (PWA): Microsoft
   Google Maps: Google
 
+# Desktop id of the shim entry playbooks/default-browser.yml writes to
+# ~/.local/share/applications, standing in for the Flathub Brave
+# (com.brave.Browser.desktop) under the id Omarchy's own tooling knows.
+# omarchy-launch-webapp (every Omarchy web app: launcher entries,
+# keybinds, omarchy-launch-or-focus-webapp) only accepts the Chromium
+# family's native ids (brave-browser*, ...), falls back to chromium for
+# anything else, and takes just the first token of the entry's Exec= —
+# which for com.brave.Browser.desktop is a bare /usr/bin/flatpak. The
+# shim's Exec= is a one-token wrapper script that runs the Flatpak.
+brave_shim_desktop_id: brave-browser.desktop
+brave_shim_launcher: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-brave"
+
 # Default browser the main run leaves behind
-# (playbooks/default-browser.yml) — the Flathub Firefox's exported
-# desktop id, not firefox.desktop, for the same reason
-# omarchy-default-browser can't be used here (see that playbook's
-# header). Switch to "{{ brave_flatpak_id }}.desktop" to leave Brave as
-# the default instead; the user-facing omarchy-setup-default-browser
-# wrapper can still flip it at any time, it just doesn't pin the
-# choice on every run.
-default_browser_desktop_id: "{{ firefox_flatpak_id }}.desktop"
-default_browser_name: Firefox
+# (playbooks/default-browser.yml): Brave from Flathub, set through the
+# shim id above rather than com.brave.Browser.desktop so Omarchy's
+# native web apps keep working. Switch to "{{ firefox_flatpak_id }}.desktop"
+# to leave Firefox as the default instead (its web apps then need the
+# Taskbar Tabs keybinds — see playbooks/firefox-pwa-keybinds.yml); the
+# user-facing omarchy-setup-default-browser wrapper can flip it at any
+# time, it just doesn't pin the choice on every run.
+default_browser_desktop_id: "{{ brave_shim_desktop_id }}"
+default_browser_name: Brave
 
 # Native GUI apps Omarchy pre-installs (all in
 # /usr/share/omarchy/install/omarchy-base.packages) replaced by their

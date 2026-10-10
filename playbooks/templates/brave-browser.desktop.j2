@@ -1,0 +1,15 @@
+[Desktop Entry]
+# Managed by omarchy-setup (playbooks/default-browser.yml): the id
+# Omarchy's web app launcher accepts for Brave, backed by the Flathub
+# build. The real entry ({{ brave_flatpak_id }}.desktop) is what shows up
+# in the app launcher; this one is hidden.
+Version=1.0
+Type=Application
+Name=Brave Web Browser
+Exec={{ brave_shim_launcher }} %U
+Icon={{ brave_flatpak_id }}
+NoDisplay=true
+Terminal=false
+StartupNotify=true
+Categories=Network;WebBrowser;
+MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;

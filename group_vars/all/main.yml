@@ -1011,6 +1011,8 @@ omarchy_plugins_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.
 rclone_gdrive_email: lbsousajr@gmail.com
 rclone_bin: /usr/bin/rclone
 rclone_gdrive_remote: Google Drive
+# Mount points base, relative to $HOME: <base>/<email>/<mount_dir>.
+rclone_gdrive_base_dir: Público/Google Drive
 rclone_gdrive_config_file: "{{ ansible_facts.env.HOME }}/.config/rclone/rclone.conf"
 # Google API OAuth credentials: read from the environment on each run (or
 # -e); empty = reuse the ones in the existing rclone.conf.

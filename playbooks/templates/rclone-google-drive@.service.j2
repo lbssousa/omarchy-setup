@@ -9,10 +9,14 @@ Type=notify
 EnvironmentFile=%h/.config/systemd/user/rclone-google-drive@%i.env
 EnvironmentFile=%h/.config/rclone/google-drive-email.env
 
-ExecStartPre=-/usr/bin/mkdir -p "%h/Google Drive/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
+# rclone's --log-file does not create its parent directory: without this a
+# fresh machine's mount dies with "Failed to open log file".
+ExecStartPre=/usr/bin/mkdir -p "%h/.cache/rclone"
+ExecStartPre=-/usr/bin/mkdir -p "%h/${GOOGLE_DRIVE_BASE}/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
 
 # $$ is systemd's escape for a literal $: bash does the expansion, so
-# MOUNT_DIR ("Shared with Me") keeps its spaces.
+# GOOGLE_DRIVE_BASE ("Público/Google Drive") and MOUNT_DIR ("Shared with Me")
+# keep their spaces.
 ExecStart=/usr/bin/bash -c 'exec {{ rclone_bin }} mount \
   --config="{{ rclone_gdrive_config_file }}" \
   --cache-dir="$$HOME/.cache/rclone/vfs/$$CACHE_SLUG" \
@@ -28,9 +32,9 @@ ExecStart=/usr/bin/bash -c 'exec {{ rclone_bin }} mount \
   --log-file "$$HOME/.cache/rclone/google-drive-%i.log" \
   --umask 022 \
   $$EXTRA_FLAGS \
-  "{{ rclone_gdrive_remote }}:" "$$HOME/Google Drive/$$GOOGLE_DRIVE_EMAIL/$$MOUNT_DIR"'
+  "{{ rclone_gdrive_remote }}:" "$$HOME/$$GOOGLE_DRIVE_BASE/$$GOOGLE_DRIVE_EMAIL/$$MOUNT_DIR"'
 
-ExecStop=/usr/bin/fusermount3 -uz "%h/Google Drive/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
+ExecStop=/usr/bin/fusermount3 -uz "%h/${GOOGLE_DRIVE_BASE}/${GOOGLE_DRIVE_EMAIL}/${MOUNT_DIR}"
 Restart=on-failure
 RestartSec=10
 

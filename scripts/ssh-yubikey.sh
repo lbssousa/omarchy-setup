@@ -11,14 +11,17 @@
 # Usage: scripts/ssh-yubikey.sh [import|enable|disable|status]
 #   import   (default) download the resident keys, then enable the config
 #   enable   (re)write the GitHub SSH drop-in, without touching the token
-#   disable  remove the GitHub SSH drop-in — do this when migrating to an
+#   disable  turn the GitHub SSH drop-in off by renaming it to
+#            <name>.conf.disabled — do this when migrating to an
 #            ssh-agent (Bitwarden, Proton Pass, ...) that serves the key
 #   status   show the keys and whether the drop-in is active
 #
-# The SSH configuration lives in a single drop-in file,
-# ~/.ssh/config.d/10-yubikey-github.conf, pulled in by one `Include` line
-# this script puts at the top of ~/.ssh/config. `disable` deletes the
-# drop-in; the Include line is harmless without it.
+# The SSH configuration lives in one self-contained drop-in per key,
+# ~/.ssh/config.d/<host>_<user>.conf (dots as underscores, e.g.
+# github_com_lbssousa.conf), pulled in by one `Include config.d/*.conf`
+# line this script puts at the top of ~/.ssh/config. A file that doesn't
+# end in ".conf" is ignored by that glob, so `disable` just renames it and
+# `enable` renames it back; the Include line is harmless without any.
 #
 # Environment overrides:
 #   GITHUB_KEY  private-key handle file name in ~/.ssh to use for GitHub
@@ -29,11 +32,22 @@ set -euo pipefail
 
 SSH_DIR="$HOME/.ssh"
 DROPIN_DIR="$SSH_DIR/config.d"
-DROPIN="$DROPIN_DIR/10-yubikey-github.conf"
 MAIN_CONFIG="$SSH_DIR/config"
 CM_DIR="$SSH_DIR/cm"
 INCLUDE_LINE="Include config.d/*.conf"
 GITHUB_KEY="${GITHUB_KEY:-id_ed25519_sk_rk_github.com_lbssousa}"
+
+# <host>_<user>.conf, from the handle name `ssh-keygen -K` wrote:
+# id_ed25519_sk_rk_github.com_lbssousa -> github_com_lbssousa.conf
+# (a handle with no user part gives plain github_com.conf).
+dropin_name() {
+    local suffix="${GITHUB_KEY#*github.com}"
+    printf 'github_com%s.conf' "${suffix:+_${suffix#_}}"
+}
+DROPIN="$DROPIN_DIR/$(dropin_name)"
+DROPIN_OFF="$DROPIN.disabled"
+# Earlier versions of this script wrote a single numbered file.
+LEGACY_DROPIN="$DROPIN_DIR/10-yubikey-github.conf"
 
 say() { printf '==> %s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
@@ -123,19 +137,25 @@ enable_config() {
         say "Added '$INCLUDE_LINE' to the top of $MAIN_CONFIG"
     fi
 
+    # Leftovers of the single-file layout, and a previously disabled copy
+    # of this very file, would otherwise duplicate or shadow it.
+    rm -f "$LEGACY_DROPIN" "$DROPIN_OFF"
+
     cat >"$DROPIN" <<CONF
-# Managed by omarchy-setup's scripts/ssh-yubikey.sh — GitHub over the
-# Yubikey's resident FIDO2 key, no ssh-agent involved.
-#
-# To migrate to an ssh-agent: run \`scripts/ssh-yubikey.sh disable\`
-# (or just delete this file).
+# Managed by omarchy-setup's scripts/ssh-yubikey.sh — authentication on
+# github.com with the Yubikey's resident FIDO2 key $GITHUB_KEY,
+# without the ssh-agent.
+# To disable: scripts/ssh-yubikey.sh disable (renames this file to
+# $(basename "$DROPIN").disabled), or rename it by hand to anything
+# that doesn't end in ".conf".
 
 Host github.com
     HostName github.com
     User git
-    IdentityFile ~/.ssh/$GITHUB_KEY
+    IdentityAgent none
     IdentitiesOnly yes
     AddKeysToAgent no
+    IdentityFile ~/.ssh/$GITHUB_KEY
 
     # Reuse one authenticated connection for 10 minutes: the Yubikey
     # asks for a touch once instead of on every git operation.
@@ -149,9 +169,13 @@ CONF
 }
 
 disable_config() {
+    if [[ -f $LEGACY_DROPIN ]]; then
+        mv -f "$LEGACY_DROPIN" "$LEGACY_DROPIN.disabled"
+        say "Disabled $LEGACY_DROPIN"
+    fi
     if [[ -f $DROPIN ]]; then
-        rm -f "$DROPIN"
-        say "Removed $DROPIN — GitHub no longer uses the Yubikey drop-in"
+        mv -f "$DROPIN" "$DROPIN_OFF"
+        say "Renamed $DROPIN to $(basename "$DROPIN_OFF") — GitHub no longer uses the Yubikey drop-in"
     else
         say "Already disabled ($DROPIN doesn't exist)"
     fi
@@ -167,6 +191,8 @@ show_status() {
     if [[ -f $DROPIN ]]; then
         say "GitHub drop-in: ENABLED ($DROPIN)"
         grep -E '^\s*IdentityFile' "$DROPIN" | sed 's/^\s*/    /'
+    elif [[ -f $LEGACY_DROPIN ]]; then
+        say "GitHub drop-in: ENABLED, old single-file layout ($LEGACY_DROPIN) — rerun 'enable' to migrate"
     else
         say "GitHub drop-in: disabled"
     fi

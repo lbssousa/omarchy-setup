@@ -1,0 +1,9 @@
+[Unit]
+Description=Check for sunrise/sunset to switch the Omaraptor theme
+
+[Timer]
+OnStartupSec=1min
+OnUnitActiveSec={{ omaraptor_auto_interval }}
+
+[Install]
+WantedBy=timers.target

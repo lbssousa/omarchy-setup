@@ -1,0 +1,73 @@
+#!/bin/bash
+# Managed by playbooks/omaraptor-theme-auto.yml (omarchy-setup) — switches the
+# Omarchy theme between a day and a night theme of the Omaraptor family at
+# sunrise/sunset. Run by omaraptor-theme-auto.timer (systemd --user).
+#
+# Sunrise/sunset are read from ~/.config/hypr/hyprsunset.conf, which
+# nightlight-solar-sync (playbooks/desktop.yml) regenerates daily; the
+# fallback times below are used when that file is missing.
+#
+# The theme only changes when the period (day/night) changes since the last
+# run, so a theme picked by hand stays until the next sunrise/sunset. Nothing
+# happens while a theme outside the day/night pair is applied. After the
+# switch the theme's default wallpaper (first in sort order) is set, since
+# omarchy-theme-set would otherwise cycle to the next one.
+set -euo pipefail
+
+DAY_THEME="{{ omaraptor_auto_day_theme }}"
+NIGHT_THEME="{{ omaraptor_auto_night_theme }}"
+FALLBACK_SUNRISE="{{ omaraptor_auto_fallback_sunrise }}"
+FALLBACK_SUNSET="{{ omaraptor_auto_fallback_sunset }}"
+
+CONF="$HOME/.config/hypr/hyprsunset.conf"
+STATE_DIR="$HOME/.local/state/omaraptor-theme-auto"
+STATE="$STATE_DIR/period"
+CURRENT_THEME_FILE="$HOME/.local/state/omarchy/current/theme.name"
+
+# "Omaraptor Dark" -> omaraptor-dark (the theme directory / theme.name form).
+norm() { tr '[:upper:] _' '[:lower:]--' <<<"$1"; }
+minutes() { local h=${1%%:*} m=${1##*:}; echo $((10#$h * 60 + 10#$m)); }
+
+sunrise=""
+sunset=""
+if [[ -f $CONF ]]; then
+  # Profile with `identity = true` starts the day, the one with a
+  # temperature starts the night.
+  read -r sunrise sunset < <(awk '
+    /^[[:space:]]*time[[:space:]]*=/ { t = $3 }
+    /^[[:space:]]*identity[[:space:]]*=[[:space:]]*true/ { rise = t }
+    /^[[:space:]]*temperature[[:space:]]*=/ { set = t }
+    END { print rise, set }
+  ' "$CONF") || true
+fi
+[[ $sunrise =~ ^[0-9]{1,2}:[0-9]{2}$ ]] || sunrise=$FALLBACK_SUNRISE
+[[ $sunset =~ ^[0-9]{1,2}:[0-9]{2}$ ]] || sunset=$FALLBACK_SUNSET
+
+now=$(minutes "$(date +%H:%M)")
+if (( now >= $(minutes "$sunset") || now < $(minutes "$sunrise") )); then
+  period=night target=$NIGHT_THEME
+else
+  period=day target=$DAY_THEME
+fi
+
+mkdir -p "$STATE_DIR"
+previous=$(cat "$STATE" 2>/dev/null || true)
+[[ $previous == "$period" ]] && exit 0
+
+current=$(cat "$CURRENT_THEME_FILE" 2>/dev/null || true)
+if [[ $current == "$(norm "$DAY_THEME")" || $current == "$(norm "$NIGHT_THEME")" ]]; then
+  if [[ $current != "$(norm "$target")" ]]; then
+    omarchy-theme-set "$target"
+
+    theme=$(cat "$CURRENT_THEME_FILE")
+    background=$(
+      find -L "$HOME/.config/omarchy/backgrounds/$theme/" \
+        "$HOME/.local/state/omarchy/current/theme/backgrounds/" -maxdepth 1 -type f \
+        \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+        -print0 2>/dev/null | sort -z | head -z -n 1 | tr -d '\0' || true
+    )
+    [[ -n $background ]] && omarchy-theme-bg-set "$background"
+  fi
+fi
+
+echo "$period" >"$STATE"

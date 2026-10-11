@@ -1094,3 +1094,14 @@ rclone_gdrive_instances:
     mount_dir: Compartilhados Comigo
     cache_slug: google-drive-shared-with-me
     extra_flags: "--drive-shared-with-me"
+
+# Omaraptor day/night theme switching (playbooks/omaraptor-theme-auto.yml).
+# Themes applied after sunrise / after sunset (names as omarchy-theme-set
+# takes them). Sunrise/sunset come from hyprsunset.conf (see
+# nightlight_solar_*); the fallback times are used when it is missing.
+omaraptor_auto_day_theme: "Omaraptor"
+omaraptor_auto_night_theme: "Omaraptor Dark"
+omaraptor_auto_fallback_sunrise: "06:00"
+omaraptor_auto_fallback_sunset: "18:00"
+# How often the timer checks whether the period changed (systemd timespan).
+omaraptor_auto_interval: 5min

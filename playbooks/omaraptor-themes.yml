@@ -22,6 +22,11 @@
 # rgba(6f8396ee) in colors.toml, #6f8396 being libadwaita's slate), matching
 # the GTK accent instead of the blue `accent`.
 #
+# The shell's polkit dialogs (polkit-omarchy, ssh-askpass-omarchy,
+# pinentry-omarchy) take their border from the Hyprland border above and
+# their lock-icon accent from shell.polkit.toml, a [polkit] section override
+# that sets it to the same slate.
+#
 # Surfaces are the palette's Dark 4/Dark 3 (dark) and Light 1-4 (light); the
 # accent is Blue 3 (#3584e4); normal/bright colors are tier 3/tier 1 (dark)
 # or tier 5/tier 3 (light), lifted in OKLab lightness only as far as needed
@@ -96,6 +101,15 @@
       ansible.builtin.copy:
         src: "omaraptor/{{ item.palette }}/colors.toml"
         dest: "{{ omaraptor_themes_dir }}/{{ item.dir }}/colors.toml"
+        mode: "0644"
+      loop: "{{ omaraptor_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.palette }})"
+
+    - name: Install the slate accent for the polkit/askpass/pinentry dialogs
+      ansible.builtin.copy:
+        src: "omaraptor/{{ item.palette }}/shell.polkit.toml"
+        dest: "{{ omaraptor_themes_dir }}/{{ item.dir }}/shell.polkit.toml"
         mode: "0644"
       loop: "{{ omaraptor_themes }}"
       loop_control:

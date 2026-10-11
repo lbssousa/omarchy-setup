@@ -261,6 +261,11 @@ omadwaita-themes: _ensure-collections
 omaraptor-themes: _ensure-collections
     ansible-playbook site.yml --tags omaraptor-themes
 
+# Switch the Omaraptor theme to its night variant (Omaraptor Dark) after sunset
+# and back after sunrise, with a systemd --user timer.
+omaraptor-theme-auto: _ensure-collections
+    ansible-playbook site.yml --tags omaraptor-theme-auto
+
 # Hide the Limine boot menu (quiet: yes + timeout: 1)
 # for a flicker-free boot; a 1-second key window still reveals the menu.
 limine-silent-boot: _ensure-collections

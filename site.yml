@@ -118,6 +118,10 @@
   ansible.builtin.import_playbook: playbooks/omaraptor-themes.yml
   tags: [omaraptor-themes]
 
+- name: Omaraptor day/night theme switching (systemd --user timer)
+  ansible.builtin.import_playbook: playbooks/omaraptor-theme-auto.yml
+  tags: [omaraptor-theme-auto]
+
 - name: Limine silent boot (quiet + 1s timeout)
   ansible.builtin.import_playbook: playbooks/limine-silent-boot.yml
   tags: [limine-silent-boot]

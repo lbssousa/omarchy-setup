@@ -1,0 +1,58 @@
+---
+# Day/night switching for the Omaraptor theme family: a systemd --user timer
+# runs ~/.local/bin/omaraptor-theme-auto every omaraptor_auto_interval, which
+# applies omaraptor_auto_night_theme after sunset and omaraptor_auto_day_theme
+# after sunrise, then sets the theme's default wallpaper
+# (files/omaraptor/backgrounds/*/00-bluefin-*.jpg sort first).
+#
+# Sunrise/sunset come from hyprsunset.conf, written daily by
+# nightlight-solar-sync (playbooks/desktop.yml, tag nightlight-solar); without
+# it the fallback times in group_vars are used. A theme picked by hand is kept
+# until the next sunrise/sunset, and nothing is touched while a theme outside
+# the day/night pair is applied.
+#
+# Pair with playbooks/omaraptor-themes.yml, which installs the themes.
+- name: Omaraptor day/night theme switching (systemd --user timer)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [omaraptor-theme-auto]
+
+  tasks:
+    - name: Create ~/.local/bin
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        state: directory
+        mode: "0755"
+
+    - name: Create ~/.config/systemd/user
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        state: directory
+        mode: "0755"
+
+    - name: Install the switch script (omaraptor-theme-auto)
+      ansible.builtin.template:
+        src: omaraptor-theme-auto.sh.j2
+        dest: "{{ ansible_facts.env.HOME }}/.local/bin/omaraptor-theme-auto"
+        mode: "0755"
+
+    - name: Install the systemd --user unit (service)
+      ansible.builtin.copy:
+        src: omaraptor-theme-auto.service
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/omaraptor-theme-auto.service"
+        mode: "0644"
+
+    - name: Install the systemd --user unit (timer)
+      ansible.builtin.template:
+        src: omaraptor-theme-auto.timer.j2
+        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/omaraptor-theme-auto.timer"
+        mode: "0644"
+
+    - name: Enable and start the omaraptor-theme-auto timer
+      ansible.builtin.systemd:
+        name: omaraptor-theme-auto.timer
+        scope: user
+        daemon_reload: true
+        enabled: true
+        state: started

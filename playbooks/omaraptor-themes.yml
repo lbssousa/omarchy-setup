@@ -50,6 +50,12 @@
 #
 # Omaraptor gets both sets since it mixes a dark TUI with light apps.
 #
+# The default wallpaper of each theme is the one that sorts first, which is
+# what Omarchy picks when the previous background isn't one of the theme's:
+# 00-bluefin-day.jpg (Bluefin's 08, renamed) for Omaraptor and Omaraptor
+# Light, 00-bluefin-night.jpg (its night variant) for Omaraptor Dark. For
+# Omaraptor, which has both sets, the day one sorts first.
+#
 # Chromium-family browsers take their whole palette from the theme's
 # chromium.theme seed; the GNOME Blue 3 accent has the same hue (~214°) as
 # Adwaita blue, so Omadwaita's near-neutral seeds are reused (see the header
@@ -121,6 +127,14 @@
         dest: "{{ omaraptor_themes_dir }}/{{ item.0.dir }}/backgrounds/"
         mode: "0644"
         directory_mode: "0755"
+      loop: "{{ omaraptor_themes | subelements('backgrounds') }}"
+      loop_control:
+        label: "{{ item.0.dir }} ({{ item.1 }})"
+
+    - name: Remove the wallpapers renamed to 00- (the default ones, which sort first)
+      ansible.builtin.file:
+        path: "{{ omaraptor_themes_dir }}/{{ item.0.dir }}/backgrounds/08-bluefin-{{ item.1 }}.jpg"
+        state: absent
       loop: "{{ omaraptor_themes | subelements('backgrounds') }}"
       loop_control:
         label: "{{ item.0.dir }} ({{ item.1 }})"

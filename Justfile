@@ -256,6 +256,11 @@ inkscape: _ensure-collections
 omadwaita-themes: _ensure-collections
     ansible-playbook site.yml --tags omadwaita-themes
 
+# Install the Omaraptor Omarchy themes (GNOME palette + Bluefin wallpapers:
+# Omaraptor = dark TUI + light GTK, Omaraptor Light, Omaraptor Dark). Installs only; doesn't apply.
+omaraptor-themes: _ensure-collections
+    ansible-playbook site.yml --tags omaraptor-themes
+
 # Hide the Limine boot menu (quiet: yes + timeout: 1)
 # for a flicker-free boot; a 1-second key window still reveals the menu.
 limine-silent-boot: _ensure-collections

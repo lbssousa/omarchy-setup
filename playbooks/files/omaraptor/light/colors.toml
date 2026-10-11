@@ -1,0 +1,36 @@
+# Omaraptor Light — the GNOME color palette (developer.gnome.org/hig/reference/palette.html)
+# as a TUI/terminal palette.
+# Surfaces: Light 1 #ffffff (background), Light 2 #f6f5f4, Light 3 #deddda, Light 4 #c0bfbc.
+# Colors: normal = tier 5 of each hue (Blue 5 .. Purple 5), bright = tier 3, each lowered in
+#   OKLab lightness only as far as needed to reach 4.5:1 on background. cyan has no GNOME hue:
+#   midpoint of Blue and Green. magenta = Purple, muted = Dark 1.
+
+mode = "light"
+accent = "#3584e4"
+selection = "#d7e6fa"
+muted = "#77767b"
+
+background = "#ffffff"
+dark_background = "#f6f5f4"
+darker_background = "#deddda"
+lighter_background = "#c0bfbc"
+
+foreground = "#3d3846"
+dark_foreground = "#77767b"
+light_foreground = "#5e5c64"
+bright_foreground = "#000000"
+
+red = "#a51d2d"
+yellow = "#a66900"
+orange = "#c64600"
+green = "#008851"
+cyan = "#0e8292"
+blue = "#1a5fb4"
+magenta = "#613583"
+
+bright_red = "#e01b24"
+bright_yellow = "#947200"
+bright_green = "#008936"
+bright_cyan = "#00838c"
+bright_blue = "#2576d5"
+bright_magenta = "#9141ac"

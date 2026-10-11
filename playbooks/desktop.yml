@@ -90,12 +90,13 @@
 # with GDK_SCALE=2 (which would draw those apps at double size). Wayland
 # GTK apps use the compositor's scale instead and ignore it.
 #
-# The GTK default UI font size (which playbooks/file-chooser.yml also
-# copies into qt5ct/qt6ct for Qt apps) is set directly on
-# org.gnome.desktop.interface font-name, keeping whatever family is already
+# The GTK/GNOME UI font sizes (interface, document, monospace and window
+# title fonts) are set directly on their gsettings keys to GNOME's own
+# defaults (omarchy_gnome_font_sizes), keeping whatever family is already
 # configured. GTK's text-scaling-factor is always reset to its default
 # (1.0) instead: using both a multiplier and an explicit font point size at
-# once would double-scale.
+# once would double-scale. Qt apps (playbooks/file-chooser.yml) and zathura
+# keep their own size, omarchy_system_ui_font_pt.
 #
 # `omarchy display text size <px>` separately drives the omarchy shell bar
 # + terminal text size (shell/GTK/terminals in lockstep) — this playbook
@@ -154,18 +155,28 @@
       ansible.builtin.command: gsettings reset org.gnome.desktop.interface text-scaling-factor
       when: gtk_text_scaling_current.stdout | trim | length > 0
 
-    - name: Check the current GTK interface font
-      ansible.builtin.command: gsettings get org.gnome.desktop.interface font-name
-      register: gtk_font_current
+    - name: Read the current GTK/GNOME font settings
+      ansible.builtin.command: "gsettings get {{ item.schema }} {{ item.key }}"
+      register: gtk_fonts_current
       changed_when: false
+      loop: "{{ omarchy_gnome_font_sizes }}"
+      loop_control:
+        label: "{{ item.schema }} {{ item.key }}"
 
-    - name: Determine the desired GTK interface font (existing family, new size)
-      ansible.builtin.set_fact:
-        gtk_font_desired: "'{{ gtk_font_current.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }} {{ omarchy_system_ui_font_pt }}'"
-
-    - name: "Set the default system UI font size to {{ omarchy_system_ui_font_pt }}pt"
-      ansible.builtin.command: "gsettings set org.gnome.desktop.interface font-name {{ gtk_font_desired }}"
-      when: gtk_font_current.stdout | trim != gtk_font_desired
+    - name: "Set the GNOME default font sizes (keeping each font family)"
+      ansible.builtin.command:
+        argv:
+          - gsettings
+          - set
+          - "{{ item.item.schema }}"
+          - "{{ item.item.key }}"
+          - "{{ gtk_font_family }} {{ item.item.pt }}"
+      vars:
+        gtk_font_family: "{{ item.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
+      when: item.stdout | trim | trim("'") != gtk_font_family ~ ' ' ~ item.item.pt
+      loop: "{{ gtk_fonts_current.results }}"
+      loop_control:
+        label: "{{ item.item.key }} -> {{ item.item.pt }}pt"
 
   handlers:
     - name: reload Hyprland

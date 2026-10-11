@@ -24,10 +24,10 @@ firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 # Firefox's "Default font size" (Settings > General > Fonts and Colors >
 # Advanced; font.size.variable.x-western in about:config), px. Firefox's
 # browser chrome follows org.gnome.desktop.interface font-name directly (see
-# omarchy_system_ui_font_pt), so this is only the default size for page
-# text. 17px is what 13pt renders to at the standard 96dpi — the same +1
-# as the GTK bump above, written as an integer px because that's what the
-# pref takes. Playbooks/firefox.yml drops it as a defaults/pref file, so
+# omarchy_gnome_font_sizes), so this is only the default size for page
+# text. 17px is what 13pt renders to at the standard 96dpi (the size
+# omarchy_system_ui_font_pt still uses), written as an integer px because
+# that's what the pref takes. Playbooks/firefox.yml drops it as a defaults/pref file, so
 # it's a default like the browser's own 16px, not a forced value.
 firefox_default_font_size_px: 17
 
@@ -824,7 +824,7 @@ printer_l4160_set_default: true
 # Shell bar + terminal text size (playbooks/desktop.yml), px. The GTK
 # text-scaling factor this command would otherwise leave in place is always
 # reset — the desktop's default UI font size is set directly instead, via
-# omarchy_system_ui_font_pt below.
+# omarchy_gnome_font_sizes below.
 #
 # The monitor scale is 100%, so text is sized to make up for it: 20px is
 # the previous 16px times the old 1.25 scale, and the top of the 9–20 range
@@ -852,13 +852,21 @@ omarchy_monitor_scale: 1.0
 # omarchy_gdk_scale.
 omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 
-# Default GTK system UI font point size
-# (playbooks/desktop.yml). Applied directly to
-# org.gnome.desktop.interface font-name, keeping whatever font family is
-# already configured there. Deliberately smaller than the 15pt that would
-# match the old 1.25 monitor scale (13pt * 1.25, rounded), unlike the shell
-# bar and terminals, which stay compensated. Raised a point from the 12pt
-# Omarchy leaves behind.
+# GTK/GNOME UI font sizes (playbooks/desktop.yml): GNOME's own defaults
+# (the gsettings-desktop-schemas defaults, as of GNOME 48+), applied
+# directly to each key while keeping the font family already configured
+# there. Firefox's browser chrome follows interface font-name.
+omarchy_gnome_font_sizes:
+  - { schema: org.gnome.desktop.interface, key: font-name, pt: 11 }
+  - { schema: org.gnome.desktop.interface, key: document-font-name, pt: 12 }
+  - { schema: org.gnome.desktop.interface, key: monospace-font-name, pt: 11 }
+  - { schema: org.gnome.desktop.wm.preferences, key: titlebar-font, pt: 11 }
+
+# Font point size for what is not GTK/GNOME: Qt apps (qt5ct/qt6ct, through
+# playbooks/file-chooser.yml) and zathura. Deliberately smaller than the
+# 15pt that would match the old 1.25 monitor scale (13pt * 1.25, rounded),
+# unlike the shell bar and terminals, which stay compensated. Raised a
+# point from the 12pt Omarchy leaves behind.
 omarchy_system_ui_font_pt: 13
 
 # Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose

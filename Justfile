@@ -235,7 +235,7 @@ printer: _ensure-collections
     {{ap}} site.yml --tags printer
 
 # Set the monitor scale to 100% and compensate with larger shell/terminal
-# and GTK UI font sizes.
+# and GNOME default GTK UI font sizes.
 text-size: _ensure-collections
     ansible-playbook site.yml --tags text-size
 

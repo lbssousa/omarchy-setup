@@ -27,7 +27,9 @@
 # Neither GTK's scheme nor its accent comes from a palette, so a theme-set
 # hook (files/omaraptor/omaraptor-light-apps.sh) handles both: it sets the
 # libadwaita accent to slate (Bluefin's default gray, instead of GNOME blue)
-# for all three themes, and for "Omaraptor" also flips GTK back to light
+# for all three themes -- via gsettings and a ~/.config/gtk-4.0/gtk.css
+# override, since xdg-desktop-portal-gtk does not pass accent-color on to
+# libadwaita -- and for "Omaraptor" also flips GTK back to light
 # after Omarchy has set it dark from `mode = "dark"`.
 #
 # Wallpapers are Bluefin's default set (projectbluefin/artwork,

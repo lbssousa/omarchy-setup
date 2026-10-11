@@ -7,6 +7,9 @@
 
 mode = "light"
 accent = "#3584e4"
+# Active window border: Bluefin's slate (the same gray as the GTK accent, see
+# omaraptor-light-apps.sh) instead of the accent. Hyprland rgba(RRGGBBAA) syntax.
+hyprland_active_border = "rgba(6f8396ee)"
 selection = "#d7e6fa"
 muted = "#77767b"
 

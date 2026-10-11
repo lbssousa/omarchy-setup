@@ -1,0 +1,17 @@
+# [polkit] section override (Omarchy replaces the generated shell.toml's
+# [polkit] with this file; see omarchy-theme-set-templates). Same as the
+# default template, with the accent -- the lock icon and text-selection
+# tint of the polkit / ssh-askpass / pinentry dialogs -- in Bluefin's slate
+# (#6f8396) instead of the palette's blue. The border already follows the
+# Hyprland active border (slate, see colors.toml).
+[polkit]
+background       = "#ffffff"
+background-alpha = 1.0
+text             = "#3d3846"
+text-error       = "#a51d2d"
+border           = "hyprland.active-border"
+border-error     = "#a51d2d"
+border-alpha     = 1.0
+scrim            = "#ffffff"
+scrim-alpha      = 0.5
+accent           = "#6f8396"

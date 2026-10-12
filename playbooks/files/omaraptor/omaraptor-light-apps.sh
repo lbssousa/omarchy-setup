@@ -25,34 +25,53 @@
 # it, so libadwaita would fall back to blue. The slate accent is therefore also
 # written as a CSS override in ~/.config/gtk-4.0/gtk.css, inside a marked block
 # that any other theme removes again (libadwaita derives every other accent
-# shade from @accent_bg_color).
+# shade from @accent_bg_color). GTK3 apps (Firefox) read the same override from
+# ~/.config/gtk-3.0/gtk.css, as @theme_selected_bg_color.
+#
+# Flatpak apps (Bazaar, Firefox, ...) can't see either file unless the sandbox
+# is given the directories: playbooks/omaraptor-themes.yml sets a user-wide
+# `--filesystem=xdg-config/gtk-{3,4}.0:ro` override for that.
 
 # gsettings needs a user DBus session (absent e.g. during ISO installs).
 [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] || exit 0
 
-GTK4_CSS="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-4.0/gtk.css"
+CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}"
+GTK3_CSS="$CONFIG/gtk-3.0/gtk.css"
+GTK4_CSS="$CONFIG/gtk-4.0/gtk.css"
 BEGIN="/* >>> omaraptor accent (managed by omarchy-setup) >>> */"
 END="/* <<< omaraptor accent <<< */"
 
-# Drop the managed block, and the file if nothing else is left in it.
-remove_css_accent() {
-  [[ -f $GTK4_CSS ]] || return 0
-  local rest
-  rest=$(awk -v b="$BEGIN" -v e="$END" '$0 == b { skip = 1 } !skip { print } $0 == e { skip = 0 }' "$GTK4_CSS")
+# Drop the managed block from the file in $1, and the file if nothing else
+# is left in it.
+remove_block() {
+  local css=$1 rest
+  [[ -f $css ]] || return 0
+  rest=$(awk -v b="$BEGIN" -v e="$END" '$0 == b { skip = 1 } !skip { print } $0 == e { skip = 0 }' "$css")
   if [[ -z ${rest//[[:space:]]/} ]]; then
-    rm -f "$GTK4_CSS"
+    rm -f "$css"
   else
-    printf '%s\n' "$rest" >"$GTK4_CSS"
+    printf '%s\n' "$rest" >"$css"
   fi
+}
+
+remove_css_accent() {
+  remove_block "$GTK3_CSS"
+  remove_block "$GTK4_CSS"
 }
 
 set_css_accent() {
   remove_css_accent
-  mkdir -p "$(dirname "$GTK4_CSS")"
+  mkdir -p "$(dirname "$GTK3_CSS")" "$(dirname "$GTK4_CSS")"
   cat >>"$GTK4_CSS" <<CSS
 $BEGIN
 @define-color accent_bg_color #6f8396;
 @define-color accent_fg_color #ffffff;
+$END
+CSS
+  cat >>"$GTK3_CSS" <<CSS
+$BEGIN
+@define-color theme_selected_bg_color #6f8396;
+@define-color theme_selected_fg_color #ffffff;
 $END
 CSS
 }

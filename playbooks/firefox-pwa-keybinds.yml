@@ -50,6 +50,23 @@
         force: false
         mode: "0644"
 
+    # Every tab app's window class is <flatpak id>.webapp-<uuid>. The uuid
+    # is per-install, so the rule matches the whole family: any site pinned
+    # later opens the same way. This is Omarchy's "Tiled full screen"
+    # (SUPER+CTRL+F, omarchy-hyprland-window-tiled-fullscreen-toggle):
+    # fullscreen_state "internal client" = "0 2" — Hyprland keeps the window
+    # an ordinary tiled one (bar and gaps stay) while telling the client it
+    # is fullscreen, so Firefox hides its own chrome. Not `maximize`, which is
+    # a different state (SUPER+ALT+F). Only windows opened after the rule
+    # loads are affected.
+    - name: Open the Firefox Taskbar Tabs in tiled fullscreen
+      ansible.builtin.blockinfile:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/firefox-pwa-keybinds.yml — Firefox Taskbar Tabs tiled fullscreen)"
+        block: |
+          o.window("^{{ firefox_flatpak_id | replace('.', '\\.') }}\\.webapp-.*$", { fullscreen_state = "0 2" })
+      notify: reload Hyprland
+
     - name: List the taskbar apps actually pinned to the Firefox taskbar
       # The Name= each launcher carries, one per line. Parsed the same way
       # the wrapper does, so the two can't disagree on what counts as pinned.

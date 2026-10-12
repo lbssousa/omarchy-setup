@@ -32,10 +32,9 @@ firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 firefox_default_font_size_px: 17
 
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
-# (playbooks/firefox-pwa-keybinds.yml, opt-in only now that Brave is the
-# default browser: --tags firefox-pwa-keybinds). Omarchy binds YouTube to
-# SUPER+SHIFT+Y, WhatsApp to SUPER+SHIFT+ALT+G and Google Maps to
-# SUPER+SHIFT+S through
+# (playbooks/firefox-pwa-keybinds.yml). Omarchy binds YouTube to
+# SUPER+SHIFT+Y, WhatsApp to SUPER+SHIFT+ALT+G, Google Maps to
+# SUPER+SHIFT+S and Google Photos to SUPER+SHIFT+P through
 # omarchy-launch-webapp, which only knows the Chromium family's --app= flag
 # and falls back to chromium.desktop for every other default browser —
 # Firefox included, and Firefox is the default here (see
@@ -68,6 +67,9 @@ firefox_taskbar_apps:
   - label: Google Maps
     desktop_name: Google Maps
     keybind: "SUPER + SHIFT + S"
+  - label: Google Photos
+    desktop_name: Google Photos
+    keybind: "SUPER + SHIFT + P"
 
 # Brave (playbooks/brave.yml) — installed from Flathub, replacing the
 # AUR brave-origin-bin package: a stock, Brave-maintained build instead
@@ -122,9 +124,7 @@ brave_pwa_containers:
 # Brave itself (com.brave.Browser.flextop.brave-*.desktop) to the same
 # containers; this one wires Omarchy's own --app= launchers.
 brave_omarchy_webapp_containers:
-  Google Contacts: Google
   Google Messages: Google
-  Google Photos: Google
 
 # Desktop id of the shim entry playbooks/default-browser.yml writes to
 # ~/.local/share/applications, standing in for the Flathub Brave

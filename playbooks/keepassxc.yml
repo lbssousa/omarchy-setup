@@ -218,6 +218,12 @@
         dest: "{{ keepassxc_autostart_wrapper }}"
         mode: "0700"
 
+    - name: Install keepassxc-cli on the PATH (wrapper around the Flatpak's)
+      ansible.builtin.template:
+        src: keepassxc-cli.sh.j2
+        dest: "{{ keepassxc_cli_wrapper }}"
+        mode: "0755"
+
     - name: Create the XDG autostart directory
       ansible.builtin.file:
         path: "{{ ansible_facts.env.HOME }}/.config/autostart"

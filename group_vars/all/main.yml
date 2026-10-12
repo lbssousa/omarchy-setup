@@ -530,6 +530,10 @@ keepassxc_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/org
 # color-scheme before exec'ing KeePassXC (see keepassxc.yml).
 keepassxc_autostart_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart"
 
+# `keepassxc-cli` on the PATH: the Flatpak doesn't export it, so this is a
+# one-line `flatpak run --command=keepassxc-cli` wrapper.
+keepassxc_cli_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-cli"
+
 # Auto-lock KeePassXC when the YubiKey is unplugged (udev rule, ported from
 # lbssousa/nix-config's modules/system/security/keepassxc-yubikey-lock.nix).
 # ENV{PRODUCT} format is vendor/product/revision in hex, no leading zeros

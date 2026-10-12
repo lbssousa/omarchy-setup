@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Managed by omarchy-setup (playbooks/keepassxc.yml).
+#
+# keepassxc-cli ships inside the Flatpak but isn't exported to the host
+# PATH (the sandbox only exports the GUI), so this puts it back where
+# scripts and shells expect it. The sandbox has host filesystem access and
+# the YubiKey/smartcard sockets, so databases anywhere under $HOME and
+# `-y <slot>` work as with a native build.
+exec /usr/bin/flatpak run --command=keepassxc-cli {{ keepassxc_flatpak_id }} "$@"

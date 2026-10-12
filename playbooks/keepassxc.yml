@@ -57,7 +57,8 @@
 # Installs KeePassXC from Flathub and removes the native package. It
 # leaves KeePassXC's own settings untouched — no pre-seeded keepassxc.ini
 # — so the app comes up with its stock defaults and the user configures
-# it in-app. The browser native-messaging manifests, the YubiKey
+# it in-app. The one thing set from outside is the UI font size (see
+# keepassxc_font_dpi in group_vars/all/main.yml). The browser native-messaging manifests, the YubiKey
 # auto-lock rule and the autostart entry (all below) are still deployed.
 #
 # The swap is cheap for the same reason playbooks/flathub-apps.yml's four
@@ -255,6 +256,24 @@
           value: "{{ keepassxc_flatpak_id }}"
       loop_control:
         label: "{{ item.option }}"
+
+    # KeePassXC ignores the system UI font: inside the Flatpak it falls back
+    # to Qt's own default (a small ~9pt sans), and its GUI/FontSizeOffset
+    # setting changes nothing visible. The Qt5 font DPI is the knob that
+    # does — it scales every font-based size (text, menus, toolbar) without
+    # touching the icons — and it is set as a per-user Flatpak override,
+    # which is exactly what `flatpak override --user --env=...` writes, so
+    # it also covers the autostart entry and the launcher. Takes effect the
+    # next time KeePassXC starts.
+    - name: "Set the KeePassXC UI font size (QT_FONT_DPI={{ keepassxc_font_dpi }})"
+      community.general.ini_file:
+        path: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/overrides/{{ keepassxc_flatpak_id }}"
+        section: Environment
+        option: QT_FONT_DPI
+        value: "{{ keepassxc_font_dpi }}"
+        mode: "0644"
+        no_extra_spaces: true
+        create: true
 
     - name: "Auto-lock KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }}) is unplugged"
       become: true

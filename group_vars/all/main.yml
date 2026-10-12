@@ -509,6 +509,11 @@ ssh_agent_units:
 # the window class is unchanged (StartupWMClass=keepassxc either way). Only
 # the browser-integration proxy path moves, below.
 keepassxc_flatpak_id: org.keepassxc.KeePassXC
+
+# KeePassXC UI font size, as the Qt font DPI (QT_FONT_DPI in its Flatpak
+# override; playbooks/keepassxc.yml). Qt's default is 96, which gives the
+# app's ~9pt sans; 117 is 96 * 11/9, i.e. two points larger (11pt).
+keepassxc_font_dpi: 117
 # The native package the Flatpak replaces. Removed by the same play.
 keepassxc_native_package: keepassxc
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to

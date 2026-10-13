@@ -216,20 +216,10 @@ libreoffice_hidden_components:
   - id: "{{ libreoffice_flatpak_id }}.xsltfilter"
     name: LibreOffice XSLT Filter
 
-# Emacs + AUCTeX (playbooks/emacs.yml). emacs-wayland is the pure-GTK
-# build (no X11 dependency), matching this Hyprland/Wayland desktop.
-emacs_package: emacs-wayland
-emacs_font_family: JetBrainsMono Nerd Font
-# 1/10 pt, as Emacs' :height expects (110 = 11pt).
-emacs_font_height: 110
-# Classic "verde-petróleo" scheme. Any Emacs color name or #rrggbb works.
-emacs_theme:
-  background: "#005f5f"
-  foreground: "#f5f5dc"
-  cursor: "#ffff66"
-  region: "#2f8f8f"
-  mode_line_bg: "#d3d3d3"
-  mode_line_inactive_bg: "#a9c5c5"
+# Emacs + AUCTeX (playbooks/emacs.yml). omarchy-emacs is the AUR package
+# Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in
+# emacs-wayland and syncs the Omarchy theme and font.
+emacs_aur_package: omarchy-emacs
 
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.

@@ -1,51 +1,38 @@
 ---
-# GNU Emacs (Wayland-native build) + AUCTeX, with the classic
-# turn-of-the-millennium look: light beige text on a dark teal
-# ("verde-petróleo") background, the old `emacs -bg darkslategray` style
-# font-lock colors, menu bar kept, tool bar and scroll bars off.
+# GNU Emacs, installed the way Omarchy's own installer does it
+# (/usr/share/omarchy/bin/omarchy-install-editor-emacs): the AUR
+# omarchy-emacs package via omarchy-pkg-aur-add, then omarchy-install-emacs
+# (emacs-wayland, Omarchy theme/font integration, emacs.service). On top of
+# that: AUCTeX from GNU ELPA and the "classic" theme (light beige on dark
+# slate, from emacs-jp/replace-colorthemes) enabled over Omarchy's.
 #
-# AUCTeX isn't in the Arch repos, so it's installed from GNU ELPA with
-# package.el, in batch mode (emacs -Q: independent of the user's init, so
-# it also works on a first run). It lands in <emacs dir>/elpa and is
-# updated by re-running this playbook only when missing.
+# AUCTeX isn't in the Arch repos, so it's installed with package.el in
+# batch mode (emacs -Q: independent of the user's init), only when missing.
 #
 # The user's own init file is never overwritten: everything lives in a
 # managed omarchy-setup.el next to it, loaded by a blockinfile-managed
-# stanza appended to init.el. Emacs reads ~/.emacs.d if it exists and
-# ~/.config/emacs otherwise, so the target directory follows the same rule.
+# stanza appended to init.el (which also loads omarchy.el, since an init.el
+# created earlier doesn't have Omarchy's own load line). omarchy-emacs always uses ~/.config/emacs.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags emacs
-- name: Emacs + AUCTeX (classic teal theme)
+- name: Emacs (omarchy-emacs) + AUCTeX (classic theme)
   hosts: localhost
   connection: local
   gather_facts: true
 
   vars:
-    emacs_home: "{{ ansible_facts.env.HOME }}"
+    emacs_config_dir: "{{ ansible_facts.env.HOME }}/.config/emacs"
 
   tasks:
-    - name: Install Emacs
-      community.general.pacman:
-        name: "{{ emacs_package }}"
-        state: present
-      become: true
+    - name: Check whether omarchy-emacs is already installed
+      ansible.builtin.command: pacman -Q {{ emacs_aur_package }}
+      register: emacs_aur_check
+      changed_when: false
+      failed_when: false
 
-    - name: Check whether ~/.emacs.d exists (Emacs prefers it over ~/.config/emacs)
-      ansible.builtin.stat:
-        path: "{{ emacs_home }}/.emacs.d"
-      register: emacs_legacy_dir
-
-    - name: Pick the Emacs configuration directory
-      ansible.builtin.set_fact:
-        emacs_config_dir: >-
-          {{ emacs_home ~ '/.emacs.d' if emacs_legacy_dir.stat.exists
-             else emacs_home ~ '/.config/emacs' }}
-
-    - name: Create the Emacs configuration directory
-      ansible.builtin.file:
-        path: "{{ emacs_config_dir }}"
-        state: directory
-        mode: "0755"
+    - name: Install omarchy-emacs (AUR) with Omarchy's own helper
+      ansible.builtin.command: omarchy-pkg-aur-add {{ emacs_aur_package }}
+      when: emacs_aur_check.rc != 0
 
     - name: Check whether AUCTeX is already installed
       ansible.builtin.command:
@@ -72,11 +59,39 @@
             (package-refresh-contents) (package-install 'auctex))
       when: emacs_auctex_check.stdout != 'yes'
 
-    - name: Deploy the managed omarchy-setup.el (AUCTeX settings + teal theme)
+    - name: Check whether Omarchy's Emacs integration is already set up
+      ansible.builtin.stat:
+        path: "{{ emacs_config_dir }}/omarchy.el"
+      register: emacs_omarchy_shim
+
+    # Idempotent (omarchy-emacs-setup only refreshes managed files and never
+    # replaces an existing init.el). stdin is closed so its legacy
+    # ~/.emacs{,.d} prompts take the safe "no" default.
+    - name: Set up Emacs with Omarchy's installer
+      ansible.builtin.command:
+        cmd: omarchy-install-emacs
+        stdin: ""
+      changed_when: not emacs_omarchy_shim.stat.exists
+
+    - name: Create the themes directory
+      ansible.builtin.file:
+        path: "{{ emacs_config_dir }}/themes"
+        state: directory
+        mode: "0755"
+
+    - name: Deploy the classic theme
+      ansible.builtin.copy:
+        src: files/emacs-classic-theme.el
+        dest: "{{ emacs_config_dir }}/themes/classic-theme.el"
+        mode: "0644"
+      register: emacs_classic_theme
+
+    - name: Deploy the managed omarchy-setup.el (AUCTeX settings + classic theme)
       ansible.builtin.template:
         src: templates/emacs-omarchy-setup.el.j2
         dest: "{{ emacs_config_dir }}/omarchy-setup.el"
         mode: "0644"
+      register: emacs_setup_el
 
     - name: Load omarchy-setup.el from init.el
       ansible.builtin.blockinfile:
@@ -85,4 +100,10 @@
         mode: "0644"
         marker: ";; {mark} omarchy-setup managed block"
         block: |
+          (load (expand-file-name "omarchy" user-emacs-directory) t)
           (load (expand-file-name "omarchy-setup.el" user-emacs-directory) t)
+      register: emacs_init_block
+
+    - name: Restart the Emacs daemon to pick up the new configuration
+      ansible.builtin.command: systemctl --user restart emacs.service
+      when: emacs_classic_theme.changed or emacs_setup_el.changed or emacs_init_block.changed

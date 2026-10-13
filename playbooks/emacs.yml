@@ -4,7 +4,8 @@
 # omarchy-emacs package via omarchy-pkg-aur-add, then omarchy-install-emacs
 # (emacs-wayland, Omarchy theme/font integration, emacs.service). On top of
 # that: AUCTeX from GNU ELPA and the "classic" theme (light beige on dark
-# slate, from emacs-jp/replace-colorthemes) enabled over Omarchy's.
+# slate, from emacs-jp/replace-colorthemes) as Emacs' theme, replacing
+# Omarchy's color theme (font syncing is kept).
 #
 # AUCTeX isn't in the Arch repos, so it's installed with package.el in
 # batch mode (emacs -Q: independent of the user's init), only when missing.

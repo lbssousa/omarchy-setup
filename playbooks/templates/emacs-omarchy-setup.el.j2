@@ -22,25 +22,35 @@
   (add-hook 'LaTeX-mode-hook #'visual-line-mode)
   (setq reftex-plug-into-AUCTeX t))
 
-;;; Classic look (themes/classic-theme.el, from emacs-jp/replace-colorthemes)
+;;; Classic theme (themes/classic-theme.el, from emacs-jp/replace-colorthemes)
 (menu-bar-mode 1)
 (when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
 (when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
 (setq inhibit-startup-screen t)
 
-(defun omarchy-setup-enable-classic-theme ()
-  "Load and enable the classic theme on top of Omarchy's."
-  (add-to-list 'custom-theme-load-path
-               (expand-file-name "themes" user-emacs-directory))
-  (load-theme 'classic t))
+;; The classic theme is Emacs' own theme here: Omarchy's color theme is not
+;; used (its font syncing still is). omarchy.el applies its theme at startup
+;; and on every Omarchy theme change, so that step is replaced by classic.
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes" user-emacs-directory))
 
-(omarchy-setup-enable-classic-theme)
+(defun omarchy-setup-apply-classic-theme ()
+  "Make `classic' the only enabled theme."
+  (interactive)
+  (mapc #'disable-theme custom-enabled-themes)
+  (load-theme 'classic t)
+  ;; omarchy.el also pins the default face and the frame colors directly,
+  ;; which wins over any theme: hand them back to the theme.
+  (let ((bg (face-attribute 'default :background nil 'default))
+        (fg (face-attribute 'default :foreground nil 'default)))
+    (modify-all-frames-parameters
+     `((background-color . ,bg) (foreground-color . ,fg)))))
 
-;; omarchy.el re-applies its own theme whenever Omarchy's theme changes;
-;; put the classic one back on top afterwards.
 (when (fboundp 'omarchy-apply-theme)
-  (advice-add 'omarchy-apply-theme :after
-              (lambda (&rest _) (omarchy-setup-enable-classic-theme))))
+  (advice-add 'omarchy-apply-theme :override
+              (lambda (&rest _) (omarchy-setup-apply-classic-theme))))
+
+(omarchy-setup-apply-classic-theme)
 
 (provide 'omarchy-setup)
 ;;; omarchy-setup.el ends here

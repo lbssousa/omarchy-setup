@@ -221,6 +221,22 @@ libreoffice_hidden_components:
 # emacs-wayland and syncs the Omarchy theme and font.
 emacs_aur_package: omarchy-emacs
 
+# Emacs packages installed with package.el (batch mode, only the missing
+# ones), and the archives they come from. AUCTeX and yasnippet live in GNU
+# ELPA; lsp-mode (and its dependencies) only in MELPA. The same archives are
+# configured in the managed omarchy-setup.el so package.el can update them.
+emacs_package_archives:
+  - name: gnu
+    url: https://elpa.gnu.org/packages/
+  - name: nongnu
+    url: https://elpa.nongnu.org/nongnu/
+  - name: melpa
+    url: https://melpa.org/packages/
+emacs_packages:
+  - auctex
+  - yasnippet
+  - lsp-mode
+
 # Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
 zed_package: zed

@@ -81,7 +81,7 @@ default-browser: _ensure-collections
 libreoffice: _ensure-collections
     {{ap}} site.yml --tags libreoffice
 
-# Install Emacs + AUCTeX (GNU ELPA) with the classic beige-on-teal theme.
+# Install Emacs + AUCTeX, yasnippet (GNU ELPA) and lsp-mode (MELPA) with the classic beige-on-teal theme.
 emacs: _ensure-collections
     {{ap}} site.yml --tags emacs
 

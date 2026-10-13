@@ -3,12 +3,14 @@
 # (/usr/share/omarchy/bin/omarchy-install-editor-emacs): the AUR
 # omarchy-emacs package via omarchy-pkg-aur-add, then omarchy-install-emacs
 # (emacs-wayland, Omarchy theme/font integration, emacs.service). On top of
-# that: AUCTeX from GNU ELPA and the "classic" theme (light beige on dark
+# that: AUCTeX, yasnippet and lsp-mode (emacs_packages) and the "classic" theme (light beige on dark
 # slate, from emacs-jp/replace-colorthemes) as Emacs' theme, replacing
 # Omarchy's color theme (font syncing is kept).
 #
-# AUCTeX isn't in the Arch repos, so it's installed with package.el in
-# batch mode (emacs -Q: independent of the user's init), only when missing.
+# These packages aren't in the Arch repos, so they're installed with
+# package.el in batch mode (emacs -Q: independent of the user's init), only
+# the missing ones. AUCTeX and yasnippet come from GNU ELPA, lsp-mode from
+# MELPA (emacs_package_archives).
 #
 # The user's own init file is never overwritten: everything lives in a
 # managed omarchy-setup.el next to it, loaded by a blockinfile-managed
@@ -16,7 +18,7 @@
 # created earlier doesn't have Omarchy's own load line). omarchy-emacs always uses ~/.config/emacs.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags emacs
-- name: Emacs (omarchy-emacs) + AUCTeX (classic theme)
+- name: Emacs (omarchy-emacs) + AUCTeX, yasnippet, lsp-mode (classic theme)
   hosts: localhost
   connection: local
   gather_facts: true
@@ -35,7 +37,7 @@
       ansible.builtin.command: omarchy-pkg-aur-add {{ emacs_aur_package }}
       when: emacs_aur_check.rc != 0
 
-    - name: Check whether AUCTeX is already installed
+    - name: Find which Emacs packages are missing
       ansible.builtin.command:
         argv:
           - emacs
@@ -44,11 +46,13 @@
           - --eval
           - >-
             (progn (package-initialize)
-            (princ (if (package-installed-p 'auctex) "yes" "no")))
-      register: emacs_auctex_check
+            (princ (mapconcat #'symbol-name
+            (seq-remove #'package-installed-p
+            '({{ emacs_packages | join(' ') }})) " ")))
+      register: emacs_packages_check
       changed_when: false
 
-    - name: Install AUCTeX from GNU ELPA
+    - name: Install the missing Emacs packages ({{ emacs_packages | join(', ') }})
       ansible.builtin.command:
         argv:
           - emacs
@@ -56,9 +60,12 @@
           - --batch
           - --eval
           - >-
-            (progn (require 'package) (package-initialize)
-            (package-refresh-contents) (package-install 'auctex))
-      when: emacs_auctex_check.stdout != 'yes'
+            (progn (require 'package)
+            (setq package-archives
+            '({% for a in emacs_package_archives %}("{{ a.name }}" . "{{ a.url }}") {% endfor %}))
+            (package-initialize) (package-refresh-contents)
+            (dolist (p '({{ emacs_packages_check.stdout }})) (package-install p)))
+      when: emacs_packages_check.stdout | trim | length > 0
 
     - name: Check whether Omarchy's Emacs integration is already set up
       ansible.builtin.stat:
@@ -87,7 +94,7 @@
         mode: "0644"
       register: emacs_classic_theme
 
-    - name: Deploy the managed omarchy-setup.el (AUCTeX settings + classic theme)
+    - name: Deploy the managed omarchy-setup.el (package archives, AUCTeX, yasnippet + classic theme)
       ansible.builtin.template:
         src: templates/emacs-omarchy-setup.el.j2
         dest: "{{ emacs_config_dir }}/omarchy-setup.el"

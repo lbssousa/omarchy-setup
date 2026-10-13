@@ -40,6 +40,10 @@
   ansible.builtin.import_playbook: playbooks/libreoffice.yml
   tags: [libreoffice]
 
+- name: Emacs + AUCTeX (classic teal theme)
+  ansible.builtin.import_playbook: playbooks/emacs.yml
+  tags: [emacs]
+
 - name: Zed editor
   ansible.builtin.import_playbook: playbooks/zed.yml
   tags: [zed]

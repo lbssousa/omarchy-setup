@@ -81,6 +81,10 @@ default-browser: _ensure-collections
 libreoffice: _ensure-collections
     {{ap}} site.yml --tags libreoffice
 
+# Install Emacs + AUCTeX (GNU ELPA) with the classic beige-on-teal theme.
+emacs: _ensure-collections
+    {{ap}} site.yml --tags emacs
+
 # Install Zed (Omarchy theme integration), set every font size to 25px
 # and the buffer font to JetBrainsMono Nerd Font.
 zed: _ensure-collections

@@ -1,0 +1,88 @@
+---
+# GNU Emacs (Wayland-native build) + AUCTeX, with the classic
+# turn-of-the-millennium look: light beige text on a dark teal
+# ("verde-petróleo") background, the old `emacs -bg darkslategray` style
+# font-lock colors, menu bar kept, tool bar and scroll bars off.
+#
+# AUCTeX isn't in the Arch repos, so it's installed from GNU ELPA with
+# package.el, in batch mode (emacs -Q: independent of the user's init, so
+# it also works on a first run). It lands in <emacs dir>/elpa and is
+# updated by re-running this playbook only when missing.
+#
+# The user's own init file is never overwritten: everything lives in a
+# managed omarchy-setup.el next to it, loaded by a blockinfile-managed
+# stanza appended to init.el. Emacs reads ~/.emacs.d if it exists and
+# ~/.config/emacs otherwise, so the target directory follows the same rule.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags emacs
+- name: Emacs + AUCTeX (classic teal theme)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    emacs_home: "{{ ansible_facts.env.HOME }}"
+
+  tasks:
+    - name: Install Emacs
+      community.general.pacman:
+        name: "{{ emacs_package }}"
+        state: present
+      become: true
+
+    - name: Check whether ~/.emacs.d exists (Emacs prefers it over ~/.config/emacs)
+      ansible.builtin.stat:
+        path: "{{ emacs_home }}/.emacs.d"
+      register: emacs_legacy_dir
+
+    - name: Pick the Emacs configuration directory
+      ansible.builtin.set_fact:
+        emacs_config_dir: >-
+          {{ emacs_home ~ '/.emacs.d' if emacs_legacy_dir.stat.exists
+             else emacs_home ~ '/.config/emacs' }}
+
+    - name: Create the Emacs configuration directory
+      ansible.builtin.file:
+        path: "{{ emacs_config_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Check whether AUCTeX is already installed
+      ansible.builtin.command:
+        argv:
+          - emacs
+          - -Q
+          - --batch
+          - --eval
+          - >-
+            (progn (package-initialize)
+            (princ (if (package-installed-p 'auctex) "yes" "no")))
+      register: emacs_auctex_check
+      changed_when: false
+
+    - name: Install AUCTeX from GNU ELPA
+      ansible.builtin.command:
+        argv:
+          - emacs
+          - -Q
+          - --batch
+          - --eval
+          - >-
+            (progn (require 'package) (package-initialize)
+            (package-refresh-contents) (package-install 'auctex))
+      when: emacs_auctex_check.stdout != 'yes'
+
+    - name: Deploy the managed omarchy-setup.el (AUCTeX settings + teal theme)
+      ansible.builtin.template:
+        src: templates/emacs-omarchy-setup.el.j2
+        dest: "{{ emacs_config_dir }}/omarchy-setup.el"
+        mode: "0644"
+
+    - name: Load omarchy-setup.el from init.el
+      ansible.builtin.blockinfile:
+        path: "{{ emacs_config_dir }}/init.el"
+        create: true
+        mode: "0644"
+        marker: ";; {mark} omarchy-setup managed block"
+        block: |
+          (load (expand-file-name "omarchy-setup.el" user-emacs-directory) t)

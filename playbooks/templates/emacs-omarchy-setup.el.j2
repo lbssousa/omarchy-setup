@@ -1,0 +1,54 @@
+;;; omarchy-setup.el --- managed by omarchy-setup (playbooks/emacs.yml)  -*- lexical-binding: t; -*-
+;; Edits here are overwritten on the next run; put your own settings in init.el.
+
+;;; Packages (AUCTeX lives in GNU ELPA)
+(require 'package)
+(add-to-list 'package-archives '("gnu" . "https://elpa.gnu.org/packages/"))
+(package-initialize)
+
+;;; AUCTeX
+(when (package-installed-p 'auctex)
+  (require 'tex-site nil t)
+  (setq TeX-auto-save t
+        TeX-parse-self t
+        TeX-PDF-mode t
+        TeX-view-program-selection '((output-pdf "xdg-open"))
+        TeX-view-program-list '(("xdg-open" "xdg-open %o")))
+  (setq-default TeX-master nil)
+  (add-hook 'LaTeX-mode-hook #'LaTeX-math-mode)
+  (add-hook 'LaTeX-mode-hook #'turn-on-reftex)
+  (add-hook 'LaTeX-mode-hook #'visual-line-mode)
+  (setq reftex-plug-into-AUCTeX t))
+
+;;; Classic 2000s look: beige on teal
+(menu-bar-mode 1)
+(when (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+(when (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+(setq inhibit-startup-screen t)
+
+(set-face-attribute 'default nil :family "{{ emacs_font_family }}" :height {{ emacs_font_height }})
+
+(custom-set-faces
+ '(default ((t (:background "{{ emacs_theme.background }}" :foreground "{{ emacs_theme.foreground }}"))))
+ '(cursor ((t (:background "{{ emacs_theme.cursor }}"))))
+ '(region ((t (:background "{{ emacs_theme.region }}"))))
+ '(highlight ((t (:background "{{ emacs_theme.region }}"))))
+ '(fringe ((t (:background "{{ emacs_theme.background }}"))))
+ '(mode-line ((t (:background "{{ emacs_theme.mode_line_bg }}" :foreground "black" :box (:line-width 1 :style released-button)))))
+ '(mode-line-inactive ((t (:background "{{ emacs_theme.mode_line_inactive_bg }}" :foreground "black"))))
+ '(minibuffer-prompt ((t (:foreground "cyan"))))
+ '(isearch ((t (:background "magenta4" :foreground "white"))))
+ '(font-lock-comment-face ((t (:foreground "chocolate1"))))
+ '(font-lock-comment-delimiter-face ((t (:foreground "chocolate1"))))
+ '(font-lock-string-face ((t (:foreground "LightSalmon"))))
+ '(font-lock-keyword-face ((t (:foreground "Cyan1"))))
+ '(font-lock-builtin-face ((t (:foreground "LightSteelBlue"))))
+ '(font-lock-function-name-face ((t (:foreground "LightSkyBlue"))))
+ '(font-lock-variable-name-face ((t (:foreground "LightGoldenrod"))))
+ '(font-lock-type-face ((t (:foreground "PaleGreen"))))
+ '(font-lock-constant-face ((t (:foreground "Aquamarine"))))
+ '(font-lock-warning-face ((t (:foreground "Pink" :weight bold))))
+ '(link ((t (:foreground "cyan1" :underline t)))))
+
+(provide 'omarchy-setup)
+;;; omarchy-setup.el ends here

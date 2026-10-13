@@ -26,7 +26,10 @@
 # written as a CSS override in ~/.config/gtk-4.0/gtk.css, inside a marked block
 # that any other theme removes again (libadwaita derives every other accent
 # shade from @accent_bg_color). GTK3 apps (Firefox) read the same override from
-# ~/.config/gtk-3.0/gtk.css, as @theme_selected_bg_color.
+# ~/.config/gtk-3.0/gtk.css. Firefox's libadwaita-colors mode (the default on
+# an Adwaita GTK theme) takes its accent -- the primary button, among others --
+# from @accent_bg_color, so the GTK3 file defines that as well as the classic
+# @theme_selected_bg_color.
 #
 # Flatpak apps (Bazaar, Firefox, ...) can't see either file unless the sandbox
 # is given the directories: playbooks/omaraptor-themes.yml sets a user-wide
@@ -70,6 +73,8 @@ $END
 CSS
   cat >>"$GTK3_CSS" <<CSS
 $BEGIN
+@define-color accent_bg_color #6f8396;
+@define-color accent_fg_color #ffffff;
 @define-color theme_selected_bg_color #6f8396;
 @define-color theme_selected_fg_color #ffffff;
 $END

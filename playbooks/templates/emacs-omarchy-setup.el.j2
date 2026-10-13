@@ -3,10 +3,21 @@
 ;; Omarchy's own integration (omarchy.el, from the omarchy-emacs package) is
 ;; loaded by init.el before this file; font syncing is left entirely to it.
 
-;;; Packages (AUCTeX lives in GNU ELPA)
+;;; Packages (AUCTeX and yasnippet live in GNU ELPA, lsp-mode in MELPA)
 (require 'package)
-(add-to-list 'package-archives '("gnu" . "https://elpa.gnu.org/packages/"))
+{% for a in emacs_package_archives %}
+(add-to-list 'package-archives '("{{ a.name }}" . "{{ a.url }}") t)
+{% endfor %}
 (package-initialize)
+
+;;; yasnippet: snippets everywhere (TAB expands)
+(when (package-installed-p 'yasnippet)
+  (yas-global-mode 1))
+
+;;; lsp-mode: installed but not started automatically (Eglot, built in, stays
+;;; the default client); use M-x lsp, or e.g. (setq gregorio-lsp-client 'lsp-mode).
+(when (package-installed-p 'lsp-mode)
+  (setq lsp-keymap-prefix "C-c l"))
 
 ;;; AUCTeX
 (when (package-installed-p 'auctex)

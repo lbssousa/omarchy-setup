@@ -280,6 +280,16 @@ limine-silent-boot: _ensure-collections
 blesh: _ensure-collections
     {{ap}} site.yml --tags blesh
 
+# Install Fish shell and make it the default login shell, reusing
+# Omarchy's Starship prompt (~/.config/starship.toml).
+fish: _ensure-collections
+    {{ap}} site.yml --tags fish
+
+# Record the versions of Omarchy's bash files that the fish port follows,
+# after reviewing a change the fish play warned about.
+fish-upstream-hash:
+    cd /usr/share/omarchy/default/bash && sha256sum rc shell aliases functions init envs env-bootstrap completions inputrc fns/* > "{{justfile_directory()}}/playbooks/files/fish/UPSTREAM.sha256"
+
 # Make the starship prompt work inside distrobox containers and show the
 # container's name (Omarchy's bash rc from /run/host + starship env_var).
 starship-distrobox: _ensure-collections

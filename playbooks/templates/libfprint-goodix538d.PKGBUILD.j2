@@ -4,7 +4,14 @@
 # Fork of libfprint with the goodixtls53xd driver (Goodix 27c6:538d),
 # https://github.com/lbssousa/libfprint. Installs into /usr like the
 # official package and takes its place.
-pkgname=libfprint-goodix538d
+#
+# Named libfprint-git on purpose: Omarchy's omarchy-setup-security-fingerprint
+# checks `pacman -Q libfprint-git` (which ignores provides=) and, when it
+# is missing, reinstalls Omarchy's libfprint-git over any other libfprint.
+# epoch=2 keeps this build above the omarchy repo's 1:1.94.100.r10...
+# so `pacman -Syu` never swaps it back.
+pkgname=libfprint-git
+epoch={{ libfprint_epoch }}
 pkgver={{ libfprint_pkgver }}
 pkgrel={{ libfprint_pkgrel }}
 pkgdesc='Library for fingerprint readers (lbssousa fork with the Goodix 538d driver)'
@@ -13,12 +20,13 @@ arch=(x86_64)
 license=(LGPL-2.1-or-later)
 depends=(gcc-libs glib2 glibc libgudev libgusb openssl pixman)
 makedepends=(git glib2-devel gobject-introspection meson)
+replaces=(libfprint-goodix538d)
 provides=(libfprint libfprint-2.so=2-64)
 # The official package plus the AUR packages that ship their own
 # libfprint-2.so (the libfprint-2-tod1-* driver plugins are not listed:
 # they sit on top of a libfprint and don't replace it).
-conflicts=(libfprint
-  libfprint-git libfprint-tod libfprint-tod-git
+conflicts=(libfprint libfprint-goodix538d
+  libfprint-tod libfprint-tod-git
   libfprint-acer-swift-1-git libfprint-crfpmoc-git libfprint-cs9711-git
   libfprint-cs9711-rebase-git libfprint-egis-0575 libfprint-egis0575
   libfprint-egismoc-sdcp-git libfprint-elanmoc2-git

@@ -79,6 +79,14 @@
       ansible.builtin.command:
         cmd: omarchy-install-emacs
         stdin: ""
+      environment:
+        # omarchy-emacs-setup calls omarchy-theme-set to (re)generate the
+        # themed colour template for Emacs. Running it normally re-applies
+        # the whole theme, including cycling the wallpaper, which this play
+        # has no business doing. Stay headless and skip the background so
+        # only the Emacs colour template is regenerated.
+        OMARCHY_THEME_HEADLESS: "1"
+        OMARCHY_THEME_SKIP_BACKGROUND: "1"
       changed_when: not emacs_omarchy_shim.stat.exists
 
     - name: Create the themes directory

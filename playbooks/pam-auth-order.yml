@@ -47,3 +47,26 @@
       loop: "{{ pam_auth_order_files }}"
       loop_control:
         loop_var: pam_file
+
+    # The Omarchy lock screen offers the fingerprint only when
+    # /etc/pam.d/omarchy-lock-fingerprint exists. omarchy-apply-lock and
+    # omarchy-setup-security-fingerprint write it, but only once a print is
+    # enrolled (and the latter only after a successful verify), so a machine
+    # that enrolled by hand or lost the file to an Omarchy upgrade shows a
+    # password-only lock screen. Same content as omarchy-apply-lock.
+    - name: List the enrolled fingerprints
+      ansible.builtin.command: fprintd-list {{ lookup('ansible.builtin.env', 'USER') }}
+      register: pam_auth_order_prints
+      changed_when: false
+      failed_when: false
+
+    - name: Offer the fingerprint on the lock screen
+      ansible.builtin.copy:
+        dest: /etc/pam.d/omarchy-lock-fingerprint
+        content: |
+          #%PAM-1.0
+          auth       required                    pam_fprintd.so
+          account    include                     system-local-login
+        mode: "0644"
+      become: true
+      when: pam_auth_order_prints.rc == 0 and 'finger' in pam_auth_order_prints.stdout | lower

@@ -47,7 +47,7 @@
     # every play after this one in a full site.yml run.
     - name: Warn that Firefox is running
       ansible.builtin.debug:
-        msg: >-
+        msg: &firefox_running_warning >-
           SKIPPED: Firefox ({{ firefox_flatpak_id }}) is running, and it keeps
           the Taskbar Tabs registry in memory, overwriting any change. Close
           it and run `just firefox-taskbar-apps`.
@@ -72,8 +72,19 @@
           } | to_json | quote }}
         executable: python3
       register: firefox_taskbar_apps_result
+      # 3: Firefox was started while the script ran; it wrote nothing.
+      failed_when: firefox_taskbar_apps_result.rc not in [0, 3]
       changed_when: firefox_taskbar_apps_result.stdout | trim | length > 0
       notify: refresh the applications database
+
+    - name: Warn that Firefox was started while the Taskbar Tabs were prepared
+      ansible.builtin.debug:
+        msg: *firefox_running_warning
+      when: firefox_taskbar_apps_result.rc == 3
+
+    - name: Skip the rest of this play when Firefox was started meanwhile
+      ansible.builtin.meta: end_host
+      when: firefox_taskbar_apps_result.rc == 3
 
     - name: Create ~/.config/hypr
       ansible.builtin.file:

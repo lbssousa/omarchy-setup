@@ -131,6 +131,12 @@
   ansible.builtin.import_playbook: playbooks/blesh.yml
   tags: [blesh]
 
+# Fish shell as the default login shell, with the same Starship prompt as
+# Omarchy (see playbooks/fish.yml).
+- name: Fish shell
+  ansible.builtin.import_playbook: playbooks/fish.yml
+  tags: [fish]
+
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   ansible.builtin.import_playbook: playbooks/openssh-askpass.yml
   tags: [openssh-askpass]

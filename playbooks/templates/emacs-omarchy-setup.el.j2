@@ -26,7 +26,9 @@
         TeX-parse-self t
         TeX-PDF-mode t
         TeX-view-program-selection '((output-pdf "xdg-open"))
-        TeX-view-program-list '(("xdg-open" "xdg-open %o")))
+        ;; Absolute path (%(abs-output)): the Flathub Zathura cannot see a
+        ;; relative one (it only reaches files handed over by the portal).
+        TeX-view-program-list '(("xdg-open" "xdg-open %(abs-output)")))
   (setq-default TeX-master nil)
   (add-hook 'LaTeX-mode-hook #'LaTeX-math-mode)
   (add-hook 'LaTeX-mode-hook #'turn-on-reftex)
@@ -46,7 +48,13 @@
         ""
       "-lualatex"))
 
+  (defun omarchy-setup-abs-output ()
+    "Return the absolute, shell-quoted path of the current output file."
+    (shell-quote-argument
+     (expand-file-name (TeX-active-master (TeX-output-extension)))))
+
   (with-eval-after-load 'tex
+    (add-to-list 'TeX-expand-list '("%(abs-output)" omarchy-setup-abs-output))
     (setq-default TeX-engine 'luatex)
     (add-to-list 'TeX-expand-list
                  '("%(latexmk-engine)" omarchy-setup-latexmk-engine))

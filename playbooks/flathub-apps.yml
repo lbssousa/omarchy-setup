@@ -8,7 +8,7 @@
 # group_vars/all/main.yml.
 #
 # Why these are cheap, unlike the LibreOffice swap in
-# playbooks/libreoffice.yml: every one keeps the SAME desktop-entry id
+# playbooks/onlyoffice.yml: every one keeps the SAME desktop-entry id
 # in both builds. Verified on the native side against
 # /usr/share/applications/*.desktop; the Flatpak side is re-checked at
 # run time by the "expect the Flatpak to export" task below, because

@@ -75,11 +75,11 @@ firefox-pwa-keybinds: _ensure-collections
 default-browser: _ensure-collections
     ansible-playbook site.yml --tags default-browser
 
-# Install LibreOffice from Flathub, remove the pre-installed native
-# libreoffice-fresh (+ its pt-BR language pack), and re-curate the app
-# launcher/keybinds to match.
-libreoffice: _ensure-collections
-    {{ap}} site.yml --tags libreoffice
+# Install ONLYOFFICE Desktop Editors from Flathub, remove the
+# pre-installed native libreoffice-fresh (+ its pt-BR language pack),
+# and warn if a hand-added LibreOffice keybind needs reassigning.
+onlyoffice: _ensure-collections
+    {{ap}} site.yml --tags onlyoffice
 
 # Install Emacs + AUCTeX, yasnippet (GNU ELPA) and lsp-mode (MELPA) with the classic beige-on-teal theme.
 emacs: _ensure-collections

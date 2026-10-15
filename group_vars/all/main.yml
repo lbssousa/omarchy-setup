@@ -184,37 +184,16 @@ flathub_app_migrations:
     native_packages:
       - xournalpp
 
-# LibreOffice (playbooks/libreoffice.yml) — installed from Flathub,
-# replacing Omarchy's pre-installed native libreoffice-fresh (+ its
-# pt-BR language pack, ptbr_libreoffice_i18n_package below). Like
-# Firefox above, Flathub's build bundles every locale itself (see
-# assemble-flatpak.sh in LibreOffice's own source, which folds every
-# non-en-US Langpack-*.xcd into the app rather than shipping it as a
-# separate extension), so no separate language pack is needed —
-# playbooks/ptbr.yml's LibreOffice step already no-ops once
-# libreoffice-fresh is gone.
-libreoffice_flatpak_id: org.libreoffice.LibreOffice
-# Omarchy's app launcher hides these native components
-# (/usr/share/omarchy/default/omarchy/launcher.hides) so only
-# Writer/Calc/Impress show up. LibreOffice's own Flatpak packaging
-# (solenv/bin/assemble-flatpak-desktop.sh) renames each to
-# "{{ libreoffice_flatpak_id }}.<component>.desktop" (the StartCenter
-# becomes the bare "{{ libreoffice_flatpak_id }}.desktop") — ids that
-# static, Omarchy-owned hides list doesn't recognize, so
-# playbooks/libreoffice.yml hides them itself via NoDisplay=true
-# overrides in ~/.local/share/applications instead (same curation,
-# just keyed to the ids the Flatpak actually exports).
-libreoffice_hidden_components:
-  - id: "{{ libreoffice_flatpak_id }}"
-    name: LibreOffice Start Center
-  - id: "{{ libreoffice_flatpak_id }}.base"
-    name: LibreOffice Base
-  - id: "{{ libreoffice_flatpak_id }}.draw"
-    name: LibreOffice Draw
-  - id: "{{ libreoffice_flatpak_id }}.math"
-    name: LibreOffice Math
-  - id: "{{ libreoffice_flatpak_id }}.xsltfilter"
-    name: LibreOffice XSLT Filter
+# ONLYOFFICE Desktop Editors (playbooks/onlyoffice.yml) — installed from
+# Flathub, replacing Omarchy's pre-installed native libreoffice-fresh (+
+# its pt-BR language pack, ptbr_libreoffice_i18n_package below). Unlike
+# LibreOffice's own Flatpak build, ONLYOFFICE ships as a single desktop
+# application (org.onlyoffice.desktopeditors), so there are no secondary
+# components to hide from the app launcher and none of the
+# NoDisplay=true curation onlyoffice.yml used to carry. The native
+# libreoffice-fresh package (and its language pack) is still removed
+# here, since ONLYOFFICE supersedes it.
+onlyoffice_flatpak_id: org.onlyoffice.desktopeditors
 
 # Emacs + AUCTeX (playbooks/emacs.yml). omarchy-emacs is the AUR package
 # Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in

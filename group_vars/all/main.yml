@@ -34,8 +34,8 @@ firefox_default_font_size_px: 17
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
 # (playbooks/firefox-taskbar-apps.yml). Omarchy binds YouTube to
 # SUPER+SHIFT+Y, WhatsApp to SUPER+SHIFT+ALT+G, Google Maps to
-# SUPER+SHIFT+S, Google Photos to SUPER+SHIFT+P and Google Messages to
-# SUPER+SHIFT+CTRL+G through
+# SUPER+SHIFT+S, Google Photos to SUPER+SHIFT+P, Google Messages to
+# SUPER+SHIFT+CTRL+G and X to SUPER+SHIFT+X through
 # omarchy-launch-webapp, which only knows the Chromium family's --app= flag
 # and falls back to chromium.desktop for every other default browser —
 # Firefox included, and Firefox is the default here (see
@@ -93,6 +93,10 @@ firefox_taskbar_apps:
     url: https://messages.google.com/web
     container: Google
     keybind: "SUPER + SHIFT + CTRL + G"
+  - label: X
+    desktop_name: X
+    url: https://x.com
+    keybind: "SUPER + SHIFT + X"
 
 # Brave (playbooks/brave.yml) — installed from Flathub, replacing the
 # AUR brave-origin-bin package: a stock, Brave-maintained build instead

@@ -24,6 +24,8 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
+# Exit status when Firefox was started while the icons downloaded.
+FIREFOX_RUNNING = 3
 # Firefox writes Taskbar Tab icons as 256x256 PNGs (ShellService.writeShortcutIcon).
 ICON_SIZE = 256
 # Sites sniff the User-Agent in opposite ways: messages.google.com answers
@@ -213,6 +215,13 @@ def desktop_exec(argv):
     return " ".join(f'"{escape(arg)}"' for arg in argv)
 
 
+def firefox_running(flatpak_id):
+    ps = subprocess.run(
+        ["flatpak", "ps", "--columns=application"], capture_output=True, text=True, check=True
+    )
+    return flatpak_id in ps.stdout.split()
+
+
 def write_if_changed(path, data):
     if path.exists() and not path.is_symlink() and path.read_bytes() == data:
         return
@@ -242,6 +251,16 @@ def main():
         print("No Firefox profile yet: start Firefox once, then run this again.", file=sys.stderr)
         return
     profile = profile.resolve()
+
+    # The slow part (a minute or so of downloads) goes first, so the check
+    # for a running Firefox right after it is still true when the registry
+    # is read and written: one started meanwhile would keep its own copy in
+    # memory and overwrite ours (the playbook checks too, but before this).
+    icons = {app["url"]: best_icon(app["url"]) for app in apps}
+    if firefox_running(flatpak_id):
+        print(f"{flatpak_id} is running; nothing written.", file=sys.stderr)
+        sys.exit(FIREFOX_RUNNING)
+
     registry_path = profile / "taskbartabs" / "taskbartabs.json"
     icons_dir = profile / "taskbartabs" / "icons"
     for directory in (desktop_dir, icons_dir, backup_dir):
@@ -280,7 +299,7 @@ def main():
         )
 
         icon_path = icons_dir / f"{tab['id']}.png"
-        icon = best_icon(url)
+        icon = icons[url]
         if icon:
             write_if_changed(icon_path, icon)
         # A failed fetch keeps the icon from an earlier run; with none at

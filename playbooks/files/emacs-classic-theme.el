@@ -1,4 +1,4 @@
-;;; classic-theme.el --- classic theme
+;;; classic-theme.el --- classic theme  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2000 by Frederic Giroud
 ;; Copyright (C) 2013 by Syohei YOSHIDA

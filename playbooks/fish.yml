@@ -9,15 +9,25 @@
 # SAME ~/.config/starship.toml, so once fish runs `starship init fish |
 # source` its prompt is identical to Omarchy's.
 #
-# The rest of that rc is ported to fish so the shell behaves the same:
-# environment, aliases and small functions go in the block in config.fish
-# below; every function from $OMARCHY_PATH/default/bash/fns/ (tmux and
-# herdr layouts, the reconnecting ssh wrapper, rsync watchers, port
-# forwards, worktrees, drives), the lazy `try` and the `omarchy`
-# completion are autoloaded files under ~/.config/fish/{functions,
-# completions}/, copied from playbooks/files/fish/. The ports keep what
-# the bash code means to do: where it has an obvious bug (tdl focusing a
-# pane it never set), the fish file says so and does the intended thing.
+# The rest of that rc is ported to fish so the shell behaves the same,
+# from playbooks/files/fish/ into fish's per-user vendor directories
+# (~/.local/share/fish/vendor_{conf,functions,completions}.d/):
+# environment, aliases and tool setup in conf.d/omarchy.fish; every
+# function from $OMARCHY_PATH/default/bash/fns/ (tmux and herdr layouts,
+# the reconnecting ssh wrapper, rsync watchers, port forwards, worktrees,
+# drives), the lazy `try` and the `omarchy` completion as autoloaded
+# files. fish reads ~/.config/fish/ first, so your own function,
+# completion or conf.d file of the same name wins, config.fish (which
+# runs after conf.d) can override any setting, and the play never writes
+# to ~/.config/fish (it only removes what earlier versions of it put
+# there). The ports keep what the bash code means to do: where it has an
+# obvious bug (tdl focusing a pane it never set), the fish file says so
+# and does the intended thing. fish's "Welcome to fish" banner is turned
+# off, since bash shows none.
+#
+# On top of Omarchy's defaults, fzf.fish (PatrickF1, pinned release) adds
+# fzf searches for directories, git log/status, history with preview,
+# processes and variables (see the task below for the keys).
 #
 # Left out because fish can't do them: hiding the omarchy-* binaries from
 # first-word completion (bash's `complete -I -X`) and fzf's `**<Tab>`
@@ -30,8 +40,9 @@
 # `just fish-upstream-hash` to record the new versions.
 #
 # This play also makes sure ~/.config/starship.toml exists (seeded from
-# Omarchy's default when missing, never overwriting a customized one) and
-# that fish's own startup file sets the session up. The default shell is
+# Omarchy's default when missing, never overwriting a customized one),
+# and warns if the omarchy-fish package (another port of the same
+# defaults, with system-wide vi key bindings) is installed. The default shell is
 # changed through /etc/passwd (chsh equivalent), which is what Ghostty,
 # Alacritty, Foot and Kitty all use when they have no explicit `command`.
 #
@@ -47,6 +58,10 @@
     fish_starship_config: "{{ ansible_facts.env.HOME }}/.config/starship.toml"
     fish_starship_seed: /usr/share/omarchy/config/starship.toml
     fish_config: "{{ ansible_facts.env.HOME }}/.config/fish/config.fish"
+    fish_vendor_dir: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.env.HOME ~ '/.local/share', true) }}/fish"
+    fzf_fish_repo: https://github.com/PatrickF1/fzf.fish
+    fzf_fish_version: v11.0
+    fzf_fish_checkout_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/fzf.fish"
 
   tasks:
     - name: Install fish (and starship, in case it is missing)
@@ -71,180 +86,126 @@
         force: false
         mode: "0644"
 
-    - name: Create the fish config directory
+    - name: Install fzf.fish's dependencies (fzf, fd, bat)
+      community.general.pacman:
+        name:
+          - fzf
+          - fd
+          - bat
+        state: present
+      become: true
+
+    # Everything this play manages goes in fish's per-user vendor
+    # directories, which fish reads after ~/.config/fish/: a function,
+    # completion or conf.d file of yours with the same name wins, and
+    # rerunning the play never touches ~/.config/fish.
+    - name: Create fish's per-user vendor directories
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/fish"
+        path: "{{ fish_vendor_dir }}/vendor_{{ item }}.d"
         state: directory
         mode: "0755"
+      loop: [functions, completions, conf]
 
-    - name: Configure Fish for the Omarchy defaults (environment, tools, aliases, prompt)
+    - name: Install the Omarchy defaults for fish (functions, completions, conf.d)
+      ansible.builtin.copy:
+        src: "fish/{{ item }}/"
+        dest: "{{ fish_vendor_dir }}/vendor_{{ item | replace('conf.d', 'conf') }}.d/"
+        mode: "0644"
+        # Without it, copying a directory applies `mode` to the
+        # directories too, and 0644 leaves them unreadable to fish.
+        directory_mode: "0755"
+      loop: [functions, completions, conf.d]
+
+    - name: Find Omarchy-defaults files this play no longer ships
+      ansible.builtin.find:
+        paths:
+          - "{{ fish_vendor_dir }}/vendor_functions.d"
+          - "{{ fish_vendor_dir }}/vendor_completions.d"
+          - "{{ fish_vendor_dir }}/vendor_conf.d"
+        patterns: "*.fish"
+        contains: "^# Managed by omarchy-setup \\(playbooks/fish\\.yml\\)"
+        read_whole_file: true
+      register: fish_vendor_managed
+
+    - name: Remove Omarchy-defaults files this play no longer ships
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ fish_vendor_managed.files }}"
+      loop_control:
+        label: "{{ item.path }}"
+      when: >-
+        (item.path | basename) not in
+        (lookup('ansible.builtin.fileglob', 'fish/functions/*.fish', wantlist=True)
+         + lookup('ansible.builtin.fileglob', 'fish/completions/*.fish', wantlist=True)
+         + lookup('ansible.builtin.fileglob', 'fish/conf.d/*.fish', wantlist=True))
+        | map('basename') | list
+
+    # Earlier versions of this play wrote a block into config.fish and
+    # copied the functions into ~/.config/fish/; both would now shadow
+    # the vendor files. Only files carrying this play's header go.
+    - name: Remove the Omarchy-defaults block an earlier version put in config.fish
       ansible.builtin.blockinfile:
         path: "{{ fish_config }}"
-        create: true
-        mode: "0644"
         marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/fish.yml — Omarchy defaults for Fish)"
-        block: |
-          # ---- Environment (mirrors /usr/share/omarchy/default/bash/env-bootstrap and envs) ----
-          # /etc/omarchy.conf is written by omarchy-dev-link and reset by
-          # omarchy-dev-unlink. When absent, force the packaged default instead
-          # of preserving a stale inherited value. It's shell code, so sh reads it,
-          # as bash's `source` does.
-          if test -f /etc/omarchy.conf
-              set -gx OMARCHY_PATH (sh -c '. /etc/omarchy.conf; printf %s "${OMARCHY_PATH:-/usr/share/omarchy}"')
-          else
-              set -gx OMARCHY_PATH /usr/share/omarchy
-          end
-          # Only prepend in dev-link mode; packaged binaries are already in /usr/bin.
-          set -l omarchy_bin (string replace -r '/$' '' -- $OMARCHY_PATH)/bin
-          if test "$OMARCHY_PATH" != /usr/share/omarchy; and not contains -- $omarchy_bin $PATH
-              set -gx PATH $omarchy_bin $PATH
-          end
+        state: absent
 
-          if not contains $HOME/.local/share/mise/shims $PATH
-              set -gx PATH $PATH $HOME/.local/share/mise/shims
-          end
-          if not contains $HOME/.local/bin $PATH
-              set -gx PATH $PATH $HOME/.local/bin
-          end
+    - name: Find copies an earlier version put in ~/.config/fish
+      ansible.builtin.find:
+        paths:
+          - "{{ ansible_facts.env.HOME }}/.config/fish/functions"
+          - "{{ ansible_facts.env.HOME }}/.config/fish/completions"
+        patterns: "*.fish"
+        contains: "^# Managed by omarchy-setup \\(playbooks/fish\\.yml\\)"
+        read_whole_file: true
+      register: fish_old_copies
 
-          if not set -q EDITOR
-              set -gx EDITOR 'omarchy-launch-editor --inline'
-          end
-          if not set -q SUDO_EDITOR
-              set -gx SUDO_EDITOR $EDITOR
-          end
-          if not set -q BROWSER
-              set -gx BROWSER omarchy-launch-browser
-          end
-          set -gx BAT_THEME ansi
-          set -gx MANROFFOPT '-c'
-          set -gx MANPAGER "sh -c 'col -bx | bat -l man -p'"
+    - name: Remove copies an earlier version put in ~/.config/fish
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ fish_old_copies.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
-          if not set -q LANG
-              set -gx LANG C.UTF-8
-          end
+    # fzf.fish (PatrickF1): Ctrl+Alt+F directories, Ctrl+Alt+L git log,
+    # Ctrl+Alt+S git status, Ctrl+R history with preview, Ctrl+Alt+P
+    # processes, Ctrl+V variables. Beyond what Omarchy's bash has; fzf's
+    # own Ctrl+T and Alt+C stay. Pinned to a release tag.
+    - name: "Clone/update fzf.fish ({{ fzf_fish_version }})"
+      ansible.builtin.git:
+        repo: "{{ fzf_fish_repo }}"
+        dest: "{{ fzf_fish_checkout_dir }}"
+        version: "{{ fzf_fish_version }}"
+        depth: 1
+        force: true
 
-          # ---- File system ----
-          if command -q eza
-              alias ls 'eza -lh --group-directories-first --icons=auto'
-              alias lsa 'ls -a'
-              alias lt 'eza --tree --level=2 --long --icons --git'
-              alias lta 'lt -a'
-          end
-
-          if test "$TERM" = "xterm-kitty"
-              alias ff "fzf --preview 'case \$(file --mime-type -b {}) in image/*) kitty icat --clear --transfer-mode=memory --stdin=no --place=\${FZF_PREVIEW_COLUMNS}x\${FZF_PREVIEW_LINES}@0x0 {} ;; *) bat --style=numbers --color=always {} ;; esac'"
-          else
-              alias ff "fzf --preview 'bat --style=numbers --color=always {}'"
-          end
-          function eff
-              # The pick is quoted for eval, so names with spaces open intact,
-              # and a cancelled pick opens nothing (bash opens an empty editor).
-              set -l file (ff); or return
-              eval $EDITOR (string escape -- $file)
-          end
-          function sff
-              if test (count $argv) -eq 0
-                  echo 'Usage: sff <destination> (e.g. sff host:/tmp/)'
-                  return 1
-              end
-              set -l file (find . -type f -printf '%T@\t%p\n' | sort -rn | cut -f2- | ff)
-              test -n "$file"; and scp "$file" $argv[1]
-          end
-
-          # ---- Navigation (zoxide, same zd() behaviour) ----
-          if command -q zoxide
-              alias cd 'zd'
-              function zd
-                  # __zoxide_cd_internal is zoxide's copy of fish's own cd, which
-                  # (unlike builtin cd) keeps dirprev, so cd -, prevd and cdh work.
-                  if test (count $argv) -eq 0
-                      __zoxide_cd_internal ~; or return
-                  else if test -d "$argv[1]"
-                      __zoxide_cd_internal $argv[1]; or return
-                  else
-                      if not z $argv
-                          echo 'Error: Directory not found'
-                          return 1
-                      end
-                      printf '\U000F17A9 '
-                      pwd
-                  end
-              end
-              zoxide init fish | source
-          end
-
-          function open
-              # disown: no job left behind, like bash's ( … & ) subshell.
-              xdg-open $argv >/dev/null 2>&1 &
-              disown
-          end
-
-          # ---- Directories ----
-          alias .. 'cd ..'
-          alias ... 'cd ../..'
-          alias .... 'cd ../../..'
-
-          # ---- Tools ----
-          alias a 'omarchy-agent --inline'
-          alias c 'opencode --auto'
-          alias cx 'printf "\033[2J\033[3J\033[H" && claude --permission-mode auto'
-          alias cy 'codex --approve-for-me'
-          alias d 'docker'
-          alias r 'rails'
-          alias t 'tmux attach || tmux new -s Work'
-          alias h 'herdr'
-          # tdl and the other layouts are autoloaded from ~/.config/fish/functions/.
-          alias ic 'tdl c'
-          alias ix 'tdl cx'
-          alias icx 'tdl c cx'
-          alias mup 'MISE_MINIMUM_RELEASE_AGE=0 mise up'
-          function n
-              if test (count $argv) -eq 0
-                  command nvim .
-              else
-                  command nvim $argv
-              end
-          end
-
-          # ---- Git ----
-          alias g 'git'
-          alias gcm 'git commit -m'
-          alias gcam 'git commit -a -m'
-          alias gcad 'git commit -a --amend'
-
-          # ---- Compression ----
-          function compress
-              set -l target (string replace -r '/+$' '' $argv[1])
-              tar -czf "$target.tar.gz" "$target"
-          end
-          alias decompress 'tar -xzf'
-
-          # ---- Interactive-only setup ----
-          if status is-interactive
-              # Prompt: same Starship configuration as Omarchy/bash.
-              if command -q starship
-                  starship init fish | source
-              end
-              # Key bindings for fzf (provided by the package under /usr/share/fish).
-              if command -q fzf; and functions -q fzf_key_bindings
-                  fzf_key_bindings
-              end
-          end
-
-    - name: Install the fish ports of Omarchy's bash functions (autoloaded)
+    - name: Install fzf.fish into fish's per-user vendor directories
       ansible.builtin.copy:
-        src: fish/functions/
-        dest: "{{ ansible_facts.env.HOME }}/.config/fish/functions/"
+        src: "{{ fzf_fish_checkout_dir }}/{{ item }}/"
+        dest: "{{ fish_vendor_dir }}/vendor_{{ item | replace('conf.d', 'conf') }}.d/"
+        remote_src: true
         mode: "0644"
         directory_mode: "0755"
+      loop: [functions, completions, conf.d]
 
-    - name: Install the fish completion for the omarchy command
-      ansible.builtin.copy:
-        src: fish/completions/
-        dest: "{{ ansible_facts.env.HOME }}/.config/fish/completions/"
-        mode: "0644"
-        directory_mode: "0755"
+    # The omarchy-fish package is another port of the same defaults: its
+    # system-wide conf.d turns on vi key bindings and its functions differ
+    # from these.
+    - name: Check whether the omarchy-fish package is installed
+      ansible.builtin.command: pacman -Q omarchy-fish
+      register: fish_omarchy_fish_pkg
+      changed_when: false
+      failed_when: false
+
+    - name: Warn about the omarchy-fish package
+      ansible.builtin.debug:
+        msg: >-
+          The omarchy-fish package is installed. Its system-wide conf.d
+          (vi key bindings, its own fzf.fish setup) runs alongside this
+          play's, and its functions are shadowed by these. Remove it with
+          `sudo pacman -R omarchy-fish` unless you want both.
+      when: fish_omarchy_fish_pkg.rc == 0
 
     # Drift check: warn, never fail, when Omarchy's bash files differ from
     # the versions the fish port follows, or define a name fish lacks.

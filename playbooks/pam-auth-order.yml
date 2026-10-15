@@ -12,11 +12,13 @@
 # the fingerprint first, the key only prompts after pam_fprintd gives up.
 # This play pins the order, whichever script ran last.
 #
-# It only ever moves the pam_u2f line to just after the pam_fprintd line
-# (keeping its options), and only when it is above it. A stack missing
-# either module, or already in order, is left alone, so it is safe to run on
-# a machine with only one of the two set up and to run again after re-running
-# either Omarchy script. The password stays last: sudo's falls through to
+# It forces the order rather than only repairing it: pam_fprintd (with
+# Omarchy's clamshell gate in front of it) is added at the top of each stack
+# when missing, and the pam_u2f line, if there is one, is moved to just after
+# it (keeping its options). Without an enrolled print pam_fprintd is
+# skipped, so adding it before enrolling is harmless. A stack already in
+# order is left alone, so it is safe to run again after re-running either
+# Omarchy script. The password stays last: sudo's falls through to
 # `auth include system-auth`, polkit-1's is its own pam_unix line.
 #
 # It also caps how long pam_fprintd may hold the stack before the key is

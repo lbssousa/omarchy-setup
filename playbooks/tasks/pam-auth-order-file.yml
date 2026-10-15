@@ -1,5 +1,28 @@
 ---
 # One PAM stack of playbooks/pam-auth-order.yml (pam_file).
+# pam_fprintd (behind Omarchy's clamshell gate) is forced to the top of the
+# stack even when no fingerprint script has run yet: with no enrolled print
+# the module reports "unavailable", `sufficient` ignores it and the stack
+# goes on to the key and the password. Omarchy's own scripts find the line
+# and leave it alone.
+- name: "Make sure pam_fprintd is in {{ pam_file }} (first auth line)"
+  ansible.builtin.lineinfile:
+    path: "{{ pam_file }}"
+    regexp: '^\s*auth\s.*pam_fprintd\.so'
+    insertbefore: '^\s*auth\s'
+    firstmatch: true
+    line: "auth      sufficient pam_fprintd.so max-tries={{ pam_auth_order_fprintd_max_tries }} timeout={{ pam_auth_order_fprintd_timeout }}"
+    backup: true
+  become: true
+
+- name: "Make sure the clamshell gate precedes pam_fprintd in {{ pam_file }}"
+  ansible.builtin.lineinfile:
+    path: "{{ pam_file }}"
+    regexp: 'omarchy-hw-laptop-closed'
+    insertbefore: '^\s*auth\s.*pam_fprintd\.so'
+    line: "auth      [success=1 default=ignore] pam_exec.so quiet /usr/bin/omarchy-hw-laptop-closed"
+  become: true
+
 - name: "Read {{ pam_file }}"
   ansible.builtin.slurp:
     src: "{{ pam_file }}"

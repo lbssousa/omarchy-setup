@@ -779,9 +779,9 @@ libfprint_repo: https://github.com/lbssousa/libfprint.git
 # v1.94.10-goodix538d.2 changed the print format: after upgrading from an
 # earlier build, delete and re-enroll the fingerprints (fprintd-delete
 # $USER, then fprintd-enroll -f <finger> for at least 2 fingers).
-libfprint_ref: v1.94.10-goodix538d.2
-# pkgver can't contain hyphens or a leading "v": v1.94.10-goodix538d.2 ->
-# 1.94.10.goodix538d.2. Bump libfprint_pkgrel for packaging-only changes.
+libfprint_ref: v1.94.100-goodix538d.1
+# pkgver can't contain hyphens or a leading "v": v1.94.100-goodix538d.1 ->
+# 1.94.100.goodix538d.1. Bump libfprint_pkgrel for packaging-only changes.
 libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.') }}"
 libfprint_pkgrel: "1"
 libfprint_build_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-pkg"

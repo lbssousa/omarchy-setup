@@ -31,7 +31,32 @@
   (add-hook 'LaTeX-mode-hook #'LaTeX-math-mode)
   (add-hook 'LaTeX-mode-hook #'turn-on-reftex)
   (add-hook 'LaTeX-mode-hook #'visual-line-mode)
-  (setq reftex-plug-into-AUCTeX t))
+  (setq reftex-plug-into-AUCTeX t)
+
+  ;; Compile with latexmk. A latexmkrc (project-local, then user-level) decides
+  ;; the engine and options; without one, LuaTeX (-lualatex, PDF output) is used.
+  (defun omarchy-setup-latexmk-engine ()
+    "Return \"-lualatex\" unless a latexmkrc applies to the current directory."
+    (if (seq-some #'file-exists-p
+                  (list (expand-file-name ".latexmkrc" default-directory)
+                        (expand-file-name "latexmkrc" default-directory)
+                        (expand-file-name "~/.latexmkrc")
+                        (expand-file-name "latexmk/latexmkrc"
+                                          (or (getenv "XDG_CONFIG_HOME") "~/.config"))))
+        ""
+      "-lualatex"))
+
+  (with-eval-after-load 'tex
+    (setq-default TeX-engine 'luatex)
+    (add-to-list 'TeX-expand-list
+                 '("%(latexmk-engine)" omarchy-setup-latexmk-engine))
+    (setf (alist-get "LatexMk" TeX-command-list nil nil #'equal)
+          '("latexmk %(latexmk-engine) -synctex=1 -interaction=nonstopmode -file-line-error %t"
+            TeX-run-TeX nil
+            (plain-tex-mode latex-mode doctex-mode)
+            :help "Run latexmk (latexmkrc first, LuaTeX fallback)"))
+    (add-hook 'TeX-mode-hook
+              (lambda () (setq TeX-command-default "LatexMk")))))
 
 ;;; Classic theme (themes/classic-theme.el, from emacs-jp/replace-colorthemes)
 (menu-bar-mode 1)

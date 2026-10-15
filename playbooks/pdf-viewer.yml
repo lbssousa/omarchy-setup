@@ -8,7 +8,7 @@
 # Arch package, so this play replaces pdf_viewer_zathura_native_packages
 # (zathura + the MuPDF backend) with the Flatpak. Bootstraps Flatpak +
 # the Flathub remote itself (system-wide), same approach as
-# playbooks/firefox.yml / playbooks/brave.yml / playbooks/libreoffice.yml,
+# playbooks/firefox.yml / playbooks/brave.yml / playbooks/onlyoffice.yml,
 # so `just pdf-viewer` keeps working standalone.
 #
 # This is the cheap case of the pattern those playbooks document, for

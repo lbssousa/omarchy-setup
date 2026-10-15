@@ -36,9 +36,9 @@
   ansible.builtin.import_playbook: playbooks/default-browser.yml
   tags: [default-browser]
 
-- name: LibreOffice
-  ansible.builtin.import_playbook: playbooks/libreoffice.yml
-  tags: [libreoffice]
+- name: ONLYOFFICE Desktop Editors
+  ansible.builtin.import_playbook: playbooks/onlyoffice.yml
+  tags: [onlyoffice]
 
 - name: Emacs + AUCTeX, yasnippet, lsp-mode (classic teal theme)
   ansible.builtin.import_playbook: playbooks/emacs.yml

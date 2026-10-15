@@ -25,8 +25,8 @@
 #     under ~/.var/app is patched too, not just the ~/.config ones.
 #   - LibreOffice (ptbr-libreoffice): installs the pt-BR language pack —
 #     only if the native libreoffice-fresh is still installed. A no-op
-#     once playbooks/libreoffice.yml has replaced it with the Flathub
-#     build, which (like Firefox above) already bundles every locale.
+#     once playbooks/onlyoffice.yml has removed libreoffice-fresh, since
+#     ONLYOFFICE Desktop Editors does not use the separate pt-BR pack.
 #   - Man pages (ptbr-man-pages): installs man-pages-pt_br.
 #   - OCR (ptbr-ocr): installs tesseract-data-por and sets
 #     OMARCHY_OCR_LANGS for omarchy-capture-text.
@@ -280,7 +280,7 @@
               libreoffice-fresh not found via pacman —
               {{ ptbr_libreoffice_i18n_package }} not installed. Either
               not installed at all, or already replaced by the Flathub
-              build (playbooks/libreoffice.yml), which bundles pt-BR
+              build (playbooks/onlyoffice.yml), which bundles pt-BR
               already and needs no separate package.
           when: libreoffice_check.rc != 0
       tags: [ptbr-libreoffice]

@@ -53,8 +53,8 @@ choices rather than Omarchy defaults.
 ## Current inventory
 
 **Flatpak (4, system-wide):** Brave 1.96.59, Firefox 157.0,
-LibreOffice 26.8.1.1, Bazaar 0.9.6 — 1.6 GB in `/var/lib/flatpak/app`
-(Brave 490M, LibreOffice 776M, Firefox 324M, Bazaar 22M).
+ONLYOFFICE Desktop Editors, Bazaar 0.9.6 — 1.6 GB in `/var/lib/flatpak/app`
+(Brave 490M, ONLYOFFICE (size not recorded), Firefox 324M, Bazaar 22M).
 
 **Native GUI apps (23):** aether, btop, chromium, cliamp, evince,
 foot, gcr, gnome-disk-utility, imv, kdenlive, localsend, moonlight-qt,
@@ -75,7 +75,7 @@ zed.
 |---|---|---|
 | Firefox | `org.mozilla.firefox` | `playbooks/firefox.yml` |
 | Brave | `com.brave.Browser` | `playbooks/brave.yml` |
-| LibreOffice | `org.libreoffice.LibreOffice` | `playbooks/libreoffice.yml` |
+| ONLYOFFICE Desktop Editors | `org.onlyoffice.desktopeditors` | `playbooks/onlyoffice.yml` |
 | Bazaar (store) | `io.github.kolunmi.Bazaar` | `playbooks/flatpak.yml` |
 | Kdenlive | `org.kde.kdenlive` | `playbooks/flathub-apps.yml` |
 | OBS Studio | `com.obsproject.Studio` | `playbooks/flathub-apps.yml` |
@@ -84,7 +84,7 @@ zed.
 | Zathura | `org.pwmt.zathura` | `playbooks/pdf-viewer.yml` |
 
 The first four are the reference implementations for the pattern this
-repo uses. Read `playbooks/libreoffice.yml` before starting another
+repo uses. Read `playbooks/onlyoffice.yml` before starting another
 swap — its header comment documents the three recurring costs
 (desktop-entry id mismatch, launcher `NoDisplay` re-curation, keybind
 reassignment) and `playbooks/default-browser.yml` documents a fourth
@@ -168,7 +168,7 @@ sit next to:
    dead weight.
 3. **Two video players.** mpv (tied into the shell, see above) and
    Moonlight. Moonlight is a genuine second use case, not a duplicate.
-4. **Flathub already costs 1.6 GB.** LibreOffice alone is 776M. Every
+4. **Flathub already costs 1.6 GB.** ONLYOFFICE alone is the office app here; the LibreOffice Flatpak is no longer installed. Every
    additional Flatpak app pulls a shared runtime — Qt6 apps (Zed,
    Kdenlive, Zathura, Moonlight) all share the KDE runtime, so the
    first one is expensive and the rest are cheap. Migrating the whole

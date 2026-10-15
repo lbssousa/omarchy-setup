@@ -14,7 +14,12 @@
 # LD_LIBRARY_PATH any more: the fprintd.service drop-in and the
 # /usr/local copy the playbook used to install are removed.
 #
-# Rebuilds only when the installed libfprint-goodix538d doesn't match
+# The package is called libfprint-git so that Omarchy's
+# omarchy-setup-security-fingerprint, which tests `pacman -Q libfprint-git`,
+# finds it installed and leaves it alone (epoch 2 outranks the omarchy
+# repo's libfprint-git). It replaces the old libfprint-goodix538d name.
+#
+# Rebuilds only when the installed libfprint-git doesn't match
 # the version derived from libfprint_ref. A later `pacman -Syu` never
 # swaps it for the official package (it provides libfprint); bump
 # libfprint_ref and rerun to move to a newer fork release.
@@ -37,8 +42,8 @@
   gather_facts: true
 
   tasks:
-    - name: Find the installed libfprint-goodix538d version
-      ansible.builtin.command: pacman -Q libfprint-goodix538d
+    - name: Find the installed libfprint-git version
+      ansible.builtin.command: pacman -Q libfprint-git
       register: libfprint_installed
       changed_when: false
       failed_when: false
@@ -47,9 +52,9 @@
       ansible.builtin.set_fact:
         libfprint_pkg_current: >-
           {{ libfprint_installed.rc == 0
-             and libfprint_installed.stdout.split()[1] == libfprint_pkgver ~ '-' ~ libfprint_pkgrel }}
+             and libfprint_installed.stdout.split()[1] == libfprint_epoch ~ ':' ~ libfprint_pkgver ~ '-' ~ libfprint_pkgrel }}
 
-    - name: Build and install the libfprint-goodix538d package
+    - name: Build and install the libfprint-git package (this fork)
       when: not libfprint_pkg_current
       block:
         - name: Install the build dependencies

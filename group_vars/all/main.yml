@@ -783,7 +783,9 @@ libfprint_ref: v1.94.100-goodix538d.1
 # pkgver can't contain hyphens or a leading "v": v1.94.100-goodix538d.1 ->
 # 1.94.100.goodix538d.1. Bump libfprint_pkgrel for packaging-only changes.
 libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.') }}"
-libfprint_pkgrel: "2"
+libfprint_pkgrel: "3"
+# Above the omarchy repo's libfprint-git (epoch 1), so it never wins a -Syu.
+libfprint_epoch: "2"
 libfprint_build_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-pkg"
 
 # Build-time deps only; the runtime ones are the PKGBUILD's depends=(),

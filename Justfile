@@ -62,11 +62,11 @@ brave-pwa-desktop-fix: _ensure-collections
 brave-webapp-containers: _ensure-collections
     ansible-playbook site.yml --tags brave-webapp-containers
 
-# Rebind the YouTube/WhatsApp/Microsoft Teams keys to the sites pinned to the
-# Firefox taskbar (the tab apps themselves are pinned by hand in Firefox).
-# No root needed.
-firefox-pwa-keybinds: _ensure-collections
-    ansible-playbook site.yml --tags firefox-pwa-keybinds
+# Create the Firefox Taskbar Tabs ("tab apps") listed in
+# firefox_taskbar_apps (group_vars/all/main.yml) and rebind the webapp keys
+# to them. Close Firefox first. No root needed.
+firefox-taskbar-apps: _ensure-collections
+    ansible-playbook site.yml --tags firefox-taskbar-apps
 
 # Make the Flathub Brave the default browser (unless it already is), via a
 # brave-browser.desktop shim so Omarchy's native web apps run on it, and

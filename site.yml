@@ -18,17 +18,15 @@
   ansible.builtin.import_playbook: playbooks/firefox.yml
   tags: [firefox]
 
+# The tab apps in firefox_taskbar_apps, with the webapp keybinds pointed at
+# them instead of Omarchy's own web app launchers.
+- name: Firefox Taskbar Tabs
+  ansible.builtin.import_playbook: playbooks/firefox-taskbar-apps.yml
+  tags: [firefox-taskbar-apps]
+
 - name: Brave
   ansible.builtin.import_playbook: playbooks/brave.yml
   tags: [brave]
-
-# Point the webapp keybinds (YouTube, WhatsApp, Microsoft Teams, Google Maps)
-# at the sites pinned to the Firefox taskbar, replacing Omarchy's own web
-# app launchers for them. The tab apps are pinned by hand, not installed by
-# anything; a site that isn't pinned keeps Omarchy's binding.
-- name: Firefox Taskbar Tabs keybindings
-  ansible.builtin.import_playbook: playbooks/firefox-pwa-keybinds.yml
-  tags: [firefox-pwa-keybinds]
 
 # Brave as the default browser, with Omarchy's native web apps working on
 # the Flathub build (a brave-browser.desktop shim, see the playbook).

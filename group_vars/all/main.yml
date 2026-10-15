@@ -32,17 +32,17 @@ firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 firefox_default_font_size_px: 17
 
 # Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
-# (playbooks/firefox-pwa-keybinds.yml). Omarchy binds YouTube to
+# (playbooks/firefox-taskbar-apps.yml). Omarchy binds YouTube to
 # SUPER+SHIFT+Y, WhatsApp to SUPER+SHIFT+ALT+G, Google Maps to
 # SUPER+SHIFT+S, Google Photos to SUPER+SHIFT+P and Google Messages to
 # SUPER+SHIFT+CTRL+G through
 # omarchy-launch-webapp, which only knows the Chromium family's --app= flag
 # and falls back to chromium.desktop for every other default browser —
 # Firefox included, and Firefox is the default here (see
-# default_browser_desktop_id below). The tab apps are pinned by hand in
-# Firefox (right-click a tab -> "Pin to taskbar"), not by this repo: Firefox
-# owns the launchers it writes, the same division of labour
-# playbooks/brave.yml keeps for the Brave PWAs.
+# default_browser_desktop_id below). The tab apps are created by the same
+# playbook, straight into Firefox's profile without the DynamicLauncher
+# portal's confirmation dialog, and Omarchy's own launchers for the same
+# sites are removed.
 #
 # One launcher per pinned site, at
 # <dir>/<firefox_flatpak_id>.webapp-<uuid>.desktop. The uuid is generated per
@@ -52,27 +52,46 @@ firefox_default_font_size_px: 17
 # keybind goes through a wrapper that resolves it at launch time.
 # Microsoft Teams has no Omarchy keybind of its own, so it takes the same
 # SUPER+SHIFT+ALT+<letter> shape as WhatsApp.
+# Omarchy's own launcher for a site is removed when its Name= equals the
+# app's desktop_name or label; set omarchy_webapp_name when it's neither.
+# container (optional) is the Firefox container the app runs in, by name as
+# in about:preferences#containers. It has to be the one Multi-Account
+# Containers (or Facebook Container) assigns the site — and its login pages
+# — to: otherwise the extension reopens the page as a tab in the main window
+# and closes the app's window.
 firefox_webapp_desktop_dir: "{{ ansible_facts.env.HOME }}/.local/share/applications"
 firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/{{ firefox_flatpak_id }}.webapp-*.desktop"
 firefox_taskbar_app_launcher: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
 firefox_taskbar_apps:
   - label: YouTube
     desktop_name: YouTube
+    url: https://www.youtube.com
+    container: Google
     keybind: "SUPER + SHIFT + Y"
   - label: WhatsApp
     desktop_name: WhatsApp Web
+    url: https://web.whatsapp.com
+    container: Facebook
     keybind: "SUPER + SHIFT + ALT + G"
   - label: Microsoft Teams
     desktop_name: Microsoft Teams (PWA)
+    url: https://teams.microsoft.com
+    container: Microsoft
     keybind: "SUPER + SHIFT + ALT + T"
   - label: Google Maps
     desktop_name: Google Maps
+    url: https://www.google.com/maps
+    container: Google
     keybind: "SUPER + SHIFT + S"
   - label: Google Photos
     desktop_name: Google Photos
+    url: https://photos.google.com
+    container: Google
     keybind: "SUPER + SHIFT + P"
   - label: Google Messages
     desktop_name: Google Messages
+    url: https://messages.google.com/web
+    container: Google
     keybind: "SUPER + SHIFT + CTRL + G"
 
 # Brave (playbooks/brave.yml) — installed from Flathub, replacing the
@@ -148,7 +167,7 @@ brave_shim_launcher: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-brav
 # (playbooks/default-browser.yml): Firefox from Flathub. Omarchy's native
 # web apps run on Brave through the shim id (brave_shim_desktop_id), so
 # with Firefox as the default they need the Taskbar Tabs keybinds — see
-# playbooks/firefox-pwa-keybinds.yml. Switch to "{{ brave_shim_desktop_id }}"
+# playbooks/firefox-taskbar-apps.yml. Switch to "{{ brave_shim_desktop_id }}"
 # (and default_browser_name to Brave) to leave Brave as the default
 # instead; the user-facing omarchy-setup-default-browser wrapper can flip
 # it at any time, it just doesn't pin the choice on every run.

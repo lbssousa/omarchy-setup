@@ -6,7 +6,7 @@
 # The package is built with makepkg from templates/libfprint-goodix538d.PKGBUILD.j2
 # on the host, as the user (makepkg refuses to run as root), and
 # installed with `pacman -U`. It `provides=(libfprint libfprint-2.so=2-64)`
-# and `conflicts=(libfprint libfprint-git)`, so fprintd's dependencies
+# and `conflicts=(libfprint libfprint-git ...)` (the AUR libfprint forks too), so fprintd's dependencies
 # stay satisfied and pacman removes the stock package in the same
 # transaction (--ask=4: conflicting packages are removed without a
 # prompt, which --noconfirm alone would answer "no" to). Because the

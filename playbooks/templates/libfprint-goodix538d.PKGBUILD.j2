@@ -14,7 +14,24 @@ license=(LGPL-2.1-or-later)
 depends=(gcc-libs glib2 glibc libgudev libgusb openssl pixman)
 makedepends=(git glib2-devel gobject-introspection meson)
 provides=(libfprint libfprint-2.so=2-64)
-conflicts=(libfprint libfprint-git)
+# The official package plus the AUR packages that ship their own
+# libfprint-2.so (the libfprint-2-tod1-* driver plugins are not listed:
+# they sit on top of a libfprint and don't replace it).
+conflicts=(libfprint
+  libfprint-git libfprint-tod libfprint-tod-git
+  libfprint-acer-swift-1-git libfprint-crfpmoc-git libfprint-cs9711-git
+  libfprint-cs9711-rebase-git libfprint-egis-0575 libfprint-egis0575
+  libfprint-egismoc-sdcp-git libfprint-elanmoc2-git
+  libfprint-elanmoc2-newdrvs-git libfprint-elanmoc2-working-git
+  libfprint-elanpress-git libfprint-elitebook libfprint-fpc-10a5-9924-git
+  libfprint-fpc1022 libfprint-fpcmoh-git libfprint-ft9201 libfprint-ft9365
+  libfprint-ftexx00 libfprint-goodix-521d libfprint-goodix-53xc
+  libfprint-goodix-55a2 libfprint-goodix-60c2 libfprint-goodix53x5
+  libfprint-goodix53x5-533c-git libfprint-goodixtls-55x4
+  libfprint-goodixtls-55x4-fixed libfprint-goodixtls-git
+  libfprint-goodixtls511-git libfprint-goodixtls52xd-git libfprint-gxfp
+  libfprint-spectre2024-patched-git libfprint-vfs009x-git
+  libfprint-vfs_proprietary-git libfprint-vojtapl-synatudormis-git)
 source=("libfprint::git+{{ libfprint_repo }}#tag={{ libfprint_ref }}")
 b2sums=(SKIP)
 

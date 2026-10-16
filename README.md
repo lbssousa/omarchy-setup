@@ -215,6 +215,7 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 | `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |
+| `docs/omarchy-4.5-migration.md` | What the next Omarchy release (Quattro RS 4.5) changes for these automations, gathered ahead of time from the upstream `quattro` branch: which playbooks become obsolete, which need fixing before running on it, and how to re-check once it is tagged |
 | `docs/flathub-migration-survey.md` | Survey of the native GUI apps that Flathub could replace, which ones are load-bearing for Omarchy's shell, and the redundancies to cut first. The five safe cases are implemented (four in `playbooks/flathub-apps.yml`, Zathura in `playbooks/pdf-viewer.yml`); the rest is reference material, no playbook acts on it |
 | `playbooks/yubikey.yml` | Yubikey GPG key — outside `site.yml` (tags `gpg-yubikey`, `yubikey`) |
 | `scripts/ssh-yubikey.sh` | Resident SSH keys import + GitHub SSH drop-in (`just ssh-yubikey`, `just ssh-yubikey-disable`) |

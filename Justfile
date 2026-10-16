@@ -102,11 +102,9 @@ flathub-apps: _ensure-collections
 gregorio-lsp: _ensure-collections
     ansible-playbook site.yml --tags gregorio-lsp
 
-# Make Zathura (Flathub) the default PDF viewer + Papers (optional
-# viewer); Evince stays installed (sushi depends on it). Replaces the
-# native zathura + zathura-pdf-mupdf pair — note the Flatpak bundles the
-# poppler backend instead, and only grants ~/Documents + ~/Downloads
-# (see pdf_viewer_zathura_extra_paths in group_vars/all/main.yml).
+# Make Zathura (Arch packages) the default PDF viewer + Papers (optional
+# viewer); Evince stays installed (sushi depends on it). Removes the
+# Zathura Flatpak if one is present.
 pdf-viewer: _ensure-collections
     {{ap}} site.yml --tags pdf-viewer
 

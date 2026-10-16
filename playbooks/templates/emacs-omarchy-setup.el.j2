@@ -26,8 +26,7 @@
         TeX-parse-self t
         TeX-PDF-mode t
         TeX-view-program-selection '((output-pdf "xdg-open"))
-        ;; Absolute path (%(abs-output)): the Flathub Zathura cannot see a
-        ;; relative one (it only reaches files handed over by the portal).
+        ;; Absolute path (%(abs-output)): xdg-open may run from another cwd.
         TeX-view-program-list '(("xdg-open" "xdg-open %(abs-output)")))
   (setq-default TeX-master nil)
   (add-hook 'LaTeX-mode-hook #'LaTeX-math-mode)

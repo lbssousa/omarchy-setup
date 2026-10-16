@@ -382,6 +382,12 @@ lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
 gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
 gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
 
+# File manager (playbooks/file-manager.yml) — Flea, the default handler
+# for directories.
+file_manager_package: flea
+file_manager_desktop_id: com.thisisgm.flea.desktop
+file_manager_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
+
 # PDF viewer (playbooks/pdf-viewer.yml) — Zathura (Arch packages)
 # becomes the default PDF viewer; Papers is installed as an extra,
 # non-default viewer; Evince is kept installed (Nautilus's sushi

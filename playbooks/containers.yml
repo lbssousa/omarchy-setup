@@ -116,12 +116,6 @@
 # The container's name is available right away in new shells; nothing to
 # reload inside the containers.
 #
-# The block markers below still name playbooks/starship-distrobox.yml, the
-# file this play lived in before it was merged here. blockinfile matches
-# on the marker text, so renaming it would leave a second copy of each
-# block behind in ~/.bashrc and ~/.config/starship.toml (the duplicate
-# [env_var.CONTAINER_ID] table would make starship.toml invalid).
-#
 # Usage: ansible-playbook site.yml --tags starship-distrobox
 - name: Starship prompt inside distrobox (container name + Omarchy rc)
   hosts: localhost
@@ -169,7 +163,7 @@
       ansible.builtin.blockinfile:
         path: "{{ starship_distrobox_config }}"
         insertafter: EOF
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/starship-distrobox.yml — distrobox container name)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/containers.yml — distrobox container name)"
         block: |
           # Inside distrobox: show the container's name. distrobox-enter exports
           # CONTAINER_ID=<container name>; unset on the host, so nothing renders.
@@ -194,7 +188,7 @@
       ansible.builtin.blockinfile:
         path: "{{ starship_distrobox_bashrc }}"
         insertbefore: '^source "\$OMARCHY_PATH/default/bash/rc"'
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/starship-distrobox.yml — distrobox host paths)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/containers.yml — distrobox host paths)"
         block: |
           # Inside distrobox the host's /usr is mounted at /run/host, so the
           # inherited OMARCHY_PATH points at nothing. Use the host's copy, and fall

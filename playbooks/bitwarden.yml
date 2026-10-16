@@ -64,15 +64,6 @@
         method: system
       become: true
 
-    - name: Remove the AUR/official Bitwarden packages, if present
-      community.general.pacman:
-        name: "{{ item }}"
-        state: absent
-      loop:
-        - bitwarden
-        - bitwarden-bin
-      become: true
-
     - name: Bitwarden SSH agent — session-wide SSH_AUTH_SOCK
       block:
         - name: Create ~/.config/environment.d

@@ -133,14 +133,6 @@
       loop_control:
         label: "{{ item.0.dir }} ({{ item.1 }})"
 
-    - name: Remove the wallpapers renamed to 00- (the default ones, which sort first)
-      ansible.builtin.file:
-        path: "{{ omaraptor_themes_dir }}/{{ item.0.dir }}/backgrounds/08-bluefin-{{ item.1 }}.jpg"
-        state: absent
-      loop: "{{ omaraptor_themes | subelements('backgrounds') }}"
-      loop_control:
-        label: "{{ item.0.dir }} ({{ item.1 }})"
-
     - name: Use the Adwaita icon theme
       ansible.builtin.copy:
         content: "{{ omaraptor_icon_theme }}\n"

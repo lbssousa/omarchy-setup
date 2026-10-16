@@ -13,8 +13,8 @@ polkit_expiration_seconds: 1800
 # Firefox (playbooks/firefox.yml) — installed from Flathub, not pacman:
 # runs before pt-BR localization, which depends on Firefox already being
 # installed. Flathub's build bundles every locale itself, so
-# playbooks/ptbr.yml no longer installs a separate pt-BR language pack
-# for it (see ptbr_firefox_requested_locale below).
+# playbooks/ptbr.yml needs no separate pt-BR language pack for it (see
+# ptbr_firefox_requested_locale below).
 firefox_flatpak_id: org.mozilla.firefox
 # Flatpak extension Firefox reads system-wide policies/prefs from,
 # since the sandbox can't see /etc/firefox — see playbooks/firefox.yml
@@ -98,18 +98,15 @@ firefox_taskbar_apps:
     url: https://x.com
     keybind: "SUPER + SHIFT + X"
 
-# Brave (playbooks/brave.yml) — installed from Flathub, replacing the
-# AUR brave-origin-bin package: a stock, Brave-maintained build instead
-# of a de-Googled fork this repo had to track manually. Bootstraps
-# Flatpak + the Flathub remote itself, same as playbooks/firefox.yml.
+# Brave (playbooks/brave.yml) — installed from Flathub: a stock,
+# Brave-maintained build. Bootstraps Flatpak + the Flathub remote itself,
+# same as playbooks/firefox.yml.
 brave_flatpak_id: com.brave.Browser
 
 # Brave's own Containers (brave://settings/containers, shipped in 1.92;
 # command-line support for --app-id PWA launches landed in 1.95.101 —
-# https://github.com/brave/brave-browser/issues/58019) is the mainline
-# replacement for the --container flag brave-origin-bin used to accept,
-# and for the isolation the Firefox Multi-Account Containers extension
-# gave the old Taskbar Tabs setup. A container must already exist
+# https://github.com/brave/brave-browser/issues/58019) gives each PWA its
+# own isolated storage. A container must already exist
 # (created by hand once, in Brave: right-click a tab → "Open in
 # container", or brave://settings/containers) — this only wires an
 # already-existing PWA launcher to one, keyed by the PWA's own Name=
@@ -398,10 +395,6 @@ pdf_viewer_papers_package: papers
 pdf_viewer_zathura_native_packages:
   - zathura
   - zathura-pdf-mupdf
-# Flatpak build this play removes if present (it used to be installed
-# from Flathub), and its per-app data dir.
-pdf_viewer_zathura_flatpak_id: org.pwmt.zathura
-pdf_viewer_flatpak_data_dir: "{{ ansible_facts.env.HOME }}/.var/app/{{ pdf_viewer_zathura_flatpak_id }}"
 pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
 pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
 
@@ -460,10 +453,8 @@ ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
 # Profile directories fixed by
 # playbooks/tasks/ptbr-chromium-family-browser.yml. Each entry is a path
 # relative to $HOME: native installs live under ~/.config/<dir>, Flathub
-# installs under ~/.var/app/<app-id>/config/<dir> (the Flathub Brave
-# entry below is what the browser really uses now — the ~/.config one is
-# left over from before playbooks/brave.yml moved Brave to Flathub, where
-# the play's intl fix never reached the live profile). Opera and Helium
+# installs under ~/.var/app/<app-id>/config/<dir> (the last entry is the
+# Flathub Brave that playbooks/brave.yml installs). Opera and Helium
 # are excluded: unconfirmed profile layout on this machine.
 ptbr_chromium_family_config_dirs:
   - .config/chromium
@@ -488,13 +479,12 @@ ptbr_ocr_langs: "por+eng"
 # so IDEs, CLI tools and KeePassXC can reach the same agent.
 #
 # keepassxc_ssh_agent_enabled picks the variant: false (the default) is a
-# no-op — the agent is not enabled, since playbooks/polkit.yml disables it as
-# legacy cleanup and nothing else in this setup consumes SSH_AUTH_SOCK; true
-# enables it and exports SSH_AUTH_SOCK for any client. KeePassXC can act as a
-# client, but its SSH agent integration is no longer pre-seeded by the play —
-# enable it in-app and it picks the socket up from SSH_AUTH_SOCK. Override on
-# the command line with `-e keepassxc_ssh_agent_enabled=true` (or `just
-# ssh-agent`).
+# no-op — the agent is not enabled (Omarchy leaves it off) and nothing else in
+# this setup consumes SSH_AUTH_SOCK; true enables it and exports SSH_AUTH_SOCK
+# for any client. KeePassXC can act as a client, but its SSH agent
+# integration isn't pre-seeded by the play — enable it in-app and it picks
+# the socket up from SSH_AUTH_SOCK. Override on the command line with
+# `-e keepassxc_ssh_agent_enabled=true` (or `just ssh-agent`).
 keepassxc_ssh_agent_enabled: false
 ssh_agent_socket: "/run/user/{{ ansible_facts.user_uid }}/ssh-agent.socket"
 ssh_agent_units:
@@ -507,22 +497,17 @@ ssh_agent_units:
 # and opt-in SSH agent support (the agent play above, see
 # keepassxc_ssh_agent_enabled).
 #
-# Installed from Flathub, replacing the native package: the same rationale
-# as Bitwarden's play — upstream ships and debugs the Flatpak as a
-# first-class target, and Flathub tracks it faster than `extra`. The
-# migration is cheap for the same reason playbooks/flathub-apps.yml's four
-# apps are: both builds export the same desktop-entry id
-# (org.keepassxc.KeePassXC.desktop, asserted at run time by that play), and
-# the window class is unchanged (StartupWMClass=keepassxc either way). Only
-# the browser-integration proxy path moves, below.
+# Installed from Flathub: the same rationale as Bitwarden's play — upstream
+# ships and debugs the Flatpak as a first-class target, and Flathub tracks it
+# faster than `extra`. It exports the desktop-entry id
+# org.keepassxc.KeePassXC.desktop (asserted at run time by that play) and the
+# window class keepassxc (StartupWMClass).
 keepassxc_flatpak_id: org.keepassxc.KeePassXC
 
 # KeePassXC UI font size, as the Qt font DPI (QT_FONT_DPI in its Flatpak
 # override; playbooks/keepassxc.yml). Qt's default is 96, which gives the
 # app's ~9pt sans; 117 is 96 * 11/9, i.e. two points larger (11pt).
 keepassxc_font_dpi: 117
-# The native package the Flatpak replaces. Removed by the same play.
-keepassxc_native_package: keepassxc
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password, which this setup doesn't install).
 keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
@@ -779,19 +764,6 @@ libfprint_makedepends:
   - glib2-devel
   - meson
   - gobject-introspection
-
-# Paths the previous (distrobox + /usr/local) install left behind; the
-# playbook removes them now that the package ships everything in /usr.
-libfprint_legacy_paths:
-  - /usr/local/lib/libfprint-2.so
-  - /usr/local/lib/libfprint-2.so.2
-  - /usr/local/lib/libfprint-2.so.2.0.0
-  - /usr/local/lib/pkgconfig/libfprint-2.pc
-  - /usr/local/lib/girepository-1.0/FPrint-2.0.typelib
-  - /usr/local/include/libfprint-2
-  - /usr/local/share/gir-1.0/FPrint-2.0.gir
-  - /etc/udev/rules.d/70-libfprint-2.rules
-  - /etc/systemd/system/fprintd.service.d/override.conf
 
 # udev rule disabling USB autosuspend for the fingerprint reader. Kept
 # even though it didn't fix the real bug (see fprintd_desync_* below) —

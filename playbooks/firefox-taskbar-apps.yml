@@ -100,19 +100,6 @@
         force: false
         mode: "0644"
 
-    # This play used to be playbooks/firefox-pwa-keybinds.yml; blockinfile
-    # keys blocks by marker, so the rename would otherwise leave its blocks
-    # behind next to the new ones.
-    - name: Remove the blocks written under the old playbook name
-      ansible.builtin.blockinfile:
-        path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
-        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/firefox-pwa-keybinds.yml — {{ item }})"
-        state: absent
-      loop:
-        - Firefox Taskbar Tabs tiled fullscreen
-        - Firefox Taskbar Tabs keybindings
-      notify: reload Hyprland
-
     # Every tab app's window class is <flatpak id>.webapp-<uuid>. The uuid is
     # per-install, so the rule matches the whole family: any site pinned later
     # opens the same way.

@@ -28,10 +28,7 @@
 # the scrolling layout (Hyprland just logs and ignores it).
 #
 # Written to ~/.config/hypr/bindings.lua via a marked block, so it
-# coexists with any other customization already there. The block marker
-# still names playbooks/hypr-scrolling-resize.yml, the file this play lived
-# in before it was merged here: blockinfile matches on the marker text, so
-# renaming it would leave a second copy of the binds behind.
+# coexists with any other customization already there.
 - name: Hyprland scrolling-layout column resize (SUPER+[ / SUPER+])
   hosts: localhost
   connection: local
@@ -56,7 +53,7 @@
     - name: "Bind SUPER+[ / SUPER+] to colresize (±{{ hypr_scrolling_colresize_step }}) on the scrolling layout"
       ansible.builtin.blockinfile:
         path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
-        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/hypr-scrolling-resize.yml — scrolling column resize)"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/desktop.yml — scrolling column resize)"
         block: |
           -- code:35 = "[" and code:51 = "]" on this machine's ABNT2
           -- keyboard (xkb layout "br"; code:34 is the ´ key, not "]").
@@ -197,11 +194,6 @@
 # for today's sunrise/sunset, and rewrites hyprsunset.conf with two
 # profiles: identity at sunrise, night temperature at sunset. A daily
 # systemd --user timer keeps it in sync, since the times shift every day.
-#
-# The hyprland.lua autostart block's marker still names
-# playbooks/nightlight-solar.yml, the file this play lived in before it
-# was merged here: blockinfile matches on the marker text, so renaming it
-# would leave a second copy of the autostart behind.
 - name: Night light synced to sunrise/sunset (hyprsunset + systemd --user timer)
   hosts: localhost
   connection: local
@@ -279,7 +271,7 @@
     - name: Launch hyprsunset automatically with Hyprland
       ansible.builtin.blockinfile:
         path: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
-        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/nightlight-solar.yml — hyprsunset autostart)"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/desktop.yml — hyprsunset autostart)"
         block: |
           o.launch_on_start("hyprsunset")
 

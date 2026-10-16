@@ -27,8 +27,7 @@ _ensure-collections: _ensure-ansible
 setup: _ensure-collections
     {{ap}} site.yml
 
-# Raise polkitd's authentication cache window and remove the legacy sudoers
-# drop-in an older version of this repo installed.
+# Raise polkitd's authentication cache window.
 polkit: _ensure-collections
     {{ap}} site.yml --tags polkit
 
@@ -42,10 +41,9 @@ pam-auth-order: _ensure-collections
 firefox: _ensure-collections
     {{ap}} site.yml --tags firefox
 
-# Install Brave from Flathub, remove the AUR brave-origin-bin package,
-# and fix up Brave's Flatpak PWA .desktop files (also runs on its own —
-# see brave-pwa-desktop-fix below) plus Omarchy's web app container
-# wiring (see brave-webapp-containers below).
+# Install Brave from Flathub and fix up Brave's Flatpak PWA .desktop
+# files (also runs on its own — see brave-pwa-desktop-fix below) plus
+# Omarchy's web app container wiring (see brave-webapp-containers below).
 brave: _ensure-collections
     {{ap}} site.yml --tags brave
 
@@ -103,8 +101,7 @@ gregorio-lsp: _ensure-collections
     ansible-playbook site.yml --tags gregorio-lsp
 
 # Make Zathura (Arch packages) the default PDF viewer + Papers (optional
-# viewer); Evince stays installed (sushi depends on it). Removes the
-# Zathura Flatpak if one is present.
+# viewer); Evince stays installed (sushi depends on it).
 pdf-viewer: _ensure-collections
     {{ap}} site.yml --tags pdf-viewer
 
@@ -169,8 +166,7 @@ ptbr: _ensure-collections
 ssh-agent: _ensure-collections
     ansible-playbook playbooks/keepassxc.yml --tags ssh-agent -e keepassxc_ssh_agent_enabled=true
 
-# Run the KeePassXC playbook. Installs KeePassXC from Flathub and removes
-# the native package. Optional password manager alternative, not part of
+# Run the KeePassXC playbook. Installs KeePassXC from Flathub. Optional password manager alternative, not part of
 # `just setup`. The SSH agent stays off; add
 # -e keepassxc_ssh_agent_enabled=true here (or run `just ssh-agent`) to have
 # KeePassXC act as a client for it as well.
@@ -211,7 +207,7 @@ distrobox: _ensure-collections
 flatpak: _ensure-collections
     {{ap}} site.yml --tags flatpak
 
-# Install Homebrew for Linux and symlink brew into /usr/local/bin.
+# Install Homebrew for Linux and a brew launcher in /usr/local/bin.
 # Not part of `just setup` — run explicitly (`playbooks/homebrew.yml` is
 # not imported by site.yml).
 homebrew: _ensure-collections
@@ -306,11 +302,6 @@ apparmor: _ensure-collections
 # (unix-chkpwd, avahi-daemon, ...). Not part of `just setup`.
 apparmor-profiles: _ensure-collections
     {{ap}} playbooks/apparmor.yml -e apparmor_load_profiles=true
-
-# Remove the leftover libfprint build container from before libfprint was
-# packaged with a PKGBUILD (keeps the installed driver).
-libfprint-destroy-container:
-    distrobox rm -f libfprint-build
 
 # Build the BGRT-derived boot theme (Omarchy theme + Plymouth theme) and
 # set it as the default boot splash. Not part of `setup` — rewrites the

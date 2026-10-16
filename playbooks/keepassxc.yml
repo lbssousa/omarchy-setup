@@ -9,10 +9,9 @@
 
 # OpenSSH agent (systemd --user) — opt-in via keepassxc_ssh_agent_enabled
 # (false by default), so `just keepassxc` installs the password manager
-# without turning an agent on: playbooks/polkit.yml disables the agent and
-# removes its SSH_AUTH_SOCK export as legacy cleanup, and that off state is
-# the default. Everything below runs only with the switch on — `just ssh-agent`
-# (or -e keepassxc_ssh_agent_enabled=true) then enables the standard
+# without turning an agent on (Omarchy leaves it off too). Everything below
+# runs only with the switch on — `just ssh-agent` (or
+# -e keepassxc_ssh_agent_enabled=true) then enables the standard
 # ssh-agent socket and service at the session runtime socket, and exports
 # SSH_AUTH_SOCK session-wide via environment.d so IDEs, KeePassXC and other
 # CLI tools all talk to the same agent.
@@ -54,23 +53,18 @@
 # KeePassXC — open-source password manager with browser integration,
 # SSH agent support and system tray integration.
 #
-# Installs KeePassXC from Flathub and removes the native package. It
-# leaves KeePassXC's own settings untouched — no pre-seeded keepassxc.ini
-# — so the app comes up with its stock defaults and the user configures
+# Installs KeePassXC from Flathub. It leaves KeePassXC's own settings
+# untouched — no pre-seeded keepassxc.ini — so the app comes up with its stock defaults and the user configures
 # it in-app. The one thing set from outside is the UI font size (see
 # keepassxc_font_dpi in group_vars/all/main.yml). The browser native-messaging manifests, the YubiKey
 # auto-lock rule and the autostart entry (all below) are still deployed.
 #
-# The swap is cheap for the same reason playbooks/flathub-apps.yml's four
-# apps are: both builds export the same desktop-entry id
-# (org.keepassxc.KeePassXC.desktop — asserted at run time below, because
-# an id change upstream would silently drop KeePassXC out of Omarchy's
-# launcher) and report the same window class (StartupWMClass=keepassxc,
-# which is what the keybind at the bottom and Omarchy's own rules key on).
-#
-# The Qt5 Wayland QPA plugin (qt5-wayland) that the native Qt5 build
-# needed is gone with it: the Flatpak bundles its own Qt, so Omarchy's
-# QT_QPA_PLATFORM=wayland;xcb just works and there is no host plugin to
+# The Flatpak exports the desktop-entry id org.keepassxc.KeePassXC.desktop
+# (asserted at run time below, because an id change upstream would
+# silently drop KeePassXC out of Omarchy's launcher) and reports the
+# window class keepassxc (StartupWMClass), which is what the keybind at
+# the bottom and Omarchy's own rules key on. It bundles its own Qt, so
+# Omarchy's QT_QPA_PLATFORM=wayland;xcb just works with no host plugin to
 # install.
 #
 # KeePassXC only writes its XDG autostart entry when the "Launch KeePassXC
@@ -100,9 +94,9 @@
 # unplugged (matched on USB PRODUCT, since the reader is removable and
 # ID_VENDOR_ID/ID_MODEL_ID aren't reliably available on "remove" events).
 # Ported from lbssousa/nix-config's
-# modules/system/security/keepassxc-yubikey-lock.nix. Unaffected by the
-# swap: a sandboxed app's owned bus names are proxied onto the host's
-# session bus, so org.keepassxc.KeePassXC.MainWindow still resolves.
+# modules/system/security/keepassxc-yubikey-lock.nix. Works with the
+# Flatpak: a sandboxed app's owned bus names are proxied onto the host's
+# session bus, so org.keepassxc.KeePassXC.MainWindow resolves.
 - name: KeePassXC (password manager with browser + SSH agent integration)
   hosts: localhost
   connection: local
@@ -132,16 +126,14 @@
         method: system
       become: true
 
-    # Same desktop id in both builds, which is the whole reason this swap
-    # is cheap. It isn't cosmetic though: a change upstream would drop
-    # KeePassXC out of Omarchy's launcher and out of any rule keyed on the
-    # id. Better to stop than to leave a half-migrated box behind.
+    # Not cosmetic: a desktop-id change upstream would drop KeePassXC out
+    # of Omarchy's launcher and out of any rule keyed on the id.
     - name: Look for the Flatpak's exported desktop entry
       ansible.builtin.stat:
         path: "{{ flatpak_system_exports_dir }}/applications/{{ keepassxc_flatpak_id }}.desktop"
       register: keepassxc_flatpak_entry
 
-    - name: Expect the Flatpak to still export the desktop id the native build used
+    - name: Expect the Flatpak to still export the expected desktop id
       ansible.builtin.assert:
         that: keepassxc_flatpak_entry.stat.exists
         fail_msg: >-
@@ -152,31 +144,6 @@
           the autostart entry deployed below) would stop matching it.
           Re-derive those from the new id before re-running this play.
         quiet: true
-
-    - name: Remove the native KeePassXC package
-      community.general.pacman:
-        name: "{{ keepassxc_native_package }}"
-        state: absent
-      become: true
-
-    - name: Look for a leftover native desktop entry
-      ansible.builtin.stat:
-        path: "/usr/share/applications/{{ keepassxc_flatpak_id }}.desktop"
-      register: keepassxc_native_entry
-
-    - name: Warn about any native desktop entry that survived
-      # Two entries with the same id in different XDG_DATA_DIRS
-      # directories is legal but ambiguous, and the launcher shows
-      # whichever it scans first — here that would be an entry whose
-      # Exec=keepassxc binary is no longer installed.
-      ansible.builtin.debug:
-        msg: >-
-          /usr/share/applications/{{ keepassxc_flatpak_id }}.desktop
-          is still there, so the native and Flatpak entries compete under
-          the same id while the native one points at a `keepassxc` binary
-          that is no longer installed. Check `pacman -Qo` to see what else
-          provides it.
-      when: keepassxc_native_entry.stat.exists
 
     - name: Create native messaging host directories
       ansible.builtin.file:
@@ -243,8 +210,8 @@
     # keys have to be re-pointed here — force: false means the template
     # never got a chance to. TryExec in particular: an entry KeePassXC
     # wrote says TryExec=keepassxc, and systemd drops a desktop entry whose
-    # TryExec doesn't resolve, which is exactly what removing the native
-    # package leaves behind. Same for Icon, whose flatpak replacement is
+    # TryExec doesn't resolve — there's no keepassxc binary on the host
+    # PATH with the Flatpak. Same for Icon, whose flatpak replacement is
     # named after the app id.
     - name: Point the autostart entry at the readiness wrapper
       community.general.ini_file:
@@ -313,10 +280,9 @@
             force: false
             mode: "0644"
 
-        # Same window class either build — StartupWMClass=keepassxc in both
-        # desktop entries — so only the launch command moves. (Unlike
+        # Focus matches the window class (StartupWMClass=keepassxc). Unlike
         # playbooks/bitwarden.yml's bind, this isn't the Flatpak's app id:
-        # KeePassXC's flatpak keeps its native class.)
+        # KeePassXC's flatpak keeps the plain keepassxc class.
         - name: "Rebind {{ keepassxc_hypr_keybind }} from 1Password to KeePassXC"
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"

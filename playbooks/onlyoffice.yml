@@ -46,13 +46,6 @@
         flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
       become: true
 
-    - name: Remove any previous LibreOffice Flatpak install
-      community.general.flatpak:
-        name: org.libreoffice.LibreOffice
-        state: absent
-        method: system
-      become: true
-
     - name: Install ONLYOFFICE Desktop Editors from Flathub
       community.general.flatpak:
         name: "{{ onlyoffice_flatpak_id }}"

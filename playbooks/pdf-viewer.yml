@@ -5,11 +5,9 @@
 # With", just not what double-clicking a PDF opens.
 #
 # Zathura comes from the Arch packages (zathura + the MuPDF backend,
-# pdf_viewer_zathura_native_packages). It used to be the Flathub build;
-# the sandbox only reached ~/Documents and ~/Downloads, which got in the
-# way of PDFs from project trees and removable media, so this play
-# moves it back and removes the Flatpak (and its per-app config dir)
-# if it finds one.
+# pdf_viewer_zathura_native_packages), not Flathub: the sandbox only
+# reaches ~/Documents and ~/Downloads, which gets in the way of PDFs from
+# project trees and removable media.
 #
 # Evince itself is left installed: Nautilus's quick-previewer (sushi)
 # hard-depends on it at the package level (`pacman -Si sushi` lists
@@ -37,37 +35,6 @@
         name: "{{ pdf_viewer_zathura_native_packages }}"
         state: present
       become: true
-
-    - name: Look for the Zathura Flatpak this play used to install
-      ansible.builtin.command:
-        cmd: flatpak info --system {{ pdf_viewer_zathura_flatpak_id }}
-      register: pdf_viewer_zathura_flatpak_info
-      changed_when: false
-      failed_when: false
-
-    - name: Remove the Zathura Flatpak
-      # Same desktop-entry id as the native build, so leaving both
-      # installed would make the launcher's entry ambiguous.
-      community.general.flatpak:
-        name: "{{ pdf_viewer_zathura_flatpak_id }}"
-        state: absent
-        method: system
-      become: true
-      when: pdf_viewer_zathura_flatpak_info.rc == 0
-
-    - name: Look for the Flatpak's per-app data dir
-      ansible.builtin.stat:
-        path: "{{ pdf_viewer_flatpak_data_dir }}"
-      register: pdf_viewer_flatpak_data
-
-    - name: Remove the Flatpak's per-app data dir
-      # Holds only the zathurarc this play wrote plus Zathura's own
-      # history/bookmarks cache for the sandboxed build; the native
-      # build keeps its own under ~/.config and ~/.local/share.
-      ansible.builtin.file:
-        path: "{{ pdf_viewer_flatpak_data_dir }}"
-        state: absent
-      when: pdf_viewer_flatpak_data.stat.exists
 
     - name: Look for Zathura's installed desktop entry
       ansible.builtin.stat:

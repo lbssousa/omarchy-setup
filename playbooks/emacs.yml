@@ -46,36 +46,6 @@
         state: directory
         mode: "0755"
 
-    # Earlier versions of this play ran package.el before ~/.config/emacs
-    # existed, which created ~/.emacs.d/elpa and made Emacs ignore
-    # ~/.config/emacs (init.el, omarchy-setup.el, the classic theme). Fold
-    # such a stray ~/.emacs.d back in, but only if it holds nothing else.
-    - name: Look for a stray ~/.emacs.d left by package.el
-      ansible.builtin.find:
-        paths: "{{ ansible_facts.env.HOME }}/.emacs.d"
-        file_type: any
-        hidden: true
-      register: emacs_stray_dir
-
-    - name: Move the stray ~/.emacs.d/elpa into the Emacs config directory
-      ansible.builtin.command:
-        argv:
-          - mv
-          - "{{ ansible_facts.env.HOME }}/.emacs.d/elpa"
-          - "{{ emacs_config_dir }}/elpa"
-        creates: "{{ emacs_config_dir }}/elpa"
-      when: &emacs_stray_only_ours
-        - emacs_stray_dir.files | length > 0
-        - emacs_stray_dir.files | map(attribute='path') | map('basename')
-          | difference(['elpa', 'eln-cache']) | length == 0
-
-    - name: Remove the stray ~/.emacs.d
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.emacs.d"
-        state: absent
-      when: *emacs_stray_only_ours
-      register: emacs_stray_removed
-
     - name: Find which Emacs packages are missing
       ansible.builtin.command:
         argv:
@@ -167,4 +137,4 @@
       ansible.builtin.command: systemctl --user restart emacs.service
       when: >-
         emacs_classic_theme.changed or emacs_setup_el.changed
-        or emacs_init_block.changed or emacs_stray_removed.changed
+        or emacs_init_block.changed

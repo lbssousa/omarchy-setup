@@ -156,8 +156,7 @@
           # is a no-op without a match) — never adds a bookmark for a
           # folder that wasn't already bookmarked. Runs independently of
           # whether the rename happened in this same play or a previous
-          # one, so it also repairs bookmarks left over from before this
-          # task existed.
+          # one.
           vars:
             old_default_path: "{{ ansible_facts.env.HOME }}/{{ item.1.item.default }}"
             new_path: "{{ ansible_facts.env.HOME }}/{{ item.1.item.translated }}"
@@ -237,12 +236,6 @@
             mode: "0644"
           become: true
           when: firefox_check.rc == 0
-
-        - name: Remove the leftover pacman Firefox policies.json, if present
-          ansible.builtin.file:
-            path: /usr/lib/firefox/distribution/policies.json
-            state: absent
-          become: true
 
         - name: Note that Firefox wasn't found (no action taken)
           ansible.builtin.debug:

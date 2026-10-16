@@ -8,14 +8,11 @@
 # Homebrew-installed binary reaches the session the same way Flatpak's
 # and snapd's binaries do (playbooks/flatpak.yml, playbooks/snap.yml):
 # {{ homebrew_prefix }}/bin(+/sbin) is appended to PATH session-wide via
-# ~/.config/environment.d, not mirrored one symlink at a time — that
-# used to be the approach here, but it meant every playbook installing
-# something via Homebrew (e.g. proton-pass-cli, playbooks/proton-pass.yml)
-# needed its own bespoke symlinking task, and anything installed
-# straight from a terminal (`brew install foo`) stayed invisible to the
-# rest of the session until this playbook was rerun. New PATH entries
-# apply to new sessions only (log out and back in to pick it up — same
-# caveat already true for snapd's PATH export).
+# ~/.config/environment.d rather than mirrored one symlink at a time, so
+# whatever a playbook (e.g. proton-pass-cli, playbooks/proton-pass.yml) or
+# a plain `brew install foo` adds is visible to the session. New PATH
+# entries apply to new sessions only (log out and back in to pick it up —
+# same caveat already true for snapd's PATH export).
 # bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
 #
 # Not imported by site.yml: Homebrew is only needed by the tooling that
@@ -88,12 +85,6 @@
     # up Library/Homebrew/brew.sh one level early, and its macOS x86_64 shim
     # additionally rewrites HOMEBREW_PREFIX to /usr/local. A plain launcher
     # script avoids both by exec'ing the real brew so it resolves its own path.
-    - name: Remove any stale brew launcher
-      ansible.builtin.file:
-        path: "{{ homebrew_symlink }}"
-        state: absent
-      become: true
-
     - name: Install brew launcher into /usr/local/bin
       ansible.builtin.copy:
         content: |

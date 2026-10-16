@@ -9,15 +9,14 @@
 # and `conflicts=(libfprint libfprint-git ...)` (the AUR libfprint forks too), so fprintd's dependencies
 # stay satisfied and pacman removes the stock package in the same
 # transaction (--ask=4: conflicting packages are removed without a
-# prompt, which --noconfirm alone would answer "no" to). Because the
-# fork is installed into /usr like the official one, nothing needs
-# LD_LIBRARY_PATH any more: the fprintd.service drop-in and the
-# /usr/local copy the playbook used to install are removed.
+# prompt, which --noconfirm alone would answer "no" to). The fork is
+# installed into /usr like the official one, so nothing needs
+# LD_LIBRARY_PATH.
 #
 # The package is called libfprint-git so that Omarchy's
 # omarchy-setup-security-fingerprint, which tests `pacman -Q libfprint-git`,
 # finds it installed and leaves it alone (epoch 2 outranks the omarchy
-# repo's libfprint-git). It replaces the old libfprint-goodix538d name.
+# repo's libfprint-git).
 #
 # Rebuilds only when the installed libfprint-git doesn't match
 # the version derived from libfprint_ref. A later `pacman -Syu` never
@@ -100,19 +99,6 @@
     - name: Host configuration (privileged)
       become: true
       block:
-        - name: Remove the legacy /usr/local install and fprintd.service drop-in
-          # Left over from when the fork was built in a distrobox and
-          # copied to /usr/local; the /etc udev rule copy would shadow
-          # the package's own in /usr/lib/udev/rules.d.
-          ansible.builtin.file:
-            path: "{{ item }}"
-            state: absent
-          loop: "{{ libfprint_legacy_paths }}"
-          notify:
-            - reload systemd
-            - reload udev rules
-            - restart fprintd
-
         - name: "Install udev rule — disable USB autosuspend for the reader ({{ libfprint_goodix_usb_vendor_id }}:{{ libfprint_goodix_usb_product_id }})"
           ansible.builtin.template:
             src: 71-goodix-no-autosuspend.rules.j2

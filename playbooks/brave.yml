@@ -1,27 +1,11 @@
 ---
 # Installs Brave from Flathub (com.brave.Browser) — a stock,
-# Brave-maintained build available on any distro — replacing the AUR
-# brave-origin-bin package (a de-Googled fork this repo previously had
-# to track manually, driving playbooks/brave-pwa-webapps.yml, removed).
+# Brave-maintained build available on any distro.
 #
 # Bootstraps Flatpak + the Flathub remote itself (same tasks as
 # playbooks/flatpak.yml, system-wide) so `just brave` keeps working
 # standalone, with no ordering dependency on that playbook — same
 # approach as playbooks/firefox.yml.
-#
-# Uninstalls brave-origin-bin and its leftover WebAppInstallForceList
-# policy (/etc/brave/policies/managed/omarchy-setup-webapps.json,
-# written by the now-removed playbooks/brave-pwa-webapps.yml). Doesn't
-# touch ~/.config/BraveSoftware/Brave-Origin (392MB+ of real profile
-# data as of 2026-09-25) — that's left in place in case anything still
-# needs it. Brave containers and PWAs that pointed at brave-origin had
-# to be recreated by hand in the new Flathub profile (done manually,
-# 2026-09-25) — not tracked by this repo, same as the Firefox Taskbar
-# Tabs web apps playbooks/brave-pwa-webapps.yml itself replaced.
-# Hyprland keybinds left over from that playbook (bindings.lua, marker
-# "playbooks/brave-pwa-webapps.yml — ... keybinding") now point at the
-# launcher names removed below — rebind those by hand too, same
-# precedent (see the Firefox Taskbar Tabs commit).
 #
 # The second play below fixes up the .desktop files the Flathub Brave
 # PWA installer itself writes (see
@@ -58,24 +42,11 @@
         method: system
       become: true
 
-    - name: Remove the AUR brave-origin-bin package, if present
-      community.general.pacman:
-        name: brave-origin-bin
-        state: absent
-      become: true
-
-    - name: Remove the leftover Brave web app force-install policy
-      ansible.builtin.file:
-        path: /etc/brave/policies/managed/omarchy-setup-webapps.json
-        state: absent
-      become: true
-
     # Omarchy's native web apps (YouTube, WhatsApp, Google Maps, ...,
     # ~/.local/share/applications/<Name>.desktop) are deliberately left
     # alone: with Brave the default browser they run through
     # omarchy-launch-webapp on the Flathub build (see
-    # playbooks/default-browser.yml). Older versions of this play
-    # deleted them in favour of the Brave PWAs below.
+    # playbooks/default-browser.yml).
 
 # Brave's Flatpak PWA installer ("flextop") writes .desktop files that
 # violate the freedesktop.org spec, are missing StartupNotify, have the

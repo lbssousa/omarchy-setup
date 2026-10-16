@@ -3,7 +3,7 @@
 # single one with --tags <tag>, or skip one with --skip-tags <tag>.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml
-- name: polkitd ExpirationSeconds + legacy sudoers drop-in cleanup
+- name: polkitd ExpirationSeconds
   ansible.builtin.import_playbook: playbooks/polkit.yml
   tags: [polkit]
 

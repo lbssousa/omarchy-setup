@@ -1,8 +1,8 @@
 ---
 # Installs Firefox from Flathub (org.mozilla.firefox) rather than
 # pacman: the Flathub build bundles every locale itself, so no separate
-# firefox-i18n-<locale> package is needed (see playbooks/ptbr.yml,
-# which used to install one) — and enables "tab apps" (Taskbar Tabs —
+# firefox-i18n-<locale> package is needed (see playbooks/ptbr.yml) — and
+# enables "tab apps" (Taskbar Tabs —
 # pin a site to the taskbar as an app-like window), off by default on
 # Linux even though it's already stable and on by default on Windows.
 #
@@ -21,8 +21,7 @@
 # org.mozilla.firefox.systemconfig extension directory instead (mounted
 # at /app/etc/firefox/defaults/pref inside the sandbox) rather than the
 # plain /usr/lib/firefox/browser/defaults/preferences path a
-# pacman-installed Firefox would use — the leftovers of an earlier
-# native install are removed at the end for the same reason.
+# pacman-installed Firefox would use.
 #
 # Runs before playbooks/ptbr.yml (see site.yml) so that Firefox is
 # already installed by the time the pt-BR RequestedLocale step checks
@@ -99,22 +98,4 @@
           pref("font.size.variable.x-western", {{ firefox_default_font_size_px }});
         dest: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}/{{ firefox_flatpak_arch }}/{{ firefox_flatpak_branch }}/defaults/pref/omarchy-setup-font.js"
         mode: "0644"
-      become: true
-
-    - name: Remove the leftover pacman Firefox install, if present
-      community.general.pacman:
-        name: firefox
-        state: absent
-      become: true
-
-    - name: Remove the leftover pacman Firefox pref files, if any
-      # Both native defaults/preferences files this play used to write
-      # while Firefox came from pacman — the Flatpak never reads either,
-      # and the second one is only left over from that era.
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /usr/lib/firefox/browser/defaults/preferences/omarchy-setup.js
-        - /usr/lib/firefox/browser/defaults/preferences/omarchy-setup-font.js
       become: true

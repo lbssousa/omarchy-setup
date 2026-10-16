@@ -19,10 +19,9 @@
 # files. fish reads ~/.config/fish/ first, so your own function,
 # completion or conf.d file of the same name wins, config.fish (which
 # runs after conf.d) can override any setting, and the play never writes
-# to ~/.config/fish (it only removes what earlier versions of it put
-# there). The ports keep what the bash code means to do: where it has an
-# obvious bug (tdl focusing a pane it never set), the fish file says so
-# and does the intended thing. fish's "Welcome to fish" banner is turned
+# to ~/.config/fish. The ports keep what the bash code means to do: where
+# it has an obvious bug (tdl focusing a pane it never set), the fish file
+# says so and does the intended thing. fish's "Welcome to fish" banner is turned
 # off, since bash shows none.
 #
 # On top of Omarchy's defaults, fzf.fish (PatrickF1, pinned release) adds
@@ -57,7 +56,6 @@
   vars:
     fish_starship_config: "{{ ansible_facts.env.HOME }}/.config/starship.toml"
     fish_starship_seed: /usr/share/omarchy/config/starship.toml
-    fish_config: "{{ ansible_facts.env.HOME }}/.config/fish/config.fish"
     fish_vendor_dir: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.env.HOME ~ '/.local/share', true) }}/fish"
     fzf_fish_repo: https://github.com/PatrickF1/fzf.fish
     fzf_fish_version: v11.0
@@ -140,33 +138,6 @@
          + lookup('ansible.builtin.fileglob', 'fish/completions/*.fish', wantlist=True)
          + lookup('ansible.builtin.fileglob', 'fish/conf.d/*.fish', wantlist=True))
         | map('basename') | list
-
-    # Earlier versions of this play wrote a block into config.fish and
-    # copied the functions into ~/.config/fish/; both would now shadow
-    # the vendor files. Only files carrying this play's header go.
-    - name: Remove the Omarchy-defaults block an earlier version put in config.fish
-      ansible.builtin.blockinfile:
-        path: "{{ fish_config }}"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/fish.yml — Omarchy defaults for Fish)"
-        state: absent
-
-    - name: Find copies an earlier version put in ~/.config/fish
-      ansible.builtin.find:
-        paths:
-          - "{{ ansible_facts.env.HOME }}/.config/fish/functions"
-          - "{{ ansible_facts.env.HOME }}/.config/fish/completions"
-        patterns: "*.fish"
-        contains: "^# Managed by omarchy-setup \\(playbooks/fish\\.yml\\)"
-        read_whole_file: true
-      register: fish_old_copies
-
-    - name: Remove copies an earlier version put in ~/.config/fish
-      ansible.builtin.file:
-        path: "{{ item.path }}"
-        state: absent
-      loop: "{{ fish_old_copies.files }}"
-      loop_control:
-        label: "{{ item.path }}"
 
     # fzf.fish (PatrickF1): Ctrl+Alt+F directories, Ctrl+Alt+L git log,
     # Ctrl+Alt+S git status, Ctrl+R history with preview, Ctrl+Alt+P

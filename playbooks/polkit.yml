@@ -2,34 +2,12 @@
 # Polkit side of privilege escalation. This repo escalates with run0
 # (ansible.cfg's become_method), which authenticates through polkit.
 #
-# 1. Raises polkitd's authentication cache window (ExpirationSeconds,
-#    default 300s), so polkit-based desktop tools (pkexec and friends)
-#    don't re-prompt every few minutes. It doesn't help run0: checked on
-#    this machine, polkit doesn't carry a run0 authorization over to the
-#    next run0 process, which is why playbooks run under run-empowered.sh.
-#
-# 2. Removes the /etc/sudoers.d drop-in that an earlier version of this
-#    repo installed (playbooks/sudo.yml, now gone) to shorten sudo's
-#    passwd_timeout: back when `become` used sudo, it kept an unattended
-#    terminal from hanging on the fingerprint prompt. run0 never reads
-#    sudoers, so the file does nothing now.
-#
-# 3. Disables the systemd --user OpenSSH agent (ssh-agent.socket +
-#    ssh-agent.service) if a past `just setup` run enabled it, and
-#    removes the SSH_AUTH_SOCK export that came with it
-#    (~/.config/environment.d/20-ssh-agent.conf). It used to be enabled
-#    unconditionally: its only consumer, KeePassXC, was still imported
-#    by site.yml back then (playbooks/keepassxc.yml is optional now,
-#    not imported — see the README). Leaving the environment.d file
-#    behind isn't just inert: environment.d files are read in
-#    lexicographic order with later files winning, and
-#    "20-ssh-agent.conf" sorts after playbooks/proton-pass.yml's own
-#    "20-proton-pass-ssh-agent.conf", so it silently overrides
-#    SSH_AUTH_SOCK back to the disabled OpenSSH agent's (nonexistent)
-#    socket on every login. `just ssh-agent` re-enables the agent and
-#    recreates the file on demand; playbooks/keepassxc.yml leaves it alone
-#    (keepassxc_ssh_agent_enabled is false by default).
-- name: polkitd ExpirationSeconds + legacy cleanup (sudoers drop-in, OpenSSH agent)
+# Raises polkitd's authentication cache window (ExpirationSeconds,
+# default 300s), so polkit-based desktop tools (pkexec and friends) don't
+# re-prompt every few minutes. It doesn't help run0: checked on this
+# machine, polkit doesn't carry a run0 authorization over to the next run0
+# process, which is why playbooks run under run-empowered.sh.
+- name: polkitd ExpirationSeconds
   hosts: localhost
   connection: local
   gather_facts: false
@@ -46,25 +24,6 @@
         mode: "0644"
       become: true
       notify: reload polkit
-
-    - name: Remove the legacy sudo passwd_timeout drop-in
-      ansible.builtin.file:
-        path: /etc/sudoers.d/omarchy-setup-passwd-timeout
-        state: absent
-      become: true
-
-    - name: "Disable the OpenSSH agent (off by default — see playbooks/keepassxc.yml)"
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        scope: user
-        enabled: false
-        state: stopped
-      loop: "{{ ssh_agent_units }}"
-
-    - name: Remove the OpenSSH agent's stale SSH_AUTH_SOCK export
-      ansible.builtin.file:
-        path: "{{ lookup('env', 'HOME') }}/.config/environment.d/20-ssh-agent.conf"
-        state: absent
 
   handlers:
     - name: reload polkit

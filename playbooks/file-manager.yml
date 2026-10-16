@@ -1,0 +1,51 @@
+---
+# Installs Flea (fast, keyboard-first file manager for Omarchy) and makes
+# it the default handler for directories, instead of Nautilus.
+#
+# Flea comes from Omarchy's own package repo (`pacman -Si flea`), with an
+# AUR build of the same name behind it; pacman picks the repo one.
+# Nautilus stays installed: the GTK4 file chooser portal
+# (playbooks/file-chooser.yml) and sushi depend on it.
+#
+# The mapping goes in the user's ~/.config/mimeapps.list, not
+# /usr/share/applications/mimeapps.list, which omarchy-settings owns and
+# a package update would revert (same reasoning as pdf-viewer.yml).
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags file-manager
+- name: File manager (Flea default)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Install Flea
+      community.general.pacman:
+        name: "{{ file_manager_package }}"
+        state: present
+      become: true
+
+    - name: Look for Flea's installed desktop entry
+      ansible.builtin.stat:
+        path: "/usr/share/applications/{{ file_manager_desktop_id }}"
+      register: file_manager_installed_entry
+
+    - name: Expect the package to still ship the desktop id the default points at
+      ansible.builtin.assert:
+        that: file_manager_installed_entry.stat.exists
+        fail_msg: >-
+          /usr/share/applications/{{ file_manager_desktop_id }} is
+          missing, so {{ file_manager_mimeapps_path }} would point at
+          nothing and opening a folder would fall back to another file
+          manager. Fix file_manager_desktop_id in group_vars/all/main.yml
+          to the package's new id.
+        quiet: true
+
+    - name: "Set Flea as the default file manager ({{ file_manager_mimeapps_path }})"
+      community.general.ini_file:
+        path: "{{ file_manager_mimeapps_path }}"
+        section: Default Applications
+        option: inode/directory
+        value: "{{ file_manager_desktop_id }}"
+        no_extra_spaces: true
+        create: true
+        mode: "0644"

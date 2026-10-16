@@ -61,6 +61,10 @@
   ansible.builtin.import_playbook: playbooks/pdf-viewer.yml
   tags: [pdf-viewer]
 
+- name: File manager (Flea default)
+  ansible.builtin.import_playbook: playbooks/file-manager.yml
+  tags: [file-manager]
+
 - name: GTK4 file chooser dialogs for non-GNOME apps
   ansible.builtin.import_playbook: playbooks/file-chooser.yml
   tags: [file-chooser]

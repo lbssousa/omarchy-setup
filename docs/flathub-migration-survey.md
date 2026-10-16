@@ -99,7 +99,7 @@ each exports `<app-id>.desktop`). The play asserts that at run time and
 stops if it ever stops holding. The swap also *fixes* a latent bug —
 see the window-rule note in the play's header.
 
-Zathura is the same story with one trap this doc got wrong at first:
+Zathura was moved to Flathub with one trap this doc got wrong at first (it has since gone back to the Arch packages; `playbooks/pdf-viewer.yml` is native again):
 sharing a desktop id is necessary but nowhere near sufficient when the
 play *also* writes the app's config. Inside a Flatpak, `XDG_CONFIG_HOME`
 is `~/.var/app/<app-id>/config` and `~/.config` isn't visible at all, so

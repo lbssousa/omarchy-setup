@@ -47,10 +47,8 @@
 # addition, and its Dev Containers need the Podman socket passed into
 # the sandbox first (undecided — survey item 3). Zathura and Papers
 # are installed by playbooks/pdf-viewer.yml, so a swap has to happen
-# there rather than here — Zathura has since been moved to Flathub
-# (same desktop id, so pdf_viewer_mimeapps_path stayed untouched; see
-# that play's header, which also covers the config-path trap this kind
-# of swap runs into). Papers is still native.
+# there rather than here — Zathura was briefly on Flathub there but is
+# back on the Arch packages (see that play's header). Papers is native.
 #
 # Bootstraps Flatpak + the Flathub remote itself (system-wide), the
 # same tasks as playbooks/firefox.yml, so `just flathub-apps` keeps

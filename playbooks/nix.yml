@@ -280,3 +280,56 @@
           end
         dest: "{{ direnv_fish_conf }}"
         mode: "0644"
+
+# nix-direnv (https://github.com/nix-community/nix-direnv) — replaces
+# direnv's built-in `use flake` / `use nix` with versions that cache the
+# evaluated dev shell (under the project's .direnv/) and register it as a
+# GC root. Without it, every cd into the project re-evaluates the flake,
+# and `nix-collect-garbage` deletes the shell's dependencies, so the next
+# cd downloads or rebuilds them.
+#
+# Neither Arch nor the AUR packages it, so it's installed into the user's
+# Nix profile, and ~/.config/direnv/direnvrc sources its direnvrc — the
+# setup upstream documents for non-NixOS systems. The source line is
+# guarded, so removing the profile entry falls back to direnv's own
+# `use flake` instead of breaking every .envrc. Installed only when the
+# profile doesn't have it yet; updates are `nix profile upgrade
+# nix-direnv`.
+#
+# Needs both plays above, which the file's `nix` tag runs first.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags nix
+- name: nix-direnv (cached `use flake` for direnv)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [nix-direnv]
+
+  tasks:
+    - name: List the user's Nix profile
+      ansible.builtin.command:
+        cmd: nix profile list --json
+      register: nix_direnv_profile
+      changed_when: false
+
+    - name: Install nix-direnv into the user's Nix profile
+      ansible.builtin.command:
+        cmd: nix profile add {{ nix_direnv_installable }}
+      when: nix_direnv_profile_name not in (nix_direnv_profile.stdout | from_json).elements
+
+    - name: Create ~/.config/direnv
+      ansible.builtin.file:
+        path: "{{ direnv_rc | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Load nix-direnv from ~/.config/direnv/direnvrc
+      ansible.builtin.blockinfile:
+        path: "{{ direnv_rc }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/nix.yml — nix-direnv)"
+        block: |
+          if [[ -f "{{ nix_direnv_rc }}" ]]; then
+            source "{{ nix_direnv_rc }}"
+          fi
+        create: true
+        mode: "0644"

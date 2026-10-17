@@ -212,7 +212,7 @@ flatpak: _ensure-collections
 
 # Install Nix (Arch package, multi-user daemon) with the store on its own
 # btrfs subvolume, flakes enabled, and its profiles on the session PATH.
-# Also runs the direnv play below.
+# Also runs the direnv and nix-direnv plays.
 nix: _ensure-collections
     {{ap}} site.yml --tags nix
 

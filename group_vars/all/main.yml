@@ -1053,6 +1053,15 @@ direnv_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
 # Omarchy's ported setup — ~/.config/fish stays the user's own.
 direnv_fish_conf: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.env.HOME ~ '/.local/share', true) }}/fish/vendor_conf.d/direnv.fish"
 
+# nix-direnv (playbooks/nix.yml, tag nix-direnv) — a faster, caching
+# `use flake`/`use nix` for direnv. Neither Arch nor the AUR packages
+# it, so it goes in the user's Nix profile, as upstream documents for
+# non-NixOS systems; `nix profile upgrade nix-direnv` updates it.
+nix_direnv_installable: nixpkgs#nix-direnv
+nix_direnv_profile_name: nix-direnv
+nix_direnv_rc: "{{ nix_user_profile }}/share/nix-direnv/direnvrc"
+direnv_rc: "{{ ansible_facts.env.XDG_CONFIG_HOME | default(ansible_facts.env.HOME ~ '/.config', true) }}/direnv/direnvrc"
+
 # Visual Studio Code (playbooks/snap.yml) — Microsoft's official snap
 # (classic confinement), so depends on snapd above.
 vscode_snap_name: code

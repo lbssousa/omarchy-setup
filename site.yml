@@ -87,8 +87,9 @@
   ansible.builtin.import_playbook: playbooks/flatpak.yml
   tags: [flatpak]
 
-# Plays: Nix (tag nix), direnv with bash + fish hooks (tag direnv; the
-# nix tag runs it too).
+# Plays: Nix (tag nix), direnv with bash + fish hooks (tag direnv),
+# nix-direnv for cached `use flake` (tag nix-direnv). The nix tag runs
+# all three.
 - name: Nix + direnv
   ansible.builtin.import_playbook: playbooks/nix.yml
   tags: [nix]

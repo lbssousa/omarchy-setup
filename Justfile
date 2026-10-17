@@ -210,6 +210,16 @@ distrobox: _ensure-collections
 flatpak: _ensure-collections
     {{ap}} site.yml --tags flatpak
 
+# Install Nix (Arch package, multi-user daemon) with the store on its own
+# btrfs subvolume, flakes enabled, and its profiles on the session PATH.
+# Also runs the direnv play below.
+nix: _ensure-collections
+    {{ap}} site.yml --tags nix
+
+# Install direnv and hook it into bash (~/.bashrc) and fish (vendor_conf.d).
+direnv: _ensure-collections
+    {{ap}} site.yml --tags direnv
+
 # Install Homebrew for Linux and a brew launcher in /usr/local/bin.
 # Not part of `just setup` — run explicitly (`playbooks/homebrew.yml` is
 # not imported by site.yml).

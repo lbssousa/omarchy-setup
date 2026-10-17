@@ -1,0 +1,4 @@
+PATH=${PATH}:{{ nix_user_profile }}/bin:{{ nix_default_profile }}/bin
+XDG_DATA_DIRS=${XDG_DATA_DIRS:-/usr/local/share:/usr/share}:{{ nix_user_profile }}/share:{{ nix_default_profile }}/share
+NIX_PROFILES={{ nix_default_profile }} {{ nix_user_profile }}
+NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt

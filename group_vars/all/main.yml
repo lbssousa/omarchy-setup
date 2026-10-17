@@ -1013,6 +1013,46 @@ snapd_bin_dir: "{{ snapd_mount_dir }}/bin"
 snapd_desktop_dir: /var/lib/snapd/desktop
 snapd_env_file: 41-snapd.conf
 
+# Nix (playbooks/nix.yml) — the Arch `nix` package in multi-user mode
+# (nix-daemon, socket-activated), with the store on its own btrfs
+# subvolume so snapper's root snapshots leave it out.
+nix_package: nix
+nix_daemon_socket_unit: nix-daemon.socket
+nix_conf_path: /etc/nix/nix.conf
+# Top-level subvolume mounted at /nix, next to Omarchy's own @, @home,
+# @log and @pkg. Mount options are copied from the / entry in /etc/fstab
+# with only subvol= changed (see the play).
+nix_btrfs_subvolume: "@nix"
+nix_mountpoint: /nix
+# Where the play mounts the btrfs top level (subvolid=5) for the moment
+# it takes to create the subvolume.
+nix_btrfs_toplevel_mount: /run/omarchy-setup-btrfs-toplevel
+# Settings written to nix_conf_path, one `key = value` line each.
+# - experimental-features: `nix profile`, `nix shell nixpkgs#foo`, flakes.
+# - nix-path: nixpkgs resolved through the flake registry, so
+#   `nix-shell -p foo` and `<nixpkgs>` work without `nix-channel --add`.
+nix_conf_settings:
+  experimental-features: nix-command flakes
+  nix-path: nixpkgs=flake:nixpkgs
+# The per-user profile `nix profile install` writes to (the legacy
+# location, which is still the default unless use-xdg-base-directories
+# is set) and the system-wide default profile.
+nix_user_profile: "{{ ansible_facts.env.HOME }}/.nix-profile"
+nix_default_profile: /nix/var/nix/profiles/default
+# Deployed to ~/.config/environment.d: the package's
+# /etc/profile.d/nix-daemon.sh only reaches login shells (and fish reads
+# neither it nor the .fish variant there), so the graphical session, and
+# everything started from it, gets the same variables from here.
+nix_env_file: 43-nix.conf
+
+# direnv (playbooks/nix.yml, tag direnv) — loads/unloads a directory's
+# .envrc (e.g. `use flake`) on cd, hooked into bash and fish.
+direnv_package: direnv
+direnv_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
+# fish's per-user vendor conf dir, same place playbooks/fish.yml puts
+# Omarchy's ported setup — ~/.config/fish stays the user's own.
+direnv_fish_conf: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.env.HOME ~ '/.local/share', true) }}/fish/vendor_conf.d/direnv.fish"
+
 # Visual Studio Code (playbooks/snap.yml) — Microsoft's official snap
 # (classic confinement), so depends on snapd above.
 vscode_snap_name: code

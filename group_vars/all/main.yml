@@ -385,25 +385,55 @@ file_manager_package: flea
 file_manager_desktop_id: com.thisisgm.flea.desktop
 file_manager_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
 
-# PDF viewer (playbooks/pdf-viewer.yml) — Zathura (Arch packages)
-# becomes the default PDF viewer; Papers is installed as an extra,
-# non-default viewer; Evince is kept installed (Nautilus's sushi
-# previewer depends on it).
+# PDF viewer (playbooks/pdf-viewer.yml) — Zathura becomes the default
+# PDF viewer, installed from Flathub rather than Arch; Papers is
+# installed as an extra, non-default viewer; Evince is kept installed
+# (Nautilus's sushi previewer depends on it).
 pdf_viewer_papers_package: papers
-# The viewer plus its MuPDF backend plugin — Zathura ships no backend of
-# its own.
+pdf_viewer_zathura_flatpak_id: org.pwmt.zathura
+# The Arch packages this replaces: the viewer, plus a backend plugin —
+# Zathura ships no backend of its own, and the Arch build needed the
+# MuPDF one (the Flatpak bundles zathura-pdf-poppler instead, so the
+# engine changes but not the version — same 2026.07.18 upstream).
+# Nothing depends on either, so removing them can't cascade.
 pdf_viewer_zathura_native_packages:
   - zathura
   - zathura-pdf-mupdf
+# Same in both builds, which is what lets the mimeapps.list default below
+# survive the swap untouched (neither side overrides `desktop-file-name`).
 pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
 pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
+
+# User-level copy of the Flatpak's exported desktop entry, same id, so it
+# shadows the export (~/.local/share comes first in XDG_DATA_DIRS). Its
+# Exec swaps the export's `@@u %U @@` for `@@ %F @@` — see the play's
+# header for why `xdg-open relative.pdf` opens an empty Zathura without it.
+pdf_viewer_zathura_user_desktop_path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ pdf_viewer_zathura_desktop_id }}"
+
+# Paths to hand the Zathura Flatpak on top of the two its manifest
+# already grants (xdg-documents, xdg-download), as a list of absolute
+# paths. A PDF outside every granted path still opens — flatpak hands it
+# over through the document portal — but the portal never reports
+# changes to the file, so Zathura stops auto-reloading it (rebuilt LaTeX
+# output stays stale on screen). Hence ~/Projetos, where this desktop's
+# typeset PDFs live; add e.g. "/run/media/{{ ansible_facts.env.USER }}"
+# for removable drives.
+pdf_viewer_zathura_extra_paths:
+  - "{{ ansible_facts.env.HOME }}/Projetos"
 
 # Zathura's statusbar/inputbar/notification font (playbooks/pdf-viewer.yml).
 # Zathura has a single `font` option covering all three; there's no
 # statusbar-only setting. Reuses omarchy_system_ui_font_pt so it matches
 # the rest of the desktop instead of Zathura's own default ("monospace
 # normal 9").
-pdf_viewer_zathurarc_path: "{{ ansible_facts.env.HOME }}/.config/zathura/zathurarc"
+#
+# The path is the Flatpak's per-app config dir, NOT ~/.config/zathura:
+# inside the sandbox XDG_CONFIG_HOME is redirected to
+# ~/.var/app/<app-id>/config, and ~/.config isn't visible at all. A
+# zathurarc written to the usual place would sit there looking correct
+# while Zathura silently used its own defaults — verify with
+# `flatpak run --command=sh --system org.pwmt.zathura -c 'cat "$XDG_CONFIG_HOME/zathura/zathurarc"'`
+pdf_viewer_zathurarc_path: "{{ ansible_facts.env.HOME }}/.var/app/{{ pdf_viewer_zathura_flatpak_id }}/config/zathura/zathurarc"
 pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
 
 # GTK4 file chooser dialogs (playbooks/file-chooser.yml) — the GTK4/

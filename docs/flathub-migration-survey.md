@@ -99,14 +99,14 @@ each exports `<app-id>.desktop`). The play asserts that at run time and
 stops if it ever stops holding. The swap also *fixes* a latent bug —
 see the window-rule note in the play's header.
 
-Zathura was moved to Flathub with one trap this doc got wrong at first (it has since gone back to the Arch packages; `playbooks/pdf-viewer.yml` is native again):
+Zathura is the same story with one trap this doc got wrong at first:
 sharing a desktop id is necessary but nowhere near sufficient when the
 play *also* writes the app's config. Inside a Flatpak, `XDG_CONFIG_HOME`
 is `~/.var/app/<app-id>/config` and `~/.config` isn't visible at all, so
 the statusbar font this repo has always written to `~/.config/zathura`
 kept "working" — the file was rewritten on every run, and Zathura never
-read it. The play now writes where Zathura looks and deletes the old
-file. Worth checking on any future swap that touches an app's config,
+read it. The play now writes where Zathura looks. Worth checking on
+any future swap that touches an app's config,
 which is why it's called out here rather than left in the play.
 
 ## Candidates: Flathub has it, nothing load-bearing breaks
@@ -117,7 +117,7 @@ migrated" above.
 
 | # | Native | Flathub id | Notes |
 |---|---|---|---|
-| 1 | Zathura 2026.07.18 | `org.pwmt.zathura` | `pdf_viewer_zathura_desktop_id` is `org.pwmt.zathura.desktop` — **identical for native and Flatpak**, so the `mimeapps.list` default in `playbooks/pdf-viewer.yml` survives untouched. **Not** an Omarchy default though: `playbooks/pdf-viewer.yml` installs it, so the swap belongs in that play (moving it to `flathub-apps.yml` would make the two reinstall each other). **Done.** Two things the swap costs: the Flathub build bundles **zathura-pdf-poppler**, not Arch's `zathura-pdf-mupdf` (same upstream version, different engine — and it also carries djvu + ps backends the Arch pair didn't), and the sandbox only grants `~/Documents` + `~/Downloads`. It also fixes the launcher, which had been showing "Zathura" twice — `zathura-pdf-mupdf` ships a second, unhidden copy of the same desktop entry. See the play's header for the config-path trap, which is the one genuinely surprising part. |
+| 1 | Zathura 2026.07.18 | `org.pwmt.zathura` | `pdf_viewer_zathura_desktop_id` is `org.pwmt.zathura.desktop` — **identical for native and Flatpak**, so the `mimeapps.list` default in `playbooks/pdf-viewer.yml` survives untouched. **Not** an Omarchy default though: `playbooks/pdf-viewer.yml` installs it, so the swap belongs in that play (moving it to `flathub-apps.yml` would make the two reinstall each other). **Done.** Two things the swap costs: the Flathub build bundles **zathura-pdf-poppler**, not Arch's `zathura-pdf-mupdf` (same upstream version, different engine — and it also carries djvu + ps backends the Arch pair didn't), and the sandbox only grants `~/Documents` + `~/Downloads` (the play adds `pdf_viewer_zathura_extra_paths`: PDFs outside every grant go through the document portal, which never notifies Zathura of changes, so they stop auto-reloading). It also fixes the launcher, which had been showing "Zathura" twice — `zathura-pdf-mupdf` ships a second, unhidden copy of the same desktop entry. See the play's header for the config-path trap, which is the one genuinely surprising part. |
 | 2 | Kdenlive 26.08.0 | `org.kde.kdenlive` | Window class is already in Omarchy's no-opacity rules (`system.lua:41`), so the Flatpak's class match is unchanged. Flatpak tracks upstream faster than `extra`. **Done.** |
 | 3 | OBS Studio 32.2.2 | `com.obsproject.Studio` | Also already in `system.lua:41`. **Not** part of Omarchy's capture pipeline — that's `gpu-screen-recorder` (`omarchy-menu.jsonc:55`, `ScreenRecording.qml:18`), which stays native. The Flatpak needs the `org.freedesktop.portal.Desktop` ScreenCast portal, already present via `xdg-desktop-portal-hyprland`. **Done.** |
 | 4 | Pinta 3.1.2 | `com.github.PintaProject.Pinta` | Same app, same window class (already in `system.lua:41`). Trivial swap. **Done.** |

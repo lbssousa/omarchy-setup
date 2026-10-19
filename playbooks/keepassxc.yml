@@ -53,26 +53,22 @@
 # KeePassXC — open-source password manager with browser integration,
 # SSH agent support and system tray integration.
 #
-# Installs KeePassXC from Flathub. It leaves KeePassXC's own settings
-# untouched — no pre-seeded keepassxc.ini — so the app comes up with its stock defaults and the user configures
-# it in-app. The one thing set from outside is the UI font size (see
-# keepassxc_font_dpi in group_vars/all/main.yml). The browser native-messaging manifests, the YubiKey
-# auto-lock rule and the autostart entry (all below) are still deployed.
+# Installs the Arch package (extra/keepassxc) with Omarchy's package helper
+# (omarchy-pkg-add). It leaves KeePassXC's own settings untouched — no
+# pre-seeded keepassxc.ini — so the app comes up with its stock defaults
+# and the user configures it in-app. Its UI font comes from qt5ct
+# (playbooks/file-chooser.yml), like every other Qt5 app on the host. The
+# browser native-messaging manifests, the YubiKey auto-lock rule and the
+# autostart entry (all below) are still deployed.
 #
-# The Flatpak exports the desktop-entry id org.keepassxc.KeePassXC.desktop
-# (asserted at run time below, because an id change upstream would
-# silently drop KeePassXC out of Omarchy's launcher) and reports the
-# window class keepassxc (StartupWMClass), which is what the keybind at
-# the bottom and Omarchy's own rules key on. It bundles its own Qt, so
-# Omarchy's QT_QPA_PLATFORM=wayland;xcb just works with no host plugin to
-# install.
+# The package ships the desktop-entry id org.keepassxc.KeePassXC.desktop
+# and reports the window class keepassxc (StartupWMClass), which is what
+# the keybind at the bottom and Omarchy's own rules key on.
 #
 # KeePassXC only writes its XDG autostart entry when the "Launch KeePassXC
 # at system startup" checkbox is saved in the settings dialog, so the
 # playbook deploys the same org.keepassxc.KeePassXC.desktop itself
 # (force: false — an entry the user or KeePassXC already wrote is kept).
-# It lands in ~/.config/autostart, a different directory from the Flatpak's
-# export, so the two don't compete under the same id.
 #
 # systemd's XDG autostart fires desktop entries before quickshell has
 # registered the system tray (org.kde.StatusNotifierWatcher) and before
@@ -81,69 +77,35 @@
 # light theme with no appindicator icon; a manual restart fixes both only
 # because the environment is ready by then. The autostart Exec therefore
 # runs a readiness wrapper that waits for the tray and the color-scheme,
-# then execs KeePassXC — via `flatpak run`, since the sandbox exports no
-# bare keepassxc on the host PATH.
+# then execs KeePassXC.
 #
 # The native messaging host manifests are deployed by this playbook to
-# the Firefox/Chromium/Brave/Brave-Origin locations; the user still
-# needs to install the KeePassXC-Browser extension in each browser and
-# connect it. The manifests point at the Flatpak's exported wrapper
-# (keepassxc_proxy_path), which is what dispatches to keepassxc-proxy.
+# the Chromium and Brave Origin locations, pointing at the package's own
+# keepassxc-proxy; the user still needs to install the KeePassXC-Browser
+# extension in each browser and connect it.
 #
 # A udev rule locks every open database as soon as the YubiKey is
 # unplugged (matched on USB PRODUCT, since the reader is removable and
 # ID_VENDOR_ID/ID_MODEL_ID aren't reliably available on "remove" events).
 # Ported from lbssousa/nix-config's
-# modules/system/security/keepassxc-yubikey-lock.nix. Works with the
-# Flatpak: a sandboxed app's owned bus names are proxied onto the host's
-# session bus, so org.keepassxc.KeePassXC.MainWindow resolves.
+# modules/system/security/keepassxc-yubikey-lock.nix.
 - name: KeePassXC (password manager with browser + SSH agent integration)
   hosts: localhost
   connection: local
   gather_facts: true
   tags: [keepassxc]
 
-  pre_tasks:
-    - name: Ensure Flatpak is installed
-      community.general.pacman:
-        name: "{{ flatpak_package }}"
-        state: present
-      become: true
-
-    - name: Ensure the Flathub remote is configured (system-wide)
-      community.general.flatpak_remote:
-        name: "{{ flatpak_flathub_remote }}"
-        state: present
-        method: system
-        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
-      become: true
-
   tasks:
-    - name: Install KeePassXC from Flathub
-      community.general.flatpak:
-        name: "{{ keepassxc_flatpak_id }}"
-        state: present
-        method: system
+    - name: Check whether KeePassXC is installed
+      ansible.builtin.command: pacman -Q {{ keepassxc_package }}
+      register: keepassxc_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install KeePassXC with Omarchy's package helper
+      ansible.builtin.command: omarchy-pkg-add {{ keepassxc_package }}
+      when: keepassxc_check.rc != 0
       become: true
-
-    # Not cosmetic: a desktop-id change upstream would drop KeePassXC out
-    # of Omarchy's launcher and out of any rule keyed on the id.
-    - name: Look for the Flatpak's exported desktop entry
-      ansible.builtin.stat:
-        path: "{{ flatpak_system_exports_dir }}/applications/{{ keepassxc_flatpak_id }}.desktop"
-      register: keepassxc_flatpak_entry
-
-    - name: Expect the Flatpak to still export the expected desktop id
-      ansible.builtin.assert:
-        that: keepassxc_flatpak_entry.stat.exists
-        fail_msg: >-
-          {{ keepassxc_flatpak_id }} did not export
-          {{ flatpak_system_exports_dir }}/applications/{{ keepassxc_flatpak_id }}.desktop.
-          Its desktop-entry id has changed upstream, so the app launcher and
-          every id-keyed rule (Hyprland window rules, mimeapps defaults,
-          the autostart entry deployed below) would stop matching it.
-          Re-derive those from the new id before re-running this play.
-        quiet: true
 
     - name: Create native messaging host directories
       ansible.builtin.file:
@@ -151,45 +113,25 @@
         state: directory
         mode: "0755"
       loop: "{{ keepassxc_browser_manifests }}"
+      loop_control:
+        label: "{{ item.name }}"
 
     - name: Deploy the browser integration native messaging host manifests
       ansible.builtin.template:
-        src: "{{ item.src }}"
+        src: keepassxc-browser-chromium.json.j2
         dest: "{{ item.dest }}"
         mode: "0644"
       vars:
-        keepassxc_browser_manifest_path: "{{ item.manifest_path | default(keepassxc_proxy_path) }}"
+        keepassxc_browser_manifest_path: "{{ keepassxc_proxy_path }}"
       loop: "{{ keepassxc_browser_manifests }}"
-
-    - name: Deploy the relay the Flatpak browsers run as their native messaging host
-      ansible.builtin.template:
-        src: "{{ item.relay_src }}"
-        dest: "{{ item.relay_dest }}"
-        mode: "0755"
-      loop: "{{ keepassxc_browser_manifests | selectattr('relay_src', 'defined') }}"
-
-    - name: Let the Flatpak browsers reach KeePassXC's browser socket
-      ansible.builtin.command:
-        argv:
-          - flatpak
-          - override
-          - --user
-          - "--filesystem=xdg-run/app/{{ keepassxc_flatpak_id }}"
-          - "{{ item }}"
-      loop: "{{ keepassxc_flatpak_browsers }}"
-      changed_when: false
+      loop_control:
+        label: "{{ item.name }}"
 
     - name: Deploy the KeePassXC autostart readiness wrapper
       ansible.builtin.template:
         src: keepassxc-autostart.sh.j2
         dest: "{{ keepassxc_autostart_wrapper }}"
         mode: "0700"
-
-    - name: Install keepassxc-cli on the PATH (wrapper around the Flatpak's)
-      ansible.builtin.template:
-        src: keepassxc-cli.sh.j2
-        dest: "{{ keepassxc_cli_wrapper }}"
-        mode: "0755"
 
     - name: Create the XDG autostart directory
       ansible.builtin.file:
@@ -206,47 +148,16 @@
 
     # force: false above deliberately keeps an entry KeePassXC wrote itself
     # (it only writes one once the "Launch at startup" checkbox has been
-    # saved, and it localizes the fields), so the three launcher-critical
-    # keys have to be re-pointed here — force: false means the template
-    # never got a chance to. TryExec in particular: an entry KeePassXC
-    # wrote says TryExec=keepassxc, and systemd drops a desktop entry whose
-    # TryExec doesn't resolve — there's no keepassxc binary on the host
-    # PATH with the Flatpak. Same for Icon, whose flatpak replacement is
-    # named after the app id.
+    # saved, and it localizes the fields), so its Exec has to be re-pointed
+    # here — force: false means the template never got a chance to.
     - name: Point the autostart entry at the readiness wrapper
       community.general.ini_file:
         path: "{{ keepassxc_autostart_desktop }}"
         section: Desktop Entry
-        option: "{{ item.option }}"
-        value: "{{ item.value }}"
-        mode: "0644"
-      loop:
-        - option: Exec
-          value: "{{ keepassxc_autostart_wrapper }}"
-        - option: TryExec
-          value: flatpak
-        - option: Icon
-          value: "{{ keepassxc_flatpak_id }}"
-      loop_control:
-        label: "{{ item.option }}"
-
-    # KeePassXC ignores the system UI font: inside the Flatpak it falls back
-    # to Qt's own default (a small ~9pt sans), and its GUI/FontSizeOffset
-    # setting changes nothing visible. The Qt5 font DPI is the knob that
-    # does — it scales every font-based size (text, menus, toolbar) without
-    # touching the icons — and it is set as a per-user Flatpak override,
-    # which is exactly what `flatpak override --user --env=...` writes, so
-    # it also covers the autostart entry and the launcher. Takes effect the
-    # next time KeePassXC starts.
-    - name: "Set the KeePassXC UI font size (QT_FONT_DPI={{ keepassxc_font_dpi }})"
-      community.general.ini_file:
-        path: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/overrides/{{ keepassxc_flatpak_id }}"
-        section: Environment
-        option: QT_FONT_DPI
-        value: "{{ keepassxc_font_dpi }}"
-        mode: "0644"
+        option: Exec
+        value: "{{ keepassxc_autostart_wrapper }}"
         no_extra_spaces: true
-        create: true
+        mode: "0644"
 
     - name: "Auto-lock KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }}) is unplugged"
       become: true
@@ -280,16 +191,16 @@
             force: false
             mode: "0644"
 
-        # Focus matches the window class (StartupWMClass=keepassxc). Unlike
-        # playbooks/bitwarden.yml's bind, this isn't the Flatpak's app id:
-        # KeePassXC's flatpak keeps the plain keepassxc class.
+        # Focus matches the window class: org.keepassxc.KeePassXC (Qt's
+        # Wayland app id, from the desktop file name) or keepassxc
+        # (StartupWMClass, under XWayland).
         - name: "Rebind {{ keepassxc_hypr_keybind }} from 1Password to KeePassXC"
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/keepassxc.yml — KeePassXC keybinding)"
             block: |
               hl.unbind("{{ keepassxc_hypr_keybind }}")
-              o.bind("{{ keepassxc_hypr_keybind }}", "KeePassXC", { launch = "flatpak run {{ keepassxc_flatpak_id }}", focus = "^KeePassXC$" })
+              o.bind("{{ keepassxc_hypr_keybind }}", "KeePassXC", { launch = "keepassxc", focus = "^(org\\.keepassxc\\.KeePassXC|keepassxc)$" })
           notify: reload Hyprland
 
   handlers:

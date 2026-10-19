@@ -1,67 +1,50 @@
 ---
-# Bitwarden desktop client — installed from Flathub. Bitwarden's own
-# docs recommend Flatpak (or Snap) over the native package for Linux:
-# both "fully support biometric unlock and automatic updates"
-# (https://bitwarden.com/help/biometrics/); optional alternative to
-# KeePassXC (playbooks/keepassxc.yml) and Proton Pass
-# (playbooks/proton-pass.yml) — like both of those, this playbook is
-# not imported by site.yml, so more than one password manager can be
-# installed side by side without any of them being "the default".
+# Bitwarden desktop client — the default password manager of this setup,
+# installed the way Omarchy's own menu does it (Install > Service >
+# Bitwarden: `omarchy-pkg-add bitwarden bitwarden-cli`, the Arch packages
+# from extra). KeePassXC (playbooks/keepassxc.yml) and Proton Pass
+# (playbooks/proton-pass.yml) stay available as opt-in alternatives,
+# outside site.yml.
 #
 # Wires SSH_AUTH_SOCK to the Bitwarden SSH agent's socket — a static
 # export via ~/.config/environment.d/ (reaches IDEs and other session
 # apps) plus a `.path` unit that reacts once Bitwarden actually creates
-# the socket (only happens after unlock). The socket lives under the
-# Flatpak's own sandboxed data dir
-# (~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock —
-# https://bitwarden.com/help/ssh-agent/, "Flatpak Installation"), not
-# the plain ~/.bitwarden-ssh-agent.sock a native install would use.
-# gcr-ssh-agent is masked so it doesn't compete for the same variable.
+# the socket (only happens after unlock). The native build puts it at
+# ~/.bitwarden-ssh-agent.sock (https://bitwarden.com/help/ssh-agent/).
+# gcr-ssh-agent is masked so it doesn't compete for the same
+# variable. Takes effect at the next login (or once the path unit fires).
 #
 # Installs the polkit action Bitwarden's biometric unlock needs to even
 # offer the option in its own settings — without it the toggle doesn't
-# appear at all. Flatpak's sandbox can't read the action files a native
-# install picks up automatically, so Bitwarden's docs have you drop this
-# file in manually (see bitwarden_polkit_action_dest in
-# group_vars/all/main.yml for exactly which of polkitd's several
-# scanned directories this uses and why).
+# appear at all, and the Arch package doesn't ship it (see
+# bitwarden_polkit_action_dest in group_vars/all/main.yml).
 #
-# Deploys an XDG autostart entry so Bitwarden launches at session login.
-# Bitwarden's own "Start automatically at login" checkbox relies on
-# Electron's app.setLoginItemSettings(), which Electron only implements on
-# Windows/macOS — on Linux it's a silent no-op, so the checkbox never
-# writes a working autostart entry (same root cause KeePassXC's own
-# checkbox has, hence keepassxc.yml deploying its entry manually too).
+# Starts Bitwarden with the session the Omarchy way, with
+# o.launch_on_start() in ~/.config/hypr/autostart.lua (the file Omarchy
+# reserves for extra startup processes). Bitwarden's own "Start
+# automatically at login" checkbox relies on Electron's
+# app.setLoginItemSettings(), which Electron only implements on
+# Windows/macOS — on Linux it's a silent no-op.
 #
-# Finally, rebinds Omarchy's default "Passwords" shortcut
-# (SUPER+SHIFT+SLASH, normally 1Password) to Bitwarden, since this setup
-# doesn't install 1Password.
-- name: Bitwarden (Flatpak) + SSH agent + polkit (biometric unlock)
+# Finally, makes Bitwarden the "Passwords" app: Omarchy binds
+# SUPER+SHIFT+SLASH to 1Password (omarchy-launch-1password, which offers
+# to install 1Password when it's missing), and this rebinds it to
+# Bitwarden, focusing the running window instead of opening a second one.
+- name: Bitwarden + SSH agent + polkit (biometric unlock)
   hosts: localhost
   connection: local
   gather_facts: true
 
-  pre_tasks:
-    - name: Check whether the Flathub remote is configured
-      ansible.builtin.command: flatpak remote-list
-      register: bitwarden_flatpak_check
+  tasks:
+    - name: Check whether Bitwarden is installed
+      ansible.builtin.command: pacman -Q {{ bitwarden_packages | join(' ') }}
+      register: bitwarden_check
       changed_when: false
       failed_when: false
 
-    - name: Fail with guidance if Flatpak/Flathub wasn't found
-      ansible.builtin.fail:
-        msg: >-
-          Flathub remote not found. Run `./run-empowered.sh
-          ansible-playbook site.yml --tags flatpak` (or `just flatpak`)
-          first.
-      when: "'flathub' not in bitwarden_flatpak_check.stdout"
-
-  tasks:
-    - name: Install Bitwarden from Flathub
-      community.general.flatpak:
-        name: "{{ bitwarden_flatpak_id }}"
-        state: present
-        method: system
+    - name: Install Bitwarden with Omarchy's package helper
+      ansible.builtin.command: omarchy-pkg-add {{ bitwarden_packages | join(' ') }}
+      when: bitwarden_check.rc != 0
       become: true
 
     - name: Bitwarden SSH agent — session-wide SSH_AUTH_SOCK
@@ -72,12 +55,11 @@
             state: directory
             mode: "0755"
 
-        - name: Set a static SSH_AUTH_SOCK for IDEs and session apps
+        - name: "Set a static SSH_AUTH_SOCK for IDEs and session apps ({{ bitwarden_ssh_agent_socket }})"
           ansible.builtin.copy:
             src: 20-bitwarden-ssh-agent.conf
             dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-bitwarden-ssh-agent.conf"
             mode: "0644"
-            force: false
 
         - name: Create ~/.config/systemd/user
           ansible.builtin.file:
@@ -90,7 +72,6 @@
             src: "{{ item }}"
             dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
             mode: "0644"
-            force: false
           loop: "{{ bitwarden_ssh_agent_units }}"
           notify: reload systemd --user
 
@@ -119,28 +100,33 @@
       become: true
       notify: restart polkit
 
-    - name: "Autostart Bitwarden at session login ({{ bitwarden_autostart_desktop }})"
-      block:
-        - name: Create ~/.config/autostart
-          ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/autostart"
-            state: directory
-            mode: "0755"
+    - name: Create ~/.config/hypr
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+        state: directory
+        mode: "0755"
 
-        - name: Deploy the Bitwarden XDG autostart entry
-          ansible.builtin.template:
-            src: bitwarden-autostart.desktop.j2
-            dest: "{{ bitwarden_autostart_desktop }}"
+    - name: Start Bitwarden with the session
+      block:
+        - name: Create ~/.config/hypr/autostart.lua from the Omarchy template, if missing
+          # /etc/skel, not /usr/share/omarchy/default/hypr/autostart.lua —
+          # see the same task in playbooks/desktop.yml.
+          ansible.builtin.copy:
+            src: /etc/skel/.config/hypr/autostart.lua
+            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
+            remote_src: true
+            force: false
             mode: "0644"
+
+        - name: Launch Bitwarden automatically with Hyprland
+          ansible.builtin.blockinfile:
+            path: "{{ ansible_facts.env.HOME }}/.config/hypr/autostart.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/bitwarden.yml — Bitwarden autostart)"
+            block: |
+              o.launch_on_start("{{ bitwarden_command }}")
 
     - name: "Bitwarden keybinding ({{ bitwarden_hypr_keybind }}, inherited from 1Password's default)"
       block:
-        - name: Create ~/.config/hypr
-          ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
-            state: directory
-            mode: "0755"
-
         - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
           ansible.builtin.copy:
             src: /usr/share/omarchy/default/hypr/bindings.lua
@@ -153,17 +139,9 @@
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/bitwarden.yml — Bitwarden keybinding)"
-            # The Electron app runs under XWayland (checked with
-            # `hyprctl clients` against a running instance — xwayland: 1),
-            # so its window class is the plain X11 WM_CLASS "bitwarden",
-            # not a Wayland xdg_toplevel.app_id derived from the flatpak
-            # id (unlike Proton Pass's own Flatpak in
-            # playbooks/proton-pass.yml, which is native Wayland and
-            # class "me.proton.Pass").
             block: |
               hl.unbind("{{ bitwarden_hypr_keybind }}")
-              o.bind("{{ bitwarden_hypr_keybind }}", "Bitwarden", { launch = "flatpak run {{ bitwarden_flatpak_id }}", focus = "^bitwarden$" })
-          register: bitwarden_hypr_binding
+              o.bind("{{ bitwarden_hypr_keybind }}", "Passwords", { launch = "{{ bitwarden_command }}", focus = "^{{ bitwarden_window_class }}$" })
           notify: reload Hyprland
 
   handlers:

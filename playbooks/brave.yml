@@ -1,140 +1,47 @@
 ---
-# Installs Brave from Flathub (com.brave.Browser) — a stock,
-# Brave-maintained build available on any distro.
+# Installs Brave Origin — Brave without Rewards, Wallet, VPN, Leo and
+# News — the way Omarchy's own menu does it (Install > Browser > Brave
+# Origin): `omarchy-install-browser brave-origin` installs the AUR
+# brave-origin-bin package with omarchy-pkg-aur-add, writes Omarchy's
+# Chromium flags to ~/.config/brave-origin-flags.conf, sets up the managed
+# browser policy in /etc/brave/policies/managed and syncs the theme color.
+# Only runs when the package is missing, so re-running doesn't reset the
+# flags file. Making it the default browser is playbooks/default-browser.yml.
 #
-# Bootstraps Flatpak + the Flathub remote itself (same tasks as
-# playbooks/flatpak.yml, system-wide) so `just brave` keeps working
-# standalone, with no ordering dependency on that playbook — same
-# approach as playbooks/firefox.yml.
-#
-# The second play below fixes up the .desktop files the Flathub Brave
-# PWA installer itself writes (see
-# playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the bugs), and
-# wires any PWA listed in brave_pwa_containers to its Brave container
-# (see that variable in group_vars/all/main.yml). The third play wires
-# Omarchy's *own* web app launchers (the --app= ones, see
-# playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2 and
-# brave_omarchy_webapp_containers) to the same containers.
-- name: Brave
+# The second play wires Omarchy's own web app launchers (the --app= ones,
+# see playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2 and
+# brave_omarchy_webapp_containers) to Brave containers.
+- name: Brave Origin
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
-    - name: Ensure Flatpak is installed
-      community.general.pacman:
-        name: "{{ flatpak_package }}"
-        state: present
-      become: true
+    - name: Check whether Brave Origin is installed
+      ansible.builtin.command: pacman -Q {{ brave_origin_package }}
+      register: brave_origin_check
+      changed_when: false
+      failed_when: false
 
-    - name: Ensure the Flathub remote is configured (system-wide)
-      community.general.flatpak_remote:
-        name: "{{ flatpak_flathub_remote }}"
-        state: present
-        method: system
-        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
-      become: true
-
-    - name: Install Brave from Flathub
-      community.general.flatpak:
-        name: "{{ brave_flatpak_id }}"
-        state: present
-        method: system
-      become: true
-
-    # Omarchy's native web apps (YouTube, WhatsApp, Google Maps, ...,
-    # ~/.local/share/applications/<Name>.desktop) are deliberately left
-    # alone: with Brave the default browser they run through
-    # omarchy-launch-webapp on the Flathub build (see
-    # playbooks/default-browser.yml).
-
-# Brave's Flatpak PWA installer ("flextop") writes .desktop files that
-# violate the freedesktop.org spec, are missing StartupNotify, have the
-# wrong StartupWMClass for Wayland window matching, point Icon= at a
-# path Brave never actually writes to, and never wire a PWA to a Brave
-# container (brave://settings/containers) — see
-# playbooks/templates/fix-brave-pwa-desktop.sh.j2 for the six specific
-# bugs (the container one is opt-in, via brave_pwa_containers). A
-# systemd --user path unit watches ~/.local/share/applications and
-# reruns the fix whenever Brave installs or updates a PWA; the fix
-# itself is idempotent, so repeated triggers (including the one caused
-# by the fix writing its own backup file into that same directory) are
-# harmless and self-limiting.
-- name: Brave Flatpak PWA .desktop fixup
-  hosts: localhost
-  connection: local
-  gather_facts: true
-  tags: [brave, brave-pwa-desktop-fix]
-
-  tasks:
-    - name: Create ~/.local/bin
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.local/bin"
-        state: directory
-        mode: "0755"
-      tags: [brave, brave-pwa-desktop-fix]
-
-    - name: Deploy fix-brave-pwa-desktop
-      ansible.builtin.template:
-        src: fix-brave-pwa-desktop.sh.j2
-        dest: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-pwa-desktop"
-        mode: "0755"
-      tags: [brave, brave-pwa-desktop-fix]
-
-    - name: Create ~/.config/systemd/user
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
-        state: directory
-        mode: "0755"
-      tags: [brave, brave-pwa-desktop-fix]
-
-    - name: Install the fix-brave-pwa-desktop systemd --user units
-      ansible.builtin.copy:
-        src: "{{ item }}"
-        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
-        mode: "0644"
-      loop:
-        - fix-brave-pwa-desktop.service
-        - fix-brave-pwa-desktop.path
-      notify: reload systemd --user
-      tags: [brave, brave-pwa-desktop-fix]
-
-    - name: Enable the fix-brave-pwa-desktop path unit
-      ansible.builtin.systemd:
-        name: fix-brave-pwa-desktop.path
-        scope: user
-        daemon_reload: true
-        enabled: true
-        state: started
-      tags: [brave, brave-pwa-desktop-fix]
-
-    - name: Run fix-brave-pwa-desktop now
-      ansible.builtin.command: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-pwa-desktop"
-      register: fix_brave_pwa_desktop_result
-      changed_when: "fix_brave_pwa_desktop_result.stdout is search('Result: [1-9]')"
-      tags: [brave, brave-pwa-desktop-fix]
-
-  handlers:
-    - name: reload systemd --user
-      ansible.builtin.systemd:
-        daemon_reload: true
-        scope: user
-      listen: reload systemd --user
+    # Run as the user, like emacs.yml's omarchy-pkg-aur-add: yay refuses to
+    # build as root and asks for its own privileges for the install.
+    - name: Install Brave Origin with Omarchy's browser installer
+      ansible.builtin.command: omarchy-install-browser {{ brave_origin_browser }}
+      when: brave_origin_check.rc != 0
 
 # Omarchy's native web apps (YouTube, WhatsApp, Google Maps, ...; see
 # ~/.local/share/applications) are launchers whose Exec runs
-# `omarchy-launch-webapp <url>`. With Brave the default browser that
-# opens a Brave --app= window in the profile's default (non-container)
-# partition. Brave supports `--container=<name>` together with `--app=`
+# `omarchy-launch-webapp <url>`. With Brave Origin the default browser
+# that opens a Brave Origin --app= window in the profile's default
+# (non-container) partition. Brave supports `--container=<name>` together with `--app=`
 # since 1.95.x (brave/brave-browser#58019 landed via brave-core#38964),
 # so a launcher can opt into a storage-isolated container by appending
 # --container=<name> to its Exec=. This play converges the launchers
 # mapped in brave_omarchy_webapp_containers (group_vars/all/main.yml) on
 # their container, idempotently, and installs a systemd --user path unit
 # that reruns the fix whenever a web app launcher appears or is rewritten
-# (e.g. by omarchy-webapp-install) — the same wiring pattern the PWA
-# fixup below/above uses. Container names must already exist in Brave
-# (brave://settings/containers).
+# (e.g. by omarchy-webapp-install). Container names must already exist
+# in Brave Origin (brave://settings/containers).
 - name: Brave Omarchy web app container wiring
   hosts: localhost
   connection: local

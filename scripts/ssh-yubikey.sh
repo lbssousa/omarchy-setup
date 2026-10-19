@@ -46,8 +46,6 @@ dropin_name() {
 }
 DROPIN="$DROPIN_DIR/$(dropin_name)"
 DROPIN_OFF="$DROPIN.disabled"
-# Earlier versions of this script wrote a single numbered file.
-LEGACY_DROPIN="$DROPIN_DIR/10-yubikey-github.conf"
 
 say() { printf '==> %s\n' "$*"; }
 warn() { printf 'warning: %s\n' "$*" >&2; }
@@ -137,9 +135,9 @@ enable_config() {
         say "Added '$INCLUDE_LINE' to the top of $MAIN_CONFIG"
     fi
 
-    # Leftovers of the single-file layout, and a previously disabled copy
-    # of this very file, would otherwise duplicate or shadow it.
-    rm -f "$LEGACY_DROPIN" "$DROPIN_OFF"
+    # A previously disabled copy of this very file would otherwise be left
+    # beside it.
+    rm -f "$DROPIN_OFF"
 
     cat >"$DROPIN" <<CONF
 # Managed by omarchy-setup's scripts/ssh-yubikey.sh — authentication on
@@ -169,10 +167,6 @@ CONF
 }
 
 disable_config() {
-    if [[ -f $LEGACY_DROPIN ]]; then
-        mv -f "$LEGACY_DROPIN" "$LEGACY_DROPIN.disabled"
-        say "Disabled $LEGACY_DROPIN"
-    fi
     if [[ -f $DROPIN ]]; then
         mv -f "$DROPIN" "$DROPIN_OFF"
         say "Renamed $DROPIN to $(basename "$DROPIN_OFF") — GitHub no longer uses the Yubikey drop-in"
@@ -191,8 +185,6 @@ show_status() {
     if [[ -f $DROPIN ]]; then
         say "GitHub drop-in: ENABLED ($DROPIN)"
         grep -E '^\s*IdentityFile' "$DROPIN" | sed 's/^\s*/    /'
-    elif [[ -f $LEGACY_DROPIN ]]; then
-        say "GitHub drop-in: ENABLED, old single-file layout ($LEGACY_DROPIN) — rerun 'enable' to migrate"
     else
         say "GitHub drop-in: disabled"
     fi

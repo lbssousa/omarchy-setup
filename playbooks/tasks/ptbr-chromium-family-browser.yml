@@ -1,9 +1,7 @@
 ---
 # One Chromium-family browser at a time — looped by playbooks/ptbr.yml
 # (ptbr_chromium_family_config_dirs), var `browser_config_dir` = the
-# profile directory relative to $HOME (~/.config/<dir> for native
-# installs, ~/.var/app/<app-id>/config/<dir> for Flathub ones such as the
-# Flathub Brave).
+# profile directory relative to $HOME (~/.config/<dir>).
 #
 # Forces intl.accept_languages/selected_languages in the profile's
 # Preferences file directly (no official policy covers this), only if

@@ -1,19 +1,19 @@
 ---
 # Proton Pass — end-to-end encrypted password manager from Proton AG.
-# Optional alternative to KeePassXC (playbooks/keepassxc.yml) and
-# Bitwarden (playbooks/bitwarden.yml); like both of those, this playbook
-# is not imported by site.yml, so more than one password manager can be
-# installed side by side without any of them being "the default".
+# Optional alternative to Bitwarden (playbooks/bitwarden.yml, the default
+# password manager) and KeePassXC (playbooks/keepassxc.yml); like
+# KeePassXC's, this playbook is not imported by site.yml. Running it hands
+# the "Passwords" keybind to Proton Pass.
 #
 #   Desktop client   tags: proton-pass, proton-pass-desktop
 #   CLI (pass-cli)   tags: proton-pass, proton-pass-cli
 #
 # Usage: ./run-empowered.sh ansible-playbook playbooks/proton-pass.yml
 #
-# Desktop client: installed from Flathub (me.proton.Pass) — the official
-# build, cross-distro, no AUR package to track. Needs Flatpak + Flathub
-# already set up (playbooks/flatpak.yml; site.yml runs it in the right
-# order, or `just flatpak`).
+# Desktop client: Proton's own .deb repackaged in the AUR
+# (proton-pass-bin), installed with Omarchy's AUR helper
+# (omarchy-pkg-aur-add), the same way playbooks/emacs.yml installs
+# omarchy-emacs.
 #
 # The browser extension authenticates directly with a Proton account —
 # unlike KeePassXC's, it doesn't talk to the desktop client over native
@@ -58,34 +58,23 @@
 # `pass-cli login` would need to be repeated interactively after every
 # single restart, forever. See that variable's comment for the fix and
 # its SDDM-autologin caveat.
-- name: Proton Pass desktop client (Flatpak)
+- name: Proton Pass desktop client
   hosts: localhost
   connection: local
   gather_facts: true
   tags: [proton-pass, proton-pass-desktop]
 
-  pre_tasks:
-    - name: Check whether the Flathub remote is configured
-      ansible.builtin.command: flatpak remote-list
-      register: proton_pass_flatpak_check
+  tasks:
+    - name: Check whether Proton Pass is installed
+      ansible.builtin.command: pacman -Q {{ proton_pass_aur_package }}
+      register: proton_pass_check
       changed_when: false
       failed_when: false
 
-    - name: Fail with guidance if Flatpak/Flathub wasn't found
-      ansible.builtin.fail:
-        msg: >-
-          Flathub remote not found. Run `./run-empowered.sh
-          ansible-playbook site.yml --tags flatpak` (or `just flatpak`)
-          first.
-      when: "'flathub' not in proton_pass_flatpak_check.stdout"
-
-  tasks:
-    - name: Install Proton Pass (Flatpak) system-wide
-      community.general.flatpak:
-        name: "{{ proton_pass_flatpak_id }}"
-        state: present
-        method: system
-      become: true
+    # As the user: yay refuses to build as root (see playbooks/emacs.yml).
+    - name: Install Proton Pass (AUR) with Omarchy's own helper
+      ansible.builtin.command: omarchy-pkg-aur-add {{ proton_pass_aur_package }}
+      when: proton_pass_check.rc != 0
 
     - name: "Proton Pass keybinding ({{ proton_pass_hypr_keybind }}, inherited from 1Password's default)"
       block:
@@ -107,14 +96,12 @@
           ansible.builtin.blockinfile:
             path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/proton-pass.yml — Proton Pass keybinding)"
-            # The flatpak's Hyprland window class is "me.proton.Pass"
-            # (its window title is just "Proton"), not the "Proton Pass"
-            # StartupWMClass its .desktop file advertises — checked with
-            # `hyprctl clients` against a running instance. Escaped dots
-            # so the class matches literally, not "me?proton?Pass".
+            # Electron sets the window class from the app's name ("Proton
+            # Pass"; the AUR package's binary links to "/opt/proton-pass/Proton
+            # Pass"), with the lowercase id as a fallback.
             block: |
               hl.unbind("{{ proton_pass_hypr_keybind }}")
-              o.bind("{{ proton_pass_hypr_keybind }}", "Proton Pass", { launch = "flatpak run {{ proton_pass_flatpak_id }}", focus = "^me\\.proton\\.Pass$" })
+              o.bind("{{ proton_pass_hypr_keybind }}", "Proton Pass", { launch = "{{ proton_pass_command }}", focus = "^(Proton Pass|proton-pass)$" })
           notify: reload Hyprland
 
   handlers:

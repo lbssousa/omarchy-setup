@@ -14,25 +14,22 @@
   ansible.builtin.import_playbook: playbooks/pam-auth-order.yml
   tags: [pam-auth-order]
 
-- name: Firefox
-  ansible.builtin.import_playbook: playbooks/firefox.yml
-  tags: [firefox]
-
-# The tab apps in firefox_taskbar_apps, with the webapp keybinds pointed at
-# them instead of Omarchy's own web app launchers.
-- name: Firefox Taskbar Tabs
-  ansible.builtin.import_playbook: playbooks/firefox-taskbar-apps.yml
-  tags: [firefox-taskbar-apps]
-
-- name: Brave
+- name: Brave Origin
   ansible.builtin.import_playbook: playbooks/brave.yml
   tags: [brave]
 
-# Brave as the default browser, with Omarchy's native web apps working on
-# the Flathub build (a brave-browser.desktop shim, see the playbook).
-- name: Default browser (Brave, Flathub-aware wrapper)
+# Brave Origin as the default browser, set with omarchy-default-browser
+# (Setup > Defaults > Browser in the Omarchy menu).
+- name: Default browser (Brave Origin)
   ansible.builtin.import_playbook: playbooks/default-browser.yml
   tags: [default-browser]
+
+# The default password manager: Omarchy's "Passwords" keybind
+# (SUPER+SHIFT+SLASH, 1Password upstream), started with the session, with
+# its SSH agent as the session's SSH_AUTH_SOCK.
+- name: Bitwarden (default password manager)
+  ansible.builtin.import_playbook: playbooks/bitwarden.yml
+  tags: [bitwarden]
 
 - name: ONLYOFFICE Desktop Editors
   ansible.builtin.import_playbook: playbooks/onlyoffice.yml
@@ -45,13 +42,6 @@
 - name: Zed editor
   ansible.builtin.import_playbook: playbooks/zed.yml
   tags: [zed]
-
-# Kdenlive, OBS Studio, Pinta and Xournal++ — the native builds Omarchy
-# pre-installs, replaced by their Flathub builds. One tag for the set;
-# trim flathub_app_migrations in group_vars/all/main.yml to narrow it.
-- name: Flathub app migrations (native -> Flatpak)
-  ansible.builtin.import_playbook: playbooks/flathub-apps.yml
-  tags: [flathub-apps]
 
 - name: gregorio-lsp
   ansible.builtin.import_playbook: playbooks/gregorio-lsp.yml
@@ -83,22 +73,12 @@
   ansible.builtin.import_playbook: playbooks/containers.yml
   tags: [containers]
 
-- name: Flatpak + Flathub
-  ansible.builtin.import_playbook: playbooks/flatpak.yml
-  tags: [flatpak]
-
 # Plays: Nix (tag nix), direnv with bash + fish hooks (tag direnv),
 # nix-direnv for cached `use flake` (tag nix-direnv). The nix tag runs
 # all three.
 - name: Nix + direnv
   ansible.builtin.import_playbook: playbooks/nix.yml
   tags: [nix]
-
-# Plays: snapd (tag snapd), Visual Studio Code (tag vscode, which also runs
-# snapd first).
-- name: snapd + Visual Studio Code
-  ansible.builtin.import_playbook: playbooks/snap.yml
-  tags: [snap]
 
 - name: libfprint (goodix538d)
   ansible.builtin.import_playbook: playbooks/libfprint.yml

@@ -25,15 +25,10 @@
 # it, so libadwaita would fall back to blue. The slate accent is therefore also
 # written as a CSS override in ~/.config/gtk-4.0/gtk.css, inside a marked block
 # that any other theme removes again (libadwaita derives every other accent
-# shade from @accent_bg_color). GTK3 apps (Firefox) read the same override from
-# ~/.config/gtk-3.0/gtk.css. Firefox's libadwaita-colors mode (the default on
-# an Adwaita GTK theme) takes its accent -- the primary button, among others --
-# from @accent_bg_color, so the GTK3 file defines that as well as the classic
-# @theme_selected_bg_color.
-#
-# Flatpak apps (Bazaar, Firefox, ...) can't see either file unless the sandbox
-# is given the directories: playbooks/omaraptor-themes.yml sets a user-wide
-# `--filesystem=xdg-config/gtk-{3,4}.0:ro` override for that.
+# shade from @accent_bg_color). GTK3 apps read the same override from
+# ~/.config/gtk-3.0/gtk.css. Some of them take their accent from
+# @accent_bg_color (Firefox's libadwaita-colors mode, for one), so the GTK3
+# file defines that as well as the classic @theme_selected_bg_color.
 
 # gsettings needs a user DBus session (absent e.g. during ISO installs).
 [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] || exit 0

@@ -53,9 +53,7 @@ def cli_cmd():
     override = os.environ.get("KEEPASSXC_CLI")
     if override:
         return override.split()
-    if shutil.which("keepassxc-cli"):
-        return ["keepassxc-cli"]
-    return ["flatpak", "run", "--command=keepassxc-cli", "org.keepassxc.KeePassXC"]
+    return ["keepassxc-cli"]
 
 
 class Vault:

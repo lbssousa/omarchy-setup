@@ -39,9 +39,7 @@
 # for all three themes -- via gsettings and a ~/.config/gtk-4.0/gtk.css
 # override, since xdg-desktop-portal-gtk does not pass accent-color on to
 # libadwaita -- and for "Omaraptor" also flips GTK back to light
-# after Omarchy has set it dark from `mode = "dark"`. Flatpak sandboxes don't
-# see ~/.config/gtk-{3,4}.0, so a user-wide Flatpak override exposes them
-# read-only; without it Bazaar, Firefox, ... keep the stock blue accent.
+# after Omarchy has set it dark from `mode = "dark"`.
 #
 # Wallpapers are Bluefin's default set (projectbluefin/artwork,
 # wallpapers/01-bluefin .. 12-bluefin, Apache-2.0), each in a day and a night
@@ -162,16 +160,6 @@
         src: omaraptor/omaraptor-light-apps.sh
         dest: "{{ omaraptor_hooks_dir }}/omaraptor-light-apps"
         mode: "0755"
-
-    - name: Let Flatpak apps read the GTK CSS override (slate accent)
-      community.general.ini_file:
-        path: "{{ ansible_facts.env.HOME }}/.local/share/flatpak/overrides/global"
-        section: Context
-        option: filesystems
-        value: "xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro;"
-        mode: "0644"
-        no_extra_spaces: true
-        create: true
 
     - name: Say how to apply them
       ansible.builtin.debug:

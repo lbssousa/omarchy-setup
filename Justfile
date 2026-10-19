@@ -36,21 +36,11 @@ polkit: _ensure-collections
 pam-auth-order: _ensure-collections
     {{ap}} site.yml --tags pam-auth-order
 
-# Install Firefox from Flathub and turn tab apps (Taskbar Tabs) on by
-# default.
-firefox: _ensure-collections
-    {{ap}} site.yml --tags firefox
-
-# Install Brave from Flathub and fix up Brave's Flatpak PWA .desktop
-# files (also runs on its own — see brave-pwa-desktop-fix below) plus
-# Omarchy's web app container wiring (see brave-webapp-containers below).
+# Install Brave Origin with Omarchy's browser installer
+# (omarchy-install-browser brave-origin) plus Omarchy's web app container
+# wiring (see brave-webapp-containers below).
 brave: _ensure-collections
     {{ap}} site.yml --tags brave
-
-# Rerun just the Brave Flatpak PWA .desktop fixup (also installs the
-# systemd --user watcher that reruns it automatically). No root needed.
-brave-pwa-desktop-fix: _ensure-collections
-    ansible-playbook site.yml --tags brave-pwa-desktop-fix
 
 # Rerun just the Omarchy web app -> Brave container wiring (also installs
 # the systemd --user watcher that reruns it when the launchers change).
@@ -60,22 +50,20 @@ brave-pwa-desktop-fix: _ensure-collections
 brave-webapp-containers: _ensure-collections
     ansible-playbook site.yml --tags brave-webapp-containers
 
-# Create the Firefox Taskbar Tabs ("tab apps") listed in
-# firefox_taskbar_apps (group_vars/all/main.yml) and rebind the webapp keys
-# to them. Close Firefox first. No root needed.
-firefox-taskbar-apps: _ensure-collections
-    ansible-playbook site.yml --tags firefox-taskbar-apps
-
-# Make the Flathub Brave the default browser (unless it already is), via a
-# brave-browser.desktop shim so Omarchy's native web apps run on it, and
-# deploy omarchy-setup-default-browser, a Flathub-aware alternative to
-# `omarchy default browser` for Firefox/Brave. No root needed.
+# Make Brave Origin the default browser with omarchy-default-browser
+# (unless it already is). No root needed.
 default-browser: _ensure-collections
     ansible-playbook site.yml --tags default-browser
 
-# Install ONLYOFFICE Desktop Editors from Flathub, remove the
-# pre-installed native libreoffice-fresh (+ its pt-BR language pack),
-# and warn if a hand-added LibreOffice keybind needs reassigning.
+# Install Bitwarden (omarchy-pkg-add bitwarden bitwarden-cli), the default
+# password manager: SUPER+SHIFT+SLASH instead of 1Password, started with
+# the session, its SSH agent as SSH_AUTH_SOCK, and the polkit action for
+# biometric unlock.
+bitwarden: _ensure-collections
+    {{ap}} site.yml --tags bitwarden
+
+# Install ONLYOFFICE Desktop Editors (AUR onlyoffice-bin) and remove the
+# pre-installed native libreoffice-fresh.
 onlyoffice: _ensure-collections
     {{ap}} site.yml --tags onlyoffice
 
@@ -88,23 +76,13 @@ emacs: _ensure-collections
 zed: _ensure-collections
     {{ap}} site.yml --tags zed
 
-# Replace the native Kdenlive/OBS Studio/Pinta/Xournal++ that Omarchy
-# pre-installs with their Flathub builds (see
-# docs/flathub-migration-survey.md). Edit flathub_app_migrations in
-# group_vars/all/main.yml to migrate a subset.
-flathub-apps: _ensure-collections
-    {{ap}} site.yml --tags flathub-apps
-
 # Install Rust (if needed) and build/install gregorio-lsp, grelint and
 # grefmt from source.
 gregorio-lsp: _ensure-collections
     ansible-playbook site.yml --tags gregorio-lsp
 
-# Make Zathura (Flathub) the default PDF viewer + Papers (optional
-# viewer); Evince stays installed (sushi depends on it). Replaces the
-# native zathura + zathura-pdf-mupdf pair — the Flatpak bundles the
-# poppler backend instead, and auto-reloads only PDFs under ~/Documents,
-# ~/Downloads and pdf_viewer_zathura_extra_paths (group_vars/all/main.yml).
+# Make Zathura (zathura + zathura-pdf-mupdf) the default PDF viewer +
+# Papers (optional viewer); Evince stays installed (sushi depends on it).
 pdf-viewer: _ensure-collections
     {{ap}} site.yml --tags pdf-viewer
 
@@ -169,8 +147,9 @@ ptbr: _ensure-collections
 ssh-agent: _ensure-collections
     ansible-playbook playbooks/keepassxc.yml --tags ssh-agent -e keepassxc_ssh_agent_enabled=true
 
-# Run the KeePassXC playbook. Installs KeePassXC from Flathub. Optional password manager alternative, not part of
-# `just setup`. The SSH agent stays off; add
+# Run the KeePassXC playbook (omarchy-pkg-add keepassxc). Optional password
+# manager alternative to Bitwarden, not part of `just setup`; takes over
+# SUPER+SHIFT+SLASH. The SSH agent stays off; add
 # -e keepassxc_ssh_agent_enabled=true here (or run `just ssh-agent`) to have
 # KeePassXC act as a client for it as well.
 keepassxc: _ensure-collections
@@ -183,14 +162,9 @@ keepassxc: _ensure-collections
 rclone-gdrive: _ensure-collections
     {{ap}} playbooks/rclone-gdrive.yml
 
-# Run only the Bitwarden playbook (optional password manager alternative,
-# not part of `just setup`).
-bitwarden: _ensure-collections
-    {{ap}} playbooks/bitwarden.yml
-
-# Run the Proton Pass playbook: desktop client (AUR) + CLI (official
-# installer script). Optional password manager alternative, not part of
-# `just setup`.
+# Run the Proton Pass playbook: desktop client (AUR proton-pass-bin) + CLI
+# (Homebrew). Optional password manager alternative to Bitwarden, not part
+# of `just setup`; takes over SUPER+SHIFT+SLASH.
 proton-pass: _ensure-collections
     {{ap}} playbooks/proton-pass.yml
 
@@ -205,10 +179,6 @@ podman: _ensure-collections
 # Run the Distrobox play (the tag also runs the Podman play first).
 distrobox: _ensure-collections
     {{ap}} site.yml --tags distrobox
-
-# Install Flatpak and enable the Flathub remote.
-flatpak: _ensure-collections
-    {{ap}} site.yml --tags flatpak
 
 # Install Nix (Arch package, multi-user daemon) with the store on its own
 # btrfs subvolume, flakes enabled, and its profiles on the session PATH.
@@ -225,15 +195,6 @@ direnv: _ensure-collections
 # not imported by site.yml).
 homebrew: _ensure-collections
     {{ap}} playbooks/homebrew.yml
-
-# Install snapd (AUR) and enable it (just the snapd play).
-snapd: _ensure-collections
-    {{ap}} site.yml --tags snapd
-
-# Install Visual Studio Code from the official snap (the tag also runs the
-# snapd play first).
-vscode: _ensure-collections
-    {{ap}} site.yml --tags vscode
 
 # Build the libfprint (goodix538d) fork as a package and install it in place
 # of the official libfprint. Uses makepkg on the host (no container).
@@ -305,16 +266,6 @@ fish-upstream-hash:
 # container's name (Omarchy's bash rc from /run/host + starship env_var).
 starship-distrobox: _ensure-collections
     ansible-playbook site.yml --tags starship-distrobox
-
-# Activate AppArmor in the kernel (lsm= via a limine-entry-tool drop-in) without
-# loading the distro profiles. Needs a reboot. Not part of `just setup`.
-apparmor: _ensure-collections
-    {{ap}} playbooks/apparmor.yml
-
-# Same as `just apparmor`, plus apparmor.service loading the distro profiles
-# (unix-chkpwd, avahi-daemon, ...). Not part of `just setup`.
-apparmor-profiles: _ensure-collections
-    {{ap}} playbooks/apparmor.yml -e apparmor_load_profiles=true
 
 # Build the BGRT-derived boot theme (Omarchy theme + Plymouth theme) and
 # set it as the default boot splash. Not part of `setup` — rewrites the

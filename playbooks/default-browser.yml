@@ -1,233 +1,44 @@
 ---
-# Deploys ~/.local/bin/omarchy-setup-default-browser, a small wrapper
-# working around omarchy-default-browser (/usr/share/omarchy/bin) not
-# knowing about Flathub-installed browsers: its desktop-entry table only
-# has the native package ids (firefox.desktop, brave-browser.desktop,
-# ...), while Firefox and Brave come from Flathub here
-# (playbooks/firefox.yml, playbooks/brave.yml) and export
-# org.mozilla.firefox.desktop / com.brave.Browser.desktop instead — ids
-# that script's case statement doesn't have, so `omarchy default browser
-# firefox` points xdg-settings at a desktop file that doesn't exist.
+# Makes Brave Origin (playbooks/brave.yml) the default browser with
+# Omarchy's own tool, `omarchy-default-browser brave-origin` — the same
+# action as Setup > Defaults > Browser in the Omarchy menu. It runs
+# `xdg-settings set default-web-browser brave-origin.desktop` the way
+# Omarchy expects (BROWSER unset and XDG_CURRENT_DESKTOP cleared, so the
+# browser lands in mimeapps.list rather than the desktop-specific list,
+# which keeps routing links through omarchy-browser.desktop on 4.5).
 #
-# Doesn't touch /usr/share/omarchy/bin/omarchy-default-browser itself —
-# an Omarchy-owned file, liable to be overwritten by an update — since
-# xdg-settings itself works fine once given the right id (verified
-# directly: `xdg-settings set default-web-browser
-# org.mozilla.firefox.desktop` takes effect immediately). See
-# playbooks/templates/default-browser.sh.j2 for the wrapper itself.
+# Only when it isn't already the default: `omarchy-default-browser` with
+# no argument prints the current one by name, so a browser picked later in
+# the menu isn't re-pinned on every run. The script ends by sending a
+# desktop notification, which fails outside the graphical session (this
+# play is often run over SSH), so the result is checked by reading the
+# default back rather than by its exit code.
 #
-# Usage: omarchy-setup-default-browser <firefox|brave>
-#        omarchy-setup-default-browser        # prints the current one
-#
-# Omarchy's three "launch default browser" keybinds (SUPER+SHIFT+RETURN,
-# SUPER+SHIFT+B, and SUPER+SHIFT+ALT+B for a private window) all run
-# /usr/share/omarchy/bin/omarchy-launch-browser, which has two problems
-# with the Flathub-installed Firefox/Brave here:
-#
-#   1. It resolves the desktop entry by grepping only
-#      {~/.local,~/.nix-profile,/usr}/share/applications/$desktop_id — it
-#      doesn't consult XDG_DATA_DIRS. Both browsers are installed
-#      system-wide via Flatpak (method: system in playbooks/firefox.yml /
-#      playbooks/brave.yml), so their desktop entries live in
-#      /var/lib/flatpak/exports/share/applications instead, which that
-#      lookup never finds. Symlinking the exported entries into
-#      ~/.local/share/applications (a user-writable, XDG-standard
-#      override location, not an Omarchy-owned one) puts them where the
-#      lookup actually looks — and helps any other XDG_DATA_DIRS-blind
-#      tool the same way.
-#
-#   2. Even found, it then takes only the *first* whitespace-separated
-#      token of the Exec= line — right for a native binary's Exec (e.g.
-#      "firefox %u"), but Flatpak's exported Exec is "/usr/bin/flatpak
-#      run --branch=... com.brave.Browser ...", so that yields just
-#      "/usr/bin/flatpak" with the "run <app-id>" arguments discarded —
-#      flatpak with no subcommand, which errors. Fix #1 alone doesn't
-#      solve this, so omarchy-setup-launch-browser (below) reimplements
-#      just enough of omarchy-launch-browser to launch Firefox/Brave
-#      directly via `flatpak run`, falling back to the Omarchy original
-#      for any other default browser. All three keybinds go through the
-#      same `{ omarchy = "browser" }` / `{ omarchy = "browser --private"
-#      }` mechanism, so all three are rebound to it below, the same way
-#      playbooks/bitwarden.yml rebinds its own keybind.
-#
-# Neither fix touches omarchy-launch-browser itself — an Omarchy-owned
-# file, liable to be overwritten by an update.
-#
-# Omarchy's native web apps (omarchy-launch-webapp, which every web
-# app launcher, its keybinds and omarchy-launch-or-focus-webapp go
-# through) have the same two problems and a third: the case statement
-# only accepts the Chromium family's native desktop ids
-# (brave-browser*, ...) and falls back to chromium.desktop for
-# anything else — com.brave.Browser.desktop included. Rather than
-# rewriting every launcher and keybind (and again after each
-# omarchy-webapp-install), this play makes the id Omarchy expects
-# resolve: a hidden ~/.local/share/applications/brave-browser.desktop
-# shim whose Exec= is a one-token wrapper script
-# (~/.local/bin/omarchy-setup-brave) that runs the Flatpak with
-# whatever arguments (--app=<url>, ...) Omarchy appends, and the
-# default browser is set to that shim id. Omarchy's own scripts then
-# work unmodified — omarchy-default-browser's `brave` case uses the
-# same id — and the Omarchy web apps open in the Flathub Brave.
-#
-# Deploying the wrappers is only half of it: a fresh run also *sets*
-# the default browser (default_browser_desktop_id — Brave through the
-# shim), so `just setup` leaves a working default behind instead of
-# Omarchy's stock chromium.desktop, which by then points at a browser
-# this setup replaced. xdg-settings is the same mechanism
-# omarchy-default-browser uses, called directly with the right desktop
-# id; the wrapper isn't reused because it also sends a desktop
-# notification via busctl --user, which fails outside a graphical
-# session (this play is often run over SSH).
-- name: Default browser (Flathub-aware wrapper)
+# Nothing else is needed for the browser keybinds or Omarchy's web apps:
+# omarchy-launch-browser and omarchy-launch-webapp read the command from
+# the first token of brave-origin.desktop's Exec= (/usr/bin/brave-origin),
+# and omarchy-launch-webapp accepts every brave* id.
+- name: Default browser (Brave Origin)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
-    - name: Create ~/.local/bin
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.local/bin"
-        state: directory
-        mode: "0755"
-
-    - name: Deploy omarchy-setup-default-browser
-      ansible.builtin.template:
-        src: default-browser.sh.j2
-        dest: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-default-browser"
-        mode: "0755"
-
-    - name: Create ~/.local/share/applications
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.local/share/applications"
-        state: directory
-        mode: "0755"
-
-    - name: "Make the Flathub browsers' desktop entries visible to omarchy-launch-browser (SUPER+SHIFT+RETURN)"
-      ansible.builtin.file:
-        src: "/var/lib/flatpak/exports/share/applications/{{ item }}.desktop"
-        dest: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ item }}.desktop"
-        state: link
-        force: true
-      loop:
-        - "{{ firefox_flatpak_id }}"
-        - "{{ brave_flatpak_id }}"
-
-    - name: Deploy omarchy-setup-brave (one-token Exec= for the brave-browser.desktop shim)
-      ansible.builtin.template:
-        src: brave-shim.sh.j2
-        dest: "{{ brave_shim_launcher }}"
-        mode: "0755"
-
-    - name: "Install the {{ brave_shim_desktop_id }} shim for the Flathub Brave"
-      ansible.builtin.template:
-        src: brave-browser.desktop.j2
-        dest: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ brave_shim_desktop_id }}"
-        mode: "0644"
-
-    # Certify the shim against the Omarchy actually installed: the
-    # launcher must still accept brave* (which covers the
-    # brave-browser.desktop shim id) and still read the
-    # command as the first token of the entry's Exec=, which is what the
-    # shim is built for. Skipped where Omarchy isn't present.
-    - name: Check that omarchy-launch-webapp accepts the Brave shim
-      ansible.builtin.stat:
-        path: /usr/share/omarchy/bin/omarchy-launch-webapp
-      register: omarchy_launch_webapp
-
-    - name: Read omarchy-launch-webapp
-      ansible.builtin.slurp:
-        src: /usr/share/omarchy/bin/omarchy-launch-webapp
-      register: omarchy_launch_webapp_src
-      when: omarchy_launch_webapp.stat.exists
-
-    - name: Assert it still resolves brave* through the entry's first Exec= token
-      ansible.builtin.assert:
-        that:
-          - "'brave' in (omarchy_launch_webapp_src.content | b64decode)"
-          - "'--app' in (omarchy_launch_webapp_src.content | b64decode)"
-        fail_msg: >-
-          /usr/share/omarchy/bin/omarchy-launch-webapp no longer matches
-          brave* / --app=: the {{ brave_shim_desktop_id }} shim
-          (playbooks/default-browser.yml) needs revisiting, or Omarchy web
-          apps will fall back to Chromium.
-      when: omarchy_launch_webapp.stat.exists
-
-    - name: Resolve the shim's Exec= the way omarchy-launch-webapp does
-      ansible.builtin.shell: |
-        sed -n 's/^Exec=\([^ ]*\).*/\1/p' "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ brave_shim_desktop_id }}" | head -1
-      register: brave_shim_exec
-      changed_when: false
-      failed_when: brave_shim_exec.stdout != brave_shim_launcher
-
-    # After the symlinks above: xdg-settings resolves a desktop id to a
-    # command by walking ${XDG_DATA_HOME:-$HOME/.local/share}:
-    # ${XDG_DATA_DIRS:-/usr/local/share:/usr/share} only, never
-    # /var/lib/flatpak/exports/share, and exits "file missing" if the id
-    # doesn't resolve. BROWSER has to be unset for the same reason
-    # omarchy-default-browser and the wrapper unset it: the Omarchy
-    # session exports BROWSER=omarchy-launch-browser, and xdg-settings
-    # refuses to change the http/https handlers while it's set.
-    - name: Read the current default web browser
-      ansible.builtin.command: env -u BROWSER xdg-settings get default-web-browser
+    - name: Read the current default browser
+      ansible.builtin.command: omarchy-default-browser
       register: default_browser_current
       changed_when: false
-      # A profile with nothing set at all exits 4 rather than 0; that's
-      # simply "not our id", which the set below already handles.
       failed_when: false
 
-    - name: "Make {{ default_browser_name }} the default browser ({{ default_browser_desktop_id }})"
-      ansible.builtin.command: env -u BROWSER xdg-settings set default-web-browser {{ default_browser_desktop_id }}
-      when: default_browser_current.stdout | default('') | trim != default_browser_desktop_id
+    - name: "Make {{ default_browser }} the default browser"
+      ansible.builtin.command: omarchy-default-browser {{ default_browser }}
+      when: default_browser_current.stdout | trim != default_browser
+      # See the header: the trailing notification can fail on its own.
+      failed_when: false
 
-    - name: Deploy omarchy-setup-launch-browser
-      ansible.builtin.template:
-        src: launch-browser.sh.j2
-        dest: "{{ ansible_facts.env.HOME }}/.local/bin/omarchy-setup-launch-browser"
-        mode: "0755"
-
-    - name: "Rebind the default-browser keybinds to omarchy-setup-launch-browser"
-      block:
-        - name: Create ~/.config/hypr
-          ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
-            state: directory
-            mode: "0755"
-
-        - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
-          ansible.builtin.copy:
-            src: /usr/share/omarchy/default/hypr/bindings.lua
-            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
-            remote_src: true
-            force: false
-            mode: "0644"
-
-        - name: Rebind SUPER+SHIFT+RETURN, SUPER+SHIFT+B and SUPER+SHIFT+ALT+B from omarchy-launch-browser
-          ansible.builtin.blockinfile:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
-            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/default-browser.yml — default browser keybindings)"
-            # Bound as a raw string dispatcher, not `{ launch = ... }` —
-            # the latter wraps the command in its own "uwsm-app --"
-            # (see o.launch() in helpers.lua), but
-            # omarchy-setup-launch-browser already manages its own
-            # systemd-run/uwsm-app invocation internally (mirroring
-            # omarchy-launch-browser itself, also bound as a raw
-            # string via `{ omarchy = "browser" }`), so wrapping it
-            # again would double-nest uwsm-app.
-            block: |
-              hl.unbind("SUPER + SHIFT + RETURN")
-              o.bind("SUPER + SHIFT + RETURN", "Browser", "omarchy-setup-launch-browser")
-              hl.unbind("SUPER + SHIFT + B")
-              o.bind("SUPER + SHIFT + B", "Browser", "omarchy-setup-launch-browser")
-              hl.unbind("SUPER + SHIFT + ALT + B")
-              o.bind("SUPER + SHIFT + ALT + B", "Browser (private)", "omarchy-setup-launch-browser --private")
-          register: default_browser_hypr_binding
-          notify: reload Hyprland
-
-  handlers:
-    - name: reload Hyprland
-      # Only has an effect inside a real Hyprland session; the bind
-      # still applies on next login either way.
-      ansible.builtin.command: hyprctl reload
+    - name: Read the default browser back
+      ansible.builtin.command: omarchy-default-browser
+      register: default_browser_result
       changed_when: false
-      failed_when: false
-      listen: reload Hyprland
+      failed_when: default_browser_result.stdout | trim != default_browser
+      when: default_browser_current.stdout | trim != default_browser

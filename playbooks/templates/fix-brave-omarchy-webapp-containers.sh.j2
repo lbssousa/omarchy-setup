@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Appends --container=<name> to the Exec= of Omarchy's native web app
 # launchers — ~/.local/share/applications/*.desktop whose Exec runs
-# `omarchy-launch-webapp <url>` — so Brave (the Flathub build) opens each
+# `omarchy-launch-webapp <url>` — so Brave Origin opens each
 # inside its intended container (brave://settings/containers) instead of
 # the profile's default partition.
 #
@@ -9,8 +9,8 @@
 # through to the browser (it builds `--app=<url>` then "${@:2}"), so a
 # launcher needs only a trailing `--container=<name>` to open inside a
 # container. Brave has accepted --container together with --app since
-# 1.95.x (brave/brave-browser#58019 landed via brave-core#38964), which
-# the Flathub build qualifies for. But Omarchy writes its launchers with
+# 1.95.x (brave/brave-browser#58019 landed via brave-core#38964), and
+# Brave Origin shares that code. But Omarchy writes its launchers with
 # no container at all, so every web app lands in the shared default
 # partition. This script appends the flag (dropping a stale
 # --container=<other> first, so a re-mapped launcher moves) to converge
@@ -19,9 +19,8 @@
 #
 # Only ~/.local/share/applications is touched: the stock launchers in
 # /usr/share/omarchy/applications are left alone (they are templates,
-# not the live entries), and so are the Brave shim and Brave's own PWA
-# entries (those belong to fix-brave-pwa-desktop.sh). Idempotent; runs
-# from the playbook and from a systemd --user path unit that reruns it
+# not the live entries), and so are Brave's own PWA entries. Idempotent;
+# runs from the playbook and from a systemd --user path unit that reruns it
 # whenever a web app launcher is installed or rewritten (e.g. by
 # omarchy-webapp-install).
 set -euo pipefail

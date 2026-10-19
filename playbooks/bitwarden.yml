@@ -1,10 +1,12 @@
 ---
 # Bitwarden desktop client — the default password manager of this setup,
-# installed the way Omarchy's own menu does it (Install > Service >
-# Bitwarden: `omarchy-pkg-add bitwarden bitwarden-cli`, the Arch packages
-# from extra). KeePassXC (playbooks/keepassxc.yml) and Proton Pass
-# (playbooks/proton-pass.yml) stay available as opt-in alternatives,
-# outside site.yml.
+# installed from the AUR (`omarchy-pkg-aur-add bitwarden-bin
+# bitwarden-cli-bin`, Bitwarden's own release builds) rather than the way
+# Omarchy's menu does it (Install > Service > Bitwarden: `omarchy-pkg-add
+# bitwarden bitwarden-cli`), because extra's packages lag months behind
+# upstream; replaces those when present. KeePassXC
+# (playbooks/keepassxc.yml) and Proton Pass (playbooks/proton-pass.yml)
+# stay available as opt-in alternatives, outside site.yml.
 #
 # Wires SSH_AUTH_SOCK to the Bitwarden SSH agent's socket — a static
 # export via ~/.config/environment.d/ (reaches IDEs and other session
@@ -16,7 +18,7 @@
 #
 # Installs the polkit action Bitwarden's biometric unlock needs to even
 # offer the option in its own settings — without it the toggle doesn't
-# appear at all, and the Arch package doesn't ship it (see
+# appear at all, and neither package ships it (see
 # bitwarden_polkit_action_dest in group_vars/all/main.yml).
 #
 # Starts Bitwarden with the session the Omarchy way, with
@@ -42,10 +44,18 @@
       changed_when: false
       failed_when: false
 
-    - name: Install Bitwarden with Omarchy's package helper
-      ansible.builtin.command: omarchy-pkg-add {{ bitwarden_packages | join(' ') }}
+    # The AUR packages conflict with extra's, and yay's --noconfirm
+    # answers pacman's "remove the conflicting package?" with no. Settings
+    # and vault data in ~/.config/Bitwarden are shared by both builds.
+    - name: Remove extra's outdated Bitwarden packages
+      ansible.builtin.command: omarchy-pkg-drop {{ bitwarden_replaced_packages | join(' ') }}
       when: bitwarden_check.rc != 0
       become: true
+
+    # As the user: yay refuses to build as root (see playbooks/emacs.yml).
+    - name: Install Bitwarden (AUR) with Omarchy's own helper
+      ansible.builtin.command: omarchy-pkg-aur-add {{ bitwarden_packages | join(' ') }}
+      when: bitwarden_check.rc != 0
 
     - name: Bitwarden SSH agent — session-wide SSH_AUTH_SOCK
       block:

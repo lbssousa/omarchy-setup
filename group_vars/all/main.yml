@@ -381,20 +381,29 @@ keepassxc_browser_manifests:
     dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
 
 # Bitwarden (playbooks/bitwarden.yml) — the default password manager,
-# part of `just setup`. Installed the way Omarchy's own menu does it
-# (Install > Service > Bitwarden: `omarchy-pkg-add bitwarden
-# bitwarden-cli`, both from extra).
+# part of `just setup`. Omarchy's own menu (Install > Service > Bitwarden)
+# installs `bitwarden bitwarden-cli` from extra, which lag months behind
+# upstream (2026.3.1 and 2026.2.0 while upstream is at 2026.10.0), so
+# this setup installs the AUR repackagings of Bitwarden's own release
+# builds instead, with omarchy-pkg-aur-add — `omarchy-update` keeps them
+# current along with the other AUR packages. They conflict with the extra
+# ones, which the play removes first (bitwarden_replaced_packages).
 bitwarden_packages:
+  - bitwarden-bin
+  - bitwarden-cli-bin
+bitwarden_replaced_packages:
   - bitwarden
   - bitwarden-cli
-bitwarden_command: bitwarden-desktop
+# bitwarden-bin's launcher (/usr/bin/bitwarden, wrapping
+# /opt/Bitwarden/bitwarden); extra's package called it bitwarden-desktop.
+bitwarden_command: bitwarden
 # Window class of the native build, the one Omarchy's own window rule
 # (default/hypr/apps/bitwarden.lua) keys on.
 bitwarden_window_class: Bitwarden
 
 # The polkit action Bitwarden's biometric unlock needs to even show the
 # option in its own settings (https://bitwarden.com/help/biometrics/):
-# the Arch package doesn't ship it, so the play installs
+# neither package ships it, so the play installs
 # playbooks/files/com.bitwarden.Bitwarden.policy at this path, the
 # directory pacman itself owns other actions in
 # (`pacman -Ql polkit | grep actions`).

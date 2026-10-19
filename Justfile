@@ -55,7 +55,8 @@ brave-webapp-containers: _ensure-collections
 default-browser: _ensure-collections
     ansible-playbook site.yml --tags default-browser
 
-# Install Bitwarden (omarchy-pkg-add bitwarden bitwarden-cli), the default
+# Install Bitwarden (AUR bitwarden-bin bitwarden-cli-bin, replacing extra's
+# outdated bitwarden bitwarden-cli), the default
 # password manager: SUPER+SHIFT+SLASH instead of 1Password, started with
 # the session, its SSH agent as SSH_AUTH_SOCK, and the polkit action for
 # biometric unlock.

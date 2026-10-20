@@ -4,9 +4,10 @@
 # bitwarden-cli-bin`, Bitwarden's own release builds) rather than the way
 # Omarchy's menu does it (Install > Service > Bitwarden: `omarchy-pkg-add
 # bitwarden bitwarden-cli`), because extra's packages lag months behind
-# upstream; replaces those when present. KeePassXC
-# (playbooks/keepassxc.yml) and Proton Pass (playbooks/proton-pass.yml)
-# stay available as opt-in alternatives, outside site.yml.
+# upstream; replaces those when present. site.yml also installs KeePassXC
+# (playbooks/keepassxc.yml) alongside it, without its keybind or autostart;
+# KeePassXC run on its own and Proton Pass (playbooks/proton-pass.yml)
+# stay available as opt-in alternatives that take them over.
 #
 # Wires SSH_AUTH_SOCK to the Bitwarden SSH agent's socket — a static
 # export via ~/.config/environment.d/ (reaches IDEs and other session

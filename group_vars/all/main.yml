@@ -323,8 +323,7 @@ ssh_agent_units:
   - ssh-agent.socket
   - ssh-agent.service
 
-# KeePassXC (playbooks/keepassxc.yml — optional password manager
-# alternative, not part of `just setup`) — open-source password manager
+# KeePassXC (playbooks/keepassxc.yml) — open-source password manager
 # with browser integration (Chromium-family browsers), system tray
 # integration and opt-in SSH agent support (the agent play above, see
 # keepassxc_ssh_agent_enabled).
@@ -335,10 +334,16 @@ ssh_agent_units:
 # font from qt5ct (playbooks/file-chooser.yml), so no font override is
 # needed.
 keepassxc_package: keepassxc
+# Whether KeePassXC is the session's password manager: true deploys its
+# autostart entry and hands it the keybind below. `just setup` (site.yml)
+# imports the play with false, installing KeePassXC alongside Bitwarden
+# with only the browser manifests and the YubiKey auto-lock rule;
+# `just keepassxc` runs the file directly with this default.
+keepassxc_primary: true
 keepassxc_desktop_id: org.keepassxc.KeePassXC.desktop
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
 # 1Password). Bitwarden is the default password manager
-# (playbooks/bitwarden.yml); running this play hands the key to KeePassXC.
+# (playbooks/bitwarden.yml); keepassxc_primary hands the key to KeePassXC.
 keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
 # KeePassXC's "Launch KeePassXC at system startup" checkbox only writes the
 # XDG autostart entry when the settings dialog is saved, so the playbook

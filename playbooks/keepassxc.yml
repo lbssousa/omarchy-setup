@@ -5,7 +5,14 @@
 #   OpenSSH agent       tags: keepassxc, ssh-agent   (opt-in)
 #   KeePassXC           tags: keepassxc
 #
+# site.yml imports this file with keepassxc_primary=false: KeePassXC is
+# installed alongside Bitwarden (the default), with the browser manifests and
+# the YubiKey auto-lock rule, but without the autostart entry or the
+# SUPER+SHIFT+SLASH keybind. Running the file directly (`just keepassxc`)
+# makes it the primary password manager.
+#
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags keepassxc
+#        ./run-empowered.sh ansible-playbook playbooks/keepassxc.yml
 
 # OpenSSH agent (systemd --user) — opt-in via keepassxc_ssh_agent_enabled
 # (false by default), so `just keepassxc` installs the password manager
@@ -58,8 +65,9 @@
 # pre-seeded keepassxc.ini — so the app comes up with its stock defaults
 # and the user configures it in-app. Its UI font comes from qt5ct
 # (playbooks/file-chooser.yml), like every other Qt5 app on the host. The
-# browser native-messaging manifests, the YubiKey auto-lock rule and the
-# autostart entry (all below) are still deployed.
+# browser native-messaging manifests and the YubiKey auto-lock rule (below)
+# are always deployed; the autostart entry and the keybind only with
+# keepassxc_primary.
 #
 # The package ships the desktop-entry id org.keepassxc.KeePassXC.desktop
 # and reports the window class keepassxc (StartupWMClass), which is what
@@ -127,37 +135,43 @@
       loop_control:
         label: "{{ item.name }}"
 
-    - name: Deploy the KeePassXC autostart readiness wrapper
-      ansible.builtin.template:
-        src: keepassxc-autostart.sh.j2
-        dest: "{{ keepassxc_autostart_wrapper }}"
-        mode: "0700"
+    # Autostart and the keybind below make KeePassXC the session's password
+    # manager; site.yml runs this play with keepassxc_primary=false, so
+    # Bitwarden keeps both there (see group_vars/all/main.yml).
+    - name: KeePassXC autostart (only when keepassxc_primary)
+      when: keepassxc_primary | bool
+      block:
+      - name: Deploy the KeePassXC autostart readiness wrapper
+        ansible.builtin.template:
+          src: keepassxc-autostart.sh.j2
+          dest: "{{ keepassxc_autostart_wrapper }}"
+          mode: "0700"
 
-    - name: Create the XDG autostart directory
-      ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/autostart"
-        state: directory
-        mode: "0755"
+      - name: Create the XDG autostart directory
+        ansible.builtin.file:
+          path: "{{ ansible_facts.env.HOME }}/.config/autostart"
+          state: directory
+          mode: "0755"
 
-    - name: Deploy the KeePassXC XDG autostart entry (only if missing)
-      ansible.builtin.template:
-        src: keepassxc-autostart.desktop.j2
-        dest: "{{ keepassxc_autostart_desktop }}"
-        mode: "0644"
-        force: false
+      - name: Deploy the KeePassXC XDG autostart entry (only if missing)
+        ansible.builtin.template:
+          src: keepassxc-autostart.desktop.j2
+          dest: "{{ keepassxc_autostart_desktop }}"
+          mode: "0644"
+          force: false
 
-    # force: false above deliberately keeps an entry KeePassXC wrote itself
-    # (it only writes one once the "Launch at startup" checkbox has been
-    # saved, and it localizes the fields), so its Exec has to be re-pointed
-    # here — force: false means the template never got a chance to.
-    - name: Point the autostart entry at the readiness wrapper
-      community.general.ini_file:
-        path: "{{ keepassxc_autostart_desktop }}"
-        section: Desktop Entry
-        option: Exec
-        value: "{{ keepassxc_autostart_wrapper }}"
-        no_extra_spaces: true
-        mode: "0644"
+      # force: false above deliberately keeps an entry KeePassXC wrote itself
+      # (it only writes one once the "Launch at startup" checkbox has been
+      # saved, and it localizes the fields), so its Exec has to be re-pointed
+      # here — force: false means the template never got a chance to.
+      - name: Point the autostart entry at the readiness wrapper
+        community.general.ini_file:
+          path: "{{ keepassxc_autostart_desktop }}"
+          section: Desktop Entry
+          option: Exec
+          value: "{{ keepassxc_autostart_wrapper }}"
+          no_extra_spaces: true
+          mode: "0644"
 
     - name: "Auto-lock KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }}) is unplugged"
       become: true
@@ -176,6 +190,7 @@
           notify: reload udev rules
 
     - name: "KeePassXC keybinding ({{ keepassxc_hypr_keybind }}, inherited from 1Password's default)"
+      when: keepassxc_primary | bool
       block:
         - name: Create ~/.config/hypr
           ansible.builtin.file:

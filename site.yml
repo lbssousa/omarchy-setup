@@ -31,6 +31,17 @@
   ansible.builtin.import_playbook: playbooks/bitwarden.yml
   tags: [bitwarden]
 
+# KeePassXC alongside Bitwarden: the package, the browser native messaging
+# manifests and a udev rule that locks every open database when the YubiKey
+# is unplugged. keepassxc_primary=false leaves autostart and
+# SUPER+SHIFT+SLASH to Bitwarden (`just keepassxc` hands them over). The
+# file's OpenSSH agent play stays off (keepassxc_ssh_agent_enabled).
+- name: KeePassXC (alongside Bitwarden, YubiKey auto-lock)
+  ansible.builtin.import_playbook: playbooks/keepassxc.yml
+  vars:
+    keepassxc_primary: false
+  tags: [keepassxc]
+
 - name: ONLYOFFICE Desktop Editors
   ansible.builtin.import_playbook: playbooks/onlyoffice.yml
   tags: [onlyoffice]

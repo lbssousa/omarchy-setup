@@ -137,6 +137,12 @@ lazyvim: _ensure-collections
 typesetting:
     ./local-typesetting/install-typesetting.sh
 
+# Install KeePassXC alongside Bitwarden, as `just setup` does: the package,
+# the browser manifests and the udev rule that locks it when the YubiKey is
+# unplugged, leaving autostart and SUPER+SHIFT+SLASH to Bitwarden.
+keepassxc-alongside: _ensure-collections
+    {{ap}} site.yml --tags keepassxc
+
 # Run only the pt-BR localization playbook.
 ptbr: _ensure-collections
     {{ap}} site.yml --tags ptbr
@@ -148,9 +154,9 @@ ptbr: _ensure-collections
 ssh-agent: _ensure-collections
     ansible-playbook playbooks/keepassxc.yml --tags ssh-agent -e keepassxc_ssh_agent_enabled=true
 
-# Run the KeePassXC playbook (omarchy-pkg-add keepassxc). Optional password
-# manager alternative to Bitwarden, not part of `just setup`; takes over
-# SUPER+SHIFT+SLASH. The SSH agent stays off; add
+# Make KeePassXC the primary password manager (omarchy-pkg-add keepassxc):
+# autostart and SUPER+SHIFT+SLASH, on top of what `just setup` already
+# installs alongside Bitwarden (browser manifests, YubiKey auto-lock rule). The SSH agent stays off; add
 # -e keepassxc_ssh_agent_enabled=true here (or run `just ssh-agent`) to have
 # KeePassXC act as a client for it as well.
 keepassxc: _ensure-collections

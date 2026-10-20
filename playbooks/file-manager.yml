@@ -1,15 +1,28 @@
 ---
 # Installs Flea (fast, keyboard-first file manager for Omarchy) and makes
-# it the default handler for directories, instead of Nautilus.
+# it the default file manager, instead of Nautilus.
 #
 # Flea comes from Omarchy's own package repo (`pacman -Si flea`), with an
 # AUR build of the same name behind it; pacman picks the repo one.
-# Nautilus stays installed: the GTK4 file chooser portal
-# (playbooks/file-chooser.yml) and sushi depend on it.
+# Nautilus stays installed (sushi, the previewer, depends on it).
 #
-# The mapping goes in the user's ~/.config/mimeapps.list, not
-# /usr/share/applications/mimeapps.list, which omarchy-settings owns and
-# a package update would revert (same reasoning as pdf-viewer.yml).
+# Making it the default is left to Flea's own `flea --default`, which
+# does all of this in the user's home, undone together by
+# `flea --default off`:
+#   - inode/directory -> Flea in ~/.config/mimeapps.list (not
+#     /usr/share/applications/mimeapps.list, which omarchy-settings owns
+#     and a package update would revert);
+#   - a user D-Bus service for org.freedesktop.FileManager1, so "Show in
+#     folder" from browsers and other apps opens Flea;
+#   - a block in ~/.config/hypr/bindings.lua rebinding Omarchy's "File
+#     manager" keys, SUPER+SHIFT+F and SUPER+ALT+SHIFT+F (cwd), from
+#     Nautilus to Flea;
+#   - Flea's picker as the FileChooser portal backend
+#     (~/.config/xdg-desktop-portal/hyprland-portals.conf, `flea;gtk`, the
+#     same line playbooks/file-chooser.yml writes) and a window rule in
+#     bindings.lua that floats it.
+# It is idempotent: every part it already owns is reported as "already",
+# which is how this play tells whether anything changed.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags file-manager
 - name: File manager (Flea default)
@@ -34,18 +47,39 @@
         that: file_manager_installed_entry.stat.exists
         fail_msg: >-
           /usr/share/applications/{{ file_manager_desktop_id }} is
-          missing, so {{ file_manager_mimeapps_path }} would point at
+          missing, so ~/.config/mimeapps.list would point at
           nothing and opening a folder would fall back to another file
           manager. Fix file_manager_desktop_id in group_vars/all/main.yml
           to the package's new id.
         quiet: true
 
-    - name: "Set Flea as the default file manager ({{ file_manager_mimeapps_path }})"
-      community.general.ini_file:
-        path: "{{ file_manager_mimeapps_path }}"
-        section: Default Applications
-        option: inode/directory
-        value: "{{ file_manager_desktop_id }}"
-        no_extra_spaces: true
-        create: true
-        mode: "0644"
+    - name: Make Flea the default file manager (flea --default)
+      ansible.builtin.command: flea --default
+      register: file_manager_flea_default
+      changed_when: >-
+        (file_manager_flea_default.stdout_lines
+         + file_manager_flea_default.stderr_lines)
+        | reject('search', 'already')
+        | select('match', '^[\w./-]+: ')
+        | list | length > 0
+
+    - name: Restart xdg-desktop-portal to pick up the FileChooser backend
+      ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
+      when: file_manager_flea_default.changed
+      changed_when: true
+      failed_when: false
+
+    - name: Read back the default handler for directories
+      ansible.builtin.command: xdg-mime query default inode/directory
+      register: file_manager_xdg_default
+      changed_when: false
+
+    - name: Expect xdg-mime to report Flea for directories
+      ansible.builtin.assert:
+        that: file_manager_xdg_default.stdout | trim == file_manager_desktop_id
+        fail_msg: >-
+          xdg-mime still reports '{{ file_manager_xdg_default.stdout | trim }}'
+          for inode/directory after `flea --default`, which said:
+          {{ (file_manager_flea_default.stdout_lines
+              + file_manager_flea_default.stderr_lines) | join(' / ') }}
+        quiet: true

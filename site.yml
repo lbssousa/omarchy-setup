@@ -53,9 +53,10 @@
 
 - name: File manager (Flea default)
   ansible.builtin.import_playbook: playbooks/file-manager.yml
-  tags: [file-manager]
+  # file-chooser routes the portal to Flea's picker, so it needs Flea first.
+  tags: [file-manager, file-chooser]
 
-- name: GTK4 file chooser dialogs for non-GNOME apps
+- name: Flea file chooser dialogs for non-GNOME apps
   ansible.builtin.import_playbook: playbooks/file-chooser.yml
   tags: [file-chooser]
 

@@ -87,7 +87,7 @@ gregorio-lsp: _ensure-collections
 pdf-viewer: _ensure-collections
     {{ap}} site.yml --tags pdf-viewer
 
-# Install the Flea file manager and make it the default for directories.
+# Install the Flea file manager and make it the default (folders, keybinds, file dialogs).
 file-manager: _ensure-collections
     {{ap}} site.yml --tags file-manager
 
@@ -123,7 +123,7 @@ polkit-agent: _ensure-collections
 plugins: _ensure-collections
     {{ap}} site.yml --tags plugins
 
-# Make the open/save file dialogs of non-GNOME apps the GTK4 ones (xdg-desktop-portal-gnome).
+# Make the open/save file dialogs of non-GNOME apps Flea's picker (installs Flea first).
 file-chooser: _ensure-collections
     {{ap}} site.yml --tags file-chooser
 

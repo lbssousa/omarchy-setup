@@ -42,6 +42,14 @@ pam-auth-order: _ensure-collections
 brave: _ensure-collections
     {{ap}} site.yml --tags brave
 
+# Convert Omarchy's preinstalled web apps (brave_pwa_webapps in
+# group_vars/all/main.yml) into Brave Origin PWAs, each opening in its own
+# Brave container, and drop leftover Firefox Taskbar Tab shortcuts. Needs
+# root (writes /etc/brave/policies/managed). Every container named in
+# brave_pwa_webapps must already exist in Brave.
+brave-pwa-webapps: _ensure-collections
+    {{ap}} playbooks/brave-pwa-webapps.yml
+
 # Rerun just the Omarchy web app -> Brave container wiring (also installs
 # the systemd --user watcher that reruns it when the launchers change).
 # Launchers listed in brave_omarchy_webapp_containers get a trailing

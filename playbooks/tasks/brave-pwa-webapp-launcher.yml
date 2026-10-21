@@ -1,0 +1,73 @@
+# Second half of one PWA swap — included by tasks/brave-pwa-webapp-swap.yml
+# once the Brave-assigned app id (brave_webapp_app_id) is known. Same
+# per-task tag as the first half.
+# Brave's own shortcut never carries --container= (that's this repo's
+# addition, applied below) — drop it so it doesn't sit alongside our own
+# launcher as a second, container-less way to open the same app. Brave can
+# recreate this shortcut on its own (e.g. when it re-syncs the policy
+# after an unrelated file in the managed policy directory changes), so
+# this runs unconditionally every time, by the now-known app id, rather
+# than only right after discovery.
+- name: "[{{ webapp.name }}] Remove Brave's own auto-generated shortcut, if present"
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.desktop"
+    state: absent
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Remove Brave's own auto-generated icon, if present"
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/icons/hicolor/256x256/apps/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.png"
+    state: absent
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Install/refresh the container-aware launcher"
+  ansible.builtin.command:
+    argv:
+      - omarchy-webapp-install
+      - "{{ webapp.name }}"
+      - "{{ webapp.url }}"
+      - "{{ webapp.icon }}"
+      - "{{ brave_binary }} --profile-directory={{ brave_profile_directory }} --app-id={{ brave_webapp_app_id }}{{ ' --container=' ~ webapp.container_name if webapp.container_name is defined else '' }}"
+  changed_when: true
+  tags: [brave-pwa-webapps]
+
+# omarchy-webapp-install derives StartupWMClass from the URL (the class of
+# a plain omarchy-launch-webapp window) — point it at the PWA's own window
+# so the dock and titlebars that match by it (not just this playbook's own
+# Hyprland `focus` regex below) find this launcher and its icon. Under
+# Wayland that class is brave-<app id>-<profile>, not the crx_<app id> of
+# Brave's own generated shortcut (the X11 WM_CLASS).
+- name: "[{{ webapp.name }}] Set StartupWMClass on the launcher"
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"
+    regexp: "^StartupWMClass="
+    line: "StartupWMClass=brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}"
+    insertafter: "^Icon="
+  tags: [brave-pwa-webapps]
+
+- name: Create ~/.config/hypr
+  ansible.builtin.file:
+    path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+    state: directory
+    mode: "0755"
+  tags: [brave-pwa-webapps]
+
+- name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+  ansible.builtin.copy:
+    src: /usr/share/omarchy/default/hypr/bindings.lua
+    dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+    remote_src: true
+    force: false
+    mode: "0644"
+  tags: [brave-pwa-webapps]
+
+- name: "[{{ webapp.name }}] Rebind {{ webapp.hypr_keybind | default('') }} to the {{ webapp.name }} Brave PWA"
+  when: webapp.hypr_keybind is defined
+  ansible.builtin.blockinfile:
+    path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+    marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/brave-pwa-webapps.yml — {{ webapp.hypr_description | default(webapp.name) }} keybinding)"
+    block: |
+      hl.unbind("{{ webapp.hypr_keybind }}")
+      o.bind("{{ webapp.hypr_keybind }}", "{{ webapp.hypr_description | default(webapp.name) }}", { launch = "gtk-launch \"{{ webapp.name }}\"", focus = "^brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}$" })
+  notify: reload Hyprland
+  tags: [brave-pwa-webapps]

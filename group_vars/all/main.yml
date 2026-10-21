@@ -45,6 +45,92 @@ brave_origin_desktop_id: brave-origin.desktop
 # Empty for now: map a launcher here once its Brave container exists.
 brave_omarchy_webapp_containers: {}
 
+# Brave Origin PWAs replacing Omarchy's preinstalled web apps
+# (playbooks/brave-pwa-webapps.yml, tasks/brave-pwa-webapp-swap.yml).
+# Each entry force-installs url as a Brave web app via the
+# WebAppInstallForceList machine policy
+# (/etc/brave/policies/managed/omarchy-setup-webapps.json — needs root),
+# discovers the app id Brave assigns it, then overwrites the Omarchy web
+# app launcher named name (~/.local/share/applications/<name>.desktop) to
+# launch that app id inside container_name via `--app-id=... --container=...`,
+# and rebinds hypr_keybind to it. container_name must already exist as a
+# Brave container (brave://settings/containers — no CLI to create one).
+# /usr/bin/brave-origin, not /opt/brave-origin-bin/brave-origin directly:
+# the wrapper reads ~/.config/brave-origin-flags.conf (Omarchy's Chromium
+# flags).
+brave_binary: /usr/bin/brave-origin
+brave_profile_dir: Brave-Origin
+brave_profile_directory: Default
+# manifest_hint is the PWA's own Name= (what Brave titles the installed
+# app), used to find its shortcut when it differs from name. icon: ""
+# lets omarchy-webapp-install fetch the site's favicon.
+brave_pwa_webapps:
+  - name: WhatsApp
+    manifest_hint: WhatsApp Web
+    url: "https://web.whatsapp.com/"
+    icon: whatsapp
+    container_name: Meta
+    hypr_keybind: "SUPER + SHIFT + ALT + G"
+    hypr_description: "WhatsApp"
+  - name: Microsoft Teams
+    # Brave titles the shortcut with the URL until the manifest loads.
+    manifest_hint: '\(Microsoft Teams\|https://teams.cloud.microsoft/\)'
+    url: "https://teams.cloud.microsoft/"
+    icon: ""
+    container_name: Microsoft
+    hypr_keybind: "SUPER + SHIFT + ALT + T"
+    hypr_description: "Microsoft Teams"
+  - name: YouTube
+    url: "https://www.youtube.com/"
+    icon: youtube
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + Y"
+    hypr_description: "YouTube"
+  # Omarchy's other web apps. container_name and hypr_keybind are optional:
+  # without a container the PWA uses Brave's default partition, without a
+  # keybind only the launcher is replaced. Omarchy's HEY and Zoom
+  # launchers are URL handlers (omarchy-webapp-handler-*), left alone.
+  - name: Google Messages
+    url: "https://messages.google.com/web/conversations"
+    icon: google-messages
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + CTRL + G"
+  - name: Google Photos
+    url: "https://photos.google.com/"
+    icon: google-photos
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + P"
+  - name: Google Contacts
+    url: "https://contacts.google.com/"
+    icon: google-contacts
+    container_name: Google
+  - name: Google Maps
+    manifest_hint: '\(Google Maps\|https://maps.google.com/\)'
+    url: "https://maps.google.com/"
+    icon: google-maps
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + ALT + S"
+  - name: Discord
+    url: "https://discord.com/channels/@me"
+    icon: omarchy-discord
+  - name: Basecamp
+    manifest_hint: 'Basecamp\( Log In\)\?'
+    url: "https://launchpad.37signals.com"
+    icon: basecamp
+  - name: X
+    url: "https://x.com/"
+    icon: x
+    hypr_keybind: "SUPER + SHIFT + X"
+  - name: ChatGPT
+    url: "https://chatgpt.com"
+    icon: chatgpt
+    hypr_keybind: "SUPER + SHIFT + A"
+  - name: Grok
+    url: "https://grok.com"
+    icon: ""
+    hypr_keybind: "SUPER + SHIFT + ALT + A"
+
+
 # Default browser the main run leaves behind
 # (playbooks/default-browser.yml), as the name `omarchy-default-browser`
 # takes (Setup > Defaults > Browser in the Omarchy menu). Only set when it

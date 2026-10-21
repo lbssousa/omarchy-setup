@@ -1,8 +1,7 @@
 ---
 # Proton Pass — end-to-end encrypted password manager from Proton AG.
-# Optional alternative to Bitwarden (playbooks/bitwarden.yml, the default
-# password manager) and KeePassXC (playbooks/keepassxc.yml); like
-# KeePassXC's, this playbook is not imported by site.yml. Running it hands
+# Optional alternative to KeePassXC (playbooks/keepassxc.yml, the default
+# password manager); this playbook is not imported by site.yml. Running it hands
 # the "Passwords" keybind to Proton Pass.
 #
 #   Desktop client   tags: proton-pass, proton-pass-desktop

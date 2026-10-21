@@ -422,14 +422,12 @@ ssh_agent_units:
 keepassxc_package: keepassxc
 # Whether KeePassXC is the session's password manager: true deploys its
 # autostart entry and hands it the keybind below. `just setup` (site.yml)
-# imports the play with false, installing KeePassXC alongside Bitwarden
-# with only the browser manifests and the YubiKey auto-lock rule;
-# `just keepassxc` runs the file directly with this default.
+# imports the play with the default; false would install only the browser
+# manifests and the YubiKey auto-lock rule.
 keepassxc_primary: true
 keepassxc_desktop_id: org.keepassxc.KeePassXC.desktop
 # Reuses Omarchy's default "Passwords" keybinding (originally bound to
-# 1Password). Bitwarden is the default password manager
-# (playbooks/bitwarden.yml); keepassxc_primary hands the key to KeePassXC.
+# 1Password).
 keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
 # KeePassXC's "Launch KeePassXC at system startup" checkbox only writes the
 # XDG autostart entry when the settings dialog is saved, so the playbook
@@ -437,10 +435,22 @@ keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
 # installs (see keepassxc.yml).
 keepassxc_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/{{ keepassxc_desktop_id }}"
 # systemd's XDG autostart fires desktop entries before the tray and theme
-# are up, so the autostart Exec runs this readiness wrapper instead: it
-# waits for the shell's StatusNotifierHost and for Omarchy's gsettings
-# color-scheme before exec'ing KeePassXC (see keepassxc.yml).
-keepassxc_autostart_wrapper: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart"
+# are up, so a drop-in on the generated autostart unit runs this readiness
+# script as ExecStartPre=: it waits for the shell's StatusNotifierHost and
+# for xdg-desktop-portal before KeePassXC starts (see keepassxc.yml).
+keepassxc_autostart_wait: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart-wait"
+keepassxc_autostart_dropin: "{{ ansible_facts.env.HOME }}/.config/systemd/user/app-org.keepassxc.KeePassXC@autostart.service.d/50-wait-for-desktop.conf"
+
+# Raise KeePassXC's unlock prompt when ssh needs a key the agent doesn't
+# hold: a `Match exec` drop-in in ~/.ssh/config.d runs the script before
+# every connection, and with no identity in the agent it opens the last
+# active database and waits up to the timeout (seconds) for its keys. Only
+# useful with KeePassXC's SSH agent integration on and "Remove keys from
+# agent when database is closed/locked" ticked.
+keepassxc_ssh_unlock_enabled: true
+keepassxc_ssh_unlock_script: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-ssh-unlock"
+keepassxc_ssh_unlock_dropin: "{{ ansible_facts.env.HOME }}/.ssh/config.d/keepassxc-unlock.conf"
+keepassxc_ssh_unlock_timeout: 60
 
 # Auto-lock KeePassXC when the YubiKey is unplugged (udev rule, ported from
 # lbssousa/nix-config's modules/system/security/keepassxc-yubikey-lock.nix).
@@ -467,54 +477,6 @@ keepassxc_browser_manifests:
   - name: Brave Origin
     dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
 
-# Bitwarden (playbooks/bitwarden.yml) — the default password manager,
-# part of `just setup`. Omarchy's own menu (Install > Service > Bitwarden)
-# installs `bitwarden bitwarden-cli` from extra, which lag months behind
-# upstream (2026.3.1 and 2026.2.0 while upstream is at 2026.10.0), so
-# this setup installs the AUR repackagings of Bitwarden's own release
-# builds instead, with omarchy-pkg-aur-add — `omarchy-update` keeps them
-# current along with the other AUR packages. They conflict with the extra
-# ones, which the play removes first (bitwarden_replaced_packages).
-bitwarden_packages:
-  - bitwarden-bin
-  - bitwarden-cli-bin
-bitwarden_replaced_packages:
-  - bitwarden
-  - bitwarden-cli
-# bitwarden-bin's launcher (/usr/bin/bitwarden, wrapping
-# /opt/Bitwarden/bitwarden); extra's package called it bitwarden-desktop.
-bitwarden_command: bitwarden
-# Window class of the native build, the one Omarchy's own window rule
-# (default/hypr/apps/bitwarden.lua) keys on.
-bitwarden_window_class: Bitwarden
-
-# The polkit action Bitwarden's biometric unlock needs to even show the
-# option in its own settings (https://bitwarden.com/help/biometrics/):
-# neither package ships it, so the play installs
-# playbooks/files/com.bitwarden.Bitwarden.policy at this path, the
-# directory pacman itself owns other actions in
-# (`pacman -Ql polkit | grep actions`).
-bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarden.policy
-
-# The SSH agent socket (https://bitwarden.com/help/ssh-agent/), directly in
-# $HOME.
-# Exported as SSH_AUTH_SOCK by playbooks/files/20-bitwarden-ssh-agent.conf
-# and the bitwarden-ssh-agent units, which hardcode the same path.
-bitwarden_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.bitwarden-ssh-agent.sock"
-bitwarden_ssh_agent_units:
-  - bitwarden-ssh-agent.path
-  - bitwarden-ssh-agent-env.service
-
-# Reuses Omarchy's default "Passwords" keybinding (originally bound to
-# 1Password, which this setup doesn't install).
-bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
-
-# gcr-ssh-agent competes for SSH_AUTH_SOCK and must be masked for
-# Bitwarden's own agent to take over.
-gcr_ssh_agent_units:
-  - gcr-ssh-agent.socket
-  - gcr-ssh-agent.service
-
 # Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
 # /home/linuxbrew/.linuxbrew and exposed via a launcher script in
 # /usr/local/bin so `brew` is on PATH without shell-profile edits.
@@ -535,7 +497,7 @@ homebrew_bbrew_package: bbrew
 homebrew_env_file: 42-homebrew.conf
 
 # Proton Pass (playbooks/proton-pass.yml — optional password manager
-# alternative to KeePassXC/Bitwarden, not part of `just setup`).
+# alternative to KeePassXC, not part of `just setup`).
 #
 # Desktop client: Proton's own .deb repackaged in the AUR
 # (proton-pass-bin), installed with omarchy-pkg-aur-add.
@@ -730,7 +692,7 @@ nightlight_solar_oncalendar: "*-*-* 00:05:00"
 # Inkscape extension exporting SVG paths as TikZ/PGF for LaTeX,
 # https://github.com/xyz2tex/svg2tikz) has no official Arch package, so
 # it's built from the AUR the same unprivileged clone+makepkg+pacman -U
-# pattern as playbooks/bitwarden.yml. xclip is an optional runtime
+# pattern as playbooks/blesh.yml. xclip is an optional runtime
 # dependency the extension uses for its "copy to clipboard" output mode.
 #
 # TeX Live's own fonts are registered with fontconfig by

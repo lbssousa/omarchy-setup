@@ -20,7 +20,7 @@ item against the real release (see *Re-checking* at the end).
 | `file-chooser.yml` | **Needs a fix** (regression) | [#9594](https://github.com/omacom/omarchy/pull/9594) |
 | `capslock.yml` | Still needed; comments outdated | [#14939](https://github.com/omacom/omarchy/pull/14939) |
 | `ptbr.yml` (locale step) | Partly covered upstream | [#15326](https://github.com/omacom/omarchy/pull/15326) |
-| `bitwarden.yml`, `keepassxc.yml`, `proton-pass.yml` | Possible conflict (opt-in) | [#9399](https://github.com/omacom/omarchy/pull/9399) |
+| `keepassxc.yml`, `proton-pass.yml` | Possible conflict (opt-in) | [#9399](https://github.com/omacom/omarchy/pull/9399) |
 | everything else | No impact found | — |
 
 ## Obsolete
@@ -127,9 +127,8 @@ to `eng`.
 4.5 adds an optional `omarchy-setup-security-ssh-agent`. It enables
 `gcr-ssh-agent.socket` and writes
 `~/.config/environment.d/90-gcr-ssh-agent.conf`. That file sorts after
-our `20-bitwarden-ssh-agent.conf`, `20-proton-pass-ssh-agent.conf` and
-`20-ssh-agent.conf`, so it wins `SSH_AUTH_SOCK`. `bitwarden.yml` also
-masks the very `gcr-ssh-agent` units it enables.
+our `20-proton-pass-ssh-agent.conf` and
+`20-ssh-agent.conf`, so it wins `SSH_AUTH_SOCK`.
 
 **Action:** none unless someone runs it. Optionally warn in those
 playbooks when `90-gcr-ssh-agent.conf` exists.

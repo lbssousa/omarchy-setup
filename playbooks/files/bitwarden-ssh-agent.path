@@ -1,9 +1,0 @@
-[Unit]
-Description=Watch the Bitwarden SSH agent socket
-
-[Path]
-PathExists=%h/.bitwarden-ssh-agent.sock
-Unit=bitwarden-ssh-agent-env.service
-
-[Install]
-WantedBy=default.target

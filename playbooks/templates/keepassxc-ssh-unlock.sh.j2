@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+# Ask for the KeePassXC database to be unlocked when ssh needs a key — run
+# by the `Match exec` block in ~/.ssh/config.d/keepassxc-unlock.conf before
+# every connection (see keepassxc.yml).
+#
+# KeePassXC loads its SSH keys into the session agent on unlock (and drops
+# them on lock, with "Remove keys from agent when database is closed/locked"
+# on), so an agent with no identities means a locked database. In that case
+# open the last active database — a second `keepassxc` forwards the file to
+# the running instance and raises its unlock prompt, or starts KeePassXC
+# straight on it — then wait for a key to show up in the agent. ssh only
+# carries on once this returns.
+#
+# Always exits 1: the Match block exists only for this side effect, so it
+# must never match (and apply nothing).
+set -uo pipefail
+
+timeout=${KEEPASSXC_SSH_UNLOCK_TIMEOUT:-{{ keepassxc_ssh_unlock_timeout }}}
+trap 'exit 1' EXIT
+
+# 0: the agent already holds a key; 2: no agent to load one into anyway.
+ssh-add -l &>/dev/null
+(($? == 1)) || exit
+
+# No desktop to show the prompt on (a cron job, a TTY login).
+[[ -n ${WAYLAND_DISPLAY:-} ]] || exit
+
+db=$(sed -n 's/^LastActiveDatabase=//p' "${XDG_CACHE_HOME:-$HOME/.cache}/keepassxc/keepassxc.ini" 2>/dev/null)
+[[ -n $db && -f $db ]] || exit
+
+echo "ssh: waiting for KeePassXC to unlock $(basename "$db")..." >&2
+if command -v uwsm-app &>/dev/null; then
+  setsid -f uwsm-app -- keepassxc "$db" &>/dev/null
+else
+  setsid -f keepassxc "$db" &>/dev/null
+fi
+
+for ((i = 0; i < timeout; i++)); do
+  sleep 1
+  ssh-add -l &>/dev/null && exit
+done
+
+echo "ssh: KeePassXC still locked after ${timeout}s; continuing without its keys" >&2

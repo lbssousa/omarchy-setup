@@ -1,9 +1,0 @@
-[Unit]
-Description=Export the Bitwarden SSH agent's SSH_AUTH_SOCK to the systemd session
-StartLimitIntervalSec=0
-
-[Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/bin/systemctl --user set-environment SSH_AUTH_SOCK=%h/.bitwarden-ssh-agent.sock
-ExecStop=/usr/bin/systemctl --user unset-environment SSH_AUTH_SOCK

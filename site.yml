@@ -24,22 +24,12 @@
   ansible.builtin.import_playbook: playbooks/default-browser.yml
   tags: [default-browser]
 
-# The default password manager: Omarchy's "Passwords" keybind
-# (SUPER+SHIFT+SLASH, 1Password upstream), started with the session, with
-# its SSH agent as the session's SSH_AUTH_SOCK.
-- name: Bitwarden (default password manager)
-  ansible.builtin.import_playbook: playbooks/bitwarden.yml
-  tags: [bitwarden]
-
-# KeePassXC alongside Bitwarden: the package, the browser native messaging
-# manifests and a udev rule that locks every open database when the YubiKey
-# is unplugged. keepassxc_primary=false leaves autostart and
-# SUPER+SHIFT+SLASH to Bitwarden (`just keepassxc` hands them over). The
+# The password manager: KeePassXC, its browser native messaging manifests,
+# autostart, Omarchy's "Passwords" keybind (SUPER+SHIFT+SLASH) and a udev
+# rule that locks every open database when the YubiKey is unplugged. The
 # file's OpenSSH agent play stays off (keepassxc_ssh_agent_enabled).
-- name: KeePassXC (alongside Bitwarden, YubiKey auto-lock)
+- name: KeePassXC (default password manager, YubiKey auto-lock)
   ansible.builtin.import_playbook: playbooks/keepassxc.yml
-  vars:
-    keepassxc_primary: false
   tags: [keepassxc]
 
 - name: ONLYOFFICE Desktop Editors

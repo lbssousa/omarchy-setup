@@ -5,11 +5,8 @@
 #   OpenSSH agent       tags: keepassxc, ssh-agent   (opt-in)
 #   KeePassXC           tags: keepassxc
 #
-# site.yml imports this file with keepassxc_primary=false: KeePassXC is
-# installed alongside Bitwarden (the default), with the browser manifests and
-# the YubiKey auto-lock rule, but without the autostart entry or the
-# SUPER+SHIFT+SLASH keybind. Running the file directly (`just keepassxc`)
-# makes it the primary password manager.
+# KeePassXC is the primary password manager (keepassxc_primary): the
+# autostart entry and the SUPER+SHIFT+SLASH keybind are deployed too.
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml --tags keepassxc
 #        ./run-empowered.sh ansible-playbook playbooks/keepassxc.yml
@@ -80,17 +77,24 @@
 #
 # systemd's XDG autostart fires desktop entries before quickshell has
 # registered the system tray (org.kde.StatusNotifierWatcher) and before
-# Omarchy applies the theme's color-scheme to gsettings. KeePassXC samples
-# both at startup, so launching that early shows the window in the stock
-# light theme with no appindicator icon; a manual restart fixes both only
-# because the environment is ready by then. The autostart Exec therefore
-# runs a readiness wrapper that waits for the tray and the color-scheme,
-# then execs KeePassXC.
+# xdg-desktop-portal answers. KeePassXC (Qt5) samples both at startup — the
+# tray to pick its D-Bus tray icon, the portal's color-scheme to pick its
+# dark theme — so launching that early shows the window in the stock light
+# theme with no appindicator icon; a manual restart fixes both only because
+# the environment is ready by then. A drop-in on the generated
+# app-org.keepassxc.KeePassXC@autostart.service therefore runs a readiness
+# script as ExecStartPre= that waits for the tray and the portal. A drop-in,
+# not a wrapper in the entry's Exec: KeePassXC rewrites the entry (Exec=
+# keepassxc) every time its settings are saved with autostart on.
 #
 # The native messaging host manifests are deployed by this playbook to
 # the Chromium and Brave Origin locations, pointing at the package's own
 # keepassxc-proxy; the user still needs to install the KeePassXC-Browser
 # extension in each browser and connect it.
+#
+# A `Match exec` drop-in in ~/.ssh/config.d raises KeePassXC's unlock
+# prompt whenever ssh needs a key and the agent holds none, and waits for
+# the keys before the connection goes on (keepassxc_ssh_unlock_enabled).
 #
 # A udev rule locks every open database as soon as the YubiKey is
 # unplugged (matched on USB PRODUCT, since the reader is removable and
@@ -136,16 +140,21 @@
         label: "{{ item.name }}"
 
     # Autostart and the keybind below make KeePassXC the session's password
-    # manager; site.yml runs this play with keepassxc_primary=false, so
-    # Bitwarden keeps both there (see group_vars/all/main.yml).
+    # manager (see group_vars/all/main.yml).
     - name: KeePassXC autostart (only when keepassxc_primary)
       when: keepassxc_primary | bool
       block:
-      - name: Deploy the KeePassXC autostart readiness wrapper
+      - name: Deploy the KeePassXC autostart readiness script
         ansible.builtin.template:
-          src: keepassxc-autostart.sh.j2
-          dest: "{{ keepassxc_autostart_wrapper }}"
+          src: keepassxc-autostart-wait.sh.j2
+          dest: "{{ keepassxc_autostart_wait }}"
           mode: "0700"
+
+      # Superseded by keepassxc_autostart_wait (the drop-in below).
+      - name: Remove the old exec'ing readiness wrapper
+        ansible.builtin.file:
+          path: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart"
+          state: absent
 
       - name: Create the XDG autostart directory
         ansible.builtin.file:
@@ -161,17 +170,75 @@
           force: false
 
       # force: false above deliberately keeps an entry KeePassXC wrote itself
-      # (it only writes one once the "Launch at startup" checkbox has been
-      # saved, and it localizes the fields), so its Exec has to be re-pointed
-      # here — force: false means the template never got a chance to.
-      - name: Point the autostart entry at the readiness wrapper
+      # (it localizes the fields), so an Exec an earlier run of this playbook
+      # pointed at the removed wrapper is put back to what KeePassXC writes.
+      - name: Point the autostart entry back at keepassxc
         community.general.ini_file:
           path: "{{ keepassxc_autostart_desktop }}"
           section: Desktop Entry
           option: Exec
-          value: "{{ keepassxc_autostart_wrapper }}"
+          value: keepassxc
           no_extra_spaces: true
           mode: "0644"
+
+      - name: Create the autostart unit's drop-in directory
+        ansible.builtin.file:
+          path: "{{ keepassxc_autostart_dropin | dirname }}"
+          state: directory
+          mode: "0755"
+
+      # The script gives up after 60s and exits 0, inside TimeoutStartSec.
+      - name: Hold the autostart unit until the tray and the portal are up
+        ansible.builtin.copy:
+          dest: "{{ keepassxc_autostart_dropin }}"
+          mode: "0644"
+          content: |
+            # Managed by omarchy-setup (playbooks/keepassxc.yml).
+            [Service]
+            ExecStartPre={{ keepassxc_autostart_wait }}
+            TimeoutStartSec=90s
+        notify: reload systemd user units
+
+    # ssh runs keepassxc_ssh_unlock_script before every connection; with no
+    # key in the agent it raises KeePassXC's unlock prompt and waits for one.
+    # The Match block lives in its own ~/.ssh/config.d drop-in, pulled in by
+    # the same top-of-file Include line scripts/ssh-yubikey.sh writes.
+    - name: Prompt to unlock KeePassXC when ssh needs a key (only when keepassxc_ssh_unlock_enabled)
+      when: keepassxc_ssh_unlock_enabled | bool
+      block:
+      - name: Deploy the KeePassXC ssh unlock script
+        ansible.builtin.template:
+          src: keepassxc-ssh-unlock.sh.j2
+          dest: "{{ keepassxc_ssh_unlock_script }}"
+          mode: "0700"
+
+      - name: Create ~/.ssh/config.d
+        ansible.builtin.file:
+          path: "{{ item }}"
+          state: directory
+          mode: "0700"
+        loop:
+          - "{{ ansible_facts.env.HOME }}/.ssh"
+          - "{{ keepassxc_ssh_unlock_dropin | dirname }}"
+
+      - name: Include ~/.ssh/config.d/*.conf at the top of ~/.ssh/config
+        ansible.builtin.lineinfile:
+          path: "{{ ansible_facts.env.HOME }}/.ssh/config"
+          line: Include config.d/*.conf
+          insertbefore: BOF
+          create: true
+          mode: "0600"
+
+      - name: Run the unlock script before every ssh connection
+        ansible.builtin.copy:
+          dest: "{{ keepassxc_ssh_unlock_dropin }}"
+          mode: "0600"
+          content: |
+            # Managed by omarchy-setup (playbooks/keepassxc.yml). Never
+            # matches: {{ keepassxc_ssh_unlock_script | basename }} always exits 1 and is
+            # only here to raise KeePassXC's unlock prompt when the agent
+            # holds no key.
+            Match exec "{{ keepassxc_ssh_unlock_script }}"
 
     - name: "Auto-lock KeePassXC when the YubiKey ({{ keepassxc_yubikey_usb_product_match }}) is unplugged"
       become: true
@@ -219,6 +286,12 @@
           notify: reload Hyprland
 
   handlers:
+    - name: reload systemd user units
+      ansible.builtin.systemd:
+        scope: user
+        daemon_reload: true
+      listen: reload systemd user units
+
     - name: reload Hyprland
       ansible.builtin.command: hyprctl reload
       changed_when: false

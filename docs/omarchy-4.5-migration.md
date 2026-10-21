@@ -136,10 +136,12 @@ playbooks when `90-gcr-ssh-agent.conf` exists.
 
 ## To verify
 
-- **`pam-auth-order.yml`:** no change expected. Upstream still inserts
-  `pam_fprintd`/`pam_u2f` at the top of `sudo`/`polkit-1`, and
-  `polkit-1` now ends in `include system-auth` (commit `8a13eac8`,
-  migration `1788256455.sh`). Run it once and check both stacks.
+- **`pam-auth-order.yml`:** fixed. `polkit-1` now ends in
+  `include system-auth` (commit `8a13eac8`, migration `1788256455.sh`)
+  and exists only as `/usr/lib/pam.d/polkit-1`; `/etc/pam.d/polkit-1`
+  is gone, which made `lineinfile` fail with "Destination does not
+  exist". `tasks/pam-auth-order-file.yml` now seeds the `/etc` copy from
+  the vendor file first. Run it once and check both stacks.
 - **`pdf-viewer.yml`:** Evince is still the default
   (`default/applications/mimeapps.list`). Signed is a new PDF app but
   doesn't take the default. Check that Zathura is still the default

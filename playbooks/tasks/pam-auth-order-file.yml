@@ -5,6 +5,27 @@
 # the module reports "unavailable", `sufficient` ignores it and the stack
 # goes on to the key and the password. Omarchy's own scripts find the line
 # and leave it alone.
+# Omarchy 4.5 ships polkit-1 only as the vendor file /usr/lib/pam.d/polkit-1
+# (pambase/polkit no longer put a copy in /etc). PAM prefers /etc/pam.d over
+# /usr/lib/pam.d, so seeding /etc from the vendor file changes nothing until
+# the lines below are added to it.
+- name: "Look for {{ pam_file }}"
+  ansible.builtin.stat:
+    path: "{{ pam_file }}"
+  register: pam_file_stat
+
+- name: "Seed {{ pam_file }} from the vendor copy in /usr/lib/pam.d"
+  ansible.builtin.copy:
+    src: "/usr/lib/pam.d/{{ pam_file | basename }}"
+    dest: "{{ pam_file }}"
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: not pam_file_stat.stat.exists
+
 - name: "Make sure pam_fprintd is in {{ pam_file }} (first auth line)"
   ansible.builtin.lineinfile:
     path: "{{ pam_file }}"

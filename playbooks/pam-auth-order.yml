@@ -19,7 +19,8 @@
 # skipped, so adding it before enrolling is harmless. A stack already in
 # order is left alone, so it is safe to run again after re-running either
 # Omarchy script. The password stays last: sudo's falls through to
-# `auth include system-auth`, polkit-1's is its own pam_unix line.
+# `auth include system-auth`, and so does polkit-1's (Omarchy 4.5; it only
+# exists in /usr/lib/pam.d, so it is copied to /etc/pam.d first).
 #
 # It also caps how long pam_fprintd may hold the stack before the key is
 # asked for (max-tries / timeout below): the default is 3 tries within 30 s,

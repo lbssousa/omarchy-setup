@@ -1,3 +1,4 @@
 *.retry
 .ansible/
 local-typesetting/local-typesetting.env
+collections/

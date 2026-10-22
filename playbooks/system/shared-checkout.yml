@@ -1,0 +1,117 @@
+---
+# A copy of this repository every user can run their own phase from. The
+# working checkout lives in an administrator's home (0700, unreadable to
+# others), so this publishes its committed HEAD — never uncommitted
+# changes — to /opt/omarchy-setup (root-owned, world-readable), with the
+# Ansible collections it needs, and installs `omarchy-setup-user`, which
+# runs the user phase from there for whoever calls it (the Omarchy menu has
+# it under Setup once omarchy-multiuser is installed).
+#
+# Rerun after committing changes others should get (`just publish`).
+#
+# Usage: just publish
+- name: Shared checkout for every user's phase (/opt/omarchy-setup)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [shared-checkout, publish]
+
+  vars:
+    shared_checkout_repo: "{{ playbook_dir | dirname | dirname }}"
+
+  tasks:
+    - name: Install Ansible system-wide
+      community.general.pacman:
+        name: ansible
+        state: present
+      become: true
+
+    - name: Read the commit being published
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD
+        chdir: "{{ shared_checkout_repo }}"
+      register: shared_checkout_head
+      changed_when: false
+
+    - name: Read the published commit
+      ansible.builtin.slurp:
+        src: "{{ shared_checkout_dir }}/REVISION"
+      register: shared_checkout_published
+      failed_when: false
+
+    - name: Publish HEAD
+      when: >-
+        shared_checkout_published.content is not defined
+        or (shared_checkout_published.content | b64decode | trim) != shared_checkout_head.stdout
+      block:
+        - name: Create ~/.cache/omarchy-setup
+          ansible.builtin.file:
+            path: "{{ target_home }}/.cache/omarchy-setup"
+            state: directory
+            mode: "0755"
+
+        - name: Archive HEAD (as you; root can't read your checkout)
+          ansible.builtin.command:
+            cmd: git archive --format=tar --output={{ (target_home ~ '/.cache/omarchy-setup/shared-checkout.tar') | quote }} HEAD
+            chdir: "{{ shared_checkout_repo }}"
+          changed_when: true
+
+        - name: Remove the previous copy (files deleted upstream go too)
+          ansible.builtin.file:
+            path: "{{ shared_checkout_dir }}"
+            state: absent
+          become: true
+
+        - name: Create {{ shared_checkout_dir }}
+          ansible.builtin.file:
+            path: "{{ shared_checkout_dir }}"
+            state: directory
+            owner: root
+            group: root
+            mode: "0755"
+          become: true
+
+        - name: Unpack HEAD into {{ shared_checkout_dir }}
+          ansible.builtin.unarchive:
+            src: "{{ target_home }}/.cache/omarchy-setup/shared-checkout.tar"
+            dest: "{{ shared_checkout_dir }}"
+            remote_src: true
+            owner: root
+            group: root
+          become: true
+
+        - name: Record the published commit
+          ansible.builtin.copy:
+            content: "{{ shared_checkout_head.stdout }}\n"
+            dest: "{{ shared_checkout_dir }}/REVISION"
+            owner: root
+            group: root
+            mode: "0644"
+          become: true
+
+        - name: Install the Ansible collections next to it
+          ansible.builtin.command:
+            cmd: ansible-galaxy collection install -r requirements.yml -p collections
+            chdir: "{{ shared_checkout_dir }}"
+          changed_when: true
+          become: true
+
+        - name: Make it readable by everyone
+          ansible.builtin.command: chmod -R u=rwX,go=rX {{ shared_checkout_dir | quote }}
+          changed_when: true
+          become: true
+
+    - name: Install omarchy-setup-user (runs your user phase from the shared copy)
+      ansible.builtin.copy:
+        content: |
+          #!/bin/bash
+          # omarchy:summary=Apply this machine's per-user Omarchy setup to your account
+          # Runs omarchy-setup's user phase (user.yml) for the calling user,
+          # from the copy an administrator published with `just publish`.
+          # Arguments go to ansible-playbook (e.g. --tags lazyvim, --check).
+          exec {{ shared_checkout_dir }}/scripts/run-phase.sh user user.yml "$@"
+        dest: /usr/local/bin/omarchy-setup-user
+        owner: root
+        group: root
+        mode: "0755"
+      become: true

@@ -149,3 +149,9 @@
 - name: rclone — Google Drive mounts
   ansible.builtin.import_playbook: playbooks/system/rclone-gdrive.yml
   tags: [rclone-gdrive, never]
+
+# A world-readable copy of this repository's HEAD in /opt/omarchy-setup and
+# `omarchy-setup-user`, so every user can run their own phase.
+- name: Shared checkout (omarchy-setup-user)
+  ansible.builtin.import_playbook: playbooks/system/shared-checkout.yml
+  tags: [shared-checkout]

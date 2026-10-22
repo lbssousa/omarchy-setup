@@ -65,6 +65,11 @@ users: _ensure-collections
         done
         true'
 
+# Publish the committed HEAD to /opt/omarchy-setup and install
+# omarchy-setup-user, which every user runs for their own phase.
+publish: _ensure-collections
+    scripts/run-phase.sh system system.yml --tags shared-checkout
+
 # A feature in both phases: its system half (when you're an administrator;
 # otherwise it's skipped with a note), then yours.
 _both TAG: _ensure-collections

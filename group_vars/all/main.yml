@@ -224,6 +224,10 @@ polkit_agent_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ polkit_a
 # play can assert both halves of it at the end of the run.
 polkit_agent_replaces_id: omarchy.polkit
 
+# Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
+# of this repository every user runs `omarchy-setup-user` from.
+shared_checkout_dir: /opt/omarchy-setup
+
 # omarchy-multiuser (playbooks/system/omarchy-multiuser.yml) — the forks of
 # Omarchy's single-owner tools: the multi-user SDDM greeter (full names +
 # optional username field), no autologin, per-user FIDO2 and fingerprints,

@@ -70,6 +70,17 @@ users: _ensure-collections
 publish: _ensure-collections
     scripts/run-phase.sh system system.yml --tags shared-checkout
 
+# Syntax-check every entry point and the system/user phase boundary.
+check: _ensure-collections
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ansible-playbook --syntax-check site.yml >/dev/null
+    for p in playbooks/system/*.yml playbooks/user/*.yml; do
+        ansible-playbook --syntax-check "$p" >/dev/null
+    done
+    echo "Syntax OK."
+    scripts/check-phases.sh
+
 # A feature in both phases: its system half (when you're an administrator;
 # otherwise it's skipped with a note), then yours.
 _both TAG: _ensure-collections

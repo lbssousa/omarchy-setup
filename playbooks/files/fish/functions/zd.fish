@@ -1,4 +1,4 @@
-# Managed by omarchy-setup (playbooks/fish.yml) — port of
+# Managed by omarchy-setup (playbooks/user/fish.yml) — port of
 # $OMARCHY_PATH/default/bash/aliases
 
 # cd that falls back to zoxide for names that aren't directories

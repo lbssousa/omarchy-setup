@@ -1,4 +1,4 @@
-# Managed by omarchy-setup (playbooks/fish.yml) — port of
+# Managed by omarchy-setup (playbooks/user/fish.yml) — port of
 # $OMARCHY_PATH/default/bash/fns/rsyncing
 
 # Stop every rsync-on-change watcher started by rsw

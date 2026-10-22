@@ -1,4 +1,4 @@
-# One PWA swap — looped by playbooks/brave-pwa-webapps.yml
+# One PWA swap — looped by playbooks/{system,user}/brave-pwa-webapps.yml
 # (brave_pwa_webapps), var `webapp`. Needs `brave_containers` (set by the
 # parent play) already in scope.
 #

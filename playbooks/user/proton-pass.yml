@@ -32,7 +32,7 @@
         - name: "Rebind {{ proton_pass_hypr_keybind }} from 1Password to Proton Pass"
           ansible.builtin.blockinfile:
             path: "{{ target_home }}/.config/hypr/bindings.lua"
-            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/proton-pass.yml — Proton Pass keybinding)"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/proton-pass.yml — Proton Pass keybinding)"
             # Electron sets the window class from the app's name ("Proton
             # Pass"; the AUR package's binary links to "/opt/proton-pass/Proton
             # Pass"), with the lowercase id as a fallback.

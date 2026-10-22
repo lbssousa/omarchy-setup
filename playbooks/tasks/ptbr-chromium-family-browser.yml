@@ -1,5 +1,5 @@
 ---
-# One Chromium-family browser at a time — looped by playbooks/ptbr.yml
+# One Chromium-family browser at a time — looped by playbooks/{system,user}/ptbr.yml
 # (ptbr_chromium_family_config_dirs), var `browser_config_dir` = the
 # profile directory relative to $HOME (~/.config/<dir>).
 #
@@ -79,7 +79,7 @@
       {{ browser_profile_base }}) — editing Preferences now would be
       overwritten on exit. Close all its windows (including
       omarchy-launch-webapp web apps) and rerun `just ptbr` (or
-      `ansible-playbook playbooks/ptbr.yml --tags ptbr-chromium`).
+      `just ptbr --tags ptbr-chromium`).
   when:
     - browser_prefs_stat.stat.exists
     - browser_lock_stat.stat.exists

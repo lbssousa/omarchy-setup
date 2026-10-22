@@ -1,4 +1,4 @@
-# Managed by omarchy-setup (playbooks/fish.yml) — port of
+# Managed by omarchy-setup (playbooks/user/fish.yml) — port of
 # $OMARCHY_PATH/default/bash/fns/herdr
 
 # Create a multi-pane swarm layout with the same command started in each pane (great for AI)

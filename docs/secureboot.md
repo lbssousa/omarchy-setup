@@ -1,10 +1,10 @@
 # `just secureboot` — Secure Boot (Limine + sbctl)
 
-Usage guide for `playbooks/secureboot.yml`. Unlike the rest of this
+Usage guide for `playbooks/system/secureboot.yml`. Unlike the rest of this
 repo, **this playbook is not part of `just setup`** — it touches
 firmware/boot, so it only runs when called explicitly:
 `just secureboot` (or `./run-empowered.sh ansible-playbook
-playbooks/secureboot.yml`).
+playbooks/system/secureboot.yml`).
 
 ## Prerequisites
 

@@ -1,4 +1,4 @@
-# Managed by omarchy-setup (playbooks/fish.yml) — port of
+# Managed by omarchy-setup (playbooks/user/fish.yml) — port of
 # $OMARCHY_PATH/default/bash/fns/ssh-reconnect
 
 # Disarm mouse tracking (1000/1002/1003, 1006 encoding), focus reporting

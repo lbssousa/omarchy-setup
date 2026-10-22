@@ -28,7 +28,7 @@
 # - Nothing happens while the installed package already carries the
 #   suffix.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags openssh-askpass
+# Usage: just openssh-askpass
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   hosts: localhost
   connection: local

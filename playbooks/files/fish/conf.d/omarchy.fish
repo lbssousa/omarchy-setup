@@ -1,4 +1,4 @@
-# Managed by omarchy-setup (playbooks/fish.yml) — port of
+# Managed by omarchy-setup (playbooks/user/fish.yml) — port of
 # $OMARCHY_PATH/default/bash/{env-bootstrap,envs,aliases,init}
 #
 # Installed as a vendor conf.d file, so it runs before ~/.config/fish/
@@ -118,7 +118,7 @@ if status is-interactive
     if command -q fzf
         # fzf's own bindings, as Omarchy's bash loads them (Ctrl+R, Ctrl+T, Alt+C).
         functions -q fzf_key_bindings; and fzf_key_bindings
-        # fzf.fish (playbooks/fish.yml installs it) bound its keys from its
+        # fzf.fish (playbooks/user/fish.yml installs it) bound its keys from its
         # own conf.d before this file ran, and fzf_key_bindings just took
         # Ctrl+R back: bind them again so its history search, with preview,
         # stays on Ctrl+R.

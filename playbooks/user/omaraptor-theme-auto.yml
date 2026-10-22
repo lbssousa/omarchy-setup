@@ -6,12 +6,12 @@
 # (files/omaraptor/backgrounds/*/00-bluefin-*.jpg sort first).
 #
 # Sunrise/sunset come from hyprsunset.conf, written daily by
-# nightlight-solar-sync (playbooks/desktop.yml, tag nightlight-solar); without
+# nightlight-solar-sync (playbooks/user/desktop.yml, tag nightlight-solar); without
 # it the fallback times in group_vars are used. A theme picked by hand is kept
 # until the next sunrise/sunset, and nothing is touched while a theme outside
 # the day/night pair is applied.
 #
-# Pair with playbooks/omaraptor-themes.yml, which installs the themes.
+# Pair with playbooks/user/omaraptor-themes.yml, which installs the themes.
 - name: Omaraptor day/night theme switching (systemd --user timer)
   hosts: localhost
   connection: local

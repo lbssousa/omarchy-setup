@@ -1,6 +1,6 @@
 ---
 # Proton Pass — end-to-end encrypted password manager from Proton AG.
-# Optional alternative to KeePassXC (playbooks/keepassxc.yml, the default
+# Optional alternative to KeePassXC (playbooks/system/keepassxc.yml, the default
 # password manager); this playbook is not imported by site.yml. Running it hands
 # the "Passwords" keybind to Proton Pass.
 #
@@ -15,7 +15,7 @@
 #
 # Desktop client: Proton's own .deb repackaged in the AUR
 # (proton-pass-bin), installed with Omarchy's AUR helper
-# (omarchy-pkg-aur-add), the same way playbooks/emacs.yml installs
+# (omarchy-pkg-aur-add), the same way playbooks/system/emacs.yml installs
 # omarchy-emacs.
 #
 # The browser extension authenticates directly with a Proton account —
@@ -27,10 +27,10 @@
 # Proton's own official installer script has no update mechanism of its
 # own. `proton-pass-cli` is an official Homebrew (homebrew-core) formula
 # instead, with a prebuilt x86_64_linux bottle, so this needs Homebrew
-# already set up — but not one the main run installs: playbooks/homebrew.yml
+# already set up — but not one the main run installs: playbooks/system/homebrew.yml
 # is not imported by site.yml, so `just setup` leaves it out; run `just
 # homebrew` first. proton_pass_cli_bin points straight at Homebrew's Cellar
-# bin — playbooks/homebrew.yml already puts it on PATH session-wide, so
+# bin — playbooks/system/homebrew.yml already puts it on PATH session-wide, so
 # there's nothing to symlink here.
 #
 # CLI SSH agent vs. the desktop app's: both speak the standard SSH agent
@@ -74,7 +74,7 @@
       changed_when: false
       failed_when: false
 
-    # As the user: yay refuses to build as root (see playbooks/emacs.yml).
+    # As the user: yay refuses to build as root (see playbooks/system/emacs.yml).
     - name: Install Proton Pass (AUR) with Omarchy's own helper
       ansible.builtin.command: omarchy-pkg-aur-add {{ proton_pass_aur_package }}
       when: proton_pass_check.rc != 0

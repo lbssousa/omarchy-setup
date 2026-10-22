@@ -56,7 +56,7 @@
 # (omarchy-pkg-add). It leaves KeePassXC's own settings untouched — no
 # pre-seeded keepassxc.ini — so the app comes up with its stock defaults
 # and the user configures it in-app. Its UI font comes from qt5ct
-# (playbooks/file-chooser.yml), like every other Qt5 app on the host. The
+# (playbooks/user/file-chooser.yml), like every other Qt5 app on the host. The
 # browser native-messaging manifests and the YubiKey auto-lock rule (below)
 # are always deployed; the autostart entry and the keybind only with
 # keepassxc_primary.
@@ -177,7 +177,7 @@
           dest: "{{ keepassxc_autostart_dropin }}"
           mode: "0644"
           content: |
-            # Managed by omarchy-setup (playbooks/keepassxc.yml).
+            # Managed by omarchy-setup (playbooks/user/keepassxc.yml).
             [Service]
             ExecStartPre={{ keepassxc_autostart_wait }}
             TimeoutStartSec=90s
@@ -218,7 +218,7 @@
           dest: "{{ keepassxc_ssh_unlock_dropin }}"
           mode: "0600"
           content: |
-            # Managed by omarchy-setup (playbooks/keepassxc.yml). Never
+            # Managed by omarchy-setup (playbooks/user/keepassxc.yml). Never
             # matches: {{ keepassxc_ssh_unlock_script | basename }} always exits 1 and is
             # only here to raise KeePassXC's unlock prompt when the agent
             # holds no key.
@@ -247,7 +247,7 @@
         - name: "Rebind {{ keepassxc_hypr_keybind }} from 1Password to KeePassXC"
           ansible.builtin.blockinfile:
             path: "{{ target_home }}/.config/hypr/bindings.lua"
-            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/keepassxc.yml — KeePassXC keybinding)"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/keepassxc.yml — KeePassXC keybinding)"
             block: |
               hl.unbind("{{ keepassxc_hypr_keybind }}")
               o.bind("{{ keepassxc_hypr_keybind }}", "KeePassXC", { launch = "keepassxc", focus = "^(org\\.keepassxc\\.KeePassXC|keepassxc)$" })

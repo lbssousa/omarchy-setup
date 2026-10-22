@@ -9,7 +9,7 @@
 # standalone script — scripts/ssh-yubikey.sh (`just ssh-yubikey`).
 #
 # The GPG public key is a dependency of the pinentry, ssh-askpass and
-# polkit-agent plays of playbooks/plugins.yml: they deploy
+# polkit-agent plays of playbooks/system/plugins.yml: they deploy
 # release tags and refuse to build unless the tag's signature verifies
 # against this key, so run `just gpg-yubikey` before them.
 #

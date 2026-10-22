@@ -13,7 +13,7 @@
 #
 # The Chromium-family browsers need nothing here: their tint comes from the
 # theme's chromium.theme, which the theme ships with a light seed (see
-# playbooks/omadwaita-themes.yml), so Omarchy's own browser step already
+# playbooks/user/omadwaita-themes.yml), so Omarchy's own browser step already
 # writes the light policy.
 
 [[ $1 == omadwaita ]] || exit 0

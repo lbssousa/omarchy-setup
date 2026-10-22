@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Adds a patch to Arch's openssh PKGBUILD (playbooks/openssh-askpass.yml).
+"""Adds a patch to Arch's openssh PKGBUILD (playbooks/system/openssh-askpass.yml).
 
 Usage: patch-pkgbuild.py <PKGBUILD> <patch> <pkgrel-suffix>
 

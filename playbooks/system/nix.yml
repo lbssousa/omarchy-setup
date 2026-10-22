@@ -30,7 +30,7 @@
 # The session gets PATH, XDG_DATA_DIRS (so apps installed with
 # `nix profile install` show up in the Omarchy app library), NIX_PROFILES
 # and NIX_SSL_CERT_FILE through ~/.config/environment.d, the same way as
-# playbooks/homebrew.yml does.
+# playbooks/system/homebrew.yml does.
 # The package's /etc/profile.d/nix-daemon.sh does the same for bash
 # login shells only, and fish ignores /etc/profile.d entirely. Nix's bin
 # dirs are APPENDED to PATH rather than prepended as nix-daemon.sh does,

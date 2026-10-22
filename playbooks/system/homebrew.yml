@@ -17,7 +17,7 @@
 #
 # Not imported by site.yml: Homebrew is only needed by the tooling that
 # installs formulae from it (e.g. the Proton Pass CLI,
-# playbooks/proton-pass.yml) and by whatever you `brew install` yourself,
+# playbooks/system/proton-pass.yml) and by whatever you `brew install` yourself,
 # so it is not part of `just setup` — run it explicitly with `just homebrew`.
 #
 # One owner per machine (homebrew_owner, an administrator): the prefix is

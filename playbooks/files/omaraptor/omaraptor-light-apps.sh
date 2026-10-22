@@ -13,7 +13,7 @@
 #
 # The Chromium-family browsers need nothing here: their tint comes from the
 # theme's chromium.theme, which the theme ships with a light seed (see
-# playbooks/omaraptor-themes.yml).
+# playbooks/user/omaraptor-themes.yml).
 
 # The whole family also uses Bluefin's default GTK4/libadwaita accent, slate
 # (the gray one), instead of GNOME's stock blue. Omarchy never touches

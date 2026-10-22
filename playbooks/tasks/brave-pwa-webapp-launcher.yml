@@ -65,7 +65,7 @@
   when: webapp.hypr_keybind is defined
   ansible.builtin.blockinfile:
     path: "{{ target_home }}/.config/hypr/bindings.lua"
-    marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/brave-pwa-webapps.yml — {{ webapp.hypr_description | default(webapp.name) }} keybinding)"
+    marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/{system,user}/brave-pwa-webapps.yml — {{ webapp.hypr_description | default(webapp.name) }} keybinding)"
     block: |
       hl.unbind("{{ webapp.hypr_keybind }}")
       o.bind("{{ webapp.hypr_keybind }}", "{{ webapp.hypr_description | default(webapp.name) }}", { launch = "gtk-launch \"{{ webapp.name }}\"", focus = "^brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}$" })

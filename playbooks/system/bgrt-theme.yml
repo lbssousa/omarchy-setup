@@ -2,7 +2,7 @@
 # BGRT-derived boot theme — not part of site.yml/`just setup`,
 # deliberately: it rewrites the system's default Plymouth theme and
 # rebuilds the initramfs, the same class of risk as
-# playbooks/secureboot.yml.
+# playbooks/system/secureboot.yml.
 #
 # Most PCs show their own UEFI boot logo (the ACPI BGRT table,
 # /sys/firmware/acpi/bgrt/*) before any bootloader or OS code runs. By

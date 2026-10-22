@@ -16,7 +16,7 @@
 #     dedicated spec file under lua/plugins/. That directory is scanned
 #     automatically by lazy.nvim — see lua/plugins/example.lua (LazyVim's
 #     own starter example) for the same pattern. The plugin's optional
-#     LSP integration talks to gregorio-lsp (playbooks/gregorio-lsp.yml),
+#     LSP integration talks to gregorio-lsp (playbooks/user/gregorio-lsp.yml),
 #     which must be on PATH for diagnostics to activate; the plugin
 #     itself works without it (syntax highlighting, editing commands).
 #
@@ -71,9 +71,9 @@
         dest: "{{ gregorio_nvim_plugin_file }}"
         mode: "0644"
         content: |
-          -- Managed by omarchy-setup (playbooks/lazyvim.yml). GABC/NABC
+          -- Managed by omarchy-setup (playbooks/user/lazyvim.yml). GABC/NABC
           -- (Gregorian chant notation) support. Pairs with gregorio-lsp
-          -- (playbooks/gregorio-lsp.yml) for diagnostics/language
+          -- (playbooks/user/gregorio-lsp.yml) for diagnostics/language
           -- features — optional, the plugin works without it.
           return {
             {

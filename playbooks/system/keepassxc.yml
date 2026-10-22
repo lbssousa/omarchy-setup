@@ -7,7 +7,7 @@
 # (omarchy-pkg-add). It leaves KeePassXC's own settings untouched — no
 # pre-seeded keepassxc.ini — so the app comes up with its stock defaults
 # and the user configures it in-app. Its UI font comes from qt5ct
-# (playbooks/file-chooser.yml), like every other Qt5 app on the host. The
+# (playbooks/system/file-chooser.yml), like every other Qt5 app on the host. The
 # browser native-messaging manifests and the YubiKey auto-lock rule (below)
 # are always deployed; the autostart entry and the keybind only with
 # keepassxc_primary.

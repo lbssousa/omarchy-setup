@@ -15,7 +15,7 @@
         path: "{{ blesh_blerc }}"
         create: true
         mode: "0644"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/blesh.yml — ble.sh features)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/blesh.yml — ble.sh features)"
         block: |
           # Autosuggestions: ghost text from history, then from completion
           # (accept with Right/End, or Alt+Right for one word)
@@ -43,7 +43,7 @@
       ansible.builtin.blockinfile:
         path: "{{ blesh_bashrc }}"
         insertbefore: '^source "\$OMARCHY_PATH/default/bash/rc"'
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/blesh.yml — load ble.sh)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/blesh.yml — load ble.sh)"
         block: |
           # ble.sh (Bash Line Editor) — must come before Omarchy's init
           # (starship, fzf key bindings, ...); attached at the end of this file.
@@ -53,6 +53,6 @@
       ansible.builtin.blockinfile:
         path: "{{ blesh_bashrc }}"
         insertafter: EOF
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/blesh.yml — attach ble.sh)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/blesh.yml — attach ble.sh)"
         block: |
           [[ ${BLE_VERSION-} ]] && ble-attach

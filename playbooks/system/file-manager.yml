@@ -19,12 +19,12 @@
 #     Nautilus to Flea;
 #   - Flea's picker as the FileChooser portal backend
 #     (~/.config/xdg-desktop-portal/hyprland-portals.conf, `flea;gtk`, the
-#     same line playbooks/file-chooser.yml writes) and a window rule in
+#     same line playbooks/system/file-chooser.yml writes) and a window rule in
 #     bindings.lua that floats it.
 # It is idempotent: every part it already owns is reported as "already",
 # which is how this play tells whether anything changed.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags file-manager
+# Usage: just file-manager
 - name: File manager (Flea default)
   hosts: localhost
   connection: local

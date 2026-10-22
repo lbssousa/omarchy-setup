@@ -6,7 +6,7 @@
 # interface to a backend. Omarchy ships xdg-desktop-portal-gtk, whose
 # dialog is GTK3, and Hyprland's own portal has no file chooser at all
 # (hyprland-portals.conf: default=hyprland;gtk). Flea
-# (playbooks/file-manager.yml, which site.yml runs first under this tag)
+# (playbooks/user/file-manager.yml, which site.yml runs first under this tag)
 # ships its own FileChooser backend (flea.portal), named explicitly for
 # FileChooser in a per-desktop portals.conf, with gtk behind it in case
 # Flea is missing. Everything else (screencast, screenshot, ...) stays as
@@ -54,7 +54,7 @@
     - name: "Route the FileChooser portal to Flea ({{ file_chooser_portals_conf }})"
       ansible.builtin.copy:
         content: |
-          # Managed by playbooks/file-chooser.yml — Flea file chooser dialogs.
+          # Managed by playbooks/user/file-chooser.yml — Flea file chooser dialogs.
           # Replaces /usr/share/xdg-desktop-portal/hyprland-portals.conf, so
           # its `default=` line is repeated.
           [preferred]
@@ -124,7 +124,7 @@
     - name: "Make GTK, Qt and Firefox apps ask the portal for file dialogs"
       ansible.builtin.blockinfile:
         path: "{{ target_home }}/.config/hypr/hyprland.lua"
-        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/file-chooser.yml — GTK4 file chooser)"
+        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/file-chooser.yml — GTK4 file chooser)"
         block: |
           -- Ask xdg-desktop-portal (routed to Flea's picker by
           -- ~/.config/xdg-desktop-portal/hyprland-portals.conf) for

@@ -33,7 +33,7 @@
         - name: "Set kb_options = compose:{{ capslock_compose_key }}"
           ansible.builtin.blockinfile:
             path: "{{ target_home }}/.config/hypr/input.lua"
-            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/capslock.yml — Compose on {{ capslock_compose_key }})"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/capslock.yml — Compose on {{ capslock_compose_key }})"
             block: |
               hl.config({
                 input = {

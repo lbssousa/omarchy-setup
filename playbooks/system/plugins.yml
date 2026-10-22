@@ -59,7 +59,7 @@
 # The repo's own PKGBUILD (packaging/) builds the package, which is then
 # installed with pacman:
 # - makepkg runs with --nodeps, because cargo comes from rustup in
-#   ~/.cargo (installed like playbooks/gregorio-lsp.yml does, via
+#   ~/.cargo (installed like playbooks/system/gregorio-lsp.yml does, via
 #   `omarchy-install-dev-env rust`), which pacman doesn't know about.
 # - It runs as the user, never with become: makepkg refuses to run as root.
 # - A rebuild happens only when the checkout changed or the package is
@@ -80,7 +80,7 @@
 #   annotated tag.
 # - gpg_allowlist pins the signer.
 # The releases are signed with the Yubikey's OpenPGP key, which
-# playbooks/yubikey.yml imports (`just gpg-yubikey`). main itself only
+# playbooks/system/yubikey.yml imports (`just gpg-yubikey`). main itself only
 # holds squash merges signed by GitHub's key, so it isn't deployable.
 #
 # The plugin is a keepLoaded service, and those survive the shell's plugin
@@ -94,7 +94,7 @@
 # is then disabled (the shell drops its shell.json entry even with the
 # plugin's files gone) and its dangling link removed.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags pinentry
+# Usage: just pinentry
 - name: omapin (GnuPG prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local
@@ -229,7 +229,7 @@
 # links the shell plugin, enables it via omarchy-shell IPC,
 # and configures SSH to use it.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags ssh-askpass
+# Usage: just ssh-askpass
 - name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local

@@ -34,7 +34,7 @@
 # each one is calibrated from the others. Prints enrolled with builds
 # before v1.94.10-goodix538d.2 are refused and must be re-enrolled.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags libfprint
+# Usage: just libfprint
 - name: libfprint (goodix538d)
   hosts: localhost
   connection: local

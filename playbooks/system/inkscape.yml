@@ -5,7 +5,7 @@
 #
 # svg2tikz has no official Arch package, so it's built from the AUR the
 # same unprivileged clone+makepkg+pacman -U pattern as
-# playbooks/blesh.yml: makepkg refuses to run as root, and its own
+# playbooks/system/blesh.yml: makepkg refuses to run as root, and its own
 # sudo (for missing build deps) can't take an interactive password from
 # Ansible, so build deps are installed via pacman first and makepkg runs
 # with --nodeps.
@@ -26,7 +26,7 @@
 # than relying on a Jinja-templated path here — so nothing in this
 # playbook writes /etc/fonts/conf.d/09-texlive-fonts.conf.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags inkscape
+# Usage: just inkscape
 - name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
   hosts: localhost
   connection: local

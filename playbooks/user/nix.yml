@@ -43,10 +43,10 @@
 #
 # - bash: a block in ~/.bashrc, after Omarchy's rc (so after starship's
 #   PROMPT_COMMAND) and before ble.sh's `ble-attach` block when that's
-#   there, which playbooks/blesh.yml wants last. Below the rc's
+#   there, which playbooks/user/blesh.yml wants last. Below the rc's
 #   non-interactive `return`, so scripts never run the hook.
 # - fish: fish's per-user vendor_conf.d (~/.local/share/fish), next to
-#   playbooks/fish.yml's port of Omarchy's setup, so ~/.config/fish stays
+#   playbooks/user/fish.yml's port of Omarchy's setup, so ~/.config/fish stays
 #   yours (and a conf.d/direnv.fish of your own there wins).
 #
 # Both hooks are guarded by `command -v`/`command -q`, so uninstalling
@@ -63,7 +63,7 @@
     - name: Hook direnv into bash (~/.bashrc)
       ansible.builtin.blockinfile:
         path: "{{ direnv_bashrc }}"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/nix.yml — direnv hook)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/nix.yml — direnv hook)"
         block: |
           command -v direnv &> /dev/null && eval "$(direnv hook bash)"
         insertbefore: '^# BEGIN ANSIBLE MANAGED BLOCK \(playbooks/blesh\.yml — attach ble\.sh\)'
@@ -79,7 +79,7 @@
     - name: Hook direnv into fish (vendor_conf.d)
       ansible.builtin.copy:
         content: |
-          # Managed by playbooks/nix.yml — direnv hook.
+          # Managed by playbooks/user/nix.yml — direnv hook.
           if status is-interactive; and command -q direnv
               direnv hook fish | source
           end
@@ -131,7 +131,7 @@
     - name: Load nix-direnv from ~/.config/direnv/direnvrc
       ansible.builtin.blockinfile:
         path: "{{ direnv_rc }}"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/nix.yml — nix-direnv)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/nix.yml — nix-direnv)"
         block: |
           if [[ -f "{{ nix_direnv_rc }}" ]]; then
             source "{{ nix_direnv_rc }}"

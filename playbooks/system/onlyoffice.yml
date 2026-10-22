@@ -3,7 +3,7 @@
 # (omarchy-base.packages: libreoffice-fresh) with ONLYOFFICE Desktop
 # Editors from the AUR (onlyoffice-bin, upstream's own .deb repackaged),
 # installed with Omarchy's AUR helper (omarchy-pkg-aur-add), the same way
-# playbooks/emacs.yml installs omarchy-emacs. ONLYOFFICE ships as a single
+# playbooks/system/emacs.yml installs omarchy-emacs. ONLYOFFICE ships as a single
 # desktop application, so there are no secondary components to hide from
 # the app launcher and no mimeapps re-curation on top of what Omarchy
 # already curates.
@@ -13,7 +13,7 @@
 # depends on them. Omarchy binds no key to LibreOffice, so there is no
 # keybind to reassign.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags onlyoffice
+# Usage: just onlyoffice
 - name: ONLYOFFICE Desktop Editors (AUR, replacing the pre-installed native LibreOffice)
   hosts: localhost
   connection: local
@@ -26,7 +26,7 @@
       changed_when: false
       failed_when: false
 
-    # As the user: yay refuses to build as root (see playbooks/emacs.yml).
+    # As the user: yay refuses to build as root (see playbooks/system/emacs.yml).
     - name: Install ONLYOFFICE (AUR) with Omarchy's own helper
       ansible.builtin.command: omarchy-pkg-aur-add {{ onlyoffice_aur_package }}
       when: onlyoffice_check.rc != 0

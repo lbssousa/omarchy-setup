@@ -22,7 +22,7 @@
 # precedence over the system-wide one (XDG Desktop Entry spec), so this
 # doesn't need to touch the package-owned file at all.
 #
-# Usage: ./run-empowered.sh ansible-playbook site.yml --tags pdf-viewer
+# Usage: just pdf-viewer
 - name: PDF viewer (Zathura default, Papers optional, Evince kept for sushi)
   hosts: localhost
   connection: local

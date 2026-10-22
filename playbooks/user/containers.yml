@@ -50,7 +50,7 @@
 # when used without the tool.
 #
 # The ~/.bashrc block goes right before Omarchy's `source` line, the same
-# anchor playbooks/blesh.yml uses, so the two coexist in either order. The
+# anchor playbooks/user/blesh.yml uses, so the two coexist in either order. The
 # starship.toml `format` edit only matches Omarchy's stock line: if you
 # customized it, the playbook leaves it alone and warns, and you add
 # ${env_var.CONTAINER_ID} to it yourself.
@@ -105,7 +105,7 @@
       ansible.builtin.blockinfile:
         path: "{{ starship_distrobox_config }}"
         insertafter: EOF
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/containers.yml — distrobox container name)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/containers.yml — distrobox container name)"
         block: |
           # Inside distrobox: show the container's name. distrobox-enter exports
           # CONTAINER_ID=<container name>; unset on the host, so nothing renders.
@@ -130,7 +130,7 @@
       ansible.builtin.blockinfile:
         path: "{{ starship_distrobox_bashrc }}"
         insertbefore: '^source "\$OMARCHY_PATH/default/bash/rc"'
-        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/containers.yml — distrobox host paths)"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/containers.yml — distrobox host paths)"
         block: |
           # Inside distrobox the host's /usr is mounted at /run/host, so the
           # inherited OMARCHY_PATH points at nothing. Use the host's copy, and fall

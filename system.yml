@@ -126,7 +126,7 @@
   tags: [blesh]
 
 # Fish shell as the default login shell, with the same Starship prompt as
-# Omarchy (see playbooks/fish.yml).
+# Omarchy (see playbooks/{system,user}/fish.yml).
 - name: Fish shell
   ansible.builtin.import_playbook: playbooks/system/fish.yml
   tags: [fish]

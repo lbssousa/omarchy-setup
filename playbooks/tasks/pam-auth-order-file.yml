@@ -1,5 +1,5 @@
 ---
-# One PAM stack of playbooks/pam-auth-order.yml (pam_file).
+# One PAM stack of playbooks/system/pam-auth-order.yml (pam_file).
 # pam_fprintd (behind Omarchy's clamshell gate) is forced to the top of the
 # stack even when no fingerprint script has run yet: with no enrolled print
 # the module reports "unavailable", `sufficient` ignores it and the stack

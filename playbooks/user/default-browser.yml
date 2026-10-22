@@ -1,5 +1,5 @@
 ---
-# Makes Brave Origin (playbooks/brave.yml) the default browser with
+# Makes Brave Origin (playbooks/user/brave.yml) the default browser with
 # Omarchy's own tool, `omarchy-default-browser brave-origin` — the same
 # action as Setup > Defaults > Browser in the Omarchy menu. It runs
 # `xdg-settings set default-web-browser brave-origin.desktop` the way

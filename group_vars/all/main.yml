@@ -5,12 +5,12 @@
 # Ansible's 10s default.
 ansible_local_become_success_timeout: 60
 
-# polkit authentication cache window (seconds) — playbooks/polkit.yml. Set
+# polkit authentication cache window (seconds) — playbooks/system/polkit.yml. Set
 # for pkexec/graphical tools; see the playbook for what it does and doesn't
 # cover.
 polkit_expiration_seconds: 1800
 
-# Brave Origin (playbooks/brave.yml) — Brave without Rewards, Wallet,
+# Brave Origin (playbooks/{system,user}/brave.yml) — Brave without Rewards, Wallet,
 # VPN, Leo and News, installed the way Omarchy's own menu does it
 # (Install > Browser > Brave Origin, i.e. `omarchy-install-browser
 # brave-origin`): the AUR brave-origin-bin package, Omarchy's Chromium
@@ -46,7 +46,7 @@ brave_origin_desktop_id: brave-origin.desktop
 brave_omarchy_webapp_containers: {}
 
 # Brave Origin PWAs replacing Omarchy's preinstalled web apps
-# (playbooks/brave-pwa-webapps.yml, tasks/brave-pwa-webapp-swap.yml).
+# (playbooks/{system,user}/brave-pwa-webapps.yml, tasks/brave-pwa-webapp-swap.yml).
 # Each entry force-installs url as a Brave web app via the
 # WebAppInstallForceList machine policy
 # (/etc/brave/policies/managed/omarchy-setup-webapps.json — needs root),
@@ -70,12 +70,12 @@ brave_profile_directory: Default
 brave_pwa_webapps: []
 
 # Default browser the main run leaves behind
-# (playbooks/default-browser.yml), as the name `omarchy-default-browser`
+# (playbooks/user/default-browser.yml), as the name `omarchy-default-browser`
 # takes (Setup > Defaults > Browser in the Omarchy menu). Only set when it
 # isn't already the default, so a later switch in the menu isn't undone.
 default_browser: "{{ brave_origin_browser }}"
 
-# ONLYOFFICE Desktop Editors (playbooks/onlyoffice.yml) — the AUR
+# ONLYOFFICE Desktop Editors (playbooks/system/onlyoffice.yml) — the AUR
 # onlyoffice-bin package (upstream's own .deb, repackaged), installed with
 # omarchy-pkg-aur-add, replacing Omarchy's pre-installed native
 # libreoffice-fresh. ONLYOFFICE ships as a single
@@ -84,7 +84,7 @@ default_browser: "{{ brave_origin_browser }}"
 onlyoffice_aur_package: onlyoffice-bin
 onlyoffice_command: onlyoffice-desktopeditors
 
-# Emacs + AUCTeX (playbooks/emacs.yml). omarchy-emacs is the AUR package
+# Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs is the AUR package
 # Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in
 # emacs-wayland and syncs the Omarchy theme and font.
 emacs_aur_package: omarchy-emacs
@@ -105,7 +105,7 @@ emacs_packages:
   - yasnippet
   - lsp-mode
 
-# Zed editor (playbooks/zed.yml) — installed via Omarchy's own packages
+# Zed editor (playbooks/{system,user}/zed.yml) — installed via Omarchy's own packages
 # so the Omarchy theme integration (omazed) comes along.
 zed_package: zed
 zed_omazed_package: omazed
@@ -120,7 +120,7 @@ zed_font_size: 25
 # "JetBrains Mono", which isn't installed on its own.
 zed_buffer_font_family: "JetBrainsMono Nerd Font"
 
-# This repo's container engine is rootless Podman (playbooks/containers.yml),
+# This repo's container engine is rootless Podman (playbooks/{system,user}/containers.yml),
 # not Docker — Zed's Dev Containers feature needs to be told that, or it
 # shells out to `docker` and fails. See
 # https://zed.dev/docs/dev-containers.
@@ -134,7 +134,7 @@ zed_dev_container_use_podman: true
 # Eugene-Cardine-Primeiro-Ano-de-Semiologia-Gregoriana and darezzo).
 gregorio_ref: bdb4eedbc2eb0521c3e040811f7d70a99b6fa639
 
-# gregorio-lsp (playbooks/gregorio-lsp.yml) — LSP server, grelint and
+# gregorio-lsp (playbooks/{system,user}/gregorio-lsp.yml) — LSP server, grelint and
 # grefmt for GABC/NABC (Gregorian chant notation), built from source
 # with cargo. Pinned to a tag for reproducibility — bump when a newer
 # release is needed.
@@ -149,7 +149,7 @@ gregorio_lsp_binaries:
   - grelint
   - grefmt
 
-# omapin (playbooks/plugins.yml) — GnuPG prompts in the polkit-style
+# omapin (playbooks/{system,user}/plugins.yml) — GnuPG prompts in the polkit-style
 # omarchy-shell dialog. Built as an Arch package from the repo's own
 # packaging/PKGBUILD with rustup's cargo. It was called pinentry-omarchy
 # until 0.2.1; the play migrates an install of the old name
@@ -185,7 +185,7 @@ omapin_legacy_package: pinentry-omarchy
 omapin_legacy_plugin_id: lbssousa.pinentry
 omapin_legacy_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omapin_legacy_plugin_id }}"
 
-# ssh-askpass-omarchy (playbooks/plugins.yml) — SSH prompts in the
+# ssh-askpass-omarchy (playbooks/{system,user}/plugins.yml) — SSH prompts in the
 # polkit-style omarchy-shell dialog. Built locally via cargo from a signed
 # release tag of the repo; bump the ref to deploy a new release.
 ssh_askpass_repo: https://github.com/lbssousa/ssh-askpass-omarchy.git
@@ -203,7 +203,7 @@ ssh_askpass_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ ssh_askpa
 ssh_askpass_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 ssh_askpass_environment_conf: "{{ target_home }}/.config/environment.d/90-ssh-askpass.conf"
 
-# polkit-omarchy (playbooks/plugins.yml) — Omarchy's polkit agent
+# polkit-omarchy (playbooks/{system,user}/plugins.yml) — Omarchy's polkit agent
 # plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
 # Installed from a signed release tag of
 # https://github.com/lbssousa/polkit-omarchy; bump the ref to deploy a new
@@ -248,7 +248,7 @@ omarchy_multiuser_path_units:
   - omarchy-mu-apply-lock.path
 omarchy_multiuser_theme: omarchy-multiuser
 
-# openssh with askpass touch notifications (playbooks/openssh-askpass.yml)
+# openssh with askpass touch notifications (playbooks/system/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
 openssh_askpass_packaging_repo: https://gitlab.archlinux.org/archlinux/packaging/packages/openssh.git
 openssh_askpass_build_dir: "{{ target_home }}/.cache/omarchy-setup/openssh"
@@ -265,7 +265,7 @@ openssh_askpass_makedepends:
   - zlib
 
 
-# LazyVim (playbooks/lazyvim.yml) — Omarchy's default Neovim distro,
+# LazyVim (playbooks/user/lazyvim.yml) — Omarchy's default Neovim distro,
 # already installed at ~/.config/nvim; this only adds the LaTeX language
 # extra and a personal plugin on top of it.
 lazyvim_config_dir: "{{ target_home }}/.config/nvim"
@@ -276,17 +276,17 @@ lazyvim_plugins_dir: "{{ lazyvim_config_dir }}/lua/plugins"
 # itself (installs vimtex + texlab + LaTeX treesitter).
 lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
 
-# gregorio.nvim (playbooks/lazyvim.yml) — GABC/NABC (Gregorian chant
+# gregorio.nvim (playbooks/user/lazyvim.yml) — GABC/NABC (Gregorian chant
 # notation) support, pairs with gregorio_lsp_* above.
 gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
 gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
 
-# File manager (playbooks/file-manager.yml) — Flea, the default handler
+# File manager (playbooks/{system,user}/file-manager.yml) — Flea, the default handler
 # for directories, the "File manager" keys and FileManager1.
 file_manager_package: flea
 file_manager_desktop_id: com.thisisgm.flea.desktop
 
-# PDF viewer (playbooks/pdf-viewer.yml) — Zathura (Arch packages)
+# PDF viewer (playbooks/{system,user}/pdf-viewer.yml) — Zathura (Arch packages)
 # becomes the default PDF viewer; Papers is installed as an extra,
 # non-default viewer; Evince is kept installed (Nautilus's sushi
 # previewer depends on it).
@@ -298,7 +298,7 @@ pdf_viewer_zathura_native_packages:
   - zathura-pdf-mupdf
 pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
 pdf_viewer_mimeapps_path: "{{ target_home }}/.config/mimeapps.list"
-# Zathura's statusbar/inputbar/notification font (playbooks/pdf-viewer.yml).
+# Zathura's statusbar/inputbar/notification font (playbooks/{system,user}/pdf-viewer.yml).
 # Zathura has a single `font` option covering all three; there's no
 # statusbar-only setting. Reuses omarchy_system_ui_font_pt so it matches
 # the rest of the desktop instead of Zathura's own default ("monospace
@@ -306,7 +306,7 @@ pdf_viewer_mimeapps_path: "{{ target_home }}/.config/mimeapps.list"
 pdf_viewer_zathurarc_path: "{{ target_home }}/.config/zathura/zathurarc"
 pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
 
-# File chooser dialogs (playbooks/file-chooser.yml) — the per-desktop
+# File chooser dialogs (playbooks/{system,user}/file-chooser.yml) — the per-desktop
 # portals.conf that routes the FileChooser interface to Flea's picker
 # under XDG_CURRENT_DESKTOP=Hyprland. qt5ct/qt6ct are the Qt platform
 # themes that both ask that portal for dialogs and set the Qt UI font.
@@ -315,7 +315,7 @@ file_chooser_qt_packages:
   - qt6ct
 file_chooser_portals_conf: "{{ target_home }}/.config/xdg-desktop-portal/hyprland-portals.conf"
 
-# pt-BR localization (playbooks/ptbr.yml)
+# pt-BR localization (playbooks/{system,user}/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
 ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"
 ptbr_language_fallback: "pt_BR:pt:en"
@@ -346,7 +346,7 @@ ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
 # Profile directories fixed by
 # playbooks/tasks/ptbr-chromium-family-browser.yml. Each entry is a path
 # relative to $HOME (~/.config/<dir>; Brave-Origin is the one
-# playbooks/brave.yml installs). Opera and Helium are excluded:
+# playbooks/{system,user}/brave.yml installs). Opera and Helium are excluded:
 # unconfirmed profile layout on this machine.
 ptbr_chromium_family_config_dirs:
   - .config/chromium
@@ -362,7 +362,7 @@ ptbr_man_pages_package: man-pages-pt_br
 ptbr_tesseract_data_package: tesseract-data-por
 ptbr_ocr_langs: "por+eng"
 
-# OpenSSH agent (playbooks/keepassxc.yml, the play that runs before KeePassXC's) —
+# OpenSSH agent (playbooks/{system,user}/keepassxc.yml, the play that runs before KeePassXC's) —
 # enables the standard user-scope agent (socket + service) at the session
 # runtime socket and exports SSH_AUTH_SOCK session-wide via environment.d
 # so IDEs, CLI tools and KeePassXC can reach the same agent.
@@ -380,7 +380,7 @@ ssh_agent_units:
   - ssh-agent.socket
   - ssh-agent.service
 
-# KeePassXC (playbooks/keepassxc.yml) — open-source password manager
+# KeePassXC (playbooks/{system,user}/keepassxc.yml) — open-source password manager
 # with browser integration (Chromium-family browsers), system tray
 # integration and opt-in SSH agent support (the agent play above, see
 # keepassxc_ssh_agent_enabled).
@@ -388,7 +388,7 @@ ssh_agent_units:
 # The Arch package (extra/keepassxc), installed with omarchy-pkg-add. Its
 # desktop-entry id is org.keepassxc.KeePassXC.desktop and its window class
 # keepassxc (StartupWMClass). Being a Qt5 app on the host, it takes its UI
-# font from qt5ct (playbooks/file-chooser.yml), so no font override is
+# font from qt5ct (playbooks/{system,user}/file-chooser.yml), so no font override is
 # needed.
 keepassxc_package: keepassxc
 # Whether KeePassXC is the session's password manager: true deploys its
@@ -448,7 +448,7 @@ keepassxc_browser_manifests:
   - name: Brave Origin
     dest: "{{ target_home }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
 
-# Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
+# Homebrew for Linux (playbooks/{system,user}/homebrew.yml) — installed per upstream to
 # /home/linuxbrew/.linuxbrew and exposed via a launcher script in
 # /usr/local/bin so `brew` is on PATH without shell-profile edits.
 homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
@@ -467,10 +467,10 @@ homebrew_runtime_deps:
 homebrew_bbrew_package: bbrew
 # homebrew_env_file is deployed to ~/.config/environment.d so every
 # Homebrew-installed binary reaches the session on PATH — see the
-# header comment in playbooks/homebrew.yml.
+# header comment in playbooks/{system,user}/homebrew.yml.
 homebrew_env_file: 42-homebrew.conf
 
-# Proton Pass (playbooks/proton-pass.yml — optional password manager
+# Proton Pass (playbooks/{system,user}/proton-pass.yml — optional password manager
 # alternative to KeePassXC, not part of `just setup`).
 #
 # Desktop client: Proton's own .deb repackaged in the AUR
@@ -488,7 +488,7 @@ proton_pass_hypr_keybind: "SUPER + SHIFT + SLASH"
 # own — `proton-pass-cli` is an official Homebrew (homebrew-core)
 # formula instead, with a prebuilt x86_64_linux bottle (depends on
 # homebrew_bin/homebrew_symlink/homebrew_prefix, group_vars above).
-# Points straight at Homebrew's Cellar bin — playbooks/homebrew.yml
+# Points straight at Homebrew's Cellar bin — playbooks/{system,user}/homebrew.yml
 # already puts {{ homebrew_prefix }}/bin on PATH session-wide (via
 # ~/.config/environment.d), so nothing needs mirroring into ~/.local/bin.
 proton_pass_cli_bin: "{{ homebrew_prefix }}/bin/pass-cli"
@@ -517,12 +517,12 @@ proton_pass_ssh_agent_socket: "{{ target_home }}/.ssh/proton-pass-agent.sock"
 # agree on where the key lives.
 proton_pass_cli_linux_keyring: dbus
 
-# Podman rootless (playbooks/containers.yml) — subuid/subgid range, same
+# Podman rootless (playbooks/{system,user}/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.
 podman_subuid_start: 100000
 podman_subuid_count: 65536
 
-# libfprint (goodix538d, playbooks/libfprint.yml) — built with makepkg from
+# libfprint (goodix538d, playbooks/system/libfprint.yml) — built with makepkg from
 # templates/libfprint-goodix538d.PKGBUILD.j2 and installed with pacman -U,
 # replacing the official libfprint (and Omarchy's libfprint-git).
 libfprint_repo: https://github.com/lbssousa/libfprint.git
@@ -553,7 +553,7 @@ libfprint_makedepends:
 libfprint_goodix_usb_vendor_id: "27c6"
 libfprint_goodix_usb_product_id: "538d"
 
-# Secure Boot (Limine + sbctl, playbooks/secureboot.yml — not part of
+# Secure Boot (Limine + sbctl, playbooks/system/secureboot.yml — not part of
 # `just setup`, run explicitly).
 secureboot_esp_path: /boot
 secureboot_limine_binary: "{{ secureboot_esp_path }}/EFI/limine/limine_x64.efi"
@@ -561,7 +561,7 @@ secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 
-# BGRT-derived boot theme (playbooks/bgrt-theme.yml — not part of
+# BGRT-derived boot theme (playbooks/{system,user}/bgrt-theme.yml — not part of
 # `just setup`, run explicitly). Builds an Omarchy desktop theme and a
 # standalone Plymouth theme, both derived from this machine's own UEFI
 # BGRT boot logo (/sys/firmware/acpi/bgrt/*), so the same picture stays
@@ -590,10 +590,10 @@ bgrt_entry_gap_below: 30
 bgrt_preview_width: 1920
 bgrt_preview_height: 1080
 
-# Hyprland scrolling-layout column resize step (playbooks/desktop.yml).
+# Hyprland scrolling-layout column resize step (playbooks/{system,user}/desktop.yml).
 hypr_scrolling_colresize_step: 0.1
 
-# EPSON L4160 printer (playbooks/printer.yml) — driverless CUPS queue.
+# EPSON L4160 printer (playbooks/{system,user}/printer.yml) — driverless CUPS queue.
 printer_l4160_name: L4160
 printer_l4160_location: "Wi-Fi"
 printer_l4160_description: "EPSON L4160 Series"
@@ -602,7 +602,7 @@ printer_l4160_device_uri: "ipp://{{ printer_l4160_hostname }}:631/ipp/print"
 printer_l4160_error_policy: abort-job
 printer_l4160_set_default: true
 
-# Shell bar + terminal text size (playbooks/desktop.yml), px. The GTK
+# Shell bar + terminal text size (playbooks/{system,user}/desktop.yml), px. The GTK
 # text-scaling factor this command would otherwise leave in place is always
 # reset — the desktop's default UI font size is set directly instead, via
 # omarchy_gnome_font_sizes below.
@@ -613,7 +613,7 @@ printer_l4160_set_default: true
 # (px * 9/12 = 15pt).
 omarchy_text_size_px: 20
 
-# Hyprland monitor scale factor (playbooks/desktop.yml) — the
+# Hyprland monitor scale factor (playbooks/{system,user}/desktop.yml) — the
 # compositor-level "screen scale" applied to everything on screen. Fed
 # straight into hl.monitor({ scale = ... }) in
 # ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
@@ -625,7 +625,7 @@ omarchy_text_size_px: 20
 # ~950px. omarchy_text_size_px compensates for the smaller scale.
 omarchy_monitor_scale: 1.0
 
-# GDK_SCALE (playbooks/desktop.yml) — the integer factor GTK/Electron read
+# GDK_SCALE (playbooks/{system,user}/desktop.yml) — the integer factor GTK/Electron read
 # under XWayland, where Hyprland doesn't scale windows
 # (xwayland.force_zero_scaling). Same rule as `omarchy hyprland monitor
 # scaling`: the monitor scale rounded to a whole number, so it follows
@@ -633,7 +633,7 @@ omarchy_monitor_scale: 1.0
 # omarchy_gdk_scale.
 omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 
-# GTK/GNOME UI font sizes (playbooks/desktop.yml): GNOME's own defaults
+# GTK/GNOME UI font sizes (playbooks/{system,user}/desktop.yml): GNOME's own defaults
 # (the gsettings-desktop-schemas defaults, as of GNOME 48+), applied
 # directly to each key while keeping the font family already configured
 # there. Firefox's browser chrome follows interface font-name.
@@ -644,31 +644,31 @@ omarchy_gnome_font_sizes:
   - { schema: org.gnome.desktop.wm.preferences, key: titlebar-font, pt: 11 }
 
 # Font point size for what is not GTK/GNOME: Qt apps (qt5ct/qt6ct, through
-# playbooks/file-chooser.yml) and zathura. Deliberately smaller than the
+# playbooks/{system,user}/file-chooser.yml) and zathura. Deliberately smaller than the
 # 15pt that would match the old 1.25 monitor scale (13pt * 1.25, rounded),
 # unlike the shell bar and terminals, which stay compensated. Raised a
 # point from the 12pt Omarchy leaves behind.
 omarchy_system_ui_font_pt: 13
 
-# Caps Lock via keyd (playbooks/capslock.yml). Key that takes over Compose
+# Caps Lock via keyd (playbooks/{system,user}/capslock.yml). Key that takes over Compose
 # from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep
 # acting as modifiers even after their symbol changes; "menu" doesn't have
 # that problem and is the natural Compose key already).
 capslock_compose_key: menu
 keyd_config_dest: /etc/keyd/default.conf
 
-# Night light synced to real sunrise/sunset (playbooks/desktop.yml).
+# Night light synced to real sunrise/sunset (playbooks/{system,user}/desktop.yml).
 # hyprsunset only supports fixed HH:MM profile times, so a daily timer
 # recomputes them.
 nightlight_solar_night_temperature: 4000
 nightlight_solar_geoip_url: "http://ip-api.com/json/"
 nightlight_solar_oncalendar: "*-*-* 00:05:00"
 
-# Inkscape (playbooks/inkscape.yml) — official repo. svg2tikz (an
+# Inkscape (playbooks/system/inkscape.yml) — official repo. svg2tikz (an
 # Inkscape extension exporting SVG paths as TikZ/PGF for LaTeX,
 # https://github.com/xyz2tex/svg2tikz) has no official Arch package, so
 # it's built from the AUR the same unprivileged clone+makepkg+pacman -U
-# pattern as playbooks/blesh.yml. xclip is an optional runtime
+# pattern as playbooks/{system,user}/blesh.yml. xclip is an optional runtime
 # dependency the extension uses for its "copy to clipboard" output mode.
 #
 # TeX Live's own fonts are registered with fontconfig by
@@ -688,7 +688,7 @@ inkscape_svg2tikz_aur_build_deps:
 inkscape_svg2tikz_runtime_deps:
   - xclip
 
-# Limine silent boot (playbooks/limine-silent-boot.yml) — hide the boot
+# Limine silent boot (playbooks/system/limine-silent-boot.yml) — hide the boot
 # menu for a flicker-free boot. quiet: yes keeps Limine from clearing the
 # framebuffer, so the firmware logo stays up while Limine holds the
 # display; it only takes effect in the config header (before the first
@@ -705,7 +705,7 @@ limine_silent_boot_conf: /boot/limine.conf
 limine_silent_boot_quiet: "yes"
 limine_silent_boot_timeout: "1"
 
-# ble.sh (playbooks/blesh.yml) — Bash Line Editor: fish-style
+# ble.sh (playbooks/{system,user}/blesh.yml) — Bash Line Editor: fish-style
 # autosuggestions + syntax highlighting. Built from the AUR (unprivileged
 # clone+makepkg+pacman -U, same as inkscape_svg2tikz_*).
 # blesh-git (0.4.0-devel) rather than the stable `blesh` (0.3.4): 0.3.4
@@ -724,7 +724,7 @@ blesh_script: /usr/share/blesh/ble.sh
 blesh_bashrc: "{{ target_home }}/.bashrc"
 blesh_blerc: "{{ target_home }}/.blerc"
 
-# Starship prompt inside distrobox (playbooks/containers.yml).
+# Starship prompt inside distrobox (playbooks/{system,user}/containers.yml).
 starship_distrobox_config: "{{ target_home }}/.config/starship.toml"
 starship_distrobox_omarchy_default_config: /usr/share/omarchy/config/starship.toml
 starship_distrobox_bashrc: "{{ target_home }}/.bashrc"
@@ -732,7 +732,7 @@ starship_distrobox_bashrc: "{{ target_home }}/.bashrc"
 starship_distrobox_symbol: "⬢"
 starship_distrobox_style: bold yellow
 
-# Nix (playbooks/nix.yml) — the Arch `nix` package in multi-user mode
+# Nix (playbooks/{system,user}/nix.yml) — the Arch `nix` package in multi-user mode
 # (nix-daemon, socket-activated), with the store on its own btrfs
 # subvolume so snapper's root snapshots leave it out.
 nix_package: nix
@@ -764,15 +764,15 @@ nix_default_profile: /nix/var/nix/profiles/default
 # everything started from it, gets the same variables from here.
 nix_env_file: 43-nix.conf
 
-# direnv (playbooks/nix.yml, tag direnv) — loads/unloads a directory's
+# direnv (playbooks/{system,user}/nix.yml, tag direnv) — loads/unloads a directory's
 # .envrc (e.g. `use flake`) on cd, hooked into bash and fish.
 direnv_package: direnv
 direnv_bashrc: "{{ target_home }}/.bashrc"
-# fish's per-user vendor conf dir, same place playbooks/fish.yml puts
+# fish's per-user vendor conf dir, same place playbooks/{system,user}/fish.yml puts
 # Omarchy's ported setup — ~/.config/fish stays the user's own.
 direnv_fish_conf: "{{ target_xdg_data_home }}/fish/vendor_conf.d/direnv.fish"
 
-# nix-direnv (playbooks/nix.yml, tag nix-direnv) — a faster, caching
+# nix-direnv (playbooks/{system,user}/nix.yml, tag nix-direnv) — a faster, caching
 # `use flake`/`use nix` for direnv. Neither Arch nor the AUR packages
 # it, so it goes in the user's Nix profile, as upstream documents for
 # non-NixOS systems; `nix profile upgrade nix-direnv` updates it.
@@ -781,7 +781,7 @@ nix_direnv_profile_name: nix-direnv
 nix_direnv_rc: "{{ nix_user_profile }}/share/nix-direnv/direnvrc"
 direnv_rc: "{{ target_xdg_config_home }}/direnv/direnvrc"
 
-# Omarchy shell plugins (playbooks/plugins.yml) — this desktop's list of
+# Omarchy shell plugins (playbooks/{system,user}/plugins.yml) — this desktop's list of
 # third-party plugins, applied by `just plugins`. Append one entry per plugin;
 # the play installs the whole list, so the list is the only place to edit.
 #
@@ -848,7 +848,7 @@ rclone_gdrive_instances:
     cache_slug: google-drive-shared-with-me
     extra_flags: "--drive-shared-with-me"
 
-# Omaraptor day/night theme switching (playbooks/omaraptor-theme-auto.yml).
+# Omaraptor day/night theme switching (playbooks/user/omaraptor-theme-auto.yml).
 # Themes applied after sunrise / after sunset (names as omarchy-theme-set
 # takes them). Sunrise/sunset come from hyprsunset.conf (see
 # nightlight_solar_*); the fallback times are used when it is missing.

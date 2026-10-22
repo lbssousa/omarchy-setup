@@ -20,8 +20,24 @@ omarchy_users:
   - name: abutre
     admin: true
     shell: /usr/bin/fish
-  # - name: fulana
-  #   full_name: Fulana de Tal
-  #   admin: false
-  #   shell: /bin/bash
-  #   luks: true
+  - name: surubi
+    admin: false
+    shell: /usr/bin/fish
+  - name: coruja
+    admin: false
+    shell: /usr/bin/fish
+  - name: camelo
+    admin: false
+    shell: /usr/bin/fish
+  - name: cavalo
+    admin: false
+    shell: /usr/bin/fish
+  - name: macaco
+    admin: false
+    shell: /usr/bin/fish
+  - name: gorila
+    admin: false
+    shell: /usr/bin/fish
+  - name: coelho
+    admin: false
+    shell: /usr/bin/fish

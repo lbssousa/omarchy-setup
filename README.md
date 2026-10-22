@@ -3,34 +3,53 @@
 Ansible automation for setting up a freshly installed
 [Omarchy](https://omarchy.org/) desktop.
 
-Each automation is a play under `playbooks/`, imported by `site.yml`;
-automations that depend on each other (Podman → Distrobox, the OpenSSH
-agent → KeePassXC) or that share a theme
-(the desktop tweaks, the Yubikey helpers) live together in one playbook
-file. All of them share the same privilege escalation (run0, see
-`ansible.cfg`), and each automation has its own tag: run one with
-`--tags <tag>`, or skip one with `--skip-tags <tag>`. A tag that names a
-play with a dependency also runs the play it depends on first (e.g.
-`--tags distrobox` sets Podman up first), and files with several plays
-have an umbrella tag for the whole file (`containers`, `desktop`, `nix`,
-`yubikey`). Exceptions:
-`playbooks/secureboot.yml`, `playbooks/bgrt-theme.yml`,
-`playbooks/proton-pass.yml`,
-`playbooks/homebrew.yml`, `playbooks/yubikey.yml` are **not** imported by
-`site.yml` — Secure Boot and the BGRT boot theme touch firmware/boot,
-Proton Pass is an alternative to KeePassXC, the default password manager
-(it takes over the `SUPER+SHIFT+SLASH` keybind when run), Homebrew is only needed by the tools that install formulae from it, and the Yubikey helpers need the physical token plugged in — so
-they only run when called explicitly. TeX Live, LilyPond and Gregorio are a
-separate tool entirely (`local-typesetting/`, `just typesetting`) — a
-standalone shell script, not an Ansible playbook (see below).
+It sets the machine up for **several users**: each automation is split
+into a **system phase** (packages, `/etc`, PAM, the login screen, signed
+plugin builds, the accounts themselves — run once by an administrator) and
+a **user phase** (each person's `~/.config`, session services and shell
+plugins — run by each user, as themselves, in their own session). The
+login screen lists everyone by full name, with an optional field for any
+other username, and nobody is logged in automatically; the Omarchy tools
+that assumed a single owner are replaced by
+[omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser). See
+[docs/multi-user.md](docs/multi-user.md) for the model.
+
+Each automation is a play under `playbooks/system/` and/or
+`playbooks/user/`, indexed by `system.yml` and `user.yml` (`site.yml` runs
+both, for the administrator's own account); automations that depend on
+each other (Podman → Distrobox, the OpenSSH agent → KeePassXC) or that
+share a theme (the desktop tweaks, the Yubikey helpers) live together in
+one playbook file. The system phase escalates with run0 (see
+`ansible.cfg`); the user phase never becomes root. Each automation has its
+own tag, the same in both phases: run one with `just <tag>` or `--tags
+<tag>`, or skip one with `--skip-tags <tag>`. A tag that names a play with
+a dependency also runs the play it depends on first (e.g. `--tags
+distrobox` sets Podman up first), and files with several plays have an
+umbrella tag for the whole file (`containers`, `desktop`, `nix`,
+`yubikey`). Exceptions: `secureboot`, `bgrt-theme`, `proton-pass`,
+`homebrew`, `yubikey` and `brave-pwa-webapps` are **not** in
+`system.yml`/`user.yml` — Secure Boot and the BGRT boot theme touch
+firmware/boot, Proton Pass is an alternative to KeePassXC, the default
+password manager (it takes over the `SUPER+SHIFT+SLASH` keybind when run),
+Homebrew is only needed by the tools that install formulae from it, the
+Yubikey helpers need the physical token plugged in, and the PWAs reflect a
+personal container layout — so they only run when called explicitly. TeX
+Live, LilyPond and Gregorio are a separate tool entirely
+(`local-typesetting/`, `just typesetting`) — a standalone shell script, not
+an Ansible playbook (see below).
 
 ## What it sets up
 
 | Automation | Tag | What it does |
 |---|---|---|
-| Brave Origin | `brave` | Installs Brave Origin (Brave without Rewards, Wallet, VPN, Leo and News) with Omarchy's own installer, `omarchy-install-browser brave-origin` — the same as Install > Browser > Brave Origin in the Omarchy menu: the AUR `brave-origin-bin` package, Omarchy's Chromium flags (`~/.config/brave-origin-flags.conf`), its managed browser policy and the theme color sync. Only runs when the package is missing. Omarchy's own web app launchers run on it (see `default-browser`); the ones listed in `brave_omarchy_webapp_containers` are additionally wired to open inside a Brave container (see `brave-webapp-containers`). |
+| User accounts | `users` | System phase. Creates or updates every account in `omarchy_users` (`group_vars/all/users.yml`): full name in GECOS (what the login screen lists), login shell, `wheel` for administrators and `omarchy-users` for everyone else, a subuid/subgid range each. New accounts start locked; `just users` sets their passwords right after and, for `luks: true`, offers each a disk unlock password of their own. |
+| omarchy-multiuser | `omarchy-multiuser` | System phase. Builds and installs [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) from a GPG-signed release tag: the multi-user greeter, per-user FIDO2 keys and fingerprints (the lock screen keeps fingerprint unlock while anyone has prints), migrations for users outside `wheel`, account and LUKS keyslot helpers and the menu entries for them. Enables its watchers, the migration recorder for each administrator and its per-login unit for every user. |
+| SDDM | `sddm` | System phase. The login screen lists every user by full name, with an optional field to type any other username, and nobody is logged in automatically: removes Omarchy's `/etc/sddm.conf.d/autologin.conf` and checks that `zz-omarchy-multiuser.conf` wins. Never restarts sddm; it takes over at the next login screen. |
+| Shared checkout | `shared-checkout` | System phase (`just publish`). Publishes the committed HEAD to `/opt/omarchy-setup` (root-owned, world-readable) with its collections, and installs `omarchy-setup-user`, which runs the user phase from there for whoever calls it. |
+| git identity | `git-identity` | User phase. `git config --global user.name/user.email` from `git_user_name`/`git_user_email` in `users/<name>.yml`. |
+| Brave Origin | `brave` | Installs Brave Origin (Brave without Rewards, Wallet, VPN, Leo and News) with Omarchy's own installer, `omarchy-install-browser brave-origin` — the same as Install > Browser > Brave Origin in the Omarchy menu: the AUR `brave-origin-bin` package, Omarchy's Chromium flags (`~/.config/brave-origin-flags.conf`), its managed browser policy and the theme color sync. Only runs when the package is missing (system phase); the flags file is written for every other user too (user phase). Omarchy's own web app launchers run on it (see `default-browser`); the ones listed in `brave_omarchy_webapp_containers` are additionally wired to open inside a Brave container (see `brave-webapp-containers`). |
 | Brave web app containers | `brave-webapp-containers` | Appends `--container=<name>` to the `Exec=` of Omarchy's own web app launchers (`~/.local/share/applications/*.desktop` running `omarchy-launch-webapp`) that are listed in `brave_omarchy_webapp_containers` (`group_vars/all/main.yml`), so they open inside that existing Brave container (`brave://settings/containers`) instead of the profile's default partition. Brave has accepted `--container=` together with `--app=` since 1.95.x (`brave/brave-browser#58019`, via `brave-core#38964`). Idempotent: drops a stale `--container=<other>` first, so re-mapping moves; only touches the user's copies in `~/.local/share/applications`, backing up before editing. Installs a systemd `--user` path unit that reruns it whenever a web app launcher is installed or rewritten (e.g. by `omarchy-webapp-install`). Runs as part of `brave`; also has its own tag. No root needed. — see `playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2` |
-| Brave Origin PWAs | `brave-pwa-webapps` | Not part of `just setup` (`just brave-pwa-webapps`, needs root). Force-installs each `brave_pwa_webapps` entry (WhatsApp, Microsoft Teams, YouTube) as a Brave Origin PWA through the `WebAppInstallForceList` policy in `/etc/brave/policies/managed/omarchy-setup-webapps.json`, reads the app id Brave assigns, overwrites Omarchy's web app launcher to open it with `--app-id=… --container=<name>` and rebinds its keybind. Brave must have run once and the containers must already exist; Brave has to be running for the policy to apply. |
+| Brave Origin PWAs | `brave-pwa-webapps` | Not part of `just setup` (`just brave-pwa-webapps`). The system phase force-installs the union of every user's `brave_pwa_webapps` (`users/<name>.yml`) as Brave Origin PWAs through the `WebAppInstallForceList` policy in `/etc/brave/policies/managed/omarchy-setup-webapps.json` (it applies to every profile on the machine); each user's phase then reads the app id Brave assigns, overwrites Omarchy's web app launcher to open it with `--app-id=… --container=<name>` and rebinds its keybind. Brave must have run once and the containers must already exist; Brave has to be running for the policy to apply. |
 | Default browser | `default-browser` | Makes Brave Origin the default browser with `omarchy-default-browser brave-origin` (Setup > Defaults > Browser), only when `omarchy-default-browser` doesn't already report it, so a browser picked later in the menu isn't re-pinned (`default_browser` in `group_vars/all/main.yml`). The result is read back rather than taken from the exit code, since the script's closing notification fails outside the graphical session. `brave-origin.desktop` is an id `omarchy-launch-webapp` accepts, so the browser keybinds and every Omarchy web app open in it with no wrapper. No root needed. |
 | KeePassXC | `keepassxc` | The default password manager. Installs KeePassXC from extra (`omarchy-pkg-add keepassxc`), the browser native messaging manifests for Chromium and Brave Origin (the KeePassXC-Browser extension is still installed and connected by hand), and a udev rule, `/etc/udev/rules.d/72-keepassxc-yubikey-lock.rules`, that locks every open database as soon as the YubiKey is unplugged (matched on the raw USB `PRODUCT`, `keepassxc_yubikey_usb_product_match`, since the sysfs attributes are gone on `remove`; it runs `/usr/local/bin/keepassxc-lock-on-yubikey-remove`, which calls KeePassXC's `lockAllDatabases` on the user's session D-Bus when it is running). It also deploys the XDG autostart entry and rebinds `SUPER+SHIFT+SLASH` (Omarchy's "Passwords" key) to KeePassXC. |
 | ONLYOFFICE Desktop Editors | `onlyoffice` | Installs ONLYOFFICE Desktop Editors from the AUR (`onlyoffice-bin`) with Omarchy's `omarchy-pkg-aur-add` and removes Omarchy's pre-installed native `libreoffice-fresh`. ONLYOFFICE ships as a single desktop application, so there are no secondary components to hide from the app launcher, and Omarchy binds no key to LibreOffice. |
@@ -47,14 +66,14 @@ standalone shell script, not an Ansible playbook (see below).
 | Flea file dialogs | `file-chooser` | Makes the open/save file dialogs of non-GNOME apps (Firefox, Chromium, Electron, GTK and Qt apps) Flea's picker. Routes the FileChooser portal to Flea's backend for Hyprland (`org.freedesktop.impl.portal.FileChooser=flea;gtk` in `~/.config/xdg-desktop-portal/hyprland-portals.conf`, GTK3 as the fallback) — the tag runs `file-manager` first, which installs Flea — and exports `GTK_USE_PORTAL=1` from `~/.config/hypr/hyprland.lua`. Qt apps (Qt5 like KeePassXC, and Qt6) use `qt5ct`/`qt6ct` as their platform theme (`QT_QPA_PLATFORMTHEME=qt6ct`) instead of Omarchy's `gtk3`, which draws GTK3 dialogs in-process: their `standard_dialogs=xdgdesktopportal` option asks the portal, and they also set the Qt UI font to GTK's family at `omarchy_system_ui_font_pt` (Qt's plain `xdgdesktopportal` theme would give portal dialogs but a 9pt fallback font). Log out and back in (or restart the app) to pick it up. |
 | LazyVim plugins | `lazyvim` | Enables LazyVim's LaTeX extra and installs [gregorio.nvim](https://github.com/AISCGre-BR/gregorio.nvim) (GABC/NABC chant notation, pairs with gregorio-lsp). |
 | pt-BR localization | `ptbr` | Locale, personal folder names, Chromium-family (Brave Origin included)/man pages/OCR language. |
-| Podman | `podman` | Rootless container engine. Part of `playbooks/containers.yml` with Distrobox and the starship integration (umbrella tag `containers`). |
+| Podman | `podman` | Rootless container engine. Part of `playbooks/{system,user}/containers.yml` with Distrobox and the starship integration (umbrella tag `containers`). |
 | Distrobox | `distrobox` | Depends on Podman: the tag also runs the Podman play first. |
 | Nix | `nix` | Installs Nix from the Arch package (`nix`) in multi-user mode and enables `nix-daemon.socket`. When `/` is btrfs, first creates a top-level `@nix` subvolume and mounts it at `/nix` from `/etc/fstab` (same options as `/`), so snapper's root snapshots don't pin store paths or roll the store back; stops if `/nix` already holds a store outside a subvolume. Enables flakes and the `nix` command in `/etc/nix/nix.conf` and resolves `nixpkgs` through the flake registry (`nix-path`), so `nix-shell -p` works without channels. Appends `~/.nix-profile/bin` and the default profile to the session `PATH` (never shadowing Arch binaries) and their `share` dirs to `XDG_DATA_DIRS` via `environment.d` (log in again to pick it up). |
 | direnv | `direnv` (also `nix`) | Installs direnv (Arch package) and hooks it into bash (a block in `~/.bashrc`, before ble.sh's `ble-attach`) and fish (`~/.local/share/fish/vendor_conf.d/direnv.fish`, leaving `~/.config/fish` alone), so a project's `.envrc` — e.g. `use flake` for its Nix dev shell — loads on `cd` once `direnv allow`ed. |
 | nix-direnv | `nix-direnv` (also `nix`) | Installs [nix-direnv](https://github.com/nix-community/nix-direnv) into the user's Nix profile (not packaged by Arch or the AUR) and sources it from `~/.config/direnv/direnvrc`, so `use flake` / `use nix` cache the dev shell and keep it from being garbage-collected. Update with `nix profile upgrade nix-direnv`. |
 | libfprint (goodix538d) | `libfprint` | Builds a fingerprint driver fork (lbssousa/libfprint) as a PKGBUILD package with makepkg and installs it in place of the official `libfprint` / `libfprint-git` (the package is itself named `libfprint-git` with epoch 2, so fprintd keeps working, `pacman -Syu` won't swap it back and `omarchy-setup-security-fingerprint` finds it installed), plus a watchdog for a driver desync bug and the Omarchy lock-screen retry-storm bug. |
 | EPSON L4160 printer | `printer` | Driverless CUPS queue (IPP Everywhere). |
-| Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+] resize the focused column. This and the next two are plays of `playbooks/desktop.yml` (umbrella tag `desktop`). |
+| Hyprland scrolling resize | `hypr-scrolling-resize` | SUPER+[ / SUPER+] resize the focused column. This and the next two are plays of `playbooks/{system,user}/desktop.yml` (umbrella tag `desktop`). |
 | Screen scale + text size | `text-size` | Sets the Hyprland monitor scale to 100% (and `GDK_SCALE` to match) and compensates with larger text: shell bar + terminals at 20px (15pt terminal font) and the GTK/GNOME UI fonts at GNOME's own default sizes (interface 11pt, document 12pt, monospace 11pt, window titles 11pt; family kept), with GTK's text-scaling factor left at 1.0. Qt apps (`file-chooser` play) and zathura keep `omarchy_system_ui_font_pt` (13pt). |
 | Night light | `nightlight-solar` | Syncs hyprsunset to real sunrise/sunset daily. |
 | Caps Lock via keyd | `capslock` | tap=Esc, hold=Ctrl, Shift+CapsLock=CapsLock; moves Compose off Caps Lock. |
@@ -70,7 +89,7 @@ standalone shell script, not an Ansible playbook (see below).
 | TeX Live + LilyPond + Gregorio | — | Not an Ansible playbook: `local-typesetting/install-typesetting.sh` (`just typesetting`) installs TeX Live and LilyPond under `/opt`, builds Gregorio from source, and registers TeX Live's fonts with fontconfig, directly on the host with `sudo` — no containers. Not part of `just setup` — a long network install, run explicitly. See [`local-typesetting/README.md`](local-typesetting/README.md). |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
-| Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. **A dependency of `pinentry`, `ssh-askpass` and `polkit-agent`**: they deploy signed release tags and stop at the start if this key isn't in the keyring, so run it first. Lives in `playbooks/yubikey.yml` (umbrella tag `yubikey`). |
+| Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. **A dependency of `pinentry`, `ssh-askpass` and `polkit-agent`**: they deploy signed release tags and stop at the start if this key isn't in the keyring, so run it first. Lives in `playbooks/{system,user}/yubikey.yml` (umbrella tag `yubikey`). |
 | Yubikey SSH keys | `ssh-yubikey` | Not Ansible — `scripts/ssh-yubikey.sh` (the FIDO2 PIN prompt needs a real terminal). Downloads the resident FIDO2 keys with `ssh-keygen -K` into `~/.ssh` (never overwriting) and writes one self-contained drop-in per key, `~/.ssh/config.d/<host>_<user>.conf` (here `github_com_lbssousa.conf`): `github.com` authenticates with `id_ed25519_sk_rk_github.com_lbssousa` (override with `GITHUB_KEY=`) with `IdentityAgent none`, plus `ControlMaster auto` + `ControlPersist 10m`, so the PIN/touch is asked once per 10 minutes. Adds one `Include config.d/*.conf` line to `~/.ssh/config`. **To migrate to an ssh-agent: `just ssh-yubikey-disable`** (renames the drop-in to `*.conf.disabled`, which the `Include` glob ignores). Also `scripts/ssh-yubikey.sh status`/`enable`. Not part of `just setup`. |
 
 See each playbook's own header comment for implementation details.
@@ -79,8 +98,9 @@ See each playbook's own header comment for implementation details.
 
 - An Omarchy desktop (or any Arch Linux with pacman, `locale-gen`,
   systemd and `xdg-user-dirs`).
-- `run0` (part of systemd, so already there on Arch) and a user in the
-  `wheel` group.
+- `run0` (part of systemd, so already there on Arch) and, for the system
+  phase, a user in the `wheel` group. Other users need not be: their part is
+  the user phase only.
 - The libfprint playbook builds with `makepkg` on the host (no container);
   it replaces the official `libfprint`/`libfprint-git` via `pacman -U`.
 - The Proton Pass playbook needs Homebrew (`just homebrew` — not part of
@@ -124,11 +144,28 @@ fail fast instead of waiting.
 
 ## Usage
 
+As an administrator, on your own account:
+
 ```bash
 git clone https://github.com/lbssousa/omarchy-setup.git
 cd omarchy-setup
 ./bootstrap.sh   # installs `just`, if missing — only needs to run once
-just setup
+just setup       # the system phase, then your user phase
+```
+
+Adding someone: declare them in `group_vars/all/users.yml` (and, if they
+want, their settings in `users/<name>.yml`), commit, then:
+
+```bash
+just users       # creates the account, asks for its password
+just publish     # world-readable copy in /opt/omarchy-setup + omarchy-setup-user
+```
+
+They log in from the greeter (Omarchy's first-run setup runs as for the
+owner) and apply their part, from a terminal in their session:
+
+```bash
+omarchy-setup-user          # same as `just user`, from the shared copy
 ```
 
 Or directly with Ansible:
@@ -136,11 +173,14 @@ Or directly with Ansible:
 ```bash
 run0 pacman -S --needed ansible
 ansible-galaxy collection install -r requirements.yml
-./run-empowered.sh ansible-playbook site.yml
+./run-empowered.sh ansible-playbook system.yml -e @users/$USER.yml   # administrators
+ansible-playbook user.yml -e @users/$USER.yml                         # each user
 ```
 
-Run a single automation with `just <name>` (see the Justfile) or
-`./run-empowered.sh ansible-playbook site.yml --tags <tag>`.
+Run a single automation with `just <name>` (see the Justfile): it runs
+the feature's system half when you are an administrator, then your user
+half. `just check` syntax-checks everything and the boundary between the
+phases.
 
 The playbooks are idempotent — rerunning is safe.
 
@@ -168,46 +208,60 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 |---|---|
 | `bootstrap.sh` | Installs `just`, if missing |
 | `run-empowered.sh` | Runs ansible-playbook under `run0 --empower`: one polkit authentication, then privileged tasks pass (see *Privilege* above) |
-| `site.yml` | Index: imports each `playbooks/*.yml` with its tag |
-| `playbooks/polkit.yml` | polkitd ExpirationSeconds (tag `polkit`) |
-| `playbooks/pam-auth-order.yml` | Pins the order of the sudo and polkit PAM stacks: fingerprint (`pam_fprintd`), then FIDO2/U2F key (`pam_u2f`), then password. Omarchy's fingerprint and FIDO2 setup scripts each insert at the top of the file, so the order otherwise depends on which ran last; this adds `pam_fprintd` (behind Omarchy's clamshell gate) at the top when it is missing, moves the `pam_u2f` line below it, and writes `/etc/pam.d/omarchy-lock-fingerprint` (the lock screen only offers the fingerprint when it exists) once a print is enrolled, and sets `pam_fprintd` to `max-tries=3 timeout=10` (default 3 tries / 30 s): three fingerprint attempts, but the key is asked for quickly when no finger is placed (`pam_auth_order_fprintd_*` vars) (tag `pam-auth-order`) |
-| `playbooks/brave.yml` | Brave Origin (`omarchy-install-browser brave-origin`) + the Omarchy web app container wiring (tags `brave`, `brave-webapp-containers`) |
-| `playbooks/brave-pwa-webapps.yml` | Omarchy web apps -> Brave Origin PWAs in their own containers, driven by `brave_pwa_webapps` (`tasks/brave-pwa-webapp-swap.yml` per app; tag `brave-pwa-webapps`); not imported by `site.yml` |
-| `playbooks/default-browser.yml` | Brave Origin as the default browser via `omarchy-default-browser` (when it isn't already) (tag `default-browser`) |
-| `playbooks/onlyoffice.yml` | ONLYOFFICE Desktop Editors (AUR `onlyoffice-bin`), replacing native `libreoffice-fresh` (tag `onlyoffice`) |
-| `playbooks/emacs.yml` | Emacs (omarchy-emacs) + AUCTeX, yasnippet, lsp-mode + classic theme (tag `emacs`) |
-| `playbooks/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
-| `playbooks/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
-| `playbooks/pdf-viewer.yml` | Zathura (`zathura` + MuPDF backend) as default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
-| `playbooks/file-manager.yml` | Flea file manager as the default for directories (tag `file-manager`) |
-| `playbooks/plugins.yml` | This desktop's third-party shell plugin list (`omarchy_plugins`): `omarchy plugin add`, pinned to each entry's ref, enabled and placed in the bar section the entry asks for (tag `plugins`); plus the plugins that ship their own binary, each deployed from a GPG-signed release tag, as separate plays of the same file: omapin package + gpg-agent `pinentry-program` (tag `pinentry`), ssh-askpass-omarchy binary + `SSH_ASKPASS` environment (tag `ssh-askpass`), polkit-omarchy replacing `omarchy.polkit` (tag `polkit-agent`) |
-| `playbooks/openssh-askpass.yml` | openssh rebuilt with the askpass notification patch (tag `openssh-askpass`) |
-| `playbooks/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
-| `playbooks/ptbr.yml` | pt-BR localization (tag `ptbr`) |
-| `playbooks/keepassxc.yml` | KeePassXC (`omarchy-pkg-add keepassxc`) + XDG autostart (primary only) + browser native messaging manifests for Chromium and Brave Origin, with its SSH agent integration off by default (`keepassxc_ssh_agent_enabled`, opt-in with `just ssh-agent`, which also enables the OpenSSH agent play — tag `ssh-agent`) and a udev rule that locks it when the YubiKey is unplugged — the default password manager, imported by `site.yml`; also takes over `SUPER+SHIFT+SLASH` and autostart (tag `keepassxc`) |
-| `playbooks/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (Homebrew, `proton-pass-cli`), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml`; takes over `SUPER+SHIFT+SLASH` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
-| `playbooks/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
-| `playbooks/homebrew.yml` | Homebrew for Linux in `/home/linuxbrew/.linuxbrew`, `brew` launcher in `/usr/local/bin`, `bin`/`sbin` on the session `PATH` — outside `site.yml` (`just homebrew`) |
-| `playbooks/nix.yml` | Nix from the Arch package, store on a `@nix` btrfs subvolume, flakes, session env (tag `nix`); direnv with bash + fish hooks (tag `direnv`); nix-direnv in the Nix profile (tag `nix-direnv`) |
-| `playbooks/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |
-| `playbooks/printer.yml` | EPSON L4160 printer (tag `printer`) |
-| `playbooks/desktop.yml` | Scrolling-layout column resize, screen scale (100%) + text size, night light synced to sunrise/sunset (tags `hypr-scrolling-resize`, `text-size`, `nightlight-solar`; umbrella `desktop`) |
-| `playbooks/capslock.yml` | Caps Lock via keyd (tag `capslock`) |
-| `playbooks/omadwaita-themes.yml` | Omadwaita / Omadwaita Light / Omadwaita Dark Omarchy themes (tag `omadwaita-themes`) |
-| `playbooks/omaraptor-themes.yml` | Omaraptor / Omaraptor Light / Omaraptor Dark Omarchy themes — GNOME palette + Bluefin wallpapers (tag `omaraptor-themes`) |
-| `playbooks/omaraptor-theme-auto.yml` | Day/night switching for the Omaraptor themes: script + systemd --user service/timer (tag `omaraptor-theme-auto`) |
-| `playbooks/limine-silent-boot.yml` | Limine silent boot — quiet (header-only) + `timeout: 1`, re-enrolls config checksum (tag `limine-silent-boot`) |
-| `playbooks/blesh.yml` | ble.sh in Bash: autosuggestions + syntax highlighting, wired into `~/.bashrc` / `~/.blerc` (tag `blesh`) |
+| `site.yml` | Runs `system.yml`, then `user.yml` (`just setup`) |
+| `system.yml` | Index of the system phase: each `playbooks/system/*.yml` with its tag (`just system`) |
+| `user.yml` | Index of the user phase: each `playbooks/user/*.yml` with its tag (`just user`, `omarchy-setup-user`) |
+| `scripts/run-phase.sh` | Runs a playbook in a phase: system only for `wheel`, under `run-empowered.sh`; user only as the user; loads `users/$USER.yml` |
+| `scripts/check-phases.sh` | Fails when a user-phase play becomes root or installs packages, or a system-phase play talks to a user session (`just check`, CI) |
+| `group_vars/all/users.yml` | The machine's accounts (`omarchy_users`): full name, admin, shell |
+| `group_vars/all/target.yml` | `target_user`/`target_home`: the account a run configures |
+| `users/<name>.yml` | Each user's own settings (see `users/README.md`) |
+| `playbooks/system/users.yml` | Accounts from `omarchy_users` (tag `users`) |
+| `playbooks/system/omarchy-multiuser.yml` | omarchy-multiuser from a signed tag + its units (tag `omarchy-multiuser`) |
+| `playbooks/system/sddm.yml` | Multi-user greeter, no autologin (tag `sddm`) |
+| `playbooks/system/shared-checkout.yml` | `/opt/omarchy-setup` + `omarchy-setup-user` (tag `shared-checkout`, `just publish`) |
+| `playbooks/user/preflight.yml` | User phase preconditions: not root, inside the graphical session |
+| `playbooks/user/git-identity.yml` | git identity from `users/<name>.yml` (tag `git-identity`) |
+| `docs/multi-user.md` | The multi-user model: phases, adding people, FIDO2/fingerprints, migrations, what stays global |
+| `playbooks/system/polkit.yml` | polkitd ExpirationSeconds (tag `polkit`) |
+| `playbooks/system/pam-auth-order.yml` | Pins the order of the sudo and polkit PAM stacks: fingerprint (`pam_fprintd`), then FIDO2/U2F key (`pam_u2f`), then password. Omarchy's fingerprint and FIDO2 setup scripts each insert at the top of the file, so the order otherwise depends on which ran last; this adds `pam_fprintd` (behind Omarchy's clamshell gate) at the top when it is missing, moves the `pam_u2f` line below it, has `omarchy-mu-apply-lock` keep `/etc/pam.d/omarchy-lock-fingerprint` (the lock screen only offers the fingerprint when it exists) while any user has prints, and sets `pam_fprintd` to `max-tries=3 timeout=10` (default 3 tries / 30 s): three fingerprint attempts, but the key is asked for quickly when no finger is placed (`pam_auth_order_fprintd_*` vars) (tag `pam-auth-order`) |
+| `playbooks/{system,user}/brave.yml` | Brave Origin (`omarchy-install-browser brave-origin`) + the Omarchy web app container wiring (tags `brave`, `brave-webapp-containers`) |
+| `playbooks/{system,user}/brave-pwa-webapps.yml` | Omarchy web apps -> Brave Origin PWAs in their own containers, driven by `brave_pwa_webapps` (`tasks/brave-pwa-webapp-swap.yml` per app; tag `brave-pwa-webapps`); not imported by `site.yml` |
+| `playbooks/user/default-browser.yml` | Brave Origin as the default browser via `omarchy-default-browser` (when it isn't already) (tag `default-browser`) |
+| `playbooks/system/onlyoffice.yml` | ONLYOFFICE Desktop Editors (AUR `onlyoffice-bin`), replacing native `libreoffice-fresh` (tag `onlyoffice`) |
+| `playbooks/{system,user}/emacs.yml` | Emacs (omarchy-emacs) + AUCTeX, yasnippet, lsp-mode + classic theme (tag `emacs`) |
+| `playbooks/{system,user}/zed.yml` | Zed editor + Omarchy theme + font size (tag `zed`) |
+| `playbooks/{system,user}/gregorio-lsp.yml` | gregorio-lsp, grelint, grefmt, built from source (tag `gregorio-lsp`) |
+| `playbooks/{system,user}/pdf-viewer.yml` | Zathura (`zathura` + MuPDF backend) as default + Papers optional, Evince kept for sushi (tag `pdf-viewer`) |
+| `playbooks/{system,user}/file-manager.yml` | Flea file manager as the default for directories (tag `file-manager`) |
+| `playbooks/{system,user}/plugins.yml` | This desktop's third-party shell plugin list (`omarchy_plugins`): `omarchy plugin add`, pinned to each entry's ref, enabled and placed in the bar section the entry asks for (tag `plugins`); plus the plugins that ship their own binary, each deployed from a GPG-signed release tag, as separate plays of the same file: omapin package + gpg-agent `pinentry-program` (tag `pinentry`), ssh-askpass-omarchy binary + `SSH_ASKPASS` environment (tag `ssh-askpass`), polkit-omarchy replacing `omarchy.polkit` (tag `polkit-agent`) |
+| `playbooks/system/openssh-askpass.yml` | openssh rebuilt with the askpass notification patch (tag `openssh-askpass`) |
+| `playbooks/user/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
+| `playbooks/{system,user}/ptbr.yml` | pt-BR localization (tag `ptbr`) |
+| `playbooks/{system,user}/keepassxc.yml` | KeePassXC (`omarchy-pkg-add keepassxc`) + XDG autostart (primary only) + browser native messaging manifests for Chromium and Brave Origin, with its SSH agent integration off by default (`keepassxc_ssh_agent_enabled`, opt-in with `just ssh-agent`, which also enables the OpenSSH agent play — tag `ssh-agent`) and a udev rule that locks it when the YubiKey is unplugged — the default password manager, imported by `site.yml`; also takes over `SUPER+SHIFT+SLASH` and autostart (tag `keepassxc`) |
+| `playbooks/{system,user}/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (Homebrew, `proton-pass-cli`), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml`; takes over `SUPER+SHIFT+SLASH` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
+| `playbooks/{system,user}/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
+| `playbooks/{system,user}/homebrew.yml` | Homebrew for Linux in `/home/linuxbrew/.linuxbrew`, `brew` launcher in `/usr/local/bin`, `bin`/`sbin` on the session `PATH` — outside `site.yml` (`just homebrew`) |
+| `playbooks/{system,user}/nix.yml` | Nix from the Arch package, store on a `@nix` btrfs subvolume, flakes, session env (tag `nix`); direnv with bash + fish hooks (tag `direnv`); nix-direnv in the Nix profile (tag `nix-direnv`) |
+| `playbooks/system/libfprint.yml` | libfprint goodix538d (tag `libfprint`) |
+| `playbooks/{system,user}/printer.yml` | EPSON L4160 printer (tag `printer`) |
+| `playbooks/{system,user}/desktop.yml` | Scrolling-layout column resize, screen scale (100%) + text size, night light synced to sunrise/sunset (tags `hypr-scrolling-resize`, `text-size`, `nightlight-solar`; umbrella `desktop`) |
+| `playbooks/{system,user}/capslock.yml` | Caps Lock via keyd (tag `capslock`) |
+| `playbooks/user/omadwaita-themes.yml` | Omadwaita / Omadwaita Light / Omadwaita Dark Omarchy themes (tag `omadwaita-themes`) |
+| `playbooks/user/omaraptor-themes.yml` | Omaraptor / Omaraptor Light / Omaraptor Dark Omarchy themes — GNOME palette + Bluefin wallpapers (tag `omaraptor-themes`) |
+| `playbooks/user/omaraptor-theme-auto.yml` | Day/night switching for the Omaraptor themes: script + systemd --user service/timer (tag `omaraptor-theme-auto`) |
+| `playbooks/system/limine-silent-boot.yml` | Limine silent boot — quiet (header-only) + `timeout: 1`, re-enrolls config checksum (tag `limine-silent-boot`) |
+| `playbooks/{system,user}/blesh.yml` | ble.sh in Bash: autosuggestions + syntax highlighting, wired into `~/.bashrc` / `~/.blerc` (tag `blesh`) |
 | `local-typesetting/` | TeX Live + LilyPond (`/opt`) + Gregorio, built directly on the host (no containers, no Ansible) — `just typesetting` |
-| `playbooks/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
-| `playbooks/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
+| `playbooks/{system,user}/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
+| `playbooks/system/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |
 | `docs/omarchy-4.5-migration.md` | What the next Omarchy release (Quattro RS 4.5) changes for these automations, gathered ahead of time from the upstream `quattro` branch: which playbooks become obsolete, which need fixing before running on it, and how to re-check once it is tagged |
-| `playbooks/yubikey.yml` | Yubikey GPG key — outside `site.yml` (tags `gpg-yubikey`, `yubikey`) |
+| `playbooks/{system,user}/yubikey.yml` | Yubikey GPG key — outside `site.yml` (tags `gpg-yubikey`, `yubikey`) |
 | `scripts/ssh-yubikey.sh` | Resident SSH keys import + GitHub SSH drop-in (`just ssh-yubikey`, `just ssh-yubikey-disable`) |
 | `playbooks/files/` | Static files copied as-is |
 | `playbooks/templates/` | Jinja2 templates |
 | `playbooks/tasks/` | Reusable tasks included via `include_tasks` |
-| `group_vars/all/main.yml` | Variables for all automations |
+| `group_vars/all/main.yml` | Variables for all automations (machine defaults) |
 | `requirements.yml` | Required Ansible collections |
 | `Justfile` | Shortcuts (`just setup`, `just ptbr`, etc.) |

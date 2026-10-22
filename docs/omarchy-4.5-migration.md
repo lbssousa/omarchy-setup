@@ -3,6 +3,11 @@
 What the next Omarchy release changes for the automations in this repo,
 gathered ahead of time so the migration is quick once it ships.
 
+Since these notes were written, the playbooks were split into
+`playbooks/system/` and `playbooks/user/` for the multi-user setup (see
+[multi-user.md](multi-user.md)); the playbook names below are the same in
+both directories.
+
 **Snapshot date:** 2026-10-16. 4.5 was not released yet: no tag, no ISO,
 no release notes. DHH announced the name on 2026-09-08 ("Quattro RS
 4.5", skipping 4.1, with a bespoke optimized kernel). Everything below

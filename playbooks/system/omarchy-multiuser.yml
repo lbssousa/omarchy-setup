@@ -96,6 +96,13 @@
           ansible.builtin.command:
             cmd: makepkg -f --cleanbuild --nodeps --noconfirm
             chdir: "{{ omarchy_multiuser_checkout_dir }}/packaging"
+          # run0/run-empowered sets SUDO_USER, which makes fakeroot in check()
+          # think omarchy-mu-fido2-authfile was called through sudo as root,
+          # clearing OMU_ROOT. Clear SUDO_* so check() can test against a fake tree.
+          environment:
+            SUDO_USER: ""
+            SUDO_UID: ""
+            SUDO_GID: ""
           changed_when: true
 
         - name: Locate the built package

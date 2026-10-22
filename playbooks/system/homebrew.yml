@@ -6,10 +6,10 @@
 # even non-interactively, right after this playbook runs — see the
 # comment above that task for why a symlink doesn't work). Every other
 # Homebrew-installed binary reaches the session the same way Nix's
-# binaries do (playbooks/nix.yml):
+# binaries do (playbooks/user/nix.yml):
 # {{ homebrew_prefix }}/bin(+/sbin) is appended to PATH session-wide via
 # ~/.config/environment.d rather than mirrored one symlink at a time, so
-# whatever a playbook (e.g. proton-pass-cli, playbooks/proton-pass.yml) or
+# whatever a playbook (e.g. proton-pass-cli, playbooks/user/proton-pass.yml) or
 # a plain `brew install foo` adds is visible to the session. New PATH
 # entries apply to new sessions only (log out and back in to pick it up —
 # same caveat already true for Nix's PATH export).
@@ -20,13 +20,28 @@
 # playbooks/proton-pass.yml) and by whatever you `brew install` yourself,
 # so it is not part of `just setup` — run it explicitly with `just homebrew`.
 #
-# Usage: ./run-empowered.sh ansible-playbook playbooks/homebrew.yml
+# One owner per machine (homebrew_owner, an administrator): the prefix is
+# theirs and only they `brew install`. user/homebrew.yml puts its binaries
+# on every user's PATH (they can run them, not change them).
+#
+# Usage: just homebrew
 - name: Homebrew
   hosts: localhost
   connection: local
   gather_facts: true
 
   tasks:
+    # The installer and every `brew install` run as the prefix's owner;
+    # Homebrew has no notion of several users sharing one prefix.
+    - name: "Expect to run as the Homebrew owner ({{ homebrew_owner }})"
+      ansible.builtin.assert:
+        that: target_user == homebrew_owner
+        fail_msg: >-
+          Homebrew's prefix belongs to one user, homebrew_owner
+          ({{ homebrew_owner }}); run this as that user, or change
+          homebrew_owner in group_vars/all/main.yml.
+        quiet: true
+
     - name: Install Homebrew's runtime dependencies via pacman
       community.general.pacman:
         name: "{{ homebrew_runtime_deps }}"
@@ -98,15 +113,3 @@
 
     - name: Install bbrew (TUI for Homebrew/Flatpak) via brew
       ansible.builtin.command: "{{ homebrew_symlink }} install {{ homebrew_bbrew_package }}"
-
-    - name: Create ~/.config/environment.d
-      ansible.builtin.file:
-        path: "{{ target_home }}/.config/environment.d"
-        state: directory
-        mode: "0755"
-
-    - name: Put Homebrew's bin/sbin on PATH for the session
-      ansible.builtin.template:
-        src: homebrew-env.conf.j2
-        dest: "{{ target_home }}/.config/environment.d/{{ homebrew_env_file }}"
-        mode: "0644"

@@ -57,6 +57,14 @@
   tags: [proton-pass, proton-pass-cli]
 
   pre_tasks:
+    - name: "Expect the Homebrew owner ({{ homebrew_owner }})"
+      ansible.builtin.assert:
+        that: target_user == homebrew_owner
+        fail_msg: >-
+          The Proton Pass CLI comes from Homebrew, whose prefix only
+          homebrew_owner ({{ homebrew_owner }}) can install into.
+        quiet: true
+
     - name: Check whether Homebrew is available
       ansible.builtin.stat:
         path: "{{ homebrew_bin }}"
@@ -65,8 +73,7 @@
     - name: Fail with guidance if Homebrew wasn't found
       ansible.builtin.fail:
         msg: >-
-          Homebrew not found. Run `just homebrew` (or
-          `./run-empowered.sh ansible-playbook playbooks/homebrew.yml`) first.
+          Homebrew not found. Run `just homebrew` first.
       when: not proton_pass_homebrew_check.stat.exists
 
   tasks:

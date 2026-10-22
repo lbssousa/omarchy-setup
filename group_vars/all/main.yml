@@ -512,6 +512,9 @@ keepassxc_browser_manifests:
 homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
 homebrew_install_script_path: "{{ target_home }}/.cache/omarchy-setup/homebrew-install.sh"
 homebrew_prefix: /home/linuxbrew/.linuxbrew
+# The one user who owns the prefix and installs formulae (Homebrew doesn't
+# share a prefix between users); the first administrator by default.
+homebrew_owner: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='name') | first }}"
 homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
 homebrew_symlink: /usr/local/bin/brew
 homebrew_runtime_deps:

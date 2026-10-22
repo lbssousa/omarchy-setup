@@ -1,0 +1,31 @@
+---
+# Homebrew, per user: its bin/sbin on the session's PATH (environment.d),
+# once the prefix exists. Homebrew itself is installed by
+# system/homebrew.yml, owned by homebrew_owner; other users can run what it
+# installed but not install formulae.
+#
+# Usage: just homebrew
+- name: Homebrew (session PATH)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Check whether Homebrew is installed
+      ansible.builtin.stat:
+        path: "{{ homebrew_bin }}"
+      register: homebrew_installed
+
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+      when: homebrew_installed.stat.exists
+
+    - name: Put Homebrew's bin/sbin on PATH for the session
+      ansible.builtin.template:
+        src: homebrew-env.conf.j2
+        dest: "{{ target_home }}/.config/environment.d/{{ homebrew_env_file }}"
+        mode: "0644"
+      when: homebrew_installed.stat.exists

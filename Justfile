@@ -269,7 +269,7 @@ direnv: _ensure-collections
 # Not part of `just setup` — run explicitly (`playbooks/system/homebrew.yml` is
 # not imported by site.yml).
 homebrew: _ensure-collections
-    scripts/run-phase.sh system playbooks/system/homebrew.yml
+    @just _both-playbook homebrew
 
 # Build the libfprint (goodix538d) fork as a package and install it in place
 # of the official libfprint. Uses makepkg on the host (no container).

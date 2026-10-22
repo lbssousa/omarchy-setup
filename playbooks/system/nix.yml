@@ -1,0 +1,220 @@
+---
+# Nix (https://nixos.org) — the package manager, not NixOS: for tools
+# that only nixpkgs packages, throwaway shells (`nix shell nixpkgs#foo`,
+# `nix-shell -p foo`) and projects that ship a flake.nix. Installed from
+# the official Arch package (extra/nix) rather than upstream's
+# curl | sh installer, so pacman owns and updates the nix binaries, the
+# units and the build users; upstream's installer would bring its own
+# copies of all three and an uninstaller to match.
+#
+# Multi-user mode, as the package sets it up: builds run in the
+# nix-daemon as the nixbld01..10 users (the package's sysusers.d), and
+# any local user can reach the daemon socket. This play enables
+# nix-daemon.socket, so the daemon starts on demand.
+#
+# The store goes on its own btrfs subvolume (nix_btrfs_subvolume,
+# top-level, mounted at /nix via /etc/fstab) when / is btrfs, which on
+# Omarchy it is. Left inside @, every snapper snapshot of / — one per
+# pacman transaction, through limine-snapper-sync — would pin store
+# paths that `nix-collect-garbage` has already dropped, and rolling / back
+# would roll the store back underneath the Nix database's view of it.
+# Same layout Omarchy already uses for @home, @log and @pkg. If /nix
+# already exists, has contents and isn't a mountpoint (Nix installed some
+# other way), the play stops instead of moving a live store around.
+#
+# nix.conf gains the settings in nix_conf_settings: flakes and the `nix`
+# command (still flagged experimental upstream, but what every current
+# guide assumes), and nixpkgs resolved through the flake registry for
+# `nix-shell -p` / `<nixpkgs>`, so no channel needs to be added.
+#
+# The session gets PATH, XDG_DATA_DIRS (so apps installed with
+# `nix profile install` show up in the Omarchy app library), NIX_PROFILES
+# and NIX_SSL_CERT_FILE through ~/.config/environment.d, the same way as
+# playbooks/homebrew.yml does.
+# The package's /etc/profile.d/nix-daemon.sh does the same for bash
+# login shells only, and fish ignores /etc/profile.d entirely. Nix's bin
+# dirs are APPENDED to PATH rather than prepended as nix-daemon.sh does,
+# so a nixpkgs build never shadows the Arch binary Omarchy relies on;
+# call it by its full path, or inside `nix shell`, when you want the
+# nixpkgs one. Log out and back in to pick the variables up (`nix` itself
+# is in /usr/bin and works right away).
+#
+# Here (system phase): the subvolume, the package, nix.conf and the daemon.
+# Each user's session environment and nix-direnv are in user/nix.yml.
+#
+# Usage: just nix
+- name: Nix (multi-user, store on its own btrfs subvolume)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  handlers:
+    - name: Restart nix-daemon if it is running
+      # nix-daemon reads nix.conf at start-up. One that isn't running is
+      # left alone: the socket starts it with the new settings next time.
+      ansible.builtin.systemd_service:
+        name: nix-daemon.service
+        state: restarted
+      when: nix_daemon_state.stdout | trim == 'active'
+      listen: nix.conf changed
+      become: true
+
+  tasks:
+    - name: Read /etc/fstab
+      ansible.builtin.slurp:
+        src: /etc/fstab
+      register: nix_fstab_raw
+
+    - name: Find the / and /nix entries in /etc/fstab
+      ansible.builtin.set_fact:
+        nix_root_entry: >-
+          {{ nix_fstab_lines | map('split') | selectattr(1, 'equalto', '/') | first | default([]) }}
+        nix_fstab_has_entry: >-
+          {{ nix_fstab_lines | map('split') | selectattr(1, 'equalto', nix_mountpoint) | list | length > 0 }}
+      vars:
+        nix_fstab_lines: >-
+          {{ (nix_fstab_raw.content | b64decode).splitlines()
+             | map('trim') | reject('match', '^(#|$)') | list }}
+
+    - name: Put the store on its own btrfs subvolume
+      when: (nix_root_entry[2] | default('')) == 'btrfs'
+      block:
+        - name: Check whether /nix is already a mountpoint
+          ansible.builtin.command:
+            cmd: mountpoint -q {{ nix_mountpoint }}
+          register: nix_mountpoint_check
+          changed_when: false
+          failed_when: false
+
+        - name: List what's in /nix
+          ansible.builtin.find:
+            paths: "{{ nix_mountpoint }}"
+            file_type: any
+            hidden: true
+          register: nix_existing_contents
+          when: nix_mountpoint_check.rc != 0
+
+        - name: Stop if /nix already holds a store that isn't on a subvolume
+          ansible.builtin.fail:
+            msg: >-
+              {{ nix_mountpoint }} already has contents and isn't a
+              mountpoint — Nix was installed some other way, into the root
+              subvolume. This play won't move a live store. Either remove
+              that installation (and {{ nix_mountpoint }}) first, or move
+              the store to a {{ nix_btrfs_subvolume }} subvolume by hand.
+          when:
+            - nix_mountpoint_check.rc != 0
+            - nix_existing_contents.matched > 0
+
+        - name: Create and mount the subvolume
+          when: nix_mountpoint_check.rc != 0
+          become: true
+          block:
+            - name: Create the btrfs top-level mount point
+              ansible.builtin.file:
+                path: "{{ nix_btrfs_toplevel_mount }}"
+                state: directory
+                mode: "0700"
+
+            - name: Mount the btrfs top level (subvolid=5)
+              ansible.builtin.command:
+                cmd: mount -o subvolid=5 {{ nix_root_entry[0] }} {{ nix_btrfs_toplevel_mount }}
+              changed_when: false
+
+            - name: "Create the {{ nix_btrfs_subvolume }} subvolume"
+              ansible.builtin.command:
+                cmd: btrfs subvolume create {{ nix_btrfs_toplevel_mount }}/{{ nix_btrfs_subvolume }}
+                creates: "{{ nix_btrfs_toplevel_mount }}/{{ nix_btrfs_subvolume }}"
+
+          always:
+            - name: Unmount the btrfs top level
+              ansible.builtin.command:
+                cmd: umount {{ nix_btrfs_toplevel_mount }}
+              changed_when: false
+              failed_when: false
+
+            - name: Remove the btrfs top-level mount point
+              ansible.builtin.file:
+                path: "{{ nix_btrfs_toplevel_mount }}"
+                state: absent
+
+        - name: "Mount {{ nix_btrfs_subvolume }} at {{ nix_mountpoint }} from /etc/fstab"
+          # Same device and options as /, with only the subvolume swapped
+          # (subvolid= dropped, since it would name @'s id).
+          ansible.builtin.lineinfile:
+            path: /etc/fstab
+            line: >-
+              {{ nix_root_entry[0] }}	{{ nix_mountpoint }}	btrfs	{{
+              nix_root_entry[3] | regex_replace('(^|,)subvolid=[0-9]+', '')
+              | regex_replace('subvol=[^,]*', 'subvol=/' ~ nix_btrfs_subvolume) }}	0 0
+            insertafter: EOF
+          when: not nix_fstab_has_entry
+          register: nix_fstab_line
+          become: true
+
+        - name: Create the /nix mount point
+          ansible.builtin.file:
+            path: "{{ nix_mountpoint }}"
+            state: directory
+            mode: "0755"
+          become: true
+
+        - name: Reload systemd so it generates the /nix mount unit
+          ansible.builtin.systemd_service:
+            daemon_reload: true
+          when: nix_fstab_line is changed
+          become: true
+
+        - name: "Mount {{ nix_mountpoint }}"
+          ansible.builtin.command:
+            cmd: mount {{ nix_mountpoint }}
+          when: nix_mountpoint_check.rc != 0
+          become: true
+
+    - name: Install Nix
+      community.general.pacman:
+        name: "{{ nix_package }}"
+        state: present
+      become: true
+
+    - name: Check whether nix-daemon is running
+      ansible.builtin.command:
+        cmd: systemctl is-active nix-daemon.service
+      register: nix_daemon_state
+      changed_when: false
+      failed_when: false
+
+    - name: "Set nix.conf options ({{ nix_conf_path }})"
+      ansible.builtin.lineinfile:
+        path: "{{ nix_conf_path }}"
+        regexp: '^\s*{{ item.key | regex_escape }}\s*='
+        line: "{{ item.key }} = {{ item.value }}"
+      loop: "{{ nix_conf_settings | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      notify: nix.conf changed
+      become: true
+
+    - name: Enable and start the nix-daemon socket
+      ansible.builtin.systemd_service:
+        name: "{{ nix_daemon_socket_unit }}"
+        enabled: true
+        state: started
+      become: true
+
+# direnv, system phase: the package. Its hooks are per user
+# (user/nix.yml, which explains them).
+#
+# Usage: just direnv
+- name: direnv (bash + fish hooks)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [direnv]
+
+  tasks:
+    - name: Install direnv
+      community.general.pacman:
+        name: "{{ direnv_package }}"
+        state: present
+      become: true

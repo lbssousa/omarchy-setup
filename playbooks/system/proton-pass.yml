@@ -1,0 +1,80 @@
+---
+# Proton Pass — end-to-end encrypted password manager from Proton AG.
+# Optional alternative to KeePassXC (playbooks/keepassxc.yml, the default
+# password manager); this playbook is not imported by site.yml. Running it hands
+# the "Passwords" keybind to Proton Pass.
+#
+#   Desktop client   tags: proton-pass, proton-pass-desktop
+#   CLI (pass-cli)   tags: proton-pass, proton-pass-cli
+#
+# Here (system phase) only the desktop client package; its keybind and the
+# CLI (Homebrew, owned by homebrew_owner) are per user, in
+# user/proton-pass.yml.
+#
+# Usage: just proton-pass
+#
+# Desktop client: Proton's own .deb repackaged in the AUR
+# (proton-pass-bin), installed with Omarchy's AUR helper
+# (omarchy-pkg-aur-add), the same way playbooks/emacs.yml installs
+# omarchy-emacs.
+#
+# The browser extension authenticates directly with a Proton account —
+# unlike KeePassXC's, it doesn't talk to the desktop client over native
+# messaging, so there's no manifest to deploy here.
+#
+# CLI: the AUR packages for it (proton-pass-cli, proton-pass-cli-bin) are
+# unreliable upstream (checksum failures, disabled AUR pushes), and
+# Proton's own official installer script has no update mechanism of its
+# own. `proton-pass-cli` is an official Homebrew (homebrew-core) formula
+# instead, with a prebuilt x86_64_linux bottle, so this needs Homebrew
+# already set up — but not one the main run installs: playbooks/homebrew.yml
+# is not imported by site.yml, so `just setup` leaves it out; run `just
+# homebrew` first. proton_pass_cli_bin points straight at Homebrew's Cellar
+# bin — playbooks/homebrew.yml already puts it on PATH session-wide, so
+# there's nothing to symlink here.
+#
+# CLI SSH agent vs. the desktop app's: both speak the standard SSH agent
+# protocol and read from the same account's synced vaults, so any SSH
+# client (git, ssh, ...) works against either one — but they are two
+# separate long-running processes with two different default sockets, not
+# one shared agent. `pass-cli ssh-agent start` is scriptable (its own
+# documented default socket at ~/.ssh/proton-pass-agent.sock,
+# `--socket-path` override, a plain systemd --user service to run it) and
+# is what this playbook wires up below. The desktop app's own "Use Proton
+# Pass as SSH agent" toggle (Settings → General) instead generates a
+# setup command interactively for the user to paste into a terminal,
+# exporting SSH_AUTH_SOCK to a *different* default socket
+# (~/.ssh/proton-pass-ssh-agent.sock) — Proton doesn't publish that
+# command in its docs, so it can't be reproduced headlessly here, but it
+# doesn't collide with the CLI's own socket either. Enabling both just
+# means two independent agents exist side by side; only one path can be
+# the session's SSH_AUTH_SOCK at a time (this playbook's environment.d
+# layer points at the CLI's), so pick one — either override
+# SSH_AUTH_SOCK to the desktop app's socket instead, or leave the desktop
+# toggle off and stick with `systemctl --user disable --now
+# proton-pass-ssh-agent.service` if you'd rather use the desktop app's
+# agent exclusively.
+#
+# Session persistence across reboots: pass-cli's local encryption key
+# defaults to the Linux kernel keyring, which is wiped on every reboot —
+# so without proton_pass_cli_linux_keyring: dbus (group_vars/all/main.yml),
+# `pass-cli login` would need to be repeated interactively after every
+# single restart, forever. See that variable's comment for the fix and
+# its SDDM-autologin caveat.
+- name: Proton Pass desktop client
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [proton-pass, proton-pass-desktop]
+
+  tasks:
+    - name: Check whether Proton Pass is installed
+      ansible.builtin.command: pacman -Q {{ proton_pass_aur_package }}
+      register: proton_pass_check
+      changed_when: false
+      failed_when: false
+
+    # As the user: yay refuses to build as root (see playbooks/emacs.yml).
+    - name: Install Proton Pass (AUR) with Omarchy's own helper
+      ansible.builtin.command: omarchy-pkg-aur-add {{ proton_pass_aur_package }}
+      when: proton_pass_check.rc != 0

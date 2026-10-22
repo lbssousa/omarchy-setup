@@ -1,0 +1,34 @@
+---
+# EPSON L4160, per user: the user's own default printer. The system default
+# (lpadmin -d, system/printer.yml) is not what the user's print dialogs and
+# lp/lpr honor — that's the per-user default stored in ~/.cups/lpoptions.
+# Without it, apps can fall back to other discovered queues. Skipped while
+# the queue doesn't exist (the system phase skips it when the printer is off).
+#
+# Usage: just printer
+- name: EPSON L4160 printer (user default)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Check the L4160 print queue exists
+      ansible.builtin.command: "lpstat -v {{ printer_l4160_name }}"
+      register: printer_l4160_queue
+      changed_when: false
+      failed_when: false
+
+    - name: Check the current user default printer
+      ansible.builtin.command: lpstat -d
+      register: user_default_printer_current
+      changed_when: false
+      failed_when: false
+      when: printer_l4160_queue.rc == 0
+
+    - name: Set the L4160 as the user default printer
+      ansible.builtin.command: "lpoptions -d {{ printer_l4160_name }}"
+      changed_when: true
+      when:
+        - printer_l4160_queue.rc == 0
+        - printer_l4160_set_default
+        - printer_l4160_name not in user_default_printer_current.stdout

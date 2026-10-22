@@ -1,0 +1,17 @@
+---
+# gregorio-lsp, system phase: clang, which `omarchy-install-dev-env rust`
+# installs before rustup (bindgen loads libclang). Each user's rustup and
+# build happen in user/gregorio-lsp.yml.
+#
+# Usage: just gregorio-lsp
+- name: gregorio-lsp (clang for rustup builds)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Install clang
+      community.general.pacman:
+        name: clang
+        state: present
+      become: true

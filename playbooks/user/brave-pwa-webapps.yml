@@ -1,0 +1,123 @@
+---
+# Brave PWAs, per user: each entry of this user's brave_pwa_webapps
+# (users/<name>.yml) replaces the Omarchy web app launcher with the PWA
+# Brave force-installed, opening in its container, and rebinds its key.
+# The force-install policy itself is machine-wide, in
+# system/brave-pwa-webapps.yml, which explains the mechanism; it has to
+# list this user's urls already (an administrator's `just brave-pwa-webapps`
+# after the user's list changed).
+#
+# Usage: just brave-pwa-webapps (with Brave Origin open)
+- name: Brave PWAs replacing Omarchy preinstalled web apps (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [brave-pwa-webapps]
+
+  pre_tasks:
+    - name: Check whether Brave has been run at least once
+      ansible.builtin.stat:
+        path: "{{ target_home }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
+      register: brave_prefs_stat
+      tags: [brave-pwa-webapps]
+
+    - name: Fail with guidance if Brave hasn't been run yet
+      ansible.builtin.fail:
+        msg: >-
+          ~/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences
+          not found. Open Brave at least once first (and create every
+          container named in brave_pwa_webapps — hamburger menu →
+          Containers → New), then rerun.
+      when: not brave_prefs_stat.stat.exists
+      tags: [brave-pwa-webapps]
+
+    # The policy loader only force-installs while Brave is running, so a
+    # closed Brave makes the shortcut wait below time out. -u: another
+    # user's Brave doesn't install anything into this user's profile.
+    - name: Check that Brave Origin is running
+      ansible.builtin.command: pgrep -u {{ target_user }} -f /opt/brave-origin-bin/brave
+      register: brave_running
+      changed_when: false
+      failed_when: false
+      tags: [brave-pwa-webapps]
+
+    - name: Fail with guidance if Brave isn't running
+      ansible.builtin.fail:
+        msg: Open Brave Origin and keep it open while this playbook runs, then rerun.
+      when: brave_running.rc != 0
+      tags: [brave-pwa-webapps]
+
+    - name: Read Brave's Preferences
+      ansible.builtin.slurp:
+        src: "{{ target_home }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
+      register: brave_prefs_raw
+      tags: [brave-pwa-webapps]
+
+    - name: Extract the configured Brave containers
+      ansible.builtin.set_fact:
+        brave_containers: "{{ (brave_prefs_raw.content | b64decode | from_json).get('brave', {}).get('containers', {}).get('list', []) }}"
+      tags: [brave-pwa-webapps]
+
+    - name: Read the machine's force-install policy
+      ansible.builtin.slurp:
+        src: /etc/brave/policies/managed/omarchy-setup-webapps.json
+      register: brave_pwa_policy_raw
+      failed_when: false
+      tags: [brave-pwa-webapps]
+
+    - name: Expect every one of this user's web apps in the policy
+      ansible.builtin.assert:
+        that: >-
+          brave_pwa_webapps
+          | rejectattr('policy_install', 'false')
+          | map(attribute='url')
+          | difference((brave_pwa_policy_raw.content | default('e30=') | b64decode | from_json)
+                       .get('WebAppInstallForceList', []) | map(attribute='url'))
+          | length == 0
+        fail_msg: >-
+          /etc/brave/policies/managed/omarchy-setup-webapps.json doesn't
+          force-install every url in your brave_pwa_webapps. Ask an
+          administrator to run `just brave-pwa-webapps` (it merges every
+          user's list), then rerun.
+        quiet: true
+      tags: [brave-pwa-webapps]
+
+  tasks:
+    - name: Swap each configured web app
+      ansible.builtin.include_tasks: tasks/brave-pwa-webapp-swap.yml
+      loop: "{{ brave_pwa_webapps }}"
+      loop_control:
+        loop_var: webapp
+        label: "{{ webapp.name }}"
+      tags: [brave-pwa-webapps]
+
+    - name: Find leftover Firefox web app shortcuts
+      ansible.builtin.find:
+        paths: "{{ target_home }}/.local/share/applications"
+        patterns: "firefox.webapp-*.desktop"
+      register: firefox_webapp_shortcuts
+      tags: [brave-pwa-webapps]
+
+    - name: Remove leftover Firefox web app shortcuts
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ firefox_webapp_shortcuts.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+      tags: [brave-pwa-webapps]
+
+    - name: Refresh the desktop database
+      ansible.builtin.command: update-desktop-database "{{ target_home }}/.local/share/applications"
+      changed_when: false
+      failed_when: false
+      tags: [brave-pwa-webapps]
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the bind
+      # still applies on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland

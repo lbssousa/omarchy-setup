@@ -1,0 +1,18 @@
+---
+# rclone Google Drive mounts, system phase: rclone and fuse3. The remotes,
+# OAuth token and mount units are per user, in user/rclone-gdrive.yml, which
+# explains them.
+#
+# Usage: just rclone-gdrive
+- name: rclone — Google Drive mounts
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [rclone-gdrive]
+
+  tasks:
+    - name: Install rclone and fuse3
+      ansible.builtin.package:
+        name: [rclone, fuse3]
+        state: present
+      become: true

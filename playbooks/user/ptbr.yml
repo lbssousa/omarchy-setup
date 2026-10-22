@@ -1,0 +1,133 @@
+---
+# pt-BR localization, per user: personal folders (xdg-user-dirs) renamed to
+# their pt-BR names, the Chromium-family browsers' page language, and
+# OMARCHY_OCR_LANGS for omarchy-capture-text. The locale, man pages and OCR
+# data are machine-wide, in system/ptbr.yml, which describes each area.
+#
+# Usage: just ptbr
+- name: pt-BR localization (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Personal folders (xdg-user-dirs) in pt-BR
+      block:
+        - name: Look up the current path for each XDG folder
+          ansible.builtin.command: "xdg-user-dir {{ item.name }}"
+          loop: "{{ ptbr_xdg_user_dirs }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: xdg_current
+          changed_when: false
+
+        - name: Rename enabled folders and update user-dirs.dirs
+          vars:
+            # A disabled folder is stored as "$HOME/" (trailing slash) —
+            # normalize before comparing, or this tries to move $HOME
+            # into itself.
+            current_path: "{{ result.stdout | regex_replace('/+$', '') }}"
+            desired_path: "{{ target_home }}/{{ result.item.translated }}"
+          ansible.builtin.shell: >-
+            mv "{{ current_path }}" "{{ desired_path }}" &&
+            xdg-user-dirs-update --set {{ result.item.name }} "{{ desired_path }}"
+          loop: "{{ xdg_current.results }}"
+          loop_control:
+            loop_var: result
+            label: "{{ result.item.name }}"
+          when:
+            - current_path != (target_home | regex_replace('/+$', ''))
+            - current_path != desired_path
+          changed_when: true
+
+        - name: Create missing XDG folders (pt-BR names) and enable them in user-dirs.dirs
+          # The rename above only touches folders that already existed
+          # (with an English or other custom name). Folders that were
+          # never created — typically the ones xdg-user-dirs leaves
+          # disabled, pointing at "$HOME/" — were skipped, so e.g.
+          # "Modelos" or "Público" simply never came into being. This
+          # task creates each mapped folder that doesn't exist on disk
+          # yet and points its user-dirs.dirs entry at the translated
+          # name (which also flips that entry from the "$HOME/" disabled
+          # form). Folders already present (in pt-BR or left as-is)
+          # are left alone, and so is a folder the user re-disables
+          # later by hand.
+          vars:
+            desired_path: "{{ target_home }}/{{ result.item.translated }}"
+          ansible.builtin.shell: >-
+            if [ ! -d "{{ desired_path }}" ]; then mkdir -p "{{ desired_path }}" &&
+            xdg-user-dirs-update --set {{ result.item.name }} "{{ desired_path }}" &&
+            echo created; fi
+          register: xdg_created
+          loop: "{{ xdg_current.results }}"
+          loop_control:
+            loop_var: result
+            label: "{{ result.item.translated }}"
+          changed_when: "xdg_created.stdout == 'created'"
+
+        - name: Locate GTK bookmarks files (file-manager sidebar)
+          ansible.builtin.find:
+            paths:
+              - "{{ target_home }}/.config/gtk-3.0"
+              - "{{ target_home }}/.config/gtk-4.0"
+            patterns: bookmarks
+            file_type: file
+          register: gtk_bookmarks_files
+
+        - name: Fix sidebar bookmarks still pointing at the pre-translation folder name
+          # Renaming the folder (above) doesn't touch bookmarks the file
+          # manager already created against the old English path — left
+          # unfixed, they show a stale label and point nowhere. Only
+          # rewrites a line that's already there (ansible.builtin.replace
+          # is a no-op without a match) — never adds a bookmark for a
+          # folder that wasn't already bookmarked. Runs independently of
+          # whether the rename happened in this same play or a previous
+          # one.
+          vars:
+            old_default_path: "{{ target_home }}/{{ item.1.item.default }}"
+            new_path: "{{ target_home }}/{{ item.1.item.translated }}"
+          ansible.builtin.replace:
+            path: "{{ item.0 }}"
+            regexp: "(?m)^file://{{ old_default_path | regex_escape }}(\\s.*)?$"
+            replace: "file://{{ new_path }} {{ item.1.item.translated }}"
+          loop: "{{ gtk_bookmarks_files.files | map(attribute='path') | product(xdg_current.results) | list }}"
+          loop_control:
+            label: "{{ item.0 }} — {{ item.1.item.name }}"
+          when: item.1.item.default != item.1.item.translated
+      tags: [ptbr-xdg-user-dirs]
+    - name: "Chromium and variants — web app language ({{ ptbr_chromium_accept_languages }})"
+      ansible.builtin.include_tasks: tasks/ptbr-chromium-family-browser.yml
+      loop: "{{ ptbr_chromium_family_config_dirs }}"
+      loop_control:
+        loop_var: browser_config_dir
+      tags: [ptbr-chromium]
+
+    - name: "OCR (omarchy-capture-text) — OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}"
+      block:
+        - name: Check whether tesseract is installed
+          ansible.builtin.command: pacman -Q tesseract
+          register: tesseract_check
+          changed_when: false
+          failed_when: false
+
+        - name: Create ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ target_home }}/.config/environment.d"
+            state: directory
+            mode: "0755"
+          when: tesseract_check.rc == 0
+
+        - name: "Set OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }} for omarchy-capture-text"
+          ansible.builtin.copy:
+            content: "OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}\n"
+            dest: "{{ target_home }}/.config/environment.d/20-omarchy-ocr-langs.conf"
+            mode: "0644"
+          when: tesseract_check.rc == 0
+
+        - name: Note that tesseract wasn't found (no action taken)
+          ansible.builtin.debug:
+            msg: >-
+              tesseract not found via pacman — Portuguese OCR data not
+              installed, OMARCHY_OCR_LANGS not set.
+          when: tesseract_check.rc != 0
+      tags: [ptbr-ocr]

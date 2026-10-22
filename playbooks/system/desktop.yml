@@ -1,0 +1,19 @@
+---
+# Desktop tuning, system phase: the packages the per-user night light needs
+# (hyprsunset, jq). Everything else in user/desktop.yml is per user.
+#
+# Usage: just desktop
+- name: Night light packages (hyprsunset, jq)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [desktop, nightlight-solar]
+
+  tasks:
+    - name: Ensure hyprsunset and jq are installed via pacman
+      community.general.pacman:
+        name:
+          - hyprsunset
+          - jq
+        state: present
+      become: true

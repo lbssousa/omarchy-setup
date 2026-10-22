@@ -1,0 +1,118 @@
+---
+# Proton Pass, per user: the SUPER+SHIFT+SLASH keybind for the desktop
+# client and the CLI (pass-cli, from Homebrew) with its SSH agent. The
+# desktop client is installed by system/proton-pass.yml, which explains
+# the choices; Homebrew has a single owner (homebrew_owner), so the CLI
+# play is for that user only.
+#
+# Usage: just proton-pass
+- name: Proton Pass desktop client (user keybind)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [proton-pass, proton-pass-desktop]
+
+  tasks:
+    - name: "Proton Pass keybinding ({{ proton_pass_hypr_keybind }}, inherited from 1Password's default)"
+      block:
+        - name: Create ~/.config/hypr
+          ansible.builtin.file:
+            path: "{{ target_home }}/.config/hypr"
+            state: directory
+            mode: "0755"
+
+        - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
+          ansible.builtin.copy:
+            src: /usr/share/omarchy/default/hypr/bindings.lua
+            dest: "{{ target_home }}/.config/hypr/bindings.lua"
+            remote_src: true
+            force: false
+            mode: "0644"
+
+        - name: "Rebind {{ proton_pass_hypr_keybind }} from 1Password to Proton Pass"
+          ansible.builtin.blockinfile:
+            path: "{{ target_home }}/.config/hypr/bindings.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/proton-pass.yml — Proton Pass keybinding)"
+            # Electron sets the window class from the app's name ("Proton
+            # Pass"; the AUR package's binary links to "/opt/proton-pass/Proton
+            # Pass"), with the lowercase id as a fallback.
+            block: |
+              hl.unbind("{{ proton_pass_hypr_keybind }}")
+              o.bind("{{ proton_pass_hypr_keybind }}", "Proton Pass", { launch = "{{ proton_pass_command }}", focus = "^(Proton Pass|proton-pass)$" })
+          notify: reload Hyprland
+
+  handlers:
+    - name: reload Hyprland
+      # Only has an effect inside a real Hyprland session; the bind
+      # still applies on next login either way.
+      ansible.builtin.command: hyprctl reload
+      changed_when: false
+      failed_when: false
+      listen: reload Hyprland
+
+- name: Proton Pass CLI (pass-cli, Homebrew)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [proton-pass, proton-pass-cli]
+
+  pre_tasks:
+    - name: Check whether Homebrew is available
+      ansible.builtin.stat:
+        path: "{{ homebrew_bin }}"
+      register: proton_pass_homebrew_check
+
+    - name: Fail with guidance if Homebrew wasn't found
+      ansible.builtin.fail:
+        msg: >-
+          Homebrew not found. Run `just homebrew` (or
+          `./run-empowered.sh ansible-playbook playbooks/homebrew.yml`) first.
+      when: not proton_pass_homebrew_check.stat.exists
+
+  tasks:
+    - name: Install proton-pass-cli via Homebrew
+      ansible.builtin.command: "{{ homebrew_symlink }} install proton-pass-cli"
+      register: proton_pass_cli_brew_result
+      changed_when: "'Pouring proton-pass-cli' in proton_pass_cli_brew_result.stdout"
+
+    - name: Proton Pass CLI SSH agent — session-wide SSH_AUTH_SOCK
+      block:
+        - name: Create ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ target_home }}/.config/environment.d"
+            state: directory
+            mode: "0755"
+
+        - name: Set a static SSH_AUTH_SOCK for IDEs and session apps
+          ansible.builtin.template:
+            src: proton-pass-ssh-agent-env.conf.j2
+            dest: "{{ target_home }}/.config/environment.d/20-proton-pass-ssh-agent.conf"
+            mode: "0644"
+
+        - name: Create ~/.config/systemd/user
+          ansible.builtin.file:
+            path: "{{ target_home }}/.config/systemd/user"
+            state: directory
+            mode: "0755"
+
+        - name: Install the Proton Pass CLI SSH agent's systemd --user service
+          ansible.builtin.template:
+            src: proton-pass-ssh-agent.service.j2
+            dest: "{{ target_home }}/.config/systemd/user/proton-pass-ssh-agent.service"
+            mode: "0644"
+          notify: reload systemd --user
+
+        - name: Enable the Proton Pass CLI SSH agent service
+          ansible.builtin.systemd:
+            name: proton-pass-ssh-agent.service
+            scope: user
+            daemon_reload: true
+            enabled: true
+            state: started
+
+  handlers:
+    - name: reload systemd --user
+      ansible.builtin.systemd:
+        daemon_reload: true
+        scope: user
+      listen: reload systemd --user

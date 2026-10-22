@@ -1,0 +1,536 @@
+---
+# Everything that puts a third-party plugin into the Omarchy shell, one play
+# per source (each with its own tag, so `--tags pinentry` etc. still run
+# alone; the plays below the first are the plugins that also ship a binary
+# and are deployed from a signed release tag):
+#
+#   plugins       omarchy_plugins list, via `omarchy plugin add`
+#   pinentry      omapin  (lbssousa.omapin)
+#   ssh-askpass   ssh-askpass-omarchy  (lbssousa.ssh_askpass)
+#   polkit-agent  polkit-omarchy  (lbssousa.polkit)
+#
+# Play 1 — installs this desktop's list of third-party Omarchy shell plugins:
+# omarchy_plugins in group_vars/all/main.yml (Radio Atlas first). Each entry
+# is cloned by `omarchy plugin add` into ~/.config/omarchy/plugins/<id>,
+# pinned to its `ref`, enabled, and moved to the bar section the entry asks
+# for: the icon's place in the bar is part of the setup, not something left
+# to whichever defaultSection the manifest happens to declare.
+#
+# Why the play drives `omarchy plugin add` per entry instead of taking a URL
+# to type:
+# - add is the only supported installer: it clones, validates the manifest,
+#   refuses an id another plugin already claims, moves the clone into place
+#   and rescans. It runs no plugin code, no install hook, no sudo.
+# - It refuses to continue when it isn't interactive unless --yes is passed,
+#   so the play passes it: the repos and pins are listed (and reviewed) in
+#   group_vars, which is the review add asks for.
+# - --enable is deliberately not passed. With --yes, add skips its placement
+#   prompt and lets the shell fall back to the manifest's defaultSection
+#   ("left" for Radio Atlas). `omarchy plugin enable <id> --section <s>` below
+#   both enables and moves — PluginRegistry.setEnabled calls moveBarEntry when
+#   the widget is already on the bar — so it is idempotent and also pulls an
+#   icon moved by hand back to where the list says. With a section and no
+#   index, the shell anchors the widget right after omarchy.tray
+#   (PluginRegistry.barTarget), i.e. first in the right-hand group.
+# - add fails when the id's directory already exists, so the play only adds
+#   what is missing — omarchy-plugin-catalog, which walks the plugin dirs, is
+#   the authority on what's installed — and otherwise leaves the clone alone.
+#   Updating is `omarchy plugin update <id>`, which fast-forwards a pinned
+#   checkout off its tag; bump `ref` and re-run instead.
+#
+# The last tasks re-read the plugin list and the bar layout and fail unless
+# every entry is enabled and sits in its section: a clone that only got
+# installed, or a widget enabled without landing in the bar, stays inert and
+# nothing above fails on it.
+#
+# Must run inside the graphical session — the shell is the IPC target.
+#
+# This is the user phase: each user links and enables the plugins in their
+# own shell. The plugin dependencies and the signed packages are installed
+# by system/plugins.yml (an administrator); the fingerprint kept per user
+# (tasks/plugin-code-stamp.yml) tells this phase when new plugin code needs
+# a shell restart.
+#
+# Usage: just plugins
+- name: Omarchy shell plugins (omarchy_plugins) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [plugins]
+
+  tasks:
+    - name: Ping the shell (enabling a plugin is a call to the live shell)
+      ansible.builtin.command: omarchy-shell shell ping
+      register: plugins_ping
+      changed_when: false
+      failed_when: false
+
+    - name: Fail early when omarchy-shell isn't running
+      ansible.builtin.fail:
+        msg: >-
+          omarchy-shell didn't answer a ping (rc {{ plugins_ping.rc }}), so
+          it isn't running: enabling and placing a plugin happens inside the
+          live shell. Run this from inside the graphical session.
+      when: plugins_ping.rc != 0
+
+    - name: Read the plugin catalog (what is installed on disk)
+      ansible.builtin.command: omarchy-plugin-catalog
+      register: plugins_catalog
+      changed_when: false
+
+    - name: "Install the plugins that aren't on disk yet"
+      ansible.builtin.command:
+        argv: [omarchy-plugin-add, "{{ item.repo }}", --yes]
+      loop: "{{ omarchy_plugins }}"
+      loop_control:
+        label: "{{ item.id }}"
+      register: plugins_add_result
+      failed_when: false
+      when: item.id not in (plugins_catalog.stdout | from_json | map(attribute='id') | list)
+
+    # Kept as its own task (instead of a block/rescue, which can't take a
+    # loop here): omarchy plugin add's own message is the useful part, this
+    # only adds what to do about the one case it can't explain.
+    - name: "Explain a clone that omarchy plugin add refused"
+      ansible.builtin.fail:
+        msg: >-
+          `omarchy plugin add {{ item.item.repo }}` failed (rc {{ item.rc }}):
+          {{ item.stderr | default('unknown error') | trim }}. It refuses to
+          install when another plugin already claims the id, and when the
+          target directory exists — a directory left behind by a run that
+          died before its manifest landed looks exactly like an installed
+          plugin. Clear it (`omarchy plugin remove {{ item.item.id }}`, or
+          delete {{ omarchy_plugins_dir }}/{{ item.item.id }}) and re-run.
+      loop: "{{ plugins_add_result.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+      when: item.rc | default(0) != 0
+
+    - name: Let the shell discover the plugins
+      # Not conditional on the adds having happened: a clone that was already
+      # on disk but never rescanned (a run that died before add's own
+      # rescanPlugins, or one added by hand) is unknown to the registry, and
+      # omarchy-plugin-enable then fails with "plugin '<id>' is not known; run:
+      # omarchy-shell shell rescanPlugins". A rescan is cheap and idempotent.
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, rescanPlugins]
+      changed_when: false
+
+    - name: Read the plugin catalog again (the adds are on disk now)
+      ansible.builtin.command: omarchy-plugin-catalog
+      register: plugins_catalog_final
+      changed_when: false
+
+    - name: "Assert each entry's id is the one its repo actually ships"
+      ansible.builtin.fail:
+        msg: >-
+          {{ item.repo }} cloned fine, but no installed manifest declares the
+          id {{ item.id }}, so nothing can enable it and the bar icon would
+          never show up. Upstream must have renamed the plugin or moved it:
+          the catalog lists these third-party ids —
+          {{ plugins_catalog_final.stdout | from_json | rejectattr('firstParty') | map(attribute='id') | join(', ') }}.
+          Fix `id` (and re-read the release) in
+          group_vars/all/main.yml.
+      loop: "{{ omarchy_plugins }}"
+      loop_control:
+        label: "{{ item.id }}"
+      when: item.id not in (plugins_catalog_final.stdout | from_json | map(attribute='id') | list)
+
+    - name: Pin each plugin to the ref its entry names
+      # A detached checkout at the pin: for code that runs unsandboxed in the
+      # shell, the pinned ref is the record of what was reviewed. `omarchy
+      # plugin update` fast-forwards a pinned clone off its tag (a detached
+      # HEAD still takes the fast-forward) and the next run pins it back;
+      # bump `ref` to move forward on purpose.
+      ansible.builtin.shell:
+        cmd: |
+          set -euo pipefail
+          dir={{ (omarchy_plugins_dir ~ '/' ~ item.id) | quote }}
+          if ! target=$(git -C "$dir" rev-parse --verify --quiet {{ item.ref | quote }}^{commit}); then
+            git -C "$dir" fetch --quiet origin {{ item.ref | quote }}
+            target=$(git -C "$dir" rev-parse --verify {{ item.ref | quote }}^{commit})
+          fi
+          current=$(git -C "$dir" rev-parse HEAD)
+          if [ "$target" = "$current" ]; then
+            echo "already at $target"
+            exit 0
+          fi
+          git -C "$dir" checkout --quiet --detach "$target"
+          echo "checked out $target"
+      register: plugins_pin_result
+      loop: "{{ omarchy_plugins }}"
+      loop_control:
+        label: "{{ item.id }} ({{ item.ref }})"
+      when: item.ref | default('') != ''
+      changed_when: "'checked out' in plugins_pin_result.stdout | default('')"
+      failed_when: false
+
+    - name: "Explain a ref a checkout can't reach"
+      ansible.builtin.fail:
+        msg: >-
+          Couldn't pin {{ item.item.id }} to {{ item.item.ref }}:
+          {{ item.stderr | default('unknown error') | trim }}. The pin must be
+          a tag, branch or commit the repo has (`git ls-remote --tags
+          {{ item.item.repo }}`) — if it was renamed upstream, bump `ref` in
+          group_vars/all/main.yml.
+      loop: "{{ plugins_pin_result.results | default([]) }}"
+      loop_control:
+        label: "{{ item.item.id }}"
+      when: item.rc | default(0) != 0
+
+    - name: List the shell plugins
+      ansible.builtin.command:
+        argv: [omarchy-plugin-list, --json]
+      register: plugins_list
+      changed_when: false
+
+    - name: Read the bar layout (which section each widget sits in)
+      ansible.builtin.command:
+        argv:
+          - jq
+          - -c
+          - >-
+            [.bar.layout | to_entries[] | .key as $section | .value[]
+            | (if type == "object" then .id else . end) as $id
+            | {key: $id, value: $section}] | from_entries
+          - "{{ omarchy_plugins_shell_json }}"
+      register: plugins_bar_layout
+      changed_when: false
+
+    - name: "Enable each plugin, in the bar section its entry asks for"
+      ansible.builtin.command:
+        argv: >-
+          {{ ['omarchy-plugin-enable', item.id]
+          + (['--section', item.section] if item.section | default('') else []) }}
+      loop: "{{ omarchy_plugins }}"
+      loop_control:
+        label: "{{ item.id }}"
+      register: plugins_enable_result
+      vars:
+        enabled_ids: "{{ plugins_list.stdout | from_json | selectattr('enabled') | map(attribute='id') | list }}"
+        bar_sections: "{{ plugins_bar_layout.stdout | from_json }}"
+      when: >-
+        item.id not in enabled_ids
+        or ((item.section | default('') != '')
+        and (bar_sections[item.id] | default('')) != item.section)
+
+    - name: Restart the shell so the new code and the bar layout take effect
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        plugins_add_result is changed
+        or plugins_pin_result is changed
+        or plugins_enable_result is changed
+      changed_when: true
+
+    - name: List the shell plugins again (after the restart)
+      ansible.builtin.command:
+        argv: [omarchy-plugin-list, --json]
+      register: plugins_list_after
+      changed_when: false
+
+    - name: Read the bar layout again (after the restart)
+      ansible.builtin.command:
+        argv:
+          - jq
+          - -c
+          - >-
+            [.bar.layout | to_entries[] | .key as $section | .value[]
+            | (if type == "object" then .id else . end) as $id
+            | {key: $id, value: $section}] | from_entries
+          - "{{ omarchy_plugins_shell_json }}"
+      register: plugins_bar_layout_after
+      changed_when: false
+
+    - name: "Assert each plugin is enabled, in its bar section"
+      vars:
+        entry: "{{ plugins_list_after.stdout | from_json | selectattr('id', 'equalto', item.id) | first | default({}) }}"
+        sections: "{{ plugins_bar_layout_after.stdout | from_json }}"
+      ansible.builtin.fail:
+        msg: >-
+          {{ item.name }} ({{ item.id }}) isn't in the state omarchy_plugins
+          asks for: it is
+          {{ 'enabled' if entry.enabled | default(false) else 'not enabled' }},
+          and sits
+          {{ 'in the ' + sections[item.id] + ' section of the bar' if sections[item.id] | default('') else 'nowhere in the bar layout' }}
+          {{ '(expected ' + item.section + ')' if item.section | default('') }}.
+          Check `omarchy plugin list` and
+          {{ omarchy_plugins_shell_json }}, then enable it by hand with
+          `omarchy plugin enable {{ item.id }}{{ ' --section ' + item.section if item.section | default('') }}`
+          — that also moves an icon that is already on the bar.
+      loop: "{{ omarchy_plugins }}"
+      loop_control:
+        label: "{{ item.id }}"
+      when: >-
+        not (entry.enabled | default(false))
+        or (item.section | default('') != ''
+        and (sections[item.id] | default('')) != item.section)
+
+# omapin, per user: link the packaged plugin, enable it (disabling the
+# pre-rename lbssousa.pinentry), and point gpg-agent at omapin.
+- name: omapin (GnuPG prompts in the polkit-style shell dialog) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [pinentry]
+
+  tasks:
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+      vars:
+        plugin_stamp_id: "{{ omapin_plugin_id }}"
+        plugin_stamp_paths: ["{{ omapin_program }}", "{{ omapin_plugin_dir }}"]
+
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        omapin_package_result: "{{ plugin_stamp_result }}"
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ omapin_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ omapin_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ omapin_plugin_dir }}"
+        dest: "{{ omapin_plugin_link }}"
+        state: link
+        force: true
+      register: omapin_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ omapin_shell_json }}"
+      register: omapin_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        omapin_plugin_enabled: >-
+          {{ (omapin_shell_json_raw.content is defined)
+             and (((omapin_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', omapin_plugin_id) | list | length > 0) }}
+        omapin_legacy_plugin_enabled: >-
+          {{ (omapin_shell_json_raw.content is defined)
+             and (((omapin_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', omapin_legacy_plugin_id) | list | length > 0) }}
+
+    - name: "Disable the pre-rename {{ omapin_legacy_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, setPluginEnabled, "{{ omapin_legacy_plugin_id }}", "false"]
+      register: omapin_legacy_disable_result
+      failed_when: omapin_legacy_disable_result.rc != 0 or omapin_legacy_disable_result.stdout | trim != 'ok'
+      when: omapin_legacy_plugin_enabled
+
+    - name: "Remove the pre-rename plugin link ({{ omapin_legacy_plugin_link }})"
+      ansible.builtin.file:
+        path: "{{ omapin_legacy_plugin_link }}"
+        state: absent
+      register: omapin_legacy_link_result
+
+    - name: "Enable the {{ omapin_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ omapin_plugin_id }}", "{}"]
+      register: omapin_enable_result
+      failed_when: omapin_enable_result.rc != 0 or omapin_enable_result.stdout | trim != 'ok'
+      when: not omapin_plugin_enabled
+
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        (omapin_package_result is changed or omapin_link_result is changed
+        or omapin_legacy_link_result is changed)
+        and omapin_enable_result is skipped
+      changed_when: true
+
+    - name: Create ~/.gnupg
+      ansible.builtin.file:
+        path: "{{ omapin_gpg_agent_conf | dirname }}"
+        state: directory
+        mode: "0700"
+
+    - name: "Use omapin in gpg-agent ({{ omapin_gpg_agent_conf }})"
+      ansible.builtin.lineinfile:
+        path: "{{ omapin_gpg_agent_conf }}"
+        regexp: '^\s*pinentry-program\s'
+        line: "pinentry-program {{ omapin_program }}"
+        create: true
+        mode: "0600"
+      register: omapin_agent_conf_result
+
+    - name: Reload gpg-agent
+      ansible.builtin.command: gpgconf --reload gpg-agent
+      when: omapin_agent_conf_result.changed or omapin_package_result is changed
+      changed_when: true
+
+# ssh-askpass-omarchy, per user: link and enable the packaged plugin, and
+# make it SSH_ASKPASS for the session (environment.d).
+- name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [ssh-askpass]
+
+  tasks:
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+      vars:
+        plugin_stamp_id: "{{ ssh_askpass_plugin_id }}"
+        plugin_stamp_paths: ["{{ ssh_askpass_program }}", "{{ ssh_askpass_plugin_dir }}"]
+
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        ssh_askpass_copy_result: "{{ plugin_stamp_result }}"
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ ssh_askpass_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ ssh_askpass_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ ssh_askpass_plugin_dir }}"
+        dest: "{{ ssh_askpass_plugin_link }}"
+        state: link
+        force: true
+      register: ssh_askpass_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ ssh_askpass_shell_json }}"
+      register: ssh_askpass_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        ssh_askpass_plugin_enabled: >-
+          {{ (ssh_askpass_shell_json_raw.content is defined)
+             and (((ssh_askpass_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', ssh_askpass_plugin_id) | list | length > 0) }}
+
+    - name: "Enable the {{ ssh_askpass_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ ssh_askpass_plugin_id }}", "{}"]
+      register: ssh_askpass_enable_result
+      failed_when: ssh_askpass_enable_result.rc != 0 or ssh_askpass_enable_result.stdout | trim != 'ok'
+      when: not ssh_askpass_plugin_enabled
+
+    # A keepLoaded service doesn't reload when its files change, so new
+    # plugin code (not just a new link) needs a restart too.
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        (ssh_askpass_link_result is changed or ssh_askpass_copy_result is changed)
+        and ssh_askpass_enable_result is skipped
+      changed_when: true
+
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ ssh_askpass_environment_conf | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Configure SSH to use ssh-askpass-omarchy ({{ ssh_askpass_environment_conf }})"
+      ansible.builtin.copy:
+        content: |
+          SSH_ASKPASS={{ ssh_askpass_program }}
+          SSH_ASKPASS_REQUIRE=prefer
+        dest: "{{ ssh_askpass_environment_conf }}"
+        mode: "0644"
+
+# polkit-omarchy, per user: link the plugin and enable it, which disables
+# Omarchy's built-in omarchy.polkit agent, then check that the swap took.
+- name: polkit-omarchy (polkit agent with security key touch prompt) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [polkit-agent]
+
+  tasks:
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+      vars:
+        plugin_stamp_id: "{{ polkit_agent_plugin_id }}"
+        plugin_stamp_paths: ["{{ polkit_agent_plugin_dir }}"]
+
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        polkit_agent_copy_result: "{{ plugin_stamp_result }}"
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ polkit_agent_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the shell plugin ({{ polkit_agent_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ polkit_agent_plugin_dir }}"
+        dest: "{{ polkit_agent_plugin_link }}"
+        state: link
+        force: true
+      register: polkit_agent_link_result
+
+    - name: Let the shell discover the plugin
+      # Not conditional on the link having changed: omarchy-plugin-enable
+      # fails outright ("plugin '<id>' is not known; run: omarchy-shell
+      # shell rescanPlugins") when the registry hasn't seen the link yet,
+      # which is exactly the state a run that died between the two tasks
+      # above leaves behind. A rescan is cheap and idempotent.
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, rescanPlugins]
+      changed_when: false
+
+    - name: List the shell plugins
+      ansible.builtin.command:
+        argv: [omarchy-plugin-list, --json]
+      register: polkit_agent_plugin_list
+      changed_when: false
+
+    - name: "Enable {{ polkit_agent_plugin_id }} (disables {{ polkit_agent_replaces_id }})"
+      ansible.builtin.command:
+        argv: [omarchy-plugin-enable, "{{ polkit_agent_plugin_id }}"]
+      register: polkit_agent_enable_result
+      when: >-
+        not (polkit_agent_plugin_list.stdout | from_json
+             | selectattr('id', 'equalto', polkit_agent_plugin_id)
+             | selectattr('enabled') | list | length > 0)
+
+    - name: Restart the shell to load the new agent code
+      ansible.builtin.command: omarchy-restart-shell
+      when: >-
+        polkit_agent_copy_result is changed
+        or polkit_agent_link_result is changed
+        or polkit_agent_enable_result is changed
+      changed_when: true
+
+    # The swap is only real if both halves hold: ours loaded, Omarchy's
+    # not. A clone that merely got linked is silently inert (the shell
+    # keeps running omarchy.polkit), and neither task above fails in that
+    # case, so assert it here rather than trusting the exit status.
+    - name: List the shell plugins again (after the restart)
+      ansible.builtin.command:
+        argv: [omarchy-plugin-list, --json]
+      register: polkit_agent_plugin_list_final
+      changed_when: false
+
+    - name: Assert {{ polkit_agent_plugin_id }} replaced {{ polkit_agent_replaces_id }}
+      vars:
+        final_plugins: "{{ polkit_agent_plugin_list_final.stdout | from_json }}"
+        clone: "{{ final_plugins | selectattr('id', 'equalto', polkit_agent_plugin_id) | first | default({}) }}"
+        replaced: "{{ final_plugins | selectattr('id', 'equalto', polkit_agent_replaces_id) | first | default({}) }}"
+      ansible.builtin.fail:
+        msg: >-
+          {{ polkit_agent_plugin_id }} did not take over from
+          {{ polkit_agent_replaces_id }}: ours is
+          {{ 'enabled' if clone.enabled | default(false) else 'missing or disabled' }},
+          the built-in is
+          {{ 'disabled' if not (replaced.enabled | default(false)) else 'still enabled' }}.
+          Check `omarchy-plugin-list` and
+          `~/.config/omarchy/shell.json` (disabledPlugins); enable it by
+          hand with `omarchy plugin enable {{ polkit_agent_plugin_id }}`,
+          which also disables {{ polkit_agent_replaces_id }} again.
+      when: >
+        not (clone.enabled | default(false))
+        or (replaced.enabled | default(false))

@@ -1,0 +1,56 @@
+---
+# Fish shell, system phase: fish, starship and fzf.fish's dependencies,
+# /usr/bin/fish as a valid login shell, and a warning about the
+# omarchy-fish package. The port itself (and the warnings when Omarchy's
+# bash setup moves away from it) is installed per user by user/fish.yml,
+# which explains it. Who logs into fish is declared per
+# account (omarchy_users[].shell, applied by system/users.yml).
+#
+# Usage: just fish
+- name: Fish shell (Starship prompt, default login shell)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [fish]
+
+  tasks:
+    - name: Install fish (and starship, in case it is missing)
+      community.general.pacman:
+        name:
+          - fish
+          - starship
+        state: present
+      become: true
+
+    - name: Make sure /usr/bin/fish is a valid login shell
+      ansible.builtin.lineinfile:
+        path: /etc/shells
+        line: /usr/bin/fish
+      become: true
+
+    - name: Install fzf.fish's dependencies (fzf, fd, bat)
+      community.general.pacman:
+        name:
+          - fzf
+          - fd
+          - bat
+        state: present
+      become: true
+
+    # The omarchy-fish package is another port of the same defaults: its
+    # system-wide conf.d turns on vi key bindings and its functions differ
+    # from these.
+    - name: Check whether the omarchy-fish package is installed
+      ansible.builtin.command: pacman -Q omarchy-fish
+      register: fish_omarchy_fish_pkg
+      changed_when: false
+      failed_when: false
+
+    - name: Warn about the omarchy-fish package
+      ansible.builtin.debug:
+        msg: >-
+          The omarchy-fish package is installed. Its system-wide conf.d
+          (vi key bindings, its own fzf.fish setup) runs alongside this
+          play's, and its functions are shadowed by these. Remove it with
+          `sudo pacman -R omarchy-fish` unless you want both.
+      when: fish_omarchy_fish_pkg.rc == 0

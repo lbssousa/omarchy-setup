@@ -1,0 +1,34 @@
+---
+# Installs Brave Origin — Brave without Rewards, Wallet, VPN, Leo and
+# News — the way Omarchy's own menu does it (Install > Browser > Brave
+# Origin): `omarchy-install-browser brave-origin` installs the AUR
+# brave-origin-bin package with omarchy-pkg-aur-add, writes Omarchy's
+# Chromium flags to ~/.config/brave-origin-flags.conf, sets up the managed
+# browser policy in /etc/brave/policies/managed and syncs the theme color.
+# Only runs when the package is missing (system phase, an administrator).
+# The flags file is per user, so user/brave.yml writes it for everyone
+# else the same way the installer does. Making it the default browser is
+# user/default-browser.yml.
+#
+# user/brave.yml also wires Omarchy's own web app launchers (the --app=
+# ones, see playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2
+# and brave_omarchy_webapp_containers) to Brave containers.
+#
+# Usage: just brave
+- name: Brave Origin
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Check whether Brave Origin is installed
+      ansible.builtin.command: pacman -Q {{ brave_origin_package }}
+      register: brave_origin_check
+      changed_when: false
+      failed_when: false
+
+    # Run as the user, like emacs.yml's omarchy-pkg-aur-add: yay refuses to
+    # build as root and asks for its own privileges for the install.
+    - name: Install Brave Origin with Omarchy's browser installer
+      ansible.builtin.command: omarchy-install-browser {{ brave_origin_browser }}
+      when: brave_origin_check.rc != 0

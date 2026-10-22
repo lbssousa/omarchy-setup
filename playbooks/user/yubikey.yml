@@ -1,0 +1,87 @@
+---
+# Yubikey GPG public key — imports it, assigns ultimate trust, and
+# configures git to sign commits/tags with it. Not part of
+# site.yml/`just setup`: depends on the physical token being connected,
+# so it runs on its own (`just gpg-yubikey`).
+#
+# Imports via `gpg --card-edit fetch`, which reads the URL stored on the
+# card's OpenPGP applet and pulls the public key from there — no
+# hardcoded keyserver or fingerprint. Only the public key ever leaves
+# the card; the private key stays on the Yubikey.
+#
+# `--status-fd 1` is used instead of parsing gpg's normal (translatable,
+# sometimes accented) output — `LC_ALL=C` isn't an option here since it
+# corrupts UTF-8 in an accented cardholder name.
+#
+# Never uses `become: true` for GPG or git tasks — the keyring and
+# ~/.gitconfig are personal user data. The only privileged step is
+# ensuring the gnupg package is installed.
+# Usage: just gpg-yubikey
+- name: Yubikey GPG public key — import, trust, sign in git (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [yubikey, gpg-yubikey]
+
+  tasks:
+    - name: Check for a connected OpenPGP card (Yubikey)
+      ansible.builtin.command: gpg --card-status
+      register: yubikey_gpg_card_check
+      changed_when: false
+      failed_when: false
+
+    - name: Import the public key stored on the card (gpg --card-edit fetch)
+      ansible.builtin.shell: |
+        printf 'fetch\nquit\n' | gpg --batch --command-fd 0 --status-fd 1 --card-edit
+      register: yubikey_gpg_fetch
+      changed_when: (yubikey_gpg_fetch.stdout | regex_search('IMPORT_OK [1-9]')) is not none
+      when: yubikey_gpg_card_check.rc == 0
+
+    - name: Extract the card's signing key fingerprint
+      ansible.builtin.set_fact:
+        yubikey_gpg_signing_key: "{{ (yubikey_gpg_card_check.stdout | regex_search('Signature key\\s*\\.*:\\s*([0-9A-F ]+)', '\\1') | first) | replace(' ', '') }}"
+      when: yubikey_gpg_card_check.rc == 0
+
+    - name: Check the imported key's current ownertrust
+      ansible.builtin.command: "gpg -k --with-colons {{ yubikey_gpg_signing_key }}"
+      register: yubikey_gpg_trust_check
+      changed_when: false
+      when: yubikey_gpg_card_check.rc == 0
+
+    - name: Assign ultimate trust to the Yubikey key
+      ansible.builtin.shell: "echo '{{ yubikey_gpg_signing_key }}:6:' | gpg --import-ownertrust"
+      changed_when: true
+      when:
+        - yubikey_gpg_card_check.rc == 0
+        - "'pub:u:' not in yubikey_gpg_trust_check.stdout"
+
+    - name: "Configure git to sign commits/tags with the Yubikey key ({{ yubikey_gpg_signing_key | default('?') }})"
+      when: yubikey_gpg_card_check.rc == 0
+      block:
+        - name: "git config --global user.signingkey"
+          community.general.git_config:
+            name: user.signingkey
+            value: "{{ yubikey_gpg_signing_key }}"
+            scope: global
+            state: present
+
+        - name: "git config --global commit.gpgsign true"
+          community.general.git_config:
+            name: commit.gpgsign
+            value: "true"
+            scope: global
+            state: present
+
+        - name: "git config --global tag.gpgsign true"
+          community.general.git_config:
+            name: tag.gpgsign
+            value: "true"
+            scope: global
+            state: present
+
+    - name: Note if no Yubikey/OpenPGP card was found (no action taken)
+      ansible.builtin.debug:
+        msg: >-
+          No OpenPGP card found (gpg --card-status failed) — connect
+          the Yubikey and rerun. Nothing was imported or configured.
+      when: yubikey_gpg_card_check.rc != 0

@@ -1,0 +1,140 @@
+---
+# Nix and direnv, per user: Nix's profiles on the session's PATH and
+# XDG_DATA_DIRS (environment.d), a check that the daemon answers this user,
+# the direnv hooks in ~/.bashrc and fish's vendor_conf.d, and nix-direnv in
+# the user's own Nix profile. Nix itself, its store subvolume, nix.conf, the
+# daemon and the direnv package are machine-wide, in system/nix.yml, which
+# explains them.
+#
+# Usage: just nix
+- name: Nix (session environment)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+
+    - name: Put Nix's profiles on PATH/XDG_DATA_DIRS for the session
+      ansible.builtin.template:
+        src: nix-env.conf.j2
+        dest: "{{ target_home }}/.config/environment.d/{{ nix_env_file }}"
+        mode: "0644"
+
+    - name: Check that the daemon answers an unprivileged client
+      # As the user, not root: root would open the store directly and
+      # never touch the socket.
+      ansible.builtin.command:
+        cmd: nix store info --store daemon
+      changed_when: false
+
+# direnv (https://direnv.net) — loads a directory's .envrc when you cd
+# into it and unloads it on the way out, which is how a project's Nix
+# dev shell (`use flake` / `use nix` in .envrc, both in direnv's own
+# stdlib) becomes the shell's environment without typing `nix develop`.
+# Doesn't need Nix itself, so it has its own tag; the file's `nix` tag
+# runs both plays. An .envrc only loads after `direnv allow` in its dir.
+#
+# Hooked into both shells this desktop uses:
+#
+# - bash: a block in ~/.bashrc, after Omarchy's rc (so after starship's
+#   PROMPT_COMMAND) and before ble.sh's `ble-attach` block when that's
+#   there, which playbooks/blesh.yml wants last. Below the rc's
+#   non-interactive `return`, so scripts never run the hook.
+# - fish: fish's per-user vendor_conf.d (~/.local/share/fish), next to
+#   playbooks/fish.yml's port of Omarchy's setup, so ~/.config/fish stays
+#   yours (and a conf.d/direnv.fish of your own there wins).
+#
+# Both hooks are guarded by `command -v`/`command -q`, so uninstalling
+# direnv leaves the shells working.
+#
+# Usage: just direnv
+- name: direnv (bash + fish hooks)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [direnv]
+
+  tasks:
+    - name: Hook direnv into bash (~/.bashrc)
+      ansible.builtin.blockinfile:
+        path: "{{ direnv_bashrc }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/nix.yml — direnv hook)"
+        block: |
+          command -v direnv &> /dev/null && eval "$(direnv hook bash)"
+        insertbefore: '^# BEGIN ANSIBLE MANAGED BLOCK \(playbooks/blesh\.yml — attach ble\.sh\)'
+        create: true
+        mode: "0644"
+
+    - name: Create fish's per-user vendor conf dir
+      ansible.builtin.file:
+        path: "{{ direnv_fish_conf | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Hook direnv into fish (vendor_conf.d)
+      ansible.builtin.copy:
+        content: |
+          # Managed by playbooks/nix.yml — direnv hook.
+          if status is-interactive; and command -q direnv
+              direnv hook fish | source
+          end
+        dest: "{{ direnv_fish_conf }}"
+        mode: "0644"
+
+# nix-direnv (https://github.com/nix-community/nix-direnv) — replaces
+# direnv's built-in `use flake` / `use nix` with versions that cache the
+# evaluated dev shell (under the project's .direnv/) and register it as a
+# GC root. Without it, every cd into the project re-evaluates the flake,
+# and `nix-collect-garbage` deletes the shell's dependencies, so the next
+# cd downloads or rebuilds them.
+#
+# Neither Arch nor the AUR packages it, so it's installed into the user's
+# Nix profile, and ~/.config/direnv/direnvrc sources its direnvrc — the
+# setup upstream documents for non-NixOS systems. The source line is
+# guarded, so removing the profile entry falls back to direnv's own
+# `use flake` instead of breaking every .envrc. Installed only when the
+# profile doesn't have it yet; updates are `nix profile upgrade
+# nix-direnv`.
+#
+# Needs both plays above, which the file's `nix` tag runs first.
+#
+# Usage: just nix-direnv
+- name: nix-direnv (cached `use flake` for direnv)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [nix-direnv]
+
+  tasks:
+    - name: List the user's Nix profile
+      ansible.builtin.command:
+        cmd: nix profile list --json
+      register: nix_direnv_profile
+      changed_when: false
+
+    - name: Install nix-direnv into the user's Nix profile
+      ansible.builtin.command:
+        cmd: nix profile add {{ nix_direnv_installable }}
+      when: nix_direnv_profile_name not in (nix_direnv_profile.stdout | from_json).elements
+
+    - name: Create ~/.config/direnv
+      ansible.builtin.file:
+        path: "{{ direnv_rc | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Load nix-direnv from ~/.config/direnv/direnvrc
+      ansible.builtin.blockinfile:
+        path: "{{ direnv_rc }}"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/nix.yml — nix-direnv)"
+        block: |
+          if [[ -f "{{ nix_direnv_rc }}" ]]; then
+            source "{{ nix_direnv_rc }}"
+          fi
+        create: true
+        mode: "0644"

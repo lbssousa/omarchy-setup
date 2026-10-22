@@ -1,0 +1,42 @@
+---
+# Makes Zathura the default PDF viewer instead of Omarchy's default
+# (Evince), and installs Papers (Evince's GNOME successor) as an extra,
+# non-default viewer — both still reachable from a file manager's "Open
+# With", just not what double-clicking a PDF opens.
+#
+# Zathura comes from the Arch packages: the viewer plus its MuPDF backend
+# (pdf_viewer_zathura_native_packages) — Zathura ships no backend of its
+# own. Nothing in /usr/share/omarchy references zathura.
+#
+# Evince itself is left installed: Nautilus's quick-previewer (sushi)
+# hard-depends on it at the package level (`pacman -Si sushi` lists
+# evince under "Depends On"), so removing evince would cascade into
+# removing sushi and losing Space-to-preview for every file type, not
+# just PDFs.
+#
+# The default-application mapping is set in the user's own
+# ~/.config/mimeapps.list rather than
+# /usr/share/applications/mimeapps.list, which is owned by the
+# omarchy-settings package (see `pacman -Qo`) and would be reverted by
+# a future package update. A per-user mimeapps.list already takes
+# precedence over the system-wide one (XDG Desktop Entry spec), so this
+# doesn't need to touch the package-owned file at all.
+#
+# Usage: ./run-empowered.sh ansible-playbook site.yml --tags pdf-viewer
+- name: PDF viewer (Zathura default, Papers optional, Evince kept for sushi)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Install Zathura and its MuPDF backend
+      community.general.pacman:
+        name: "{{ pdf_viewer_zathura_native_packages }}"
+        state: present
+      become: true
+
+    - name: Install Papers (extra, non-default viewer)
+      community.general.pacman:
+        name: "{{ pdf_viewer_papers_package }}"
+        state: present
+      become: true

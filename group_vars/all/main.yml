@@ -607,6 +607,8 @@ bgrt_sysfs_yoffset: "{{ bgrt_sysfs_dir }}/yoffset"
 bgrt_imagemagick_package: imagemagick
 bgrt_omarchy_theme_name: bgrt
 bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
+# Where the system phase builds the Omarchy theme for every user to copy.
+bgrt_shared_theme_dir: "/usr/local/share/omarchy-setup/themes/{{ bgrt_omarchy_theme_name }}"
 bgrt_plymouth_theme_name: omarchy-bgrt
 bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
 # The stock "omarchy" Plymouth theme template Omarchy itself ships —

@@ -1,0 +1,55 @@
+---
+# Container tooling, in this order:
+#
+#   Podman              tags: containers, podman, distrobox
+#   Distrobox           tags: containers, distrobox
+#   Starship prompt     tags: containers, starship-distrobox  (user/containers.yml)
+#
+# Distrobox needs Podman, so the Podman play also carries the `distrobox`
+# tag: `--tags distrobox` (or `just distrobox`) installs Podman first,
+# instead of failing on a missing engine. `--tags podman` runs just the
+# engine, and `--tags containers` all three.
+#
+# Here the packages and every user's subuid/subgid range (system phase);
+# the rootless check and the prompt are per user, in user/containers.yml.
+#
+# Usage: just containers
+
+# Podman, configured for rootless use — the container engine used by
+# the Distrobox play below, but usable on its own too. The Arch package
+# already pulls in networking (passt, netavark/aardvark-dns) and short
+# image-name mappings as dependencies, so only subuid/subgid allocation
+# needs manual attention here.
+- name: Podman (rootless)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [containers, podman, distrobox]
+
+  tasks:
+    - name: Install Podman via pacman
+      community.general.pacman:
+        name: podman
+        state: present
+      become: true
+
+    # Every user's range, not just the caller's: see tasks/subid-ranges.yml.
+    - name: Allocate subuid/subgid ranges
+      ansible.builtin.include_tasks: tasks/subid-ranges.yml
+
+# Distrobox depends on Podman: the Podman play above also carries the
+# `distrobox` tag, so it always runs first, instead of installing
+# distrobox and only discovering a missing engine on the first
+# `distrobox create`.
+- name: Distrobox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [containers, distrobox]
+
+  tasks:
+    - name: Install distrobox via pacman
+      community.general.pacman:
+        name: distrobox
+        state: present
+      become: true

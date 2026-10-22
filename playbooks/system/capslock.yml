@@ -1,0 +1,68 @@
+---
+# Caps Lock remapped at the evdev level via keyd: tap = Esc, hold = Ctrl,
+# Shift+Caps Lock = literal Caps Lock. Works the same in TTY and
+# Wayland, unlike setxkbmap/GNOME "Input Sources".
+#
+# Omarchy defaults to `compose:caps` (Caps Lock doubles as the Compose
+# key), which silently blocks any keyd remap from producing a real Caps
+# Lock toggle — the XKB layer intercepts the keycode first, regardless of
+# which device sent it. This playbook moves Compose to another key
+# first. It must be a non-hardware-modifier key: Ctrl/Alt/Win stay wired
+# into XKB's modifier_map by keycode regardless of their assigned
+# symbol, so they'd keep acting as both the modifier and Compose at
+# once. The Menu key works cleanly and is already the natural Compose
+# key on keyboards that have one.
+#
+# See playbooks/files/keyd-default.conf for the full remap config,
+# including the caveat that Shift+CapsLock only works with Shift
+# pressed before Caps Lock.
+#
+# Panic sequence if a bad config locks up the keyboard:
+# backspace+esc+enter (kills keyd).
+#
+# keyd is machine-wide and applies to every user's keyboard, but Compose
+# lives in each user's ~/.config/hypr/input.lua: user/capslock.yml moves it
+# off Caps Lock, and every user needs it (`just user`), or keyd swallows
+# their Compose key.
+#
+# Usage: just capslock
+- name: Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Caps Lock via keyd
+      become: true
+      block:
+        - name: Install keyd via pacman
+          community.general.pacman:
+            name: keyd
+            state: present
+
+        - name: Ensure /etc/keyd exists
+          ansible.builtin.file:
+            path: "{{ keyd_config_dest | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Install the Caps Lock config
+          ansible.builtin.copy:
+            src: keyd-default.conf
+            dest: "{{ keyd_config_dest }}"
+            mode: "0644"
+          notify: restart keyd
+
+        - name: Enable and start keyd
+          ansible.builtin.systemd:
+            name: keyd
+            enabled: true
+            state: started
+
+  handlers:
+    - name: restart keyd
+      ansible.builtin.systemd:
+        name: keyd
+        state: restarted
+      become: true
+      listen: restart keyd

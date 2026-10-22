@@ -1,0 +1,24 @@
+---
+# Whether a packaged shell plugin's code changed since this user last loaded
+# it. The system phase installs the code (an administrator, maybe long
+# before), so its "changed" can't reach the user phase; this fingerprints the
+# installed files and keeps the fingerprint per user, in
+# ~/.local/state/omarchy-setup/plugins/<id>.sum. plugin_stamp_result is
+# changed when the code differs from the last run (or on the first one).
+#
+# Vars: plugin_stamp_id, plugin_stamp_paths (files or directories).
+- name: "Fingerprint the installed code of {{ plugin_stamp_id }}"
+  ansible.builtin.shell: |
+    set -o pipefail
+    find {{ plugin_stamp_paths | map('quote') | join(' ') }} -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1
+  args:
+    executable: /bin/bash
+  register: plugin_stamp_sum
+  changed_when: false
+
+- name: "Remember the fingerprint of {{ plugin_stamp_id }} for this user"
+  ansible.builtin.copy:
+    content: "{{ plugin_stamp_sum.stdout }}\n"
+    dest: "{{ target_home }}/.local/state/omarchy-setup/plugins/{{ plugin_stamp_id }}.sum"
+    mode: "0644"
+  register: plugin_stamp_result

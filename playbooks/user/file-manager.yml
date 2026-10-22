@@ -1,0 +1,58 @@
+---
+# File manager, per user: Flea as the default for folders (flea --default
+# writes ~/.config/mimeapps.list and the portal's FileChooser line), checked
+# with xdg-mime. Flea itself is installed by system/file-manager.yml.
+#
+# Usage: just file-manager
+- name: File manager (Flea default) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: Look for Flea's installed desktop entry
+      ansible.builtin.stat:
+        path: "/usr/share/applications/{{ file_manager_desktop_id }}"
+      register: file_manager_installed_entry
+
+    - name: Expect the package to still ship the desktop id the default points at
+      ansible.builtin.assert:
+        that: file_manager_installed_entry.stat.exists
+        fail_msg: >-
+          /usr/share/applications/{{ file_manager_desktop_id }} is
+          missing, so ~/.config/mimeapps.list would point at
+          nothing and opening a folder would fall back to another file
+          manager. Fix file_manager_desktop_id in group_vars/all/main.yml
+          to the package's new id.
+        quiet: true
+
+    - name: Make Flea the default file manager (flea --default)
+      ansible.builtin.command: flea --default
+      register: file_manager_flea_default
+      changed_when: >-
+        (file_manager_flea_default.stdout_lines
+         + file_manager_flea_default.stderr_lines)
+        | reject('search', 'already')
+        | select('match', '^[\w./-]+: ')
+        | list | length > 0
+
+    - name: Restart xdg-desktop-portal to pick up the FileChooser backend
+      ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
+      when: file_manager_flea_default.changed
+      changed_when: true
+      failed_when: false
+
+    - name: Read back the default handler for directories
+      ansible.builtin.command: xdg-mime query default inode/directory
+      register: file_manager_xdg_default
+      changed_when: false
+
+    - name: Expect xdg-mime to report Flea for directories
+      ansible.builtin.assert:
+        that: file_manager_xdg_default.stdout | trim == file_manager_desktop_id
+        fail_msg: >-
+          xdg-mime still reports '{{ file_manager_xdg_default.stdout | trim }}'
+          for inode/directory after `flea --default`, which said:
+          {{ (file_manager_flea_default.stdout_lines
+              + file_manager_flea_default.stderr_lines) | join(' / ') }}
+        quiet: true

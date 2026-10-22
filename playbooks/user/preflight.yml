@@ -1,0 +1,36 @@
+---
+# Checks the user phase's preconditions before any play touches anything:
+# run as the user (not root, not from run-empowered.sh), from inside the
+# user's graphical session (most plays talk to systemd --user, the shell or
+# Hyprland). Imported first by user.yml, under every tag.
+- name: User phase preflight
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+
+  tasks:
+    - name: Read this process's groups
+      ansible.builtin.command: id -nG
+      register: preflight_groups
+      changed_when: false
+
+    - name: Expect to run as the user, not root or empowered
+      ansible.builtin.assert:
+        that:
+          - target_uid | int != 0
+          - "'empower' not in preflight_groups.stdout.split()"
+        fail_msg: >-
+          The user phase runs as you, not as root or under run-empowered.sh
+          (no task here needs privileges): run `just user`.
+        quiet: true
+
+    - name: Expect a graphical session
+      ansible.builtin.assert:
+        that:
+          - lookup('ansible.builtin.env', 'HYPRLAND_INSTANCE_SIGNATURE') | length > 0
+          - lookup('ansible.builtin.env', 'DBUS_SESSION_BUS_ADDRESS') | length > 0
+        fail_msg: >-
+          Run the user phase from a terminal inside your own Hyprland session:
+          its plays configure systemd --user, the Omarchy shell and Hyprland.
+        quiet: true

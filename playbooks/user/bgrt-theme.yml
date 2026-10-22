@@ -1,0 +1,32 @@
+---
+# BGRT-derived Omarchy theme, per user: copies the theme the system phase
+# built from this machine's firmware logo (system/bgrt-theme.yml, which
+# explains it) into ~/.config/omarchy/themes, where Style > Theme lists it.
+# Skipped until an administrator has built it.
+#
+# Usage: just bgrt-theme
+- name: BGRT-derived Omarchy theme (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Look for the machine's BGRT theme
+      ansible.builtin.stat:
+        path: "{{ bgrt_shared_theme_dir }}/colors.toml"
+      register: bgrt_shared_theme
+
+    - name: "Install the BGRT theme into {{ bgrt_omarchy_theme_dir }}"
+      ansible.builtin.copy:
+        src: "{{ bgrt_shared_theme_dir }}/"
+        dest: "{{ bgrt_omarchy_theme_dir }}/"
+        remote_src: true
+        mode: preserve
+      when: bgrt_shared_theme.stat.exists
+
+    - name: Say the theme isn't built yet
+      ansible.builtin.debug:
+        msg: >-
+          {{ bgrt_shared_theme_dir }} doesn't exist yet. An administrator
+          builds it with `just bgrt-theme`.
+      when: not bgrt_shared_theme.stat.exists

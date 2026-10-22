@@ -1,0 +1,19 @@
+---
+# Flea file chooser dialogs, system phase: the Qt platform themes
+# (qt5ct/qt6ct) that both ask the portal for dialogs and set the Qt UI font.
+# The portal routing and every config file are per user, in
+# user/file-chooser.yml, which explains the whole setup.
+#
+# Usage: just file-chooser
+- name: Flea file chooser dialogs for non-GNOME apps
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [file-chooser]
+
+  tasks:
+    - name: "Install {{ file_chooser_qt_packages | join(' and ') }} (Qt platform themes with portal dialogs + font)"
+      community.general.pacman:
+        name: "{{ file_chooser_qt_packages }}"
+        state: present
+      become: true

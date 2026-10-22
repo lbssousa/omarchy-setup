@@ -1,0 +1,104 @@
+---
+# pt-BR localization, covering five independent areas (each with its own
+# sub-tag to run or skip on its own):
+#
+#   - locale + LANG/LANGUAGE (ptbr-locale): enables pt_BR.UTF-8 without
+#     removing other locales, and sets LANG/LANGUAGE in /etc/locale.conf.
+#   - xdg-user-dirs (ptbr-xdg-user-dirs): renames personal folders
+#     (~/Downloads, etc.) to their pt-BR translations, and creates the
+#     mapped folders that never existed yet — typically the ones
+#     xdg-user-dirs leaves disabled, pointing at $HOME — flipping their
+#     user-dirs.dirs entries to the translated names too. Also fixes any
+#     file-manager sidebar bookmark still pointing at the old English
+#     path/label.
+#   - Chromium and variants (ptbr-chromium): fixes each browser's
+#     Preferences (intl.accept_languages), which controls the page
+#     language web apps like WhatsApp Web see — frozen at en-US since
+#     profile creation, with no official policy for this in Chromium.
+#     Profile dirs are listed in ptbr_chromium_family_config_dirs
+#     (Brave Origin's among them).
+#   - Man pages (ptbr-man-pages): installs man-pages-pt_br.
+#   - OCR (ptbr-ocr): installs tesseract-data-por and sets
+#     OMARCHY_OCR_LANGS for omarchy-capture-text.
+#
+# Doesn't touch keyboard layout or timezone — both are already asked by
+# the Omarchy installer. Doesn't touch apps that ship pt_BR translations
+# in their own package (GNOME, GTK, KDE) — those already follow LANG.
+#
+# A logout (or reboot) is needed after the locale step for LANG to apply
+# to the whole graphical session.
+#
+# The locale and the packages are machine-wide (here); the folders, the
+# browsers' language and OMARCHY_OCR_LANGS are per user (user/ptbr.yml).
+#
+# Usage: just ptbr
+- name: pt-BR localization
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  tasks:
+    - name: pt_BR.UTF-8 locale (locale.gen + system LANG/LANGUAGE)
+      become: true
+      block:
+        - name: Ensure pt_BR.UTF-8 UTF-8 is enabled in /etc/locale.gen
+          ansible.builtin.lineinfile:
+            path: /etc/locale.gen
+            regexp: '^#?\s*{{ ptbr_locale_gen_line | regex_escape }}\s*$'
+            line: "{{ ptbr_locale_gen_line }}"
+          register: locale_gen_conf
+
+        - name: Generate locales (locale-gen)
+          ansible.builtin.command: locale-gen
+          when: locale_gen_conf.changed
+
+        - name: "Set LANG={{ ptbr_locale }} in /etc/locale.conf"
+          ansible.builtin.lineinfile:
+            path: /etc/locale.conf
+            regexp: '^LANG='
+            line: "LANG={{ ptbr_locale }}"
+            create: true
+
+        - name: Set LANGUAGE (gettext fallback chain) in /etc/locale.conf
+          ansible.builtin.lineinfile:
+            path: /etc/locale.conf
+            regexp: '^LANGUAGE='
+            line: "LANGUAGE={{ ptbr_language_fallback }}"
+            create: true
+
+        - name: Note that logout/reboot is needed for the graphical session
+          ansible.builtin.debug:
+            msg: >-
+              LANG/LANGUAGE updated in /etc/locale.conf. Log out (or
+              reboot) for Hyprland and already-open apps to pick up the
+              new language.
+      tags: [ptbr-locale]
+
+    - name: xdg-user-dirs (for the per-user folder renames)
+      community.general.pacman:
+        name: xdg-user-dirs
+        state: present
+      become: true
+      tags: [ptbr-xdg-user-dirs]
+
+    - name: pt-BR man pages
+      community.general.pacman:
+        name: "{{ ptbr_man_pages_package }}"
+        state: present
+      become: true
+      tags: [ptbr-man-pages]
+    - name: "OCR (omarchy-capture-text) — pt-BR tesseract data"
+      block:
+        - name: Check whether tesseract is installed
+          ansible.builtin.command: pacman -Q tesseract
+          register: tesseract_check
+          changed_when: false
+          failed_when: false
+
+        - name: Install Portuguese OCR data (tesseract-data-por)
+          community.general.pacman:
+            name: "{{ ptbr_tesseract_data_package }}"
+            state: present
+          become: true
+          when: tesseract_check.rc == 0
+      tags: [ptbr-ocr]

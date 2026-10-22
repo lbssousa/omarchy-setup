@@ -1,0 +1,80 @@
+---
+# abutre's own settings, loaded by scripts/run-phase.sh (-e @users/abutre.yml)
+# in both phases. Extra vars: these win over group_vars/all/*.
+
+# git identity (playbooks/user/git-identity.yml).
+git_user_email: 
+
+# Google Drive account mounted with rclone (playbooks/user/rclone-gdrive.yml).
+# Mirrors nix-config's home/users/abutre/rclone.nix. The e-mail isn't a
+# secret.
+rclone_gdrive_email: 
+
+# Brave Origin PWAs replacing Omarchy's web apps, each in its own Brave
+# container (see brave_pwa_webapps in group_vars/all/main.yml for the
+# fields).
+brave_pwa_webapps:
+  - name: WhatsApp
+    manifest_hint: WhatsApp Web
+    url: "https://web.whatsapp.com/"
+    icon: whatsapp
+    container_name: Meta
+    hypr_keybind: "SUPER + SHIFT + ALT + G"
+    hypr_description: "WhatsApp"
+  - name: Microsoft Teams
+    # Brave titles the shortcut with the URL until the manifest loads.
+    manifest_hint: '\(Microsoft Teams\|https://teams.cloud.microsoft/\)'
+    url: "https://teams.cloud.microsoft/"
+    icon: ""
+    container_name: Microsoft
+    hypr_keybind: "SUPER + SHIFT + ALT + T"
+    hypr_description: "Microsoft Teams"
+  - name: YouTube
+    url: "https://www.youtube.com/"
+    icon: youtube
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + Y"
+    hypr_description: "YouTube"
+  # Omarchy's other web apps. container_name and hypr_keybind are optional:
+  # without a container the PWA uses Brave's default partition, without a
+  # keybind only the launcher is replaced. Omarchy's HEY and Zoom
+  # launchers are URL handlers (omarchy-webapp-handler-*), left alone.
+  - name: Google Messages
+    url: "https://messages.google.com/web/conversations"
+    icon: google-messages
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + CTRL + G"
+  - name: Google Photos
+    url: "https://photos.google.com/"
+    icon: google-photos
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + P"
+  - name: Google Contacts
+    url: "https://contacts.google.com/"
+    icon: google-contacts
+    container_name: Google
+  - name: Google Maps
+    manifest_hint: '\(Google Maps\|https://maps.google.com/\)'
+    url: "https://maps.google.com/"
+    icon: google-maps
+    container_name: Google
+    hypr_keybind: "SUPER + SHIFT + ALT + S"
+  - name: Discord
+    url: "https://discord.com/channels/@me"
+    icon: omarchy-discord
+  - name: Basecamp
+    manifest_hint: 'Basecamp\( Log In\)\?'
+    url: "https://launchpad.37signals.com"
+    icon: basecamp
+  - name: X
+    url: "https://x.com/"
+    icon: x
+    hypr_keybind: "SUPER + SHIFT + X"
+  - name: ChatGPT
+    url: "https://chatgpt.com"
+    icon: chatgpt
+    hypr_keybind: "SUPER + SHIFT + A"
+  - name: Grok
+    url: "https://grok.com"
+    icon: ""
+    hypr_keybind: "SUPER + SHIFT + ALT + A"

@@ -42,7 +42,7 @@ brave_origin_desktop_id: brave-origin.desktop
 # `$APP_NAME.desktop`, so a new "GitHub" launcher is wired in by adding
 # `GitHub: GitHub` below and rerunning `just brave-webapp-containers`.
 #
-# Empty for now: map a launcher here once its Brave container exists.
+# Empty by default; each user maps their own launchers in users/<name>.yml.
 brave_omarchy_webapp_containers: {}
 
 # Brave Origin PWAs replacing Omarchy's preinstalled web apps
@@ -64,72 +64,10 @@ brave_profile_directory: Default
 # manifest_hint is the PWA's own Name= (what Brave titles the installed
 # app), used to find its shortcut when it differs from name. icon: ""
 # lets omarchy-webapp-install fetch the site's favicon.
-brave_pwa_webapps:
-  - name: WhatsApp
-    manifest_hint: WhatsApp Web
-    url: "https://web.whatsapp.com/"
-    icon: whatsapp
-    container_name: Meta
-    hypr_keybind: "SUPER + SHIFT + ALT + G"
-    hypr_description: "WhatsApp"
-  - name: Microsoft Teams
-    # Brave titles the shortcut with the URL until the manifest loads.
-    manifest_hint: '\(Microsoft Teams\|https://teams.cloud.microsoft/\)'
-    url: "https://teams.cloud.microsoft/"
-    icon: ""
-    container_name: Microsoft
-    hypr_keybind: "SUPER + SHIFT + ALT + T"
-    hypr_description: "Microsoft Teams"
-  - name: YouTube
-    url: "https://www.youtube.com/"
-    icon: youtube
-    container_name: Google
-    hypr_keybind: "SUPER + SHIFT + Y"
-    hypr_description: "YouTube"
-  # Omarchy's other web apps. container_name and hypr_keybind are optional:
-  # without a container the PWA uses Brave's default partition, without a
-  # keybind only the launcher is replaced. Omarchy's HEY and Zoom
-  # launchers are URL handlers (omarchy-webapp-handler-*), left alone.
-  - name: Google Messages
-    url: "https://messages.google.com/web/conversations"
-    icon: google-messages
-    container_name: Google
-    hypr_keybind: "SUPER + SHIFT + CTRL + G"
-  - name: Google Photos
-    url: "https://photos.google.com/"
-    icon: google-photos
-    container_name: Google
-    hypr_keybind: "SUPER + SHIFT + P"
-  - name: Google Contacts
-    url: "https://contacts.google.com/"
-    icon: google-contacts
-    container_name: Google
-  - name: Google Maps
-    manifest_hint: '\(Google Maps\|https://maps.google.com/\)'
-    url: "https://maps.google.com/"
-    icon: google-maps
-    container_name: Google
-    hypr_keybind: "SUPER + SHIFT + ALT + S"
-  - name: Discord
-    url: "https://discord.com/channels/@me"
-    icon: omarchy-discord
-  - name: Basecamp
-    manifest_hint: 'Basecamp\( Log In\)\?'
-    url: "https://launchpad.37signals.com"
-    icon: basecamp
-  - name: X
-    url: "https://x.com/"
-    icon: x
-    hypr_keybind: "SUPER + SHIFT + X"
-  - name: ChatGPT
-    url: "https://chatgpt.com"
-    icon: chatgpt
-    hypr_keybind: "SUPER + SHIFT + A"
-  - name: Grok
-    url: "https://grok.com"
-    icon: ""
-    hypr_keybind: "SUPER + SHIFT + ALT + A"
-
+# This machine's default: none. Each user lists their own in
+# users/<name>.yml; the system phase force-installs the union of every
+# user's urls (playbooks/system/brave-pwa-webapps.yml).
+brave_pwa_webapps: []
 
 # Default browser the main run leaves behind
 # (playbooks/default-browser.yml), as the name `omarchy-default-browser`
@@ -883,9 +821,9 @@ omarchy_plugins:
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
 omarchy_plugins_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 
-# Google Drive mounted through rclone (playbooks/rclone-gdrive.yml). Mirrors
-# nix-config's home/users/abutre/rclone.nix. The e-mail isn't a secret.
-rclone_gdrive_email: 
+# Google Drive mounted through rclone (playbooks/user/rclone-gdrive.yml).
+# The account is personal: set rclone_gdrive_email in users/<name>.yml.
+rclone_gdrive_email: ""
 rclone_bin: /usr/bin/rclone
 rclone_gdrive_remote: Google Drive
 # Mount points base, relative to $HOME: <base>/<email>/<mount_dir>.

@@ -133,6 +133,10 @@ brave-pwa-webapps: _ensure-collections
 brave-webapp-containers: _ensure-collections
     scripts/run-phase.sh user user.yml --tags brave-webapp-containers
 
+# Set git user.name/user.email from users/$USER.yml.
+git-identity: _ensure-collections
+    scripts/run-phase.sh user user.yml --tags git-identity
+
 # Make Brave Origin the default browser with omarchy-default-browser
 # (unless it already is). No root needed.
 default-browser: _ensure-collections

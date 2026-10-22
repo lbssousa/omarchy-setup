@@ -44,6 +44,14 @@
   tags: [rclone-gdrive]
 
   tasks:
+    - name: Expect a Google account (rclone_gdrive_email in users/<name>.yml)
+      ansible.builtin.assert:
+        that: rclone_gdrive_email | length > 0
+        fail_msg: >-
+          Set rclone_gdrive_email (the Google account to mount) in
+          users/{{ target_user }}.yml, then rerun.
+        quiet: true
+
     - name: Read the existing rclone.conf, if any (to keep its OAuth token)
       ansible.builtin.slurp:
         src: "{{ rclone_gdrive_config_file }}"

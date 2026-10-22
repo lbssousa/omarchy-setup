@@ -13,6 +13,11 @@
 - name: Preflight (as the user, inside the graphical session)
   ansible.builtin.import_playbook: playbooks/user/preflight.yml
 
+# user.name and user.email from users/<name>.yml.
+- name: git identity
+  ansible.builtin.import_playbook: playbooks/user/git-identity.yml
+  tags: [git-identity]
+
 - name: Brave Origin
   ansible.builtin.import_playbook: playbooks/user/brave.yml
   tags: [brave]

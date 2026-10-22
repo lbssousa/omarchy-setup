@@ -1,0 +1,23 @@
+---
+# git identity, per user: user.name and user.email from users/<name>.yml
+# (git_user_name, git_user_email). Omarchy sets them once, at provisioning,
+# from the owner's answers (install/user/git.sh); other users get theirs
+# here. Left alone when the variables aren't set.
+#
+# Usage: just git-identity
+- name: git identity
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [git-identity]
+
+  tasks:
+    - name: Set git user.name and user.email
+      community.general.git_config:
+        name: "user.{{ item.key }}"
+        value: "{{ item.value }}"
+        scope: global
+      loop: "{{ {'name': git_user_name | default(''), 'email': git_user_email | default('')} | dict2items }}"
+      loop_control:
+        label: "user.{{ item.key }}"
+      when: item.value | length > 0

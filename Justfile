@@ -92,6 +92,16 @@ _both-playbook NAME: _ensure-collections
         scripts/run-phase.sh user playbooks/user/{{NAME}}.yml
     fi
 
+# Build and install omarchy-multiuser from its signed release tag (the
+# multi-user greeter, per-user FIDO2/fingerprint, migrations for non-admins)
+# and switch SDDM to it, without autologin.
+omarchy-multiuser: _ensure-collections
+    scripts/run-phase.sh system system.yml --tags omarchy-multiuser
+
+# Only the SDDM part: multi-user greeter, autologin removed.
+sddm: _ensure-collections
+    scripts/run-phase.sh system system.yml --tags sddm
+
 # Raise polkitd's authentication cache window.
 polkit: _ensure-collections
     scripts/run-phase.sh system system.yml --tags polkit

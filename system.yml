@@ -15,6 +15,17 @@
   ansible.builtin.import_playbook: playbooks/system/users.yml
   tags: [users]
 
+# The forks of Omarchy's single-owner tools, from a signed release tag:
+# greeter, per-user FIDO2/fingerprint, migrations for non-admins, helpers.
+- name: omarchy-multiuser
+  ansible.builtin.import_playbook: playbooks/system/omarchy-multiuser.yml
+  tags: [omarchy-multiuser]
+
+# The login screen: the multi-user greeter and no autologin.
+- name: SDDM (multi-user greeter, no autologin)
+  ansible.builtin.import_playbook: playbooks/system/sddm.yml
+  tags: [sddm]
+
 - name: polkitd ExpirationSeconds
   ansible.builtin.import_playbook: playbooks/system/polkit.yml
   tags: [polkit]

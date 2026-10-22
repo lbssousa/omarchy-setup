@@ -1,0 +1,158 @@
+---
+# omarchy-multiuser (https://github.com/lbssousa/omarchy-multiuser): forks of
+# the Omarchy tools that assume one owner, under their own omarchy-mu-*
+# names — the SDDM greeter listing every user by full name with an optional
+# username field, no autologin, per-user FIDO2 keys and fingerprints with the
+# lock screen's fingerprint PAM kept while anyone has prints, migrations for
+# users outside wheel, account and LUKS keyslot helpers, and menu entries
+# pointing at all of that.
+#
+# Deployed like omapin (system/plugins.yml): a release tag whose GPG
+# signature must verify against omarchy_multiuser_signing_keys, built with
+# makepkg into an Arch package and installed with pacman. Then this play
+# turns on what the package leaves off:
+#
+#   - the path units that remove a recreated autologin.conf, copy Style >
+#     Unlock's colors to the greeter and recompute the lock screen's PAM;
+#   - omarchy-mu-migrate-record@<admin>.path for every administrator, which
+#     tells non-admins' migrations what an admin has already run;
+#   - omarchy-mu-login.service for every user (systemctl --global): the
+#     menu entries and the fingerprint invitation at each login;
+#
+# and runs each once. SDDM itself is handled by system/sddm.yml.
+#
+# Usage: just omarchy-multiuser
+- name: omarchy-multiuser (multi-user forks of Omarchy's tools)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omarchy-multiuser, sddm]
+
+  tasks:
+    - name: Install build dependencies
+      community.general.pacman:
+        name:
+          - base-devel
+          - git
+          - gnupg
+          - nodejs
+          - fakeroot
+        state: present
+      become: true
+
+    - name: Check that the release signing key is in the GPG keyring
+      ansible.builtin.command: "gpg --list-keys --with-colons {{ item }}"
+      loop: "{{ omarchy_multiuser_signing_keys }}"
+      register: omarchy_multiuser_key_check
+      changed_when: false
+      failed_when: false
+      when: omarchy_multiuser_verify_commit
+
+    - name: Fail early if the signing key is missing (run `just gpg-yubikey`)
+      ansible.builtin.fail:
+        msg: >-
+          omarchy-multiuser is deployed from a release tag whose GPG
+          signature is verified, and the signing key isn't in your keyring
+          yet ({{ omarchy_multiuser_signing_keys | join(', ') }}). Import it
+          with `just gpg-yubikey` (Yubikey plugged in). Set
+          omarchy_multiuser_verify_commit=false only for an unsigned fork.
+      when: >-
+        omarchy_multiuser_verify_commit
+        and (omarchy_multiuser_key_check.results | selectattr('rc', 'ne', 0) | list | length) > 0
+
+    - name: "Check out the omarchy-multiuser release ({{ omarchy_multiuser_ref }})"
+      block:
+        - name: "Check out the omarchy-multiuser release ({{ omarchy_multiuser_ref }}), verifying its signed tag"
+          ansible.builtin.git:
+            repo: "{{ omarchy_multiuser_repo }}"
+            dest: "{{ omarchy_multiuser_checkout_dir }}"
+            version: "{{ omarchy_multiuser_ref }}"
+            force: false
+            verify_commit: "{{ omarchy_multiuser_verify_commit }}"
+            gpg_allowlist: "{{ omarchy_multiuser_signing_keys if omarchy_multiuser_verify_commit else [] }}"
+          register: omarchy_multiuser_git_result
+      rescue:
+        - name: Explain a failed checkout or signature check
+          ansible.builtin.fail:
+            msg: >-
+              Couldn't check out {{ omarchy_multiuser_repo }}
+              ({{ omarchy_multiuser_ref }}) with a verified GPG signature:
+              {{ ansible_failed_result.msg | default('unknown error') }}.
+              omarchy_multiuser_ref must be a release tag signed with one of
+              omarchy_multiuser_signing_keys. Before the repository is
+              published, point omarchy_multiuser_repo at a local checkout
+              that has the tag (-e omarchy_multiuser_repo=/path/to/checkout).
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: "pacman -Q {{ omarchy_multiuser_package }}"
+      register: omarchy_multiuser_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Build and install the package
+      when: omarchy_multiuser_git_result.changed or omarchy_multiuser_installed.rc != 0
+      block:
+        - name: Build the package (makepkg, runs the tests in check())
+          ansible.builtin.command:
+            cmd: makepkg -f --cleanbuild --nodeps --noconfirm
+            chdir: "{{ omarchy_multiuser_checkout_dir }}/packaging"
+          changed_when: true
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ omarchy_multiuser_checkout_dir }}/packaging"
+          register: omarchy_multiuser_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ omarchy_multiuser_packagelist.stdout_lines | first }}"
+            state: present
+          become: true
+
+    - name: Enable the watchers (autologin guard, greeter colors, lock screen PAM)
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop: "{{ omarchy_multiuser_path_units }}"
+      become: true
+
+    - name: Record the migrations every administrator runs
+      ansible.builtin.systemd_service:
+        name: "omarchy-mu-migrate-record@{{ item.name }}.path"
+        enabled: true
+        state: started
+      loop: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      become: true
+
+    - name: Record what the administrators have already run
+      ansible.builtin.command: "omarchy-mu-migrate-record {{ item.name | quote }}"
+      loop: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      changed_when: false
+      become: true
+
+    - name: Check whether the per-login unit is enabled for every user
+      ansible.builtin.command: systemctl --global is-enabled omarchy-mu-login.service
+      register: omarchy_multiuser_login_unit
+      changed_when: false
+      failed_when: false
+
+    - name: Enable the per-login unit for every user (menu entries, fingerprint invitation)
+      ansible.builtin.command: systemctl --global enable omarchy-mu-login.service
+      when: omarchy_multiuser_login_unit.stdout | trim != 'enabled'
+      changed_when: true
+      become: true
+
+    - name: Bring the lock screen PAM and greeter colors in line now
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - omarchy-mu-apply-lock --quiet
+        - omarchy-mu-sddm-sync
+      changed_when: false
+      become: true

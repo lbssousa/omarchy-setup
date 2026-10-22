@@ -286,6 +286,26 @@ polkit_agent_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ polkit_a
 # play can assert both halves of it at the end of the run.
 polkit_agent_replaces_id: omarchy.polkit
 
+# omarchy-multiuser (playbooks/system/omarchy-multiuser.yml) — the forks of
+# Omarchy's single-owner tools: the multi-user SDDM greeter (full names +
+# optional username field), no autologin, per-user FIDO2 and fingerprints,
+# migrations for non-admins. Built as an Arch package from a signed release
+# tag of https://github.com/lbssousa/omarchy-multiuser; bump the ref to
+# deploy a new release. omarchy_multiuser_repo may also be a local checkout
+# (with the tag in it) before the repository is published.
+omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
+omarchy_multiuser_ref: v0.1.0
+omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
+omarchy_multiuser_verify_commit: true
+omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"
+omarchy_multiuser_package: omarchy-multiuser
+# System units the package ships but leaves for this play to enable.
+omarchy_multiuser_path_units:
+  - omarchy-mu-sddm-guard.path
+  - omarchy-mu-sddm-sync.path
+  - omarchy-mu-apply-lock.path
+omarchy_multiuser_theme: omarchy-multiuser
+
 # openssh with askpass touch notifications (playbooks/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
 openssh_askpass_packaging_repo: https://gitlab.archlinux.org/archlinux/packaging/packages/openssh.git

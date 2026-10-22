@@ -1,0 +1,43 @@
+---
+# The login screen for several users: omarchy-multiuser's greeter (every
+# account by full name, plus an optional field for any other username), and
+# no autologin. Omarchy logs its single owner in automatically — for good on
+# encrypted installs — through /etc/sddm.conf.d/autologin.conf, which
+# omarchy-provision-owner and omarchy-upgrade-to-quattro write. The package's
+# zz-omarchy-multiuser.conf is read last and empties [Autologin];
+# omarchy-mu-sddm-guard (run here, and by a path unit and a pacman hook
+# whenever Omarchy writes the file back) removes it, and checks that the
+# effective theme is the multi-user one and that nothing else still names
+# an autologin user.
+#
+# sddm is never restarted from here (it would end every open session): the
+# greeter takes over at the next login screen.
+#
+# Usage: just sddm (also part of `just omarchy-multiuser`)
+- name: SDDM — multi-user greeter, no autologin
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [sddm, omarchy-multiuser]
+
+  tasks:
+    - name: Expect the multi-user greeter theme (system/omarchy-multiuser.yml)
+      ansible.builtin.stat:
+        path: "/usr/share/sddm/themes/{{ omarchy_multiuser_theme }}/Main.qml"
+      register: sddm_theme
+      failed_when: not sddm_theme.stat.exists
+
+    - name: Remove autologin and check what SDDM will show
+      ansible.builtin.command: omarchy-mu-sddm-guard
+      register: sddm_guard
+      changed_when: "'Removed' in sddm_guard.stdout"
+      become: true
+
+    - name: Note when the greeter takes over
+      ansible.builtin.debug:
+        msg: >-
+          SDDM now shows the multi-user greeter with no autologin; it takes
+          over at the next login screen (log out or reboot). Users without a
+          full name appear by login name: set it in omarchy_users and run
+          `just users`.
+      when: sddm_guard.changed

@@ -94,7 +94,7 @@
 
     - name: Create the systemd user directory
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        path: "{{ target_home }}/.config/systemd/user"
         state: directory
         mode: "0755"
 
@@ -118,14 +118,14 @@
 
     - name: Create the Google Drive mount point folders under ~/Público
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/{{ rclone_gdrive_base_dir }}/{{ rclone_gdrive_email }}/{{ item.mount_dir }}"
+        path: "{{ target_home }}/{{ rclone_gdrive_base_dir }}/{{ rclone_gdrive_email }}/{{ item.mount_dir }}"
         state: directory
         mode: "0755"
       loop: "{{ rclone_gdrive_instances }}"
 
     - name: Write the per-mount env files
       ansible.builtin.copy:
-        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/rclone-google-drive@{{ item.name }}.env"
+        dest: "{{ target_home }}/.config/systemd/user/rclone-google-drive@{{ item.name }}.env"
         content: |
           MOUNT_DIR={{ item.mount_dir }}
           CACHE_SLUG={{ item.cache_slug }}
@@ -136,7 +136,7 @@
     - name: Install the rclone mount template unit
       ansible.builtin.template:
         src: rclone-google-drive@.service.j2
-        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/rclone-google-drive@.service"
+        dest: "{{ target_home }}/.config/systemd/user/rclone-google-drive@.service"
         mode: "0644"
 
     - name: Enable the mounts at login

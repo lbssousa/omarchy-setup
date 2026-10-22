@@ -8,7 +8,7 @@
 # `omarchy-install-dev-env rust`, which runs the official rustup script
 # non-interactively and puts cargo/rustc in ~/.cargo/bin. That directory
 # is prepended to PATH explicitly on every cargo task below, rather than
-# relying on ansible_facts.env.PATH (gathered at play start, so it won't
+# relying on the inherited PATH (fixed when the run starts, so it won't
 # reflect a rustup install that just happened earlier in this same run).
 #
 # Builds happen directly on the host with `cargo install --path ...
@@ -32,7 +32,7 @@
 
   vars:
     gregorio_lsp_cargo_env:
-      PATH: "{{ gregorio_lsp_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
+      PATH: "{{ gregorio_lsp_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
     - name: Check whether Rust (cargo) is already installed

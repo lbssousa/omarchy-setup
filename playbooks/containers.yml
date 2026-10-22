@@ -31,7 +31,7 @@
       become: true
 
     - name: Check for an existing subuid range
-      ansible.builtin.command: "grep -q ^{{ ansible_facts.env.USER }}: /etc/subuid"
+      ansible.builtin.command: "grep -q ^{{ target_user }}: /etc/subuid"
       register: podman_subuid_check
       changed_when: false
       failed_when: false
@@ -43,13 +43,13 @@
         - name: Add the subuid range
           ansible.builtin.lineinfile:
             path: /etc/subuid
-            line: "{{ ansible_facts.env.USER }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
+            line: "{{ target_user }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
             create: true
 
         - name: Add the subgid range
           ansible.builtin.lineinfile:
             path: /etc/subgid
-            line: "{{ ansible_facts.env.USER }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
+            line: "{{ target_user }}:{{ podman_subuid_start }}:{{ podman_subuid_count }}"
             create: true
 
     - name: Verify Podman runs rootless correctly

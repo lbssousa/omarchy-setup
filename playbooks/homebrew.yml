@@ -51,8 +51,8 @@
       ansible.builtin.file:
         path: "{{ homebrew_prefix }}"
         state: directory
-        owner: "{{ ansible_facts.user_id }}"
-        group: "{{ ansible_facts.user_id }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
         mode: "0755"
       become: true
       when: not homebrew_brew_check.stat.exists
@@ -101,12 +101,12 @@
 
     - name: Create ~/.config/environment.d
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+        path: "{{ target_home }}/.config/environment.d"
         state: directory
         mode: "0755"
 
     - name: Put Homebrew's bin/sbin on PATH for the session
       ansible.builtin.template:
         src: homebrew-env.conf.j2
-        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/{{ homebrew_env_file }}"
+        dest: "{{ target_home }}/.config/environment.d/{{ homebrew_env_file }}"
         mode: "0644"

@@ -35,14 +35,14 @@
       block:
         - name: Create ~/.config/environment.d
           ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+            path: "{{ target_home }}/.config/environment.d"
             state: directory
             mode: "0755"
 
         - name: Export SSH_AUTH_SOCK session-wide
           ansible.builtin.template:
             src: ssh-agent-env.conf.j2
-            dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-ssh-agent.conf"
+            dest: "{{ target_home }}/.config/environment.d/20-ssh-agent.conf"
             mode: "0644"
 
         - name: "Enable the OpenSSH agent ({{ ssh_agent_socket }})"
@@ -153,12 +153,12 @@
       # Superseded by keepassxc_autostart_wait (the drop-in below).
       - name: Remove the old exec'ing readiness wrapper
         ansible.builtin.file:
-          path: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart"
+          path: "{{ target_home }}/.local/bin/keepassxc-autostart"
           state: absent
 
       - name: Create the XDG autostart directory
         ansible.builtin.file:
-          path: "{{ ansible_facts.env.HOME }}/.config/autostart"
+          path: "{{ target_home }}/.config/autostart"
           state: directory
           mode: "0755"
 
@@ -218,12 +218,12 @@
           state: directory
           mode: "0700"
         loop:
-          - "{{ ansible_facts.env.HOME }}/.ssh"
+          - "{{ target_home }}/.ssh"
           - "{{ keepassxc_ssh_unlock_dropin | dirname }}"
 
       - name: Include ~/.ssh/config.d/*.conf at the top of ~/.ssh/config
         ansible.builtin.lineinfile:
-          path: "{{ ansible_facts.env.HOME }}/.ssh/config"
+          path: "{{ target_home }}/.ssh/config"
           line: Include config.d/*.conf
           insertbefore: BOF
           create: true
@@ -261,14 +261,14 @@
       block:
         - name: Create ~/.config/hypr
           ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+            path: "{{ target_home }}/.config/hypr"
             state: directory
             mode: "0755"
 
         - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
           ansible.builtin.copy:
             src: /usr/share/omarchy/default/hypr/bindings.lua
-            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            dest: "{{ target_home }}/.config/hypr/bindings.lua"
             remote_src: true
             force: false
             mode: "0644"
@@ -278,7 +278,7 @@
         # (StartupWMClass, under XWayland).
         - name: "Rebind {{ keepassxc_hypr_keybind }} from 1Password to KeePassXC"
           ansible.builtin.blockinfile:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+            path: "{{ target_home }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/keepassxc.yml — KeePassXC keybinding)"
             block: |
               hl.unbind("{{ keepassxc_hypr_keybind }}")

@@ -10,13 +10,13 @@
 # than only right after discovery.
 - name: "[{{ webapp.name }}] Remove Brave's own auto-generated shortcut, if present"
   ansible.builtin.file:
-    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.desktop"
+    path: "{{ target_home }}/.local/share/applications/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.desktop"
     state: absent
   tags: [brave-pwa-webapps]
 
 - name: "[{{ webapp.name }}] Remove Brave's own auto-generated icon, if present"
   ansible.builtin.file:
-    path: "{{ ansible_facts.env.HOME }}/.local/share/icons/hicolor/256x256/apps/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.png"
+    path: "{{ target_home }}/.local/share/icons/hicolor/256x256/apps/brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}.png"
     state: absent
   tags: [brave-pwa-webapps]
 
@@ -39,7 +39,7 @@
 # Brave's own generated shortcut (the X11 WM_CLASS).
 - name: "[{{ webapp.name }}] Set StartupWMClass on the launcher"
   ansible.builtin.lineinfile:
-    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"
+    path: "{{ target_home }}/.local/share/applications/{{ webapp.name }}.desktop"
     regexp: "^StartupWMClass="
     line: "StartupWMClass=brave-{{ brave_webapp_app_id }}-{{ brave_profile_directory }}"
     insertafter: "^Icon="
@@ -47,7 +47,7 @@
 
 - name: Create ~/.config/hypr
   ansible.builtin.file:
-    path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+    path: "{{ target_home }}/.config/hypr"
     state: directory
     mode: "0755"
   tags: [brave-pwa-webapps]
@@ -55,7 +55,7 @@
 - name: Create ~/.config/hypr/bindings.lua from the Omarchy default, if missing
   ansible.builtin.copy:
     src: /usr/share/omarchy/default/hypr/bindings.lua
-    dest: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+    dest: "{{ target_home }}/.config/hypr/bindings.lua"
     remote_src: true
     force: false
     mode: "0644"
@@ -64,7 +64,7 @@
 - name: "[{{ webapp.name }}] Rebind {{ webapp.hypr_keybind | default('') }} to the {{ webapp.name }} Brave PWA"
   when: webapp.hypr_keybind is defined
   ansible.builtin.blockinfile:
-    path: "{{ ansible_facts.env.HOME }}/.config/hypr/bindings.lua"
+    path: "{{ target_home }}/.config/hypr/bindings.lua"
     marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/brave-pwa-webapps.yml — {{ webapp.hypr_description | default(webapp.name) }} keybinding)"
     block: |
       hl.unbind("{{ webapp.hypr_keybind }}")

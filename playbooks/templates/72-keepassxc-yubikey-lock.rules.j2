@@ -7,4 +7,4 @@
 #
 # Ported from lbssousa/nix-config's
 # modules/system/security/keepassxc-yubikey-lock.nix.
-ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{PRODUCT}=="{{ keepassxc_yubikey_usb_product_match }}", RUN+="/usr/bin/systemd-run --no-block --quiet --collect --service-type=oneshot {{ keepassxc_yubikey_lock_script }} {{ ansible_facts.env.USER }}"
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{PRODUCT}=="{{ keepassxc_yubikey_usb_product_match }}", RUN+="/usr/bin/systemd-run --no-block --quiet --collect --service-type=oneshot {{ keepassxc_yubikey_lock_script }} {{ target_user }}"

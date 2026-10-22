@@ -71,8 +71,8 @@
   gather_facts: true
 
   vars:
-    omaraptor_themes_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/themes"
-    omaraptor_hooks_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/hooks/theme-set.d"
+    omaraptor_themes_dir: "{{ target_home }}/.config/omarchy/themes"
+    omaraptor_hooks_dir: "{{ target_home }}/.config/omarchy/hooks/theme-set.d"
     omaraptor_icon_theme: Adwaita
     omaraptor_browser_light: "229,235,250"
     omaraptor_browser_dark: "29,31,35"

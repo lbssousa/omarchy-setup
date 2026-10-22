@@ -58,8 +58,8 @@
   gather_facts: true
 
   vars:
-    omadwaita_themes_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/themes"
-    omadwaita_hooks_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/hooks/theme-set.d"
+    omadwaita_themes_dir: "{{ target_home }}/.config/omarchy/themes"
+    omadwaita_hooks_dir: "{{ target_home }}/.config/omarchy/hooks/theme-set.d"
     omadwaita_logo: /usr/share/omarchy/logo.svg
     omadwaita_icon_theme: Adwaita
     # wallpaper: radial gradient from the center color to the edge color;

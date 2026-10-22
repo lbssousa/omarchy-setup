@@ -35,7 +35,7 @@
   pre_tasks:
     - name: Check whether Brave has been run at least once
       ansible.builtin.stat:
-        path: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
+        path: "{{ target_home }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
       register: brave_prefs_stat
       tags: [brave-pwa-webapps]
 
@@ -66,7 +66,7 @@
 
     - name: Read Brave's Preferences
       ansible.builtin.slurp:
-        src: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
+        src: "{{ target_home }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences"
       register: brave_prefs_raw
       tags: [brave-pwa-webapps]
 
@@ -117,7 +117,7 @@
 
     - name: Find leftover Firefox web app shortcuts
       ansible.builtin.find:
-        paths: "{{ ansible_facts.env.HOME }}/.local/share/applications"
+        paths: "{{ target_home }}/.local/share/applications"
         patterns: "firefox.webapp-*.desktop"
       register: firefox_webapp_shortcuts
       tags: [brave-pwa-webapps]
@@ -132,7 +132,7 @@
       tags: [brave-pwa-webapps]
 
     - name: Refresh the desktop database
-      ansible.builtin.command: update-desktop-database "{{ ansible_facts.env.HOME }}/.local/share/applications"
+      ansible.builtin.command: update-desktop-database "{{ target_home }}/.local/share/applications"
       changed_when: false
       failed_when: false
       tags: [brave-pwa-webapps]

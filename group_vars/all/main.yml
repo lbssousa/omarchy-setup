@@ -202,8 +202,8 @@ gregorio_ref: bdb4eedbc2eb0521c3e040811f7d70a99b6fa639
 # release is needed.
 gregorio_lsp_repo: https://github.com/aiscgre-br/gregorio-lsp.git
 gregorio_lsp_ref: v0.11.0
-gregorio_lsp_checkout_dir: "{{ ansible_facts.env.HOME }}/src/gregorio-lsp"
-gregorio_lsp_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
+gregorio_lsp_checkout_dir: "{{ target_home }}/src/gregorio-lsp"
+gregorio_lsp_cargo_bin_dir: "{{ target_home }}/.cargo/bin"
 gregorio_lsp_server_crate: crates/gregorio-server
 gregorio_lsp_cli_crate: crates/gregorio-cli
 gregorio_lsp_binaries:
@@ -222,7 +222,7 @@ omapin_repo: https://github.com/lbssousa/omapin.git
 # "Releases" section of the omapin README). Bump this to deploy
 # a new release.
 omapin_ref: v0.3.1
-omapin_checkout_dir: "{{ ansible_facts.env.HOME }}/src/omapin"
+omapin_checkout_dir: "{{ target_home }}/src/omapin"
 # Refuse to build unless the tag's GPG signature verifies (git verify-tag)
 # and was made by one of these keys (primary key fingerprints). Currently
 # only the Yubikey's OpenPGP key, the same one yubikey.yml imports and
@@ -231,39 +231,39 @@ omapin_verify_commit: true
 omapin_signing_keys:
   - BAC0B1B569777A733E37447FB10712C404063D38
 omapin_package: omapin
-omapin_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
+omapin_cargo_bin_dir: "{{ target_home }}/.cargo/bin"
 omapin_program: /usr/bin/omapin
 # Third-party shell plugin ids may not start with "omarchy." (reserved for
 # first-party plugins by the shell's PluginRegistry).
 omapin_plugin_id: lbssousa.omapin
 omapin_plugin_dir: /usr/share/omapin/plugin
-omapin_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ omapin_plugin_id }}"
-omapin_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
-omapin_gpg_agent_conf: "{{ ansible_facts.env.HOME }}/.gnupg/gpg-agent.conf"
+omapin_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omapin_plugin_id }}"
+omapin_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
+omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # What the pre-0.3.0 install left behind: the package (omapin conflicts
 # with it, so pacman -U won't swap it unattended), its shell plugin entry
 # in shell.json and the plugin link pointing into the removed package.
 omapin_legacy_package: pinentry-omarchy
 omapin_legacy_plugin_id: lbssousa.pinentry
-omapin_legacy_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ omapin_legacy_plugin_id }}"
+omapin_legacy_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omapin_legacy_plugin_id }}"
 
 # ssh-askpass-omarchy (playbooks/plugins.yml) — SSH prompts in the
 # polkit-style omarchy-shell dialog. Built locally via cargo from a signed
 # release tag of the repo; bump the ref to deploy a new release.
 ssh_askpass_repo: https://github.com/lbssousa/ssh-askpass-omarchy.git
 ssh_askpass_ref: v0.2.0
-ssh_askpass_checkout_dir: "{{ ansible_facts.env.HOME }}/src/ssh-askpass-omarchy"
+ssh_askpass_checkout_dir: "{{ target_home }}/src/ssh-askpass-omarchy"
 # Refuse to build unless the tag's GPG signature verifies and was made by
 # one of these keys (same as omapin's).
 ssh_askpass_verify_commit: true
 ssh_askpass_signing_keys: "{{ omapin_signing_keys }}"
-ssh_askpass_cargo_bin_dir: "{{ ansible_facts.env.HOME }}/.cargo/bin"
+ssh_askpass_cargo_bin_dir: "{{ target_home }}/.cargo/bin"
 ssh_askpass_program: /usr/bin/ssh-askpass-omarchy
 ssh_askpass_plugin_dir: /usr/share/ssh-askpass-omarchy/plugin
 ssh_askpass_plugin_id: lbssousa.ssh_askpass
-ssh_askpass_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ ssh_askpass_plugin_id }}"
-ssh_askpass_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
-ssh_askpass_environment_conf: "{{ ansible_facts.env.HOME }}/.config/environment.d/90-ssh-askpass.conf"
+ssh_askpass_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ ssh_askpass_plugin_id }}"
+ssh_askpass_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
+ssh_askpass_environment_conf: "{{ target_home }}/.config/environment.d/90-ssh-askpass.conf"
 
 # polkit-omarchy (playbooks/plugins.yml) — Omarchy's polkit agent
 # plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
@@ -272,14 +272,14 @@ ssh_askpass_environment_conf: "{{ ansible_facts.env.HOME }}/.config/environment.
 # release.
 polkit_agent_repo: https://github.com/lbssousa/polkit-omarchy.git
 polkit_agent_ref: v0.2.0
-polkit_agent_checkout_dir: "{{ ansible_facts.env.HOME }}/src/polkit-omarchy"
+polkit_agent_checkout_dir: "{{ target_home }}/src/polkit-omarchy"
 # Refuse to install unless the tag's GPG signature verifies and was made by
 # one of these keys (same as omapin's).
 polkit_agent_verify_commit: true
 polkit_agent_signing_keys: "{{ omapin_signing_keys }}"
 polkit_agent_plugin_dir: /usr/share/polkit-omarchy/plugin
 polkit_agent_plugin_id: lbssousa.polkit
-polkit_agent_plugin_link: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins/{{ polkit_agent_plugin_id }}"
+polkit_agent_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ polkit_agent_plugin_id }}"
 # The first-party plugin the clone's manifest declares as clonedFrom.
 # Enabling the clone makes the shell add this one to its disabled list
 # (PluginRegistry.setEnabled), which is the actual swap; kept here so the
@@ -289,7 +289,7 @@ polkit_agent_replaces_id: omarchy.polkit
 # openssh with askpass touch notifications (playbooks/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
 openssh_askpass_packaging_repo: https://gitlab.archlinux.org/archlinux/packaging/packages/openssh.git
-openssh_askpass_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/openssh"
+openssh_askpass_build_dir: "{{ target_home }}/.cache/omarchy-setup/openssh"
 openssh_askpass_pkgrel_suffix: ".1"
 openssh_askpass_makedepends:
   - base-devel
@@ -306,7 +306,7 @@ openssh_askpass_makedepends:
 # LazyVim (playbooks/lazyvim.yml) — Omarchy's default Neovim distro,
 # already installed at ~/.config/nvim; this only adds the LaTeX language
 # extra and a personal plugin on top of it.
-lazyvim_config_dir: "{{ ansible_facts.env.HOME }}/.config/nvim"
+lazyvim_config_dir: "{{ target_home }}/.config/nvim"
 lazyvim_json_path: "{{ lazyvim_config_dir }}/lazyvim.json"
 lazyvim_plugins_dir: "{{ lazyvim_config_dir }}/lua/plugins"
 # LazyVim's LaTeX extra module is named "lang.tex", not "lang.latex" —
@@ -335,13 +335,13 @@ pdf_viewer_zathura_native_packages:
   - zathura
   - zathura-pdf-mupdf
 pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
-pdf_viewer_mimeapps_path: "{{ ansible_facts.env.HOME }}/.config/mimeapps.list"
+pdf_viewer_mimeapps_path: "{{ target_home }}/.config/mimeapps.list"
 # Zathura's statusbar/inputbar/notification font (playbooks/pdf-viewer.yml).
 # Zathura has a single `font` option covering all three; there's no
 # statusbar-only setting. Reuses omarchy_system_ui_font_pt so it matches
 # the rest of the desktop instead of Zathura's own default ("monospace
 # normal 9").
-pdf_viewer_zathurarc_path: "{{ ansible_facts.env.HOME }}/.config/zathura/zathurarc"
+pdf_viewer_zathurarc_path: "{{ target_home }}/.config/zathura/zathurarc"
 pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
 
 # File chooser dialogs (playbooks/file-chooser.yml) — the per-desktop
@@ -351,7 +351,7 @@ pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
 file_chooser_qt_packages:
   - qt5ct
   - qt6ct
-file_chooser_portals_conf: "{{ ansible_facts.env.HOME }}/.config/xdg-desktop-portal/hyprland-portals.conf"
+file_chooser_portals_conf: "{{ target_home }}/.config/xdg-desktop-portal/hyprland-portals.conf"
 
 # pt-BR localization (playbooks/ptbr.yml)
 ptbr_locale: pt_BR.UTF-8
@@ -413,7 +413,7 @@ ptbr_ocr_langs: "por+eng"
 # the socket up from SSH_AUTH_SOCK. Override on the command line with
 # `-e keepassxc_ssh_agent_enabled=true` (or `just ssh-agent`).
 keepassxc_ssh_agent_enabled: false
-ssh_agent_socket: "/run/user/{{ ansible_facts.user_uid }}/ssh-agent.socket"
+ssh_agent_socket: "/run/user/{{ target_uid }}/ssh-agent.socket"
 ssh_agent_units:
   - ssh-agent.socket
   - ssh-agent.service
@@ -442,13 +442,13 @@ keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
 # XDG autostart entry when the settings dialog is saved, so the playbook
 # deploys the same file itself to make autostart deterministic on fresh
 # installs (see keepassxc.yml).
-keepassxc_autostart_desktop: "{{ ansible_facts.env.HOME }}/.config/autostart/{{ keepassxc_desktop_id }}"
+keepassxc_autostart_desktop: "{{ target_home }}/.config/autostart/{{ keepassxc_desktop_id }}"
 # systemd's XDG autostart fires desktop entries before the tray and theme
 # are up, so a drop-in on the generated autostart unit runs this readiness
 # script as ExecStartPre=: it waits for the shell's StatusNotifierHost and
 # for xdg-desktop-portal before KeePassXC starts (see keepassxc.yml).
-keepassxc_autostart_wait: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-autostart-wait"
-keepassxc_autostart_dropin: "{{ ansible_facts.env.HOME }}/.config/systemd/user/app-org.keepassxc.KeePassXC@autostart.service.d/50-wait-for-desktop.conf"
+keepassxc_autostart_wait: "{{ target_home }}/.local/bin/keepassxc-autostart-wait"
+keepassxc_autostart_dropin: "{{ target_home }}/.config/systemd/user/app-org.keepassxc.KeePassXC@autostart.service.d/50-wait-for-desktop.conf"
 
 # Raise KeePassXC's unlock prompt when ssh needs a key the agent doesn't
 # hold: a `Match exec` drop-in in ~/.ssh/config.d runs the script before
@@ -457,8 +457,8 @@ keepassxc_autostart_dropin: "{{ ansible_facts.env.HOME }}/.config/systemd/user/a
 # useful with KeePassXC's SSH agent integration on and "Remove keys from
 # agent when database is closed/locked" ticked.
 keepassxc_ssh_unlock_enabled: true
-keepassxc_ssh_unlock_script: "{{ ansible_facts.env.HOME }}/.local/bin/keepassxc-ssh-unlock"
-keepassxc_ssh_unlock_dropin: "{{ ansible_facts.env.HOME }}/.ssh/config.d/keepassxc-unlock.conf"
+keepassxc_ssh_unlock_script: "{{ target_home }}/.local/bin/keepassxc-ssh-unlock"
+keepassxc_ssh_unlock_dropin: "{{ target_home }}/.ssh/config.d/keepassxc-unlock.conf"
 keepassxc_ssh_unlock_timeout: 60
 
 # Auto-lock KeePassXC when the YubiKey is unplugged (udev rule, ported from
@@ -480,17 +480,17 @@ keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.ru
 keepassxc_proxy_path: /usr/bin/keepassxc-proxy
 keepassxc_browser_manifests:
   - name: Chromium
-    dest: "{{ ansible_facts.env.HOME }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+    dest: "{{ target_home }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
   # Brave Origin keeps its own profile directory (not the stable
   # Brave-Browser one), with its own NativeMessagingHosts folder.
   - name: Brave Origin
-    dest: "{{ ansible_facts.env.HOME }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+    dest: "{{ target_home }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
 
 # Homebrew for Linux (playbooks/homebrew.yml) — installed per upstream to
 # /home/linuxbrew/.linuxbrew and exposed via a launcher script in
 # /usr/local/bin so `brew` is on PATH without shell-profile edits.
 homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
-homebrew_install_script_path: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/homebrew-install.sh"
+homebrew_install_script_path: "{{ target_home }}/.cache/omarchy-setup/homebrew-install.sh"
 homebrew_prefix: /home/linuxbrew/.linuxbrew
 homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
 homebrew_symlink: /usr/local/bin/brew
@@ -535,7 +535,7 @@ proton_pass_cli_bin: "{{ homebrew_prefix }}/bin/pass-cli"
 # the header comment above the CLI play). Socket path here matches
 # pass-cli's own upstream default ($HOME/.ssh/proton-pass-agent.sock), so
 # ad-hoc CLI calls agree with the systemd-managed agent.
-proton_pass_ssh_agent_socket: "{{ ansible_facts.env.HOME }}/.ssh/proton-pass-agent.sock"
+proton_pass_ssh_agent_socket: "{{ target_home }}/.ssh/proton-pass-agent.sock"
 
 # pass-cli's local encryption key backend. Defaults to the Linux kernel
 # keyring, which is wiped on every reboot — so the session persisted at
@@ -572,7 +572,7 @@ libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.'
 libfprint_pkgrel: "3"
 # Above the omarchy repo's libfprint-git (epoch 1), so it never wins a -Syu.
 libfprint_epoch: "2"
-libfprint_build_dir: "{{ ansible_facts.env.HOME }}/src/libfprint-goodix538d-pkg"
+libfprint_build_dir: "{{ target_home }}/src/libfprint-goodix538d-pkg"
 
 # Build-time deps only; the runtime ones are the PKGBUILD's depends=(),
 # which pacman -U resolves from the repos.
@@ -606,7 +606,7 @@ bgrt_sysfs_image: "{{ bgrt_sysfs_dir }}/image"
 bgrt_sysfs_yoffset: "{{ bgrt_sysfs_dir }}/yoffset"
 bgrt_imagemagick_package: imagemagick
 bgrt_omarchy_theme_name: bgrt
-bgrt_omarchy_theme_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
+bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
 bgrt_plymouth_theme_name: omarchy-bgrt
 bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
 # The stock "omarchy" Plymouth theme template Omarchy itself ships —
@@ -710,7 +710,7 @@ nightlight_solar_oncalendar: "*-*-* 00:05:00"
 inkscape_package: inkscape
 inkscape_svg2tikz_aur_package: python-svg2tikz
 inkscape_svg2tikz_aur_git_url: "https://aur.archlinux.org/{{ inkscape_svg2tikz_aur_package }}.git"
-inkscape_svg2tikz_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ inkscape_svg2tikz_aur_package }}"
+inkscape_svg2tikz_aur_build_dir: "{{ target_home }}/.cache/omarchy-setup/aur/{{ inkscape_svg2tikz_aur_package }}"
 inkscape_svg2tikz_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ inkscape_svg2tikz_aur_package }}"
 inkscape_svg2tikz_aur_build_deps:
   - python-build
@@ -747,20 +747,20 @@ limine_silent_boot_timeout: "1"
 # emacs-editing-mode, vi-editing-mode); 0.4 loads cleanly.
 blesh_aur_package: blesh-git
 blesh_aur_git_url: "https://aur.archlinux.org/{{ blesh_aur_package }}.git"
-blesh_aur_build_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/aur/{{ blesh_aur_package }}"
+blesh_aur_build_dir: "{{ target_home }}/.cache/omarchy-setup/aur/{{ blesh_aur_package }}"
 blesh_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ blesh_aur_package }}"
 blesh_aur_build_deps:
   - git
   - make
   - gawk
 blesh_script: /usr/share/blesh/ble.sh
-blesh_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
-blesh_blerc: "{{ ansible_facts.env.HOME }}/.blerc"
+blesh_bashrc: "{{ target_home }}/.bashrc"
+blesh_blerc: "{{ target_home }}/.blerc"
 
 # Starship prompt inside distrobox (playbooks/containers.yml).
-starship_distrobox_config: "{{ ansible_facts.env.HOME }}/.config/starship.toml"
+starship_distrobox_config: "{{ target_home }}/.config/starship.toml"
 starship_distrobox_omarchy_default_config: /usr/share/omarchy/config/starship.toml
-starship_distrobox_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
+starship_distrobox_bashrc: "{{ target_home }}/.bashrc"
 # Look of the container-name segment in the prompt.
 starship_distrobox_symbol: "⬢"
 starship_distrobox_style: bold yellow
@@ -789,7 +789,7 @@ nix_conf_settings:
 # The per-user profile `nix profile install` writes to (the legacy
 # location, which is still the default unless use-xdg-base-directories
 # is set) and the system-wide default profile.
-nix_user_profile: "{{ ansible_facts.env.HOME }}/.nix-profile"
+nix_user_profile: "{{ target_home }}/.nix-profile"
 nix_default_profile: /nix/var/nix/profiles/default
 # Deployed to ~/.config/environment.d: the package's
 # /etc/profile.d/nix-daemon.sh only reaches login shells (and fish reads
@@ -800,10 +800,10 @@ nix_env_file: 43-nix.conf
 # direnv (playbooks/nix.yml, tag direnv) — loads/unloads a directory's
 # .envrc (e.g. `use flake`) on cd, hooked into bash and fish.
 direnv_package: direnv
-direnv_bashrc: "{{ ansible_facts.env.HOME }}/.bashrc"
+direnv_bashrc: "{{ target_home }}/.bashrc"
 # fish's per-user vendor conf dir, same place playbooks/fish.yml puts
 # Omarchy's ported setup — ~/.config/fish stays the user's own.
-direnv_fish_conf: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.env.HOME ~ '/.local/share', true) }}/fish/vendor_conf.d/direnv.fish"
+direnv_fish_conf: "{{ target_xdg_data_home }}/fish/vendor_conf.d/direnv.fish"
 
 # nix-direnv (playbooks/nix.yml, tag nix-direnv) — a faster, caching
 # `use flake`/`use nix` for direnv. Neither Arch nor the AUR packages
@@ -812,7 +812,7 @@ direnv_fish_conf: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.en
 nix_direnv_installable: nixpkgs#nix-direnv
 nix_direnv_profile_name: nix-direnv
 nix_direnv_rc: "{{ nix_user_profile }}/share/nix-direnv/direnvrc"
-direnv_rc: "{{ ansible_facts.env.XDG_CONFIG_HOME | default(ansible_facts.env.HOME ~ '/.config', true) }}/direnv/direnvrc"
+direnv_rc: "{{ target_xdg_config_home }}/direnv/direnvrc"
 
 # Omarchy shell plugins (playbooks/plugins.yml) — this desktop's list of
 # third-party plugins, applied by `just plugins`. Append one entry per plugin;
@@ -855,8 +855,8 @@ omarchy_plugins:
       - mpv-mpris
       - python
       - socat
-omarchy_plugins_dir: "{{ ansible_facts.env.HOME }}/.config/omarchy/plugins"
-omarchy_plugins_shell_json: "{{ ansible_facts.env.HOME }}/.config/omarchy/shell.json"
+omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
+omarchy_plugins_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 
 # Google Drive mounted through rclone (playbooks/rclone-gdrive.yml). Mirrors
 # nix-config's home/users/abutre/rclone.nix. The e-mail isn't a secret.
@@ -865,7 +865,7 @@ rclone_bin: /usr/bin/rclone
 rclone_gdrive_remote: Google Drive
 # Mount points base, relative to $HOME: <base>/<email>/<mount_dir>.
 rclone_gdrive_base_dir: Público/Google Drive
-rclone_gdrive_config_file: "{{ ansible_facts.env.HOME }}/.config/rclone/rclone.conf"
+rclone_gdrive_config_file: "{{ target_home }}/.config/rclone/rclone.conf"
 # Google API OAuth credentials: read from the environment on each run (or
 # -e); empty = reuse the ones in the existing rclone.conf.
 rclone_gdrive_client_id: "{{ lookup('ansible.builtin.env', 'RCLONE_GDRIVE_CLIENT_ID') }}"

@@ -54,12 +54,12 @@
   tags: [fish]
 
   vars:
-    fish_starship_config: "{{ ansible_facts.env.HOME }}/.config/starship.toml"
+    fish_starship_config: "{{ target_home }}/.config/starship.toml"
     fish_starship_seed: /usr/share/omarchy/config/starship.toml
-    fish_vendor_dir: "{{ ansible_facts.env.XDG_DATA_HOME | default(ansible_facts.env.HOME ~ '/.local/share', true) }}/fish"
+    fish_vendor_dir: "{{ target_xdg_data_home }}/fish"
     fzf_fish_repo: https://github.com/PatrickF1/fzf.fish
     fzf_fish_version: v11.0
-    fzf_fish_checkout_dir: "{{ ansible_facts.env.HOME }}/.cache/omarchy-setup/fzf.fish"
+    fzf_fish_checkout_dir: "{{ target_home }}/.cache/omarchy-setup/fzf.fish"
 
   tasks:
     - name: Install fish (and starship, in case it is missing)
@@ -222,7 +222,7 @@
 
     - name: Set fish as the default login shell
       ansible.builtin.user:
-        name: "{{ ansible_facts.env.USER }}"
+        name: "{{ target_user }}"
         shell: /usr/bin/fish
       become: true
 

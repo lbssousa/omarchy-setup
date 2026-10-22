@@ -56,7 +56,7 @@
     # that enrolled by hand or lost the file to an Omarchy upgrade shows a
     # password-only lock screen. Same content as omarchy-apply-lock.
     - name: List the enrolled fingerprints
-      ansible.builtin.command: fprintd-list {{ lookup('ansible.builtin.env', 'USER') }}
+      ansible.builtin.command: fprintd-list {{ target_user }}
       register: pam_auth_order_prints
       changed_when: false
       failed_when: false

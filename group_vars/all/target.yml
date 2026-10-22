@@ -1,0 +1,14 @@
+---
+# The account a run configures: whoever runs ansible-playbook. The system
+# phase runs under run-empowered.sh (run0 --empower keeps the caller's uid and
+# environment), the user phase as the user, so in both these name the person
+# at the keyboard, not root.
+#
+# Lookups rather than ansible_facts.env.*: they work in plays that skip fact
+# gathering, and they are read when used, not frozen at play start.
+target_user: "{{ lookup('ansible.builtin.env', 'USER') }}"
+target_home: "{{ lookup('ansible.builtin.env', 'HOME') }}"
+target_uid: "{{ lookup('ansible.builtin.pipe', 'id -u') }}"
+target_path: "{{ lookup('ansible.builtin.env', 'PATH') }}"
+target_xdg_config_home: "{{ lookup('ansible.builtin.env', 'XDG_CONFIG_HOME') | default(target_home ~ '/.config', true) }}"
+target_xdg_data_home: "{{ lookup('ansible.builtin.env', 'XDG_DATA_HOME') | default(target_home ~ '/.local/share', true) }}"

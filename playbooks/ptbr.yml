@@ -91,7 +91,7 @@
             # normalize before comparing, or this tries to move $HOME
             # into itself.
             current_path: "{{ result.stdout | regex_replace('/+$', '') }}"
-            desired_path: "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
+            desired_path: "{{ target_home }}/{{ result.item.translated }}"
           ansible.builtin.shell: >-
             mv "{{ current_path }}" "{{ desired_path }}" &&
             xdg-user-dirs-update --set {{ result.item.name }} "{{ desired_path }}"
@@ -100,7 +100,7 @@
             loop_var: result
             label: "{{ result.item.name }}"
           when:
-            - current_path != (ansible_facts.env.HOME | regex_replace('/+$', ''))
+            - current_path != (target_home | regex_replace('/+$', ''))
             - current_path != desired_path
           changed_when: true
 
@@ -117,7 +117,7 @@
           # are left alone, and so is a folder the user re-disables
           # later by hand.
           vars:
-            desired_path: "{{ ansible_facts.env.HOME }}/{{ result.item.translated }}"
+            desired_path: "{{ target_home }}/{{ result.item.translated }}"
           ansible.builtin.shell: >-
             if [ ! -d "{{ desired_path }}" ]; then mkdir -p "{{ desired_path }}" &&
             xdg-user-dirs-update --set {{ result.item.name }} "{{ desired_path }}" &&
@@ -132,8 +132,8 @@
         - name: Locate GTK bookmarks files (file-manager sidebar)
           ansible.builtin.find:
             paths:
-              - "{{ ansible_facts.env.HOME }}/.config/gtk-3.0"
-              - "{{ ansible_facts.env.HOME }}/.config/gtk-4.0"
+              - "{{ target_home }}/.config/gtk-3.0"
+              - "{{ target_home }}/.config/gtk-4.0"
             patterns: bookmarks
             file_type: file
           register: gtk_bookmarks_files
@@ -148,8 +148,8 @@
           # whether the rename happened in this same play or a previous
           # one.
           vars:
-            old_default_path: "{{ ansible_facts.env.HOME }}/{{ item.1.item.default }}"
-            new_path: "{{ ansible_facts.env.HOME }}/{{ item.1.item.translated }}"
+            old_default_path: "{{ target_home }}/{{ item.1.item.default }}"
+            new_path: "{{ target_home }}/{{ item.1.item.translated }}"
           ansible.builtin.replace:
             path: "{{ item.0 }}"
             regexp: "(?m)^file://{{ old_default_path | regex_escape }}(\\s.*)?$"
@@ -191,7 +191,7 @@
 
         - name: Create ~/.config/environment.d
           ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+            path: "{{ target_home }}/.config/environment.d"
             state: directory
             mode: "0755"
           when: tesseract_check.rc == 0
@@ -199,7 +199,7 @@
         - name: "Set OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }} for omarchy-capture-text"
           ansible.builtin.copy:
             content: "OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}\n"
-            dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/20-omarchy-ocr-langs.conf"
+            dest: "{{ target_home }}/.config/environment.d/20-omarchy-ocr-langs.conf"
             mode: "0644"
           when: tesseract_check.rc == 0
 

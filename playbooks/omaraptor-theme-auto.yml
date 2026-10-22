@@ -21,32 +21,32 @@
   tasks:
     - name: Create ~/.local/bin
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        path: "{{ target_home }}/.local/bin"
         state: directory
         mode: "0755"
 
     - name: Create ~/.config/systemd/user
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        path: "{{ target_home }}/.config/systemd/user"
         state: directory
         mode: "0755"
 
     - name: Install the switch script (omaraptor-theme-auto)
       ansible.builtin.template:
         src: omaraptor-theme-auto.sh.j2
-        dest: "{{ ansible_facts.env.HOME }}/.local/bin/omaraptor-theme-auto"
+        dest: "{{ target_home }}/.local/bin/omaraptor-theme-auto"
         mode: "0755"
 
     - name: Install the systemd --user unit (service)
       ansible.builtin.copy:
         src: omaraptor-theme-auto.service
-        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/omaraptor-theme-auto.service"
+        dest: "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.service"
         mode: "0644"
 
     - name: Install the systemd --user unit (timer)
       ansible.builtin.template:
         src: omaraptor-theme-auto.timer.j2
-        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/omaraptor-theme-auto.timer"
+        dest: "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.timer"
         mode: "0644"
 
     - name: Enable and start the omaraptor-theme-auto timer

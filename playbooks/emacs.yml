@@ -24,7 +24,7 @@
   gather_facts: true
 
   vars:
-    emacs_config_dir: "{{ ansible_facts.env.HOME }}/.config/emacs"
+    emacs_config_dir: "{{ target_home }}/.config/emacs"
 
   tasks:
     - name: Check whether omarchy-emacs is already installed

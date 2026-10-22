@@ -10,7 +10,7 @@
   ansible.builtin.fail:
     msg: >-
       No Brave container named "{{ webapp.container_name | default('') }}" found in
-      {{ ansible_facts.env.HOME }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences.
+      {{ target_home }}/.config/BraveSoftware/{{ brave_profile_dir }}/{{ brave_profile_directory }}/Preferences.
       Create it first (Brave → hamburger menu → Containers → New — there's
       no CLI to create one), then rerun.
   when:
@@ -25,13 +25,13 @@
 
 - name: "[{{ webapp.name }}] Check for an already-configured launcher"
   ansible.builtin.stat:
-    path: "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"
+    path: "{{ target_home }}/.local/share/applications/{{ webapp.name }}.desktop"
   register: brave_webapp_existing_launcher
   tags: [brave-pwa-webapps]
 
 - name: "[{{ webapp.name }}] Read its Exec line, if present"
   ansible.builtin.command:
-    argv: [grep, -m1, "^Exec=", "{{ ansible_facts.env.HOME }}/.local/share/applications/{{ webapp.name }}.desktop"]
+    argv: [grep, -m1, "^Exec=", "{{ target_home }}/.local/share/applications/{{ webapp.name }}.desktop"]
   register: brave_webapp_existing_exec
   changed_when: false
   failed_when: false
@@ -63,7 +63,7 @@
     - name: "[{{ webapp.name }}] Wait for Brave to force-install {{ webapp.url }} and create its own shortcut"
       ansible.builtin.shell: |
         set -o pipefail
-        grep -il "^Name=\\({{ webapp.manifest_hint | default(webapp.name) }}\\|{{ webapp.url }}\\)$" "{{ ansible_facts.env.HOME }}"/.local/share/applications/brave-*-{{ brave_profile_directory }}.desktop 2>/dev/null | head -1
+        grep -il "^Name=\\({{ webapp.manifest_hint | default(webapp.name) }}\\|{{ webapp.url }}\\)$" "{{ target_home }}"/.local/share/applications/brave-*-{{ brave_profile_directory }}.desktop 2>/dev/null | head -1
       args:
         executable: /bin/bash
       register: brave_webapp_discovered_file

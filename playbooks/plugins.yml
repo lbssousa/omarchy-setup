@@ -341,7 +341,7 @@
 
   vars:
     omapin_cargo_env:
-      PATH: "{{ omapin_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
+      PATH: "{{ omapin_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
     - name: Install build/runtime dependencies (gnupg, stock pinentry for the fallback)
@@ -555,7 +555,7 @@
 
   vars:
     ssh_askpass_cargo_env:
-      PATH: "{{ ssh_askpass_cargo_bin_dir }}:{{ ansible_facts.env.PATH }}"
+      PATH: "{{ ssh_askpass_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
     - name: Install git and gnupg (the signature check needs both)

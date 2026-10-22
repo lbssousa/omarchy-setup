@@ -92,7 +92,7 @@
 
     - name: "Set the Qt UI font ({{ file_chooser_qt_ui_family }} {{ omarchy_system_ui_font_pt }}) and portal dialogs in qt5ct/qt6ct"
       community.general.ini_file:
-        path: "{{ ansible_facts.env.HOME }}/.config/qt{{ item.0.version }}ct/qt{{ item.0.version }}ct.conf"
+        path: "{{ target_home }}/.config/qt{{ item.0.version }}ct/qt{{ item.0.version }}ct.conf"
         section: "{{ item.1.section }}"
         option: "{{ item.1.option }}"
         value: "{{ item.1.value }}"
@@ -120,14 +120,14 @@
     - name: Create ~/.config/hypr/hyprland.lua from the Omarchy default, if missing
       ansible.builtin.copy:
         src: /usr/share/omarchy/config/hypr/hyprland.lua
-        dest: "{{ ansible_facts.env.HOME }}/.config/hypr/hyprland.lua"
+        dest: "{{ target_home }}/.config/hypr/hyprland.lua"
         remote_src: true
         force: false
         mode: "0644"
 
     - name: "Make GTK, Qt and Firefox apps ask the portal for file dialogs"
       ansible.builtin.blockinfile:
-        path: "{{ ansible_facts.env.HOME }}/.config/hypr/hyprland.lua"
+        path: "{{ target_home }}/.config/hypr/hyprland.lua"
         marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/file-chooser.yml — GTK4 file chooser)"
         block: |
           -- Ask xdg-desktop-portal (routed to Flea's picker by

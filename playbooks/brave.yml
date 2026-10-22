@@ -51,7 +51,7 @@
   tasks:
     - name: Create ~/.local/bin
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.local/bin"
+        path: "{{ target_home }}/.local/bin"
         state: directory
         mode: "0755"
       tags: [brave, brave-webapp-containers]
@@ -59,13 +59,13 @@
     - name: Deploy fix-brave-omarchy-webapp-containers
       ansible.builtin.template:
         src: fix-brave-omarchy-webapp-containers.sh.j2
-        dest: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-omarchy-webapp-containers"
+        dest: "{{ target_home }}/.local/bin/fix-brave-omarchy-webapp-containers"
         mode: "0755"
       tags: [brave, brave-webapp-containers]
 
     - name: Create ~/.config/systemd/user
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/systemd/user"
+        path: "{{ target_home }}/.config/systemd/user"
         state: directory
         mode: "0755"
       tags: [brave, brave-webapp-containers]
@@ -73,7 +73,7 @@
     - name: Install the fix-brave-omarchy-webapp-containers systemd --user units
       ansible.builtin.copy:
         src: "{{ item }}"
-        dest: "{{ ansible_facts.env.HOME }}/.config/systemd/user/{{ item }}"
+        dest: "{{ target_home }}/.config/systemd/user/{{ item }}"
         mode: "0644"
       loop:
         - fix-brave-omarchy-webapp-containers.service
@@ -91,7 +91,7 @@
       tags: [brave, brave-webapp-containers]
 
     - name: Run fix-brave-omarchy-webapp-containers now
-      ansible.builtin.command: "{{ ansible_facts.env.HOME }}/.local/bin/fix-brave-omarchy-webapp-containers"
+      ansible.builtin.command: "{{ target_home }}/.local/bin/fix-brave-omarchy-webapp-containers"
       register: fix_brave_omarchy_webapp_containers_result
       changed_when: "fix_brave_omarchy_webapp_containers_result.stdout is search('Result: [1-9]')"
       tags: [brave, brave-webapp-containers]

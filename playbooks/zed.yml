@@ -31,13 +31,13 @@
   gather_facts: true
 
   vars:
-    zed_config_dir: "{{ ansible_facts.env.HOME }}/.config/zed"
+    zed_config_dir: "{{ target_home }}/.config/zed"
     zed_settings_path: "{{ zed_config_dir }}/settings.json"
     # Only the v4 hook path is checked here (this repo already assumes a
     # current Omarchy install, like every other playbook). Re-running
     # `omazed setup` is harmless either way — this only affects whether
     # the step is reported as changed.
-    zed_omazed_hook_path: "{{ ansible_facts.env.HOME }}/.config/omarchy/hooks/theme-set.d/omazed"
+    zed_omazed_hook_path: "{{ target_home }}/.config/omarchy/hooks/theme-set.d/omazed"
 
   tasks:
     - name: Install Zed and omazed

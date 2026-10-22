@@ -201,14 +201,14 @@
 
     - name: Create ~/.config/environment.d
       ansible.builtin.file:
-        path: "{{ ansible_facts.env.HOME }}/.config/environment.d"
+        path: "{{ target_home }}/.config/environment.d"
         state: directory
         mode: "0755"
 
     - name: Put Nix's profiles on PATH/XDG_DATA_DIRS for the session
       ansible.builtin.template:
         src: nix-env.conf.j2
-        dest: "{{ ansible_facts.env.HOME }}/.config/environment.d/{{ nix_env_file }}"
+        dest: "{{ target_home }}/.config/environment.d/{{ nix_env_file }}"
         mode: "0644"
 
     - name: Flush handlers (restart the daemon before talking to it)

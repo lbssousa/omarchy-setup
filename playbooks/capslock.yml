@@ -29,7 +29,7 @@
       block:
         - name: Create ~/.config/hypr
           ansible.builtin.file:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr"
+            path: "{{ target_home }}/.config/hypr"
             state: directory
             mode: "0755"
 
@@ -39,14 +39,14 @@
           # internal file with the same basename).
           ansible.builtin.copy:
             src: /etc/skel/.config/hypr/input.lua
-            dest: "{{ ansible_facts.env.HOME }}/.config/hypr/input.lua"
+            dest: "{{ target_home }}/.config/hypr/input.lua"
             remote_src: true
             force: false
             mode: "0644"
 
         - name: "Set kb_options = compose:{{ capslock_compose_key }}"
           ansible.builtin.blockinfile:
-            path: "{{ ansible_facts.env.HOME }}/.config/hypr/input.lua"
+            path: "{{ target_home }}/.config/hypr/input.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/capslock.yml — Compose on {{ capslock_compose_key }})"
             block: |
               hl.config({

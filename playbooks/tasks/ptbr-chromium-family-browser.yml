@@ -15,7 +15,7 @@
 # any warning.
 - name: "[{{ browser_config_dir }}] Resolve the profile directory"
   ansible.builtin.set_fact:
-    browser_profile_base: "{{ ansible_facts.env.HOME }}/{{ browser_config_dir }}"
+    browser_profile_base: "{{ target_home }}/{{ browser_config_dir }}"
   tags: [ptbr-chromium]
 
 - name: "[{{ browser_config_dir }}] Locate the Default profile's Preferences"

@@ -101,9 +101,10 @@ If the machine doesn't boot with Secure Boot on, see
 - **LUKS with TPM2 auto-unlock**: enabling Secure Boot for the first
   time changes PCR7 and breaks auto-unlock until you re-enroll:
   ```bash
-  run0 systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 /dev/<luks-partition>
+  just tpm2-wipe
+  # or: run0 systemd-cryptenroll --wipe-slot=tpm2 /dev/<luks-partition> && run0 systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 /dev/<luks-partition>
   ```
-  The password keeps working as a fallback in the meantime.
+  The password keeps working as a fallback in the meantime. See [`docs/tpm2.md`](tpm2.md).
 - **`hash_mismatch_panic: yes`** (enabled by this playbook) halts boot
   on a kernel/initrd checksum mismatch. Real integrity protection, but
   it means editing boot files by hand without going through

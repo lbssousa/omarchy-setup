@@ -373,6 +373,21 @@ bgrt-theme: _ensure-collections
 secureboot: _ensure-collections
     scripts/run-phase.sh system playbooks/system/secureboot.yml
 
+# Automatic LUKS unlock via TPM2 (systemd-cryptenroll). Not part of `setup` —
+# run explicitly. Configures initramfs (sd-encrypt), crypttab and enrolls the
+# TPM2 chip (PCRs 0+2+7) to automatically unlock the encrypted disk at boot.
+tpm2: _ensure-collections
+    scripts/run-phase.sh system playbooks/system/tpm2.yml
+
+# Re-enroll TPM2: wipes existing TPM2 keyslot before enrolling (use after
+# UEFI/BIOS firmware updates or Secure Boot key changes).
+tpm2-wipe: _ensure-collections
+    scripts/run-phase.sh system playbooks/system/tpm2.yml -e tpm2_wipe=true
+
+# Interactive CLI TPM2 enrollment script (standalone, prompts directly in terminal).
+tpm2-enroll:
+    ./scripts/enroll-tpm2.sh
+
 # Import the Yubikey's public GPG key. Needs the Yubikey plugged in.
 gpg-yubikey: _ensure-collections
     @just _both-playbook yubikey

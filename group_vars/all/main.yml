@@ -561,6 +561,22 @@ secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 
+# LUKS TPM2 auto-unlock (playbooks/system/tpm2.yml — not part of
+# `just setup`, run explicitly).
+# Enrolls the TPM2 chip as an authentication factor for the LUKS volume via
+# systemd-cryptenroll, so the system unlocks automatically at early boot as
+# long as integrity measurements match.
+# PCRs to seal against (0=firmware, 2=option ROMs, 7=Secure Boot state).
+tpm2_pcrs: "0+2+7"
+# LUKS device path (leave empty for automatic detection of the root LUKS partition).
+tpm2_luks_device: ""
+# Whether to wipe any existing TPM2 slot before enrolling (useful after firmware/Secure Boot changes).
+tpm2_wipe: false
+# mkinitcpio drop-in path for TPM2 driver modules and sd-encrypt hook configuration.
+tpm2_mkinitcpio_conf: /etc/mkinitcpio.conf.d/zz-tpm2.conf
+# crypttab path for initramfs unlock configuration.
+tpm2_crypttab_path: /etc/crypttab
+
 # BGRT-derived boot theme (playbooks/{system,user}/bgrt-theme.yml — not part of
 # `just setup`, run explicitly). Builds an Omarchy desktop theme and a
 # standalone Plymouth theme, both derived from this machine's own UEFI

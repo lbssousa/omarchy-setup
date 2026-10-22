@@ -26,10 +26,10 @@ own tag, the same in both phases: run one with `just <tag>` or `--tags
 a dependency also runs the play it depends on first (e.g. `--tags
 distrobox` sets Podman up first), and files with several plays have an
 umbrella tag for the whole file (`containers`, `desktop`, `nix`,
-`yubikey`). Exceptions: `secureboot`, `bgrt-theme`, `proton-pass`,
+`yubikey`). Exceptions: `secureboot`, `tpm2`, `bgrt-theme`, `proton-pass`,
 `homebrew`, `yubikey` and `brave-pwa-webapps` are **not** in
-`system.yml`/`user.yml` — Secure Boot and the BGRT boot theme touch
-firmware/boot, Proton Pass is an alternative to KeePassXC, the default
+`system.yml`/`user.yml` — Secure Boot, TPM2 auto-unlock and the BGRT boot theme touch
+firmware/boot/crypto, Proton Pass is an alternative to KeePassXC, the default
 password manager (it takes over the `SUPER+SHIFT+SLASH` keybind when run),
 Homebrew is only needed by the tools that install formulae from it, the
 Yubikey helpers need the physical token plugged in, and the PWAs reflect a
@@ -89,6 +89,7 @@ an Ansible playbook (see below).
 | TeX Live + LilyPond + Gregorio | — | Not an Ansible playbook: `local-typesetting/install-typesetting.sh` (`just typesetting`) installs TeX Live and LilyPond under `/opt`, builds Gregorio from source, and registers TeX Live's fonts with fontconfig, directly on the host with `sudo` — no containers. Not part of `just setup` — a long network install, run explicitly. See [`local-typesetting/README.md`](local-typesetting/README.md). |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
+| TPM2 LUKS auto-unlock | `tpm2` | Automatic LUKS unlock via TPM2 chip (systemd-cryptenroll, PCRs 0+2+7). Not part of `just setup` — see [`docs/tpm2.md`](docs/tpm2.md). |
 | Yubikey GPG key | `gpg-yubikey` | Imports the public key, trusts it, configures git signing. Not part of `just setup`. **A dependency of `pinentry`, `ssh-askpass` and `polkit-agent`**: they deploy signed release tags and stop at the start if this key isn't in the keyring, so run it first. Lives in `playbooks/{system,user}/yubikey.yml` (umbrella tag `yubikey`). |
 | Yubikey SSH keys | `ssh-yubikey` | Not Ansible — `scripts/ssh-yubikey.sh` (the FIDO2 PIN prompt needs a real terminal). Downloads the resident FIDO2 keys with `ssh-keygen -K` into `~/.ssh` (never overwriting) and writes one self-contained drop-in per key, `~/.ssh/config.d/<host>_<user>.conf` (here `github_com_lbssousa.conf`): `github.com` authenticates with `id_ed25519_sk_rk_github.com_lbssousa` (override with `GITHUB_KEY=`) with `IdentityAgent none`, plus `ControlMaster auto` + `ControlPersist 10m`, so the PIN/touch is asked once per 10 minutes. Adds one `Include config.d/*.conf` line to `~/.ssh/config`. **To migrate to an ssh-agent: `just ssh-yubikey-disable`** (renames the drop-in to `*.conf.disabled`, which the `Include` glob ignores). Also `scripts/ssh-yubikey.sh status`/`enable`. Not part of `just setup`. |
 
@@ -197,6 +198,8 @@ just homebrew      # Linuxbrew; needed by the Proton Pass CLI and `brew install`
 just typesetting   # TeX Live + LilyPond + Gregorio, no containers (long network install)
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
 just secureboot    # see docs/secureboot.md for the full walkthrough
+just tpm2          # see docs/tpm2.md: automatic LUKS unlock via TPM2 chip
+just tpm2-wipe     # re-enroll TPM2 after firmware/Secure Boot changes
 just gpg-yubikey   # needs the Yubikey plugged in
 just ssh-yubikey   # needs the Yubikey plugged in; script, prompts for the FIDO2 PIN
 just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh-agent)
@@ -256,6 +259,9 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 | `playbooks/{system,user}/bgrt-theme.yml` | BGRT-derived boot theme — outside `site.yml` (tag `bgrt-theme`) |
 | `playbooks/system/secureboot.yml` | Secure Boot — outside `site.yml` (tag `secureboot`) |
 | `docs/secureboot.md` | `just secureboot` walkthrough |
+| `playbooks/system/tpm2.yml` | Automatic LUKS unlock via TPM2 (systemd-cryptenroll) — outside `site.yml` (recipe `tpm2`) |
+| `docs/tpm2.md` | `just tpm2` walkthrough and PCR integrity reference |
+| `scripts/enroll-tpm2.sh` | Standalone interactive TPM2 enrollment script (`just tpm2-enroll`) |
 | `docs/omarchy-4.5-migration.md` | What the next Omarchy release (Quattro RS 4.5) changes for these automations, gathered ahead of time from the upstream `quattro` branch: which playbooks become obsolete, which need fixing before running on it, and how to re-check once it is tagged |
 | `playbooks/{system,user}/yubikey.yml` | Yubikey GPG key — outside `site.yml` (tags `gpg-yubikey`, `yubikey`) |
 | `scripts/ssh-yubikey.sh` | Resident SSH keys import + GitHub SSH drop-in (`just ssh-yubikey`, `just ssh-yubikey-disable`) |

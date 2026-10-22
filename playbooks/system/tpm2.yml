@@ -1,0 +1,313 @@
+---
+# Automatic LUKS unlock via TPM2 (systemd-cryptenroll) — not part of
+# site.yml/`just setup`, deliberately: touches disk encryption keyslots and
+# boot configuration, so it runs when called explicitly (`just tpm2`).
+#
+# Uses systemd-cryptenroll to bind the LUKS2 encrypted root partition to
+# the system's TPM2 (Trusted Platform Module) chip, allowing the system
+# to automatically unlock the disk at early boot — provided that integrity
+# measurements (PCRs) match the sealed state.
+#
+# PCRs sealed by default: 0+2+7 (see group_vars/all/main.yml)
+#   0 = UEFI firmware (core firmware code and measurement)
+#   2 = UEFI option ROM code (drivers/hardware add-ons)
+#   7 = Secure Boot state (PK/KEK/db/dbx and Secure Boot enabled)
+#
+# If any of these PCRs change (e.g. BIOS update, Secure Boot re-keyed),
+# TPM2 auto-unlock fails safely and falls back to prompting for the LUKS
+# passphrase. Once booted with the passphrase, re-running `just tpm2-wipe`
+# re-seals the volume to the new measurements.
+#
+# What this playbook does:
+#   1. Verifies TPM2 availability (/dev/tpmrm0 or /dev/tpm0).
+#   2. Installs tpm2-tools and tpm2-tss.
+#   3. Identifies the LUKS root partition and checks it is a valid LUKS2 volume.
+#   4. Ensures /etc/crypttab contains an entry for root with x-initrd.attach and tpm2-device=auto.
+#   5. Writes /etc/mkinitcpio.conf.d/zz-tpm2.conf to add TPM driver modules
+#      (tpm_crb, tpm_tis) and switch to systemd and sd-encrypt hooks.
+#   6. Rebuilds the initramfs (limine-update or mkinitcpio -P) if configuration changed.
+#   7. If tpm2_wipe=true, wipes the existing TPM2 keyslot.
+#   8. Enrolls the TPM2 chip into the LUKS volume using systemd-cryptenroll.
+- name: LUKS TPM2 Auto-Unlock (systemd-cryptenroll)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars_prompt:
+    - name: tpm2_luks_passphrase
+      prompt: "Enter LUKS passphrase (required to authorize TPM2 keyslot enrollment; leave empty to skip enrollment if already enrolled)"
+      private: true
+      default: ""
+
+  pre_tasks:
+    - name: Check whether TPM2 device exists (/dev/tpmrm0)
+      ansible.builtin.stat:
+        path: /dev/tpmrm0
+      register: tpm2_dev_stat
+
+    - name: Check alternative TPM2 device path (/dev/tpm0)
+      ansible.builtin.stat:
+        path: /dev/tpm0
+      register: tpm2_dev0_stat
+      when: not tpm2_dev_stat.stat.exists
+
+    - name: Fail if no TPM2 device is detected
+      ansible.builtin.fail:
+        msg: >-
+          No TPM2 device found (/dev/tpmrm0 or /dev/tpm0).
+          Please ensure TPM 2.0 (PTT / fTPM / dTPM) is enabled in UEFI/BIOS.
+      when: not tpm2_dev_stat.stat.exists and not (tpm2_dev0_stat.stat.exists | default(false))
+
+  tasks:
+    - name: Install TPM2 packages (tpm2-tools, tpm2-tss)
+      community.general.pacman:
+        name:
+          - tpm2-tools
+          - tpm2-tss
+        state: present
+      become: true
+
+    - name: Check systemd-cryptenroll is available
+      ansible.builtin.command: which systemd-cryptenroll
+      register: tpm2_cryptenroll_bin
+      changed_when: false
+
+    - name: Auto-detect root LUKS partition
+      ansible.builtin.shell: |
+        set -eo pipefail
+        root_source=$(findmnt -no SOURCE /) && [[ -n $root_source ]] || exit 1
+        ancestry=$(lsblk -nsrpo NAME,TYPE,FSTYPE "${root_source%%[*}") || exit 1
+        device=$(awk '$3 == "crypto_LUKS" { print $1; exit }' <<<"$ancestry")
+        if [[ -n $device ]]; then
+          readlink -f "$device"
+        else
+          exit 1
+        fi
+      register: tpm2_detected_device
+      changed_when: false
+      failed_when: false
+      when: tpm2_luks_device | default('') == ''
+
+    - name: Set target LUKS device fact
+      ansible.builtin.set_fact:
+        tpm2_target_device: "{{ tpm2_luks_device if (tpm2_luks_device | default('') != '') else (tpm2_detected_device.stdout | default('')) }}"
+
+    - name: Fail if target LUKS device could not be identified
+      ansible.builtin.fail:
+        msg: >-
+          Could not identify the root LUKS device.
+          Please specify it explicitly with: -e tpm2_luks_device=/dev/<partition>
+      when: tpm2_target_device == ''
+
+    - name: Verify target device exists
+      ansible.builtin.stat:
+        path: "{{ tpm2_target_device }}"
+      register: tpm2_target_stat
+      failed_when: not tpm2_target_stat.stat.exists or not tpm2_target_stat.stat.isblk
+
+    - name: Verify device is a LUKS volume
+      ansible.builtin.command: "cryptsetup isLuks {{ tpm2_target_device }}"
+      become: true
+      changed_when: false
+
+    - name: Get LUKS device UUID
+      ansible.builtin.command: "cryptsetup luksUUID {{ tpm2_target_device }}"
+      become: true
+      register: tpm2_uuid_raw
+      changed_when: false
+
+    - name: Set LUKS UUID fact
+      ansible.builtin.set_fact:
+        tpm2_luks_uuid: "{{ tpm2_uuid_raw.stdout | trim }}"
+
+    - name: Check whether /etc/crypttab exists
+      ansible.builtin.stat:
+        path: "{{ tpm2_crypttab_path }}"
+      register: tpm2_crypttab_stat
+
+    - name: Ensure /etc/crypttab exists with secure permissions (0600)
+      ansible.builtin.file:
+        path: "{{ tpm2_crypttab_path }}"
+        state: touch
+        mode: "0600"
+        owner: root
+        group: root
+        modification_time: preserve
+        access_time: preserve
+      become: true
+      when: not tpm2_crypttab_stat.stat.exists
+
+    - name: Configure /etc/crypttab entry for root LUKS device
+      ansible.builtin.lineinfile:
+        path: "{{ tpm2_crypttab_path }}"
+        regexp: '^(#\s*)?root\s+'
+        line: "root UUID={{ tpm2_luks_uuid }} none tpm2-device=auto,discard,x-initrd.attach"
+        mode: "0600"
+        owner: root
+        group: root
+      become: true
+      register: tpm2_crypttab_edit
+
+    - name: Ensure mkinitcpio drop-in directory exists
+      ansible.builtin.file:
+        path: "{{ tpm2_mkinitcpio_conf | dirname }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+      become: true
+
+    - name: Configure mkinitcpio drop-in for TPM2 and sd-encrypt
+      ansible.builtin.copy:
+        dest: "{{ tpm2_mkinitcpio_conf }}"
+        content: |
+          # Generated by Ansible (omarchy-setup: playbooks/system/tpm2.yml).
+          # Ensures TPM2 driver modules and systemd-based sd-encrypt hooks are active.
+
+          MODULES+=(tpm_crb tpm_tis)
+
+          _tpm2_hooks=()
+          _has_systemd=false
+          _has_vconsole=false
+
+          for _h in "${HOOKS[@]}"; do
+            case $_h in
+              systemd) _has_systemd=true ;;
+              sd-vconsole) _has_vconsole=true ;;
+            esac
+          done
+
+          for _h in "${HOOKS[@]}"; do
+            case $_h in
+              udev)
+                if [[ $_has_systemd == false ]]; then
+                  _tpm2_hooks+=(systemd)
+                  _has_systemd=true
+                fi
+                ;;
+              keymap|consolefont)
+                if [[ $_has_vconsole == false ]]; then
+                  _tpm2_hooks+=(sd-vconsole)
+                  _has_vconsole=true
+                fi
+                ;;
+              encrypt)
+                _tpm2_hooks+=(sd-encrypt)
+                ;;
+              btrfs-overlayfs)
+                _tpm2_hooks+=(sd-btrfs-overlayfs)
+                ;;
+              *)
+                _tpm2_hooks+=("$_h")
+                ;;
+            esac
+          done
+
+          HOOKS=("${_tpm2_hooks[@]}")
+          unset _tpm2_hooks _h _has_systemd _has_vconsole
+        mode: "0644"
+        owner: root
+        group: root
+      become: true
+      register: tpm2_mkinitcpio_edit
+
+    - name: Rebuild initramfs if crypttab or mkinitcpio drop-in changed
+      when: tpm2_crypttab_edit.changed or tpm2_mkinitcpio_edit.changed
+      become: true
+      block:
+        - name: Rebuild initramfs (limine-update if available, else mkinitcpio -P)
+          ansible.builtin.shell: >-
+            if command -v limine-update >/dev/null 2>&1; then
+              limine-update
+            elif command -v limine-mkinitcpio >/dev/null 2>&1; then
+              limine-mkinitcpio
+            else
+              mkinitcpio -P
+            fi
+          register: tpm2_initramfs_rebuild
+          changed_when: true
+
+    - name: Check whether TPM2 token is already enrolled
+      ansible.builtin.shell: >-
+        cryptsetup luksDump --dump-json-metadata {{ tpm2_target_device }} |
+        grep -q '"type":"systemd-tpm2"'
+      become: true
+      register: tpm2_already_enrolled
+      changed_when: false
+      failed_when: false
+
+    - name: Wipe existing TPM2 slot if requested (tpm2_wipe=true)
+      when: tpm2_wipe | bool
+      become: true
+      block:
+        - name: Remove existing TPM2 slot
+          ansible.builtin.command: "systemd-cryptenroll --wipe-slot=tpm2 {{ tpm2_target_device }}"
+          register: tpm2_wipe_result
+          changed_when: true
+          failed_when: false
+
+        - name: Show wipe result
+          ansible.builtin.debug:
+            msg: >-
+              {{ 'Existing TPM2 slot wiped successfully.' if tpm2_wipe_result.rc == 0 else 'No existing TPM2 slot found to wipe (or wipe not needed).' }}
+
+    - name: Enroll TPM2 key
+      when: (tpm2_luks_passphrase | default('') | length > 0) or ((not (tpm2_already_enrolled.rc == 0)) and (not (tpm2_wipe | bool)))
+      become: true
+      block:
+        - name: Fail if passphrase is empty and enrollment is required
+          ansible.builtin.fail:
+            msg: >-
+              LUKS passphrase is required to authorize TPM2 enrollment.
+              Run again and enter your LUKS passphrase at the prompt, or pass
+              -e tpm2_luks_passphrase=<password>.
+          when: tpm2_luks_passphrase | default('') | length == 0
+
+        - name: Create secure temporary file for unlock key
+          ansible.builtin.tempfile:
+            state: file
+            prefix: .tpm2-enroll-
+          register: tpm2_temp_key
+          no_log: true
+
+        - name: Store passphrase temporarily
+          ansible.builtin.copy:
+            content: "{{ tpm2_luks_passphrase }}"
+            dest: "{{ tpm2_temp_key.path }}"
+            mode: "0600"
+          no_log: true
+
+        - name: Enroll TPM2 device into LUKS keyslot
+          block:
+            - name: Run systemd-cryptenroll
+              ansible.builtin.command: >-
+                systemd-cryptenroll
+                --unlock-key-file={{ tpm2_temp_key.path }}
+                --tpm2-device=auto
+                --tpm2-pcrs={{ tpm2_pcrs }}
+                {{ tpm2_target_device }}
+              register: tpm2_enroll_output
+              changed_when: true
+          always:
+            - name: Securely remove temporary passphrase file
+              ansible.builtin.file:
+                path: "{{ tpm2_temp_key.path }}"
+                state: absent
+              no_log: true
+
+        - name: Verify enrollment in LUKS metadata
+          ansible.builtin.shell: >-
+            cryptsetup luksDump --dump-json-metadata {{ tpm2_target_device }} |
+            grep -q '"type":"systemd-tpm2"'
+          register: tpm2_verify_check
+          changed_when: false
+
+    - name: Show status and next steps
+      ansible.builtin.debug:
+        msg: >-
+          LUKS TPM2 auto-unlock is configured for {{ tpm2_target_device }} (UUID: {{ tpm2_luks_uuid }}, PCRs: {{ tpm2_pcrs }}).
+          The disk will be automatically unlocked at boot as long as the firmware and Secure Boot
+          measurements match.
+          Your existing password slot remains active as a reliable fallback.
+          To re-enroll after BIOS/firmware updates: `just tpm2-wipe`
+          To revoke TPM2 access: `run0 systemd-cryptenroll --wipe-slot=tpm2 {{ tpm2_target_device }}`

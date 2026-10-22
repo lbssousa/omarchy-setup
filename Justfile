@@ -91,7 +91,7 @@ pdf-viewer: _ensure-collections
 file-manager: _ensure-collections
     {{ap}} site.yml --tags file-manager
 
-# Build/install pinentry-omarchy (GnuPG prompts in the polkit-style shell
+# Build/install omapin (GnuPG prompts in the polkit-style shell
 # dialog) and make gpg-agent use it. Run from inside the graphical session.
 # Needs the Yubikey's GPG key in the keyring (`just gpg-yubikey` first).
 pinentry: _ensure-collections

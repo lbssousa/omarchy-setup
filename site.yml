@@ -135,7 +135,7 @@
   tags: [openssh-askpass]
 
 # Third-party shell plugins: this desktop's own list (omarchy_plugins in
-# group_vars/all/main.yml — Radio Atlas first) plus pinentry-omarchy,
+# group_vars/all/main.yml — Radio Atlas first) plus omapin,
 # ssh-askpass-omarchy and polkit-omarchy. No tags here on purpose: each play
 # in the file carries its own (plugins, pinentry, ssh-askpass, polkit-agent),
 # and a tag on the import would be inherited by all of them.

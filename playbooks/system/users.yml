@@ -1,0 +1,110 @@
+---
+# The machine's accounts, from omarchy_users (group_vars/all/users.yml):
+# created when missing (home seeded from /etc/skel, which also marks every
+# Omarchy migration done), with their full name in GECOS — what the
+# multi-user greeter lists — their login shell, and their groups:
+#
+#   admin: true   wheel (sudo, the system phase)
+#   admin: false  omarchy-users (their own FIDO2 key and fingerprints, through
+#                 omarchy-multiuser's sudoers rules); taken out of wheel if
+#                 they were in it, except the account running this
+#
+# New accounts start with a locked password ('!'); `just users` asks for it
+# right after this play. Omarchy's per-user provisioning (theme, keyring,
+# user units) runs at their first login, as it does for the owner.
+# Accounts missing from the list are left alone.
+#
+# Usage: just users
+- name: User accounts (omarchy_users)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [users]
+
+  tasks:
+    - name: Check the account list
+      ansible.builtin.assert:
+        that:
+          - omarchy_users | length > 0
+          - omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | list | length > 0
+          - omarchy_users | map(attribute='name') | select('match', '^[a-z_][a-z0-9_-]{0,31}$') | list | length == omarchy_users | length
+          - omarchy_users | map(attribute='full_name') | select('search', '[:,\n]') | list | length == 0
+          - omarchy_users | map(attribute='name') | unique | length == omarchy_users | length
+          - target_user in (omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='name'))
+        fail_msg: >-
+          omarchy_users (group_vars/all/users.yml) needs at least one admin,
+          valid unique login names, full names without ':' ',' or line
+          breaks, and you ({{ target_user }}) among its admins.
+        quiet: true
+
+    - name: Check each login shell is listed in /etc/shells
+      ansible.builtin.command: grep -qx {{ item | quote }} /etc/shells
+      loop: "{{ omarchy_users | map(attribute='shell', default='/bin/bash') | unique }}"
+      changed_when: false
+
+    - name: Read the existing accounts
+      ansible.builtin.getent:
+        database: passwd
+
+    - name: Create the omarchy-users group
+      ansible.builtin.group:
+        name: omarchy-users
+        system: true
+      become: true
+
+    - name: Remember which accounts existed before this run
+      ansible.builtin.set_fact:
+        users_existing: "{{ ansible_facts.getent_passwd.keys() | list }}"
+
+    - name: Create or update each account
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        comment: "{{ item.full_name }}"
+        shell: "{{ item.shell | default('/bin/bash') }}"
+        groups: "{{ ([('wheel' if item.admin | default(false) else 'omarchy-users')] + item.groups | default([])) }}"
+        append: true
+        create_home: true
+        password: "!"
+        update_password: on_create
+      loop: "{{ omarchy_users }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: users_accounts
+      become: true
+
+    - name: Take non-administrators out of wheel (never the account running this)
+      ansible.builtin.shell: |
+        if id -nG {{ item.name | quote }} | tr ' ' '\n' | grep -qx wheel; then
+          gpasswd -d {{ item.name | quote }} wheel >/dev/null && echo removed
+        fi
+      loop: "{{ omarchy_users | rejectattr('admin', 'defined') | list + omarchy_users | selectattr('admin', 'defined') | rejectattr('admin') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: item.name != target_user
+      register: users_wheel_removal
+      changed_when: "'removed' in users_wheel_removal.stdout"
+      become: true
+
+    - name: Take administrators out of omarchy-users (wheel covers them)
+      ansible.builtin.shell: |
+        if id -nG {{ item.name | quote }} | tr ' ' '\n' | grep -qx omarchy-users; then
+          gpasswd -d {{ item.name | quote }} omarchy-users >/dev/null && echo removed
+        fi
+      loop: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: users_group_removal
+      changed_when: "'removed' in users_group_removal.stdout"
+      become: true
+
+    - name: Give every user a subuid/subgid range
+      ansible.builtin.include_tasks: tasks/subid-ranges.yml
+
+    - name: Say which new accounts still need a password
+      ansible.builtin.debug:
+        msg: >-
+          New account(s): {{ users_new | join(', ') }}. They start locked;
+          `just users` sets their passwords next.
+      vars:
+        users_new: "{{ omarchy_users | map(attribute='name') | reject('in', users_existing) | list }}"
+      when: users_new | length > 0

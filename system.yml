@@ -9,6 +9,12 @@
 #
 # Usage: just system   (./run-empowered.sh ansible-playbook system.yml)
 
+# The accounts in omarchy_users (group_vars/all/users.yml): full names (the
+# greeter lists them), login shells, wheel or omarchy-users, subuid ranges.
+- name: User accounts
+  ansible.builtin.import_playbook: playbooks/system/users.yml
+  tags: [users]
+
 - name: polkitd ExpirationSeconds
   ansible.builtin.import_playbook: playbooks/system/polkit.yml
   tags: [polkit]

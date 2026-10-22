@@ -40,6 +40,31 @@ system: _ensure-collections
 user: _ensure-collections
     scripts/run-phase.sh user user.yml
 
+# Create or update the accounts in omarchy_users (group_vars/all/users.yml),
+# then set a password for each new (still locked) one and, for accounts with
+# `luks: true`, offer a disk unlock password of their own. One polkit
+# authentication for the whole recipe.
+users: _ensure-collections
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scripts/run-phase.sh system system.yml --tags users
+    luks=$(python3 -c 'import yaml; print(" ".join(u["name"] for u in yaml.safe_load(open("group_vars/all/users.yml"))["omarchy_users"] if u.get("luks")))')
+    ./run-empowered.sh env LUKS_USERS="$luks" bash -c '
+        for u in $(getent group omarchy-users wheel | cut -d: -f4 | tr , "\n" | sort -u); do
+            [[ -n $u ]] || continue
+            if [[ $(run0 passwd -S "$u" | cut -d" " -f2) == L ]]; then
+                echo "New account $u: choose its password."
+                until run0 passwd "$u"; do echo "Try again."; done
+            fi
+        done
+        for u in $LUKS_USERS; do
+            if ! run0 grep -qs "^$u " /etc/omarchy-multiuser/luks-slots; then
+                read -rp "Add a disk unlock password for $u now? [y/N] " answer
+                [[ $answer == [yYsS]* ]] && run0 omarchy-mu-luks-enroll "$u"
+            fi
+        done
+        true'
+
 # A feature in both phases: its system half (when you're an administrator;
 # otherwise it's skipped with a note), then yours.
 _both TAG: _ensure-collections

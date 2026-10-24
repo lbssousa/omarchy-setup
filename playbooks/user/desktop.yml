@@ -7,7 +7,7 @@
 #
 # hyprsunset and jq (night light) ship with Omarchy.
 #
-# Usage: just desktop
+# Usage: just hypr-scrolling-resize | just text-size | just nightlight-solar
 
 # Hyprland's "scrolling" layout has its own resize dispatcher,
 # hl.dsp.layout("colresize <±fraction>") — the generic window-resize
@@ -34,7 +34,7 @@
 - name: Hyprland scrolling-layout column resize (SUPER+[ / SUPER+])
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [desktop, hypr-scrolling-resize]
 
   tasks:
@@ -61,7 +61,6 @@
           -- keyboard (xkb layout "br"; code:34 is the ´ key, not "]").
           o.bind("SUPER + code:35", "Shrink column (scrolling)", hl.dsp.layout("colresize -{{ hypr_scrolling_colresize_step }}"))
           o.bind("SUPER + code:51", "Grow column (scrolling)", hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
-      register: hypr_scrolling_resize_binding
       notify: reload Hyprland
 
   handlers:
@@ -104,7 +103,7 @@
 - name: Screen scale factor + system UI font size
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [desktop, text-size]
 
   tasks:
@@ -199,7 +198,7 @@
 - name: Night light synced to sunrise/sunset (hyprsunset + systemd --user timer)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [desktop, nightlight-solar]
 
   tasks:
@@ -269,9 +268,11 @@
         block: |
           o.launch_on_start("hyprsunset")
 
+    # Re-applies today's schedule on every run, as the timer does; not a
+    # configuration change.
     - name: Sync now (today's sunrise/sunset) and start hyprsunset
       ansible.builtin.command: "{{ target_home }}/.local/bin/nightlight-solar-sync"
-      changed_when: true
+      changed_when: false
 
   handlers:
     - name: reload systemd --user

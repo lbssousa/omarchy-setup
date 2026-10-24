@@ -7,7 +7,7 @@
 - name: File manager (Flea default) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Look for Flea's installed desktop entry

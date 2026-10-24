@@ -70,7 +70,6 @@
       loop: "{{ omarchy_users }}"
       loop_control:
         label: "{{ item.name }}"
-      register: users_accounts
       become: true
 
     - name: Take non-administrators out of wheel (never the account running this)

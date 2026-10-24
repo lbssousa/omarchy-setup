@@ -42,7 +42,7 @@
 - name: pt-BR localization
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: pt_BR.UTF-8 locale (locale.gen + system LANG/LANGUAGE)

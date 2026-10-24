@@ -55,7 +55,7 @@
 - name: Omarchy shell plugins (omarchy_plugins) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [plugins]
 
   tasks:
@@ -193,7 +193,7 @@
             [.bar.layout | to_entries[] | .key as $section | .value[]
             | (if type == "object" then .id else . end) as $id
             | {key: $id, value: $section}] | from_entries
-          - "{{ omarchy_plugins_shell_json }}"
+          - "{{ omarchy_shell_json }}"
       register: plugins_bar_layout
       changed_when: false
 
@@ -236,7 +236,7 @@
             [.bar.layout | to_entries[] | .key as $section | .value[]
             | (if type == "object" then .id else . end) as $id
             | {key: $id, value: $section}] | from_entries
-          - "{{ omarchy_plugins_shell_json }}"
+          - "{{ omarchy_shell_json }}"
       register: plugins_bar_layout_after
       changed_when: false
 
@@ -253,7 +253,7 @@
           {{ 'in the ' + sections[item.id] + ' section of the bar' if sections[item.id] | default('') else 'nowhere in the bar layout' }}
           {{ '(expected ' + item.section + ')' if item.section | default('') }}.
           Check `omarchy plugin list` and
-          {{ omarchy_plugins_shell_json }}, then enable it by hand with
+          {{ omarchy_shell_json }}, then enable it by hand with
           `omarchy plugin enable {{ item.id }}{{ ' --section ' + item.section if item.section | default('') }}`
           — that also moves an icon that is already on the bar.
       loop: "{{ omarchy_plugins }}"
@@ -269,7 +269,7 @@
 - name: omapin (GnuPG prompts in the polkit-style shell dialog) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [pinentry]
 
   tasks:
@@ -299,7 +299,7 @@
 
     - name: Read the shell config
       ansible.builtin.slurp:
-        src: "{{ omapin_shell_json }}"
+        src: "{{ omarchy_shell_json }}"
       register: omapin_shell_json_raw
       failed_when: false
 
@@ -309,23 +309,6 @@
           {{ (omapin_shell_json_raw.content is defined)
              and (((omapin_shell_json_raw.content | b64decode | from_json).plugins | default([]))
                   | selectattr('id', 'equalto', omapin_plugin_id) | list | length > 0) }}
-        omapin_legacy_plugin_enabled: >-
-          {{ (omapin_shell_json_raw.content is defined)
-             and (((omapin_shell_json_raw.content | b64decode | from_json).plugins | default([]))
-                  | selectattr('id', 'equalto', omapin_legacy_plugin_id) | list | length > 0) }}
-
-    - name: "Disable the pre-rename {{ omapin_legacy_plugin_id }} shell plugin"
-      ansible.builtin.command:
-        argv: [omarchy-shell, shell, setPluginEnabled, "{{ omapin_legacy_plugin_id }}", "false"]
-      register: omapin_legacy_disable_result
-      failed_when: omapin_legacy_disable_result.rc != 0 or omapin_legacy_disable_result.stdout | trim != 'ok'
-      when: omapin_legacy_plugin_enabled
-
-    - name: "Remove the pre-rename plugin link ({{ omapin_legacy_plugin_link }})"
-      ansible.builtin.file:
-        path: "{{ omapin_legacy_plugin_link }}"
-        state: absent
-      register: omapin_legacy_link_result
 
     - name: "Enable the {{ omapin_plugin_id }} shell plugin"
       ansible.builtin.command:
@@ -337,8 +320,7 @@
     - name: Restart the shell to load the new plugin code
       ansible.builtin.include_tasks: tasks/restart-shell.yml
       when: >-
-        (omapin_package_result is changed or omapin_link_result is changed
-        or omapin_legacy_link_result is changed)
+        (omapin_package_result is changed or omapin_link_result is changed)
         and omapin_enable_result is skipped
 
     - name: Create ~/.gnupg
@@ -366,7 +348,7 @@
 - name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [ssh-askpass]
 
   tasks:
@@ -396,7 +378,7 @@
 
     - name: Read the shell config
       ansible.builtin.slurp:
-        src: "{{ ssh_askpass_shell_json }}"
+        src: "{{ omarchy_shell_json }}"
       register: ssh_askpass_shell_json_raw
       failed_when: false
 
@@ -441,7 +423,7 @@
 - name: polkit-omarchy (polkit agent with security key touch prompt) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [polkit-agent]
 
   tasks:

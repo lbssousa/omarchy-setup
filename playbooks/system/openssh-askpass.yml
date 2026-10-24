@@ -32,7 +32,7 @@
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [openssh-askpass]
 
   tasks:

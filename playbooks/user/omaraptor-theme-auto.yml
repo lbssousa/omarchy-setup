@@ -15,7 +15,7 @@
 - name: Omaraptor day/night theme switching (systemd --user timer)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [omaraptor-theme-auto]
 
   tasks:

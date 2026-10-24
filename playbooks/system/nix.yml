@@ -46,7 +46,7 @@
 - name: Nix (multi-user, store on its own btrfs subvolume)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   handlers:
     - name: Restart nix-daemon if it is running
@@ -209,7 +209,7 @@
 - name: direnv (bash + fish hooks)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [direnv]
 
   tasks:

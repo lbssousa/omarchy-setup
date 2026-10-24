@@ -15,7 +15,7 @@
 - name: EPSON L4160 printer (driverless)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Ensure CUPS (lpadmin) is available

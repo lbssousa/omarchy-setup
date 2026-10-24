@@ -7,7 +7,7 @@
 - name: Zed editor (Omarchy theme + font size + buffer font)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Install Zed and omazed

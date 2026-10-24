@@ -3,7 +3,7 @@
 # prompt inside distrobox. Podman, Distrobox and the subuid/subgid ranges are
 # installed by system/containers.yml.
 #
-# Usage: just containers
+# Usage: just podman | just distrobox | just starship-distrobox
 - name: Podman (rootless check)
   hosts: localhost
   connection: local
@@ -61,14 +61,14 @@
 - name: Starship prompt inside distrobox (container name + Omarchy rc)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [containers, starship-distrobox]
 
   tasks:
     - name: Create ~/.config/starship.toml from the Omarchy default, if missing
       ansible.builtin.copy:
-        src: "{{ starship_distrobox_omarchy_default_config }}"
-        dest: "{{ starship_distrobox_config }}"
+        src: "{{ starship_omarchy_default_config }}"
+        dest: "{{ starship_config }}"
         remote_src: true
         force: false
         mode: "0644"
@@ -80,7 +80,7 @@
       # format shouldn't be rewritten blindly. Already-prefixed lines don't
       # match anymore, so this is idempotent.
       ansible.builtin.replace:
-        path: "{{ starship_distrobox_config }}"
+        path: "{{ starship_config }}"
         regexp: '^format = "((?:\$nix_shell)?\[\$directory\$git_branch\$git_status\]\(\$style\)\$character)"$'
         replace: 'format = "${env_var.CONTAINER_ID}\1"'
 
@@ -88,13 +88,13 @@
       # slurp rather than lineinfile in check mode: that one reports
       # "changed" whenever its pattern matches, so every run would too.
       ansible.builtin.slurp:
-        src: "{{ starship_distrobox_config }}"
+        src: "{{ starship_config }}"
       register: starship_distrobox_config_content
 
     - name: Warn when a customized prompt format left the container name out
       ansible.builtin.debug:
         msg: >-
-          WARNING: {{ starship_distrobox_config }} has a customized top-level
+          WARNING: {{ starship_config }} has a customized top-level
           `format`, so the container name won't be shown. Add
           ${env_var.CONTAINER_ID} to it (e.g. at the start).
       when: >-
@@ -103,7 +103,7 @@
 
     - name: Render the distrobox container name (env_var module)
       ansible.builtin.blockinfile:
-        path: "{{ starship_distrobox_config }}"
+        path: "{{ starship_config }}"
         insertafter: EOF
         marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/containers.yml — distrobox container name)"
         block: |

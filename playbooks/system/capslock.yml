@@ -30,7 +30,7 @@
 - name: Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Caps Lock via keyd

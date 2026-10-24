@@ -13,7 +13,7 @@
 # Here the packages and every user's subuid/subgid range (system phase);
 # the rootless check and the prompt are per user, in user/containers.yml.
 #
-# Usage: just containers
+# Usage: just podman | just distrobox
 
 # Podman, configured for rootless use — the container engine used by
 # the Distrobox play below, but usable on its own too. The Arch package

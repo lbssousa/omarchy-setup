@@ -10,7 +10,7 @@
 - name: pt-BR localization (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     # Omarchy 4.5's Setup > Language: writes ~/.config/omarchy/language and

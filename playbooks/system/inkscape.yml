@@ -29,7 +29,7 @@
 - name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Install Inkscape via pacman

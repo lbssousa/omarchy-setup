@@ -1,5 +1,5 @@
 ---
-# One Chromium-family browser at a time — looped by playbooks/{system,user}/ptbr.yml
+# One Chromium-family browser at a time — looped by playbooks/user/ptbr.yml
 # (ptbr_chromium_family_config_dirs), var `browser_config_dir` = the
 # profile directory relative to $HOME (~/.config/<dir>).
 #

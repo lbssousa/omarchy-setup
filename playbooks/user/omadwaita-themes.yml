@@ -55,7 +55,7 @@
 - name: Omadwaita Omarchy themes
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   vars:
     omadwaita_themes_dir: "{{ target_home }}/.config/omarchy/themes"

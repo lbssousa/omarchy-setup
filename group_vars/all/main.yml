@@ -58,13 +58,6 @@ firefox_desktop_id: firefox.desktop
 # What Firefox names its Taskbar Tabs launchers and window classes after
 # (<prefix>.webapp-<uuid>): its own app id, the Flatpak id.
 firefox_desktop_prefix: "{{ firefox_flatpak_id }}"
-# The Taskbar Tabs launchers run the browser binary inside the sandbox
-# directly, as Firefox's own pinned launchers do.
-firefox_launcher_argv:
-  - flatpak
-  - run
-  - --command=/app/lib/firefox/firefox
-  - "{{ firefox_flatpak_id }}"
 # Firefox's own data, inside the sandbox's per-app directory: the profiles
 # dirs (XDG layout first, as Firefox 147+ uses it, then the legacy
 # ~/.mozilla one) and the native ones they're migrated from on first run
@@ -327,9 +320,7 @@ gregorio_lsp_binaries:
 
 # omapin (playbooks/{system,user}/plugins.yml) — GnuPG prompts in the polkit-style
 # omarchy-shell dialog. Built as an Arch package from the repo's own
-# packaging/PKGBUILD with rustup's cargo. It was called pinentry-omarchy
-# until 0.2.1; the play migrates an install of the old name
-# (omapin_legacy_*).
+# packaging/PKGBUILD with rustup's cargo.
 omapin_repo: https://github.com/lbssousa/omapin.git
 # A release tag, never a branch. main only holds GitHub-signed squash
 # merges, while releases are tags signed with the Yubikey's key (see the
@@ -352,14 +343,10 @@ omapin_program: /usr/bin/omapin
 omapin_plugin_id: lbssousa.omapin
 omapin_plugin_dir: /usr/share/omapin/plugin
 omapin_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omapin_plugin_id }}"
-omapin_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # What the pre-0.3.0 install left behind: the package (omapin conflicts
 # with it, so pacman -U won't swap it unattended), its shell plugin entry
 # in shell.json and the plugin link pointing into the removed package.
-omapin_legacy_package: pinentry-omarchy
-omapin_legacy_plugin_id: lbssousa.pinentry
-omapin_legacy_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omapin_legacy_plugin_id }}"
 
 # ssh-askpass-omarchy (playbooks/{system,user}/plugins.yml) — SSH prompts in the
 # polkit-style omarchy-shell dialog. Built locally via cargo from a signed
@@ -376,7 +363,6 @@ ssh_askpass_program: /usr/bin/ssh-askpass-omarchy
 ssh_askpass_plugin_dir: /usr/share/ssh-askpass-omarchy/plugin
 ssh_askpass_plugin_id: lbssousa.ssh_askpass
 ssh_askpass_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ ssh_askpass_plugin_id }}"
-ssh_askpass_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 ssh_askpass_environment_conf: "{{ target_home }}/.config/environment.d/90-ssh-askpass.conf"
 
 # polkit-omarchy (playbooks/{system,user}/plugins.yml) — Omarchy's polkit agent
@@ -638,7 +624,6 @@ libfprint_goodix_usb_product_id: "538d"
 # Secure Boot (Limine + sbctl, playbooks/system/secureboot.yml — not part of
 # `just setup`, run explicitly).
 secureboot_esp_path: /boot
-secureboot_limine_binary: "{{ secureboot_esp_path }}/EFI/limine/limine_x64.efi"
 secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
@@ -787,9 +772,12 @@ inkscape_svg2tikz_aur_build_deps:
 inkscape_svg2tikz_runtime_deps:
   - xclip
 
-# Starship prompt inside distrobox (playbooks/{system,user}/containers.yml).
-starship_distrobox_config: "{{ target_home }}/.config/starship.toml"
-starship_distrobox_omarchy_default_config: /usr/share/omarchy/config/starship.toml
+# Omarchy's prompt config, shared by user/{fish,containers,starship}.yml,
+# each seeding it from Omarchy's default when missing.
+starship_config: "{{ target_home }}/.config/starship.toml"
+starship_omarchy_default_config: /usr/share/omarchy/config/starship.toml
+
+# Starship prompt inside distrobox (playbooks/user/containers.yml).
 starship_distrobox_bashrc: "{{ target_home }}/.bashrc"
 # Look of the container-name segment in the prompt.
 starship_distrobox_symbol: "⬢"
@@ -797,8 +785,6 @@ starship_distrobox_style: bold yellow
 
 # Starship prompt extras (playbooks/user/starship.yml): Nix dev shell badge
 # and commits ahead of/behind the upstream.
-starship_config: "{{ target_home }}/.config/starship.toml"
-starship_omarchy_default_config: /usr/share/omarchy/config/starship.toml
 # Look of the Nix dev shell badge in the prompt.
 starship_nix_shell_symbol: "❄"
 starship_nix_shell_style: bold fg:black bg:cyan
@@ -894,7 +880,8 @@ omarchy_plugins:
       - python
       - socat
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
-omarchy_plugins_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
+# The omarchy shell's settings, where plugins are enabled.
+omarchy_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 # How long a shell restart (playbooks/tasks/restart-shell.yml) waits for a
 # locked screen to be unlocked before giving up: retries × delay seconds,
 # 30 minutes by default.

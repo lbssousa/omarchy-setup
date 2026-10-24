@@ -27,7 +27,7 @@
 - name: Bitwarden (user — SSH agent, autostart, keybind)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [bitwarden]
 
   tasks:

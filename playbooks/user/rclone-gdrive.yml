@@ -39,7 +39,7 @@
 - name: rclone — Google Drive mounts (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [rclone-gdrive]
 
   tasks:

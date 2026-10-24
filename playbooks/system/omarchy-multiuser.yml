@@ -26,7 +26,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [omarchy-multiuser, sddm]
+  tags: [omarchy-multiuser]
 
   tasks:
     - name: Install build dependencies

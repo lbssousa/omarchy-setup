@@ -10,7 +10,7 @@
 - name: Nix (session environment)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Create ~/.config/environment.d
@@ -56,7 +56,7 @@
 - name: direnv (bash + fish hooks)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [direnv]
 
   tasks:
@@ -102,11 +102,11 @@
 #
 # Needs both plays above, which the file's `nix` tag runs first.
 #
-# Usage: just nix-direnv
+# Usage: just nix (also runs this play)
 - name: nix-direnv (cached `use flake` for direnv)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [nix-direnv]
 
   tasks:

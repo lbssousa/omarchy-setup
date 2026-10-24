@@ -31,7 +31,7 @@
 - name: LUKS TPM2 Auto-Unlock (systemd-cryptenroll)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   vars_prompt:
     - name: tpm2_luks_passphrase
@@ -224,7 +224,6 @@
             else
               mkinitcpio -P
             fi
-          register: tpm2_initramfs_rebuild
           changed_when: true
 
     - name: Check whether TPM2 token is already enrolled
@@ -235,6 +234,18 @@
       register: tpm2_already_enrolled
       changed_when: false
       failed_when: false
+
+    # Wiping without a passphrase would leave the disk with no TPM2 slot:
+    # the enrollment below needs one to re-enroll.
+    - name: Refuse to wipe the TPM2 slot without a passphrase to re-enroll
+      ansible.builtin.fail:
+        msg: >-
+          tpm2_wipe=true needs the LUKS passphrase to enroll a new TPM2 slot
+          after wiping the old one. Run again and enter it at the prompt, or
+          pass -e tpm2_luks_passphrase=<password>.
+      when:
+        - tpm2_wipe | bool
+        - tpm2_luks_passphrase | default('') | length == 0
 
     - name: Wipe existing TPM2 slot if requested (tpm2_wipe=true)
       when: tpm2_wipe | bool

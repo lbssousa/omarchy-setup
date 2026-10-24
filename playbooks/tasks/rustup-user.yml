@@ -1,8 +1,9 @@
 ---
 # The per-user half of `omarchy-install-dev-env rust`: the official rustup
 # installer, non-interactively, into ~/.cargo and ~/.rustup. The other half,
-# the clang package bindgen needs, is installed in the system phase by each
-# play that includes this file (system/gregorio-lsp.yml).
+# the clang package bindgen needs, is installed in the system phase
+# (system/gregorio-lsp.yml for user/gregorio-lsp.yml, the play that
+# includes this file).
 - name: Expect clang (installed by the system phase)
   ansible.builtin.command: pacman -Q clang
   changed_when: false

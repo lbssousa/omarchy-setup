@@ -52,12 +52,10 @@
 - name: Fish shell (Starship prompt, default login shell) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [always]
 
   vars:
-    fish_starship_config: "{{ target_home }}/.config/starship.toml"
-    fish_starship_seed: /usr/share/omarchy/config/starship.toml
     fish_vendor_dir: "{{ target_xdg_data_home }}/fish"
     fzf_fish_repo: https://github.com/PatrickF1/fzf.fish
     fzf_fish_version: v11.0
@@ -66,8 +64,8 @@
   tasks:
     - name: Seed ~/.config/starship.toml from Omarchy's default, if missing
       ansible.builtin.copy:
-        src: "{{ fish_starship_seed }}"
-        dest: "{{ fish_starship_config }}"
+        src: "{{ starship_omarchy_default_config }}"
+        dest: "{{ starship_config }}"
         remote_src: true
         force: false
         mode: "0644"
@@ -100,7 +98,7 @@
           - "{{ fish_vendor_dir }}/vendor_completions.d"
           - "{{ fish_vendor_dir }}/vendor_conf.d"
         patterns: "*.fish"
-        contains: "^# Managed by omarchy-setup \\(playbooks/fish\\.yml\\)"
+        contains: "^# Managed by omarchy-setup \\(playbooks/(user/)?fish\\.yml\\)"
         read_whole_file: true
       register: fish_vendor_managed
 

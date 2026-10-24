@@ -32,7 +32,7 @@
 - name: Zed editor (Omarchy theme + font size + buffer font) (user)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   vars:
     zed_config_dir: "{{ target_home }}/.config/zed"
@@ -88,7 +88,9 @@
 
     - name: "Set every Zed font size to {{ zed_font_size }}px, the buffer font to {{ zed_buffer_font_family }}, and use_podman"
       ansible.builtin.copy:
-        content: >-
+        # `>` keeps the final newline; with it and 2-space indentation the
+        # file matches what `omazed setup` writes back, so re-runs are no-ops.
+        content: >
           {{
             (zed_settings_current
               | combine({
@@ -99,7 +101,7 @@
                   'terminal': { 'font_size': zed_font_size },
                   'use_podman': zed_dev_container_use_podman,
                 }, recursive=True)
-              | to_nice_json)
+              | to_nice_json(indent=2))
           }}
         dest: "{{ zed_settings_path }}"
         mode: "0600"

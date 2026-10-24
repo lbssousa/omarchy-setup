@@ -35,7 +35,7 @@
 - name: Secure Boot (Limine + sbctl)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   pre_tasks:
     - name: Check the bootloader is Limine with limine-entry-tool
@@ -109,6 +109,7 @@
       ansible.builtin.command: limine-update
       become: true
       changed_when: true
+      when: secureboot_limine_default_conf.changed or secureboot_limine_conf_edit.changed
 
     - name: Check the current sbctl state (keys, signed binaries)
       ansible.builtin.command: sbctl status

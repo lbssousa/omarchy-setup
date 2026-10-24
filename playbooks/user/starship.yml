@@ -26,7 +26,7 @@
 - name: Starship prompt extras (Nix dev shell badge, unpushed commits)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [starship]
 
   tasks:

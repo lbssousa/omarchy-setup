@@ -43,7 +43,7 @@
 - name: BGRT-derived boot theme (Omarchy desktop theme + standalone Plymouth theme)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   pre_tasks:
     - name: Check this machine's firmware has a BGRT boot logo

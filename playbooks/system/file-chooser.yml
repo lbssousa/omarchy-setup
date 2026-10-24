@@ -8,7 +8,7 @@
 - name: Flea file chooser dialogs for non-GNOME apps
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [file-chooser]
 
   tasks:

@@ -98,7 +98,7 @@
 - name: omapin (GnuPG prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [pinentry]
 
   vars:
@@ -177,12 +177,6 @@
       changed_when: false
       failed_when: false
 
-    - name: "Check whether the pre-rename package ({{ omapin_legacy_package }}) is installed"
-      ansible.builtin.command: "pacman -Q {{ omapin_legacy_package }}"
-      register: omapin_legacy_installed
-      changed_when: false
-      failed_when: false
-
     - name: Build and install the package
       when: omapin_git_result.changed or omapin_installed.rc != 0
       block:
@@ -199,23 +193,11 @@
           register: omapin_packagelist
           changed_when: false
 
-        - name: "Remove the pre-rename package ({{ omapin_legacy_package }})"
-          community.general.pacman:
-            name: "{{ omapin_legacy_package }}"
-            state: absent
-          become: true
-          # omapin provides pinentry-omarchy, so pacman -Q answers for omapin
-          # itself once it's installed: only the old package's own name counts.
-          when: >-
-            omapin_legacy_installed.rc == 0
-            and (omapin_legacy_installed.stdout.split() | first) == omapin_legacy_package
-
         - name: Install the package
           community.general.pacman:
             name: "{{ omapin_packagelist.stdout_lines | first }}"
             state: present
           become: true
-          register: omapin_package_result
 
 # Installs ssh-askpass-omarchy (https://github.com/lbssousa/ssh-askpass-omarchy)
 # from a release tag (ssh_askpass_ref), checked out in
@@ -233,7 +215,7 @@
 - name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [ssh-askpass]
 
   vars:
@@ -280,7 +262,6 @@
             force: false
             verify_commit: "{{ ssh_askpass_verify_commit }}"
             gpg_allowlist: "{{ ssh_askpass_signing_keys if ssh_askpass_verify_commit else [] }}"
-          register: ssh_askpass_git_result
       rescue:
         - name: Explain a failed signature check
           ansible.builtin.fail:
@@ -309,16 +290,12 @@
         cmd: cargo build --release --locked
         chdir: "{{ ssh_askpass_checkout_dir }}"
       environment: "{{ ssh_askpass_cargo_env }}"
-      register: ssh_askpass_build_result
 
-    - name: Create system directories for ssh-askpass-omarchy
+    - name: Create the ssh-askpass-omarchy plugin directory
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: "{{ ssh_askpass_plugin_dir }}"
         state: directory
         mode: "0755"
-      loop:
-        - /usr/bin
-        - "{{ ssh_askpass_plugin_dir }}"
       become: true
 
     - name: Install the binary to /usr/bin
@@ -336,7 +313,6 @@
         mode: preserve
         remote_src: true
       become: true
-      register: ssh_askpass_copy_result
 
 # Replaces Omarchy's polkit agent (omarchy.polkit) with polkit-omarchy
 # (lbssousa.polkit), which adds a "Touch your security key" prompt for
@@ -358,7 +334,7 @@
 - name: polkit-omarchy (polkit agent with security key touch prompt)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [polkit-agent]
 
   tasks:
@@ -401,7 +377,6 @@
             force: false
             verify_commit: "{{ polkit_agent_verify_commit }}"
             gpg_allowlist: "{{ polkit_agent_signing_keys if polkit_agent_verify_commit else [] }}"
-          register: polkit_agent_git_result
       rescue:
         - name: Explain a failed signature check
           ansible.builtin.fail:
@@ -423,4 +398,3 @@
         mode: preserve
         remote_src: true
       become: true
-      register: polkit_agent_copy_result

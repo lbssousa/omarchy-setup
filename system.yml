@@ -97,8 +97,9 @@
   tags: [ptbr]
 
 # Plays: Podman (tag podman), Distrobox (tag distrobox, which also runs
-# Podman first), starship prompt inside distrobox (tag starship-distrobox).
-- name: Containers (Podman, Distrobox, starship in distrobox)
+# Podman first). The starship prompt inside distrobox is per user only
+# (user/containers.yml, tag starship-distrobox).
+- name: Containers (Podman, Distrobox)
   ansible.builtin.import_playbook: playbooks/system/containers.yml
   tags: [containers]
 

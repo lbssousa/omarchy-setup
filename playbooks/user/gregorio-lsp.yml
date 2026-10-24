@@ -30,7 +30,7 @@
 - name: gregorio-lsp (LSP server, grelint, grefmt)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   vars:
     gregorio_lsp_cargo_env:

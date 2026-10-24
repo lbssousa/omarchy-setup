@@ -27,7 +27,7 @@
 - name: LazyVim plugin preferences (LaTeX extra + gregorio.nvim)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
 
   tasks:
     - name: Check whether lazyvim.json already exists

@@ -15,7 +15,7 @@
 - name: Firefox web apps as Taskbar Tabs (create, remove Omarchy launchers, wire keybinds)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
   tags: [firefox-taskbar-apps]
 
   tasks:

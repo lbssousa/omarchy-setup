@@ -349,7 +349,7 @@ ssh_askpass_environment_conf: "{{ target_home }}/.config/environment.d/90-ssh-as
 # https://github.com/lbssousa/polkit-omarchy; bump the ref to deploy a new
 # release.
 polkit_agent_repo: https://github.com/lbssousa/polkit-omarchy.git
-polkit_agent_ref: v0.2.0
+polkit_agent_ref: v0.2.1
 polkit_agent_checkout_dir: "{{ target_home }}/src/polkit-omarchy"
 # Refuse to install unless the tag's GPG signature verifies and was made by
 # one of these keys (same as omapin's).

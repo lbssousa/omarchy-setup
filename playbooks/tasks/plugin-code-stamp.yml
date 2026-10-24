@@ -16,6 +16,12 @@
   register: plugin_stamp_sum
   changed_when: false
 
+- name: Create ~/.local/state/omarchy-setup/plugins
+  ansible.builtin.file:
+    path: "{{ target_home }}/.local/state/omarchy-setup/plugins"
+    state: directory
+    mode: "0755"
+
 - name: "Remember the fingerprint of {{ plugin_stamp_id }} for this user"
   ansible.builtin.copy:
     content: "{{ plugin_stamp_sum.stdout }}\n"

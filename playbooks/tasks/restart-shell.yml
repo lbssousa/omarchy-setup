@@ -1,0 +1,17 @@
+---
+# Restart the Omarchy shell, waiting out a locked screen. omarchy-restart-shell
+# refuses to run while a lock screen is up ("Refusing to restart Omarchy shell
+# while the session is locked."), since killing the shell would kill the
+# locker, and a long run often outlasts the idle timeout. So the restart is
+# retried until the session is unlocked, for up to
+# omarchy_shell_restart_lock_retries × omarchy_shell_restart_lock_delay
+# seconds. Any other failure stops the play at once.
+- name: Restart the shell (waits while the screen is locked)
+  ansible.builtin.command: omarchy-restart-shell
+  register: omarchy_shell_restart
+  until: >-
+    omarchy_shell_restart.rc == 0
+    or 'while the session is locked' not in omarchy_shell_restart.stderr
+  retries: "{{ omarchy_shell_restart_lock_retries }}"
+  delay: "{{ omarchy_shell_restart_lock_delay }}"
+  changed_when: true

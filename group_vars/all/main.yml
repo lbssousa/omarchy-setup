@@ -1015,6 +1015,11 @@ omarchy_plugins:
       - socat
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
 omarchy_plugins_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
+# How long a shell restart (playbooks/tasks/restart-shell.yml) waits for a
+# locked screen to be unlocked before giving up: retries × delay seconds,
+# 30 minutes by default.
+omarchy_shell_restart_lock_retries: 180
+omarchy_shell_restart_lock_delay: 10
 
 # Google Drive mounted through rclone (playbooks/user/rclone-gdrive.yml).
 # The account is personal: set rclone_gdrive_email in users/<name>.yml.

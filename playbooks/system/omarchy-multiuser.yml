@@ -42,48 +42,19 @@
         state: present
       become: true
 
-    - name: Check that the release signing key is in the GPG keyring
-      ansible.builtin.command: "gpg --list-keys --with-colons {{ item }}"
-      loop: "{{ omarchy_multiuser_signing_keys }}"
-      register: omarchy_multiuser_key_check
-      changed_when: false
-      failed_when: false
-      when: omarchy_multiuser_verify_commit
+    - name: "Check out the omarchy-multiuser release ({{ omarchy_multiuser_ref }}), verifying its signed tag"
+      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
+      vars:
+        signed_checkout_name: omarchy-multiuser
+        signed_checkout_repo: "{{ omarchy_multiuser_repo }}"
+        signed_checkout_ref: "{{ omarchy_multiuser_ref }}"
+        signed_checkout_dest: "{{ omarchy_multiuser_checkout_dir }}"
+        signed_checkout_verify: "{{ omarchy_multiuser_verify_commit }}"
+        signed_checkout_keys: "{{ omarchy_multiuser_signing_keys }}"
 
-    - name: Fail early if the signing key is missing (run `just gpg-yubikey`)
-      ansible.builtin.fail:
-        msg: >-
-          omarchy-multiuser is deployed from a release tag whose GPG
-          signature is verified, and the signing key isn't in your keyring
-          yet ({{ omarchy_multiuser_signing_keys | join(', ') }}). Import it
-          with `just gpg-yubikey` (Yubikey plugged in). Set
-          omarchy_multiuser_verify_commit=false only for an unsigned fork.
-      when: >-
-        omarchy_multiuser_verify_commit
-        and (omarchy_multiuser_key_check.results | selectattr('rc', 'ne', 0) | list | length) > 0
-
-    - name: "Check out the omarchy-multiuser release ({{ omarchy_multiuser_ref }})"
-      block:
-        - name: "Check out the omarchy-multiuser release ({{ omarchy_multiuser_ref }}), verifying its signed tag"
-          ansible.builtin.git:
-            repo: "{{ omarchy_multiuser_repo }}"
-            dest: "{{ omarchy_multiuser_checkout_dir }}"
-            version: "{{ omarchy_multiuser_ref }}"
-            force: false
-            verify_commit: "{{ omarchy_multiuser_verify_commit }}"
-            gpg_allowlist: "{{ omarchy_multiuser_signing_keys if omarchy_multiuser_verify_commit else [] }}"
-          register: omarchy_multiuser_git_result
-      rescue:
-        - name: Explain a failed checkout or signature check
-          ansible.builtin.fail:
-            msg: >-
-              Couldn't check out {{ omarchy_multiuser_repo }}
-              ({{ omarchy_multiuser_ref }}) with a verified GPG signature:
-              {{ ansible_failed_result.msg | default('unknown error') }}.
-              omarchy_multiuser_ref must be a release tag signed with one of
-              omarchy_multiuser_signing_keys. Before the repository is
-              published, point omarchy_multiuser_repo at a local checkout
-              that has the tag (-e omarchy_multiuser_repo=/path/to/checkout).
+    - name: Keep the checkout's result under this play's name
+      ansible.builtin.set_fact:
+        omarchy_multiuser_git_result: "{{ signed_checkout_result }}"
 
     - name: Check whether the package is installed
       ansible.builtin.command: "pacman -Q {{ omarchy_multiuser_package }}"

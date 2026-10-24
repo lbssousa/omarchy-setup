@@ -1,0 +1,57 @@
+---
+# Checks out a release tag only after its GPG signature verifies against one
+# of the allowed keys (the Yubikey's OpenPGP key). main only holds
+# GitHub-signed squash merges, so the ref must be a tag. Fails early, with
+# the way out, when a key isn't in the keyring yet (`just apply
+# gpg-yubikey`, token plugged in). Leaves signed_checkout_result (the git
+# result) for the caller's "rebuild when it changed".
+#
+#   signed_checkout_name    what it is, for the messages
+#   signed_checkout_repo    git URL
+#   signed_checkout_ref     release tag
+#   signed_checkout_dest    where to check it out
+#   signed_checkout_verify  false only for an unsigned fork
+#   signed_checkout_keys    allowed signing key fingerprints
+- name: "[{{ signed_checkout_name }}] Check that the release signing keys are in the GPG keyring"
+  ansible.builtin.command: "gpg --list-keys --with-colons {{ item }}"
+  loop: "{{ signed_checkout_keys }}"
+  register: signed_checkout_key_check
+  changed_when: false
+  failed_when: false
+  when: signed_checkout_verify | bool
+
+- name: "[{{ signed_checkout_name }}] Fail early if a signing key is missing"
+  ansible.builtin.fail:
+    msg: >-
+      {{ signed_checkout_name }} is deployed from a release tag whose GPG
+      signature is verified, and the signing key isn't in your keyring yet
+      ({{ signed_checkout_keys | join(', ') }}). Import it first with
+      `just apply gpg-yubikey` (Yubikey plugged in). Turn the verification
+      off only for an unsigned fork.
+  when: >-
+    signed_checkout_verify | bool
+    and (signed_checkout_key_check.results | selectattr('rc', 'ne', 0) | list | length) > 0
+
+- name: "[{{ signed_checkout_name }}] Check out {{ signed_checkout_ref }}"
+  block:
+    - name: "[{{ signed_checkout_name }}] Check out {{ signed_checkout_ref }}, verifying its signed tag"
+      ansible.builtin.git:
+        repo: "{{ signed_checkout_repo }}"
+        dest: "{{ signed_checkout_dest }}"
+        version: "{{ signed_checkout_ref }}"
+        force: false
+        verify_commit: "{{ signed_checkout_verify | bool }}"
+        gpg_allowlist: "{{ signed_checkout_keys if signed_checkout_verify | bool else [] }}"
+      register: signed_checkout_result
+  rescue:
+    - name: "[{{ signed_checkout_name }}] Explain a failed signature check"
+      ansible.builtin.fail:
+        msg: >-
+          Couldn't check out {{ signed_checkout_repo }}
+          ({{ signed_checkout_ref }}) with a verified GPG signature:
+          {{ ansible_failed_result.msg | default('unknown error') }}.
+          The ref must be a release tag signed with one of
+          {{ signed_checkout_keys | join(', ') }} (the Yubikey's OpenPGP
+          key); a branch like main won't do, because its merges are signed
+          by GitHub. If the key is missing from the keyring, import it with
+          `just apply gpg-yubikey` (token plugged in).

@@ -203,10 +203,11 @@ gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
 
-# Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs is the AUR package
-# Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in
-# emacs-wayland and syncs the Omarchy theme and font.
-emacs_aur_package: omarchy-emacs
+# Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs, from
+# Omarchy's own pacman repo (formerly the AUR), is the package Omarchy's own
+# installer uses (omarchy-install-editor-emacs); it pulls in emacs-wayland
+# and syncs the Omarchy theme and font.
+emacs_package: omarchy-emacs
 
 # Emacs packages installed with package.el (batch mode, only the missing
 # ones), and the archives they come from. AUCTeX and yasnippet live in GNU

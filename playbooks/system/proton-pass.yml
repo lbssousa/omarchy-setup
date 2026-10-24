@@ -15,8 +15,7 @@
 #
 # Desktop client: Proton's own .deb repackaged in the AUR
 # (proton-pass-bin), installed with Omarchy's AUR helper
-# (omarchy-pkg-aur-add), the same way playbooks/system/emacs.yml installs
-# omarchy-emacs.
+# (omarchy-pkg-aur-add).
 #
 # The browser extension authenticates directly with a Proton account —
 # unlike KeePassXC's, it doesn't talk to the desktop client over native
@@ -74,7 +73,7 @@
       changed_when: false
       failed_when: false
 
-    # As the user: yay refuses to build as root (see playbooks/system/emacs.yml).
+    # As the user: yay refuses to build as root.
     - name: Install Proton Pass (AUR) with Omarchy's own helper
       ansible.builtin.command: omarchy-pkg-aur-add {{ proton_pass_aur_package }}
       when: proton_pass_check.rc != 0

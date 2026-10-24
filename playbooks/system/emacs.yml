@@ -1,8 +1,8 @@
 ---
 # GNU Emacs, system phase: the packages Omarchy's installer
-# (omarchy-install-editor-emacs, then omarchy-install-emacs) puts in — the AUR
-# omarchy-emacs package and emacs-wayland. The Omarchy integration, the
-# Emacs packages, the theme and emacs.service are per user, in
+# (omarchy-install-editor-emacs, then omarchy-install-emacs) puts in —
+# omarchy-emacs (from Omarchy's pacman repo) and emacs-wayland. The Omarchy
+# integration, the Emacs packages, the theme and emacs.service are per user, in
 # user/emacs.yml, which explains them.
 #
 # Usage: just emacs
@@ -12,20 +12,15 @@
   gather_facts: false
 
   tasks:
-    - name: Check whether omarchy-emacs is already installed
-      ansible.builtin.command: pacman -Q {{ emacs_aur_package }}
-      register: emacs_aur_check
-      changed_when: false
-      failed_when: false
-
-    - name: Install omarchy-emacs (AUR) with Omarchy's own helper
-      ansible.builtin.command: omarchy-pkg-aur-add {{ emacs_aur_package }}
-      when: emacs_aur_check.rc != 0
-
-    # omarchy-install-emacs's own `omarchy-pkg-add emacs-wayland`, done here
-    # so the user phase needs no root.
-    - name: Install emacs-wayland
+    # omarchy-emacs moved from the AUR to Omarchy's own pacman repo, so
+    # plain pacman installs it (omarchy-pkg-aur-add would have yay call
+    # sudo, which has no terminal to ask for the password here).
+    # emacs-wayland is omarchy-install-emacs's own `omarchy-pkg-add
+    # emacs-wayland`, done here so the user phase needs no root.
+    - name: Install omarchy-emacs and emacs-wayland
       community.general.pacman:
-        name: emacs-wayland
+        name:
+          - "{{ emacs_package }}"
+          - emacs-wayland
         state: present
       become: true

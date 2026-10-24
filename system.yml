@@ -61,7 +61,7 @@
   ansible.builtin.import_playbook: playbooks/system/keepassxc.yml
   tags: [keepassxc]
 
-- name: ONLYOFFICE Desktop Editors
+- name: ONLYOFFICE Desktop Editors (Flatpak)
   ansible.builtin.import_playbook: playbooks/system/onlyoffice.yml
   tags: [onlyoffice]
 

@@ -131,14 +131,16 @@ firefox_taskbar_apps: []
 # isn't already the default, so a later switch in the menu isn't undone.
 default_browser: "{{ firefox_browser }}"
 
-# ONLYOFFICE Desktop Editors (playbooks/system/onlyoffice.yml) — the AUR
-# onlyoffice-bin package (upstream's own .deb, repackaged), installed with
-# omarchy-pkg-aur-add, replacing Omarchy's pre-installed native
-# libreoffice-fresh. ONLYOFFICE ships as a single
-# desktop application, so there are no secondary components to hide from
-# the app launcher.
-onlyoffice_aur_package: onlyoffice-bin
-onlyoffice_command: onlyoffice-desktopeditors
+# ONLYOFFICE Desktop Editors (playbooks/system/onlyoffice.yml) — installed
+# from Flathub, replacing Omarchy's pre-installed native libreoffice-fresh
+# (and the AUR onlyoffice-bin an earlier version of this repo installed).
+# ONLYOFFICE ships as a single desktop application, so there are no
+# secondary components to hide from the app launcher.
+onlyoffice_flatpak_id: org.onlyoffice.desktopeditors
+onlyoffice_native_packages:
+  - libreoffice-fresh
+  - libreoffice-fresh-pt-br
+  - onlyoffice-bin
 
 # Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs is the AUR package
 # Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in

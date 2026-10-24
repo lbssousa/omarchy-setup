@@ -154,8 +154,8 @@ git-identity: _ensure-collections
 default-browser: _ensure-collections
     scripts/run-phase.sh user user.yml --tags default-browser
 
-# Install ONLYOFFICE Desktop Editors (AUR onlyoffice-bin) and remove the
-# pre-installed native libreoffice-fresh.
+# Install ONLYOFFICE Desktop Editors from Flathub (org.onlyoffice.desktopeditors)
+# and remove the pre-installed native libreoffice-fresh.
 onlyoffice: _ensure-collections
     scripts/run-phase.sh system system.yml --tags onlyoffice
 

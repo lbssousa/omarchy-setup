@@ -1,27 +1,27 @@
 ---
-# Bitwarden desktop client, per user (optional — not imported by user.yml,
-# where KeePassXC is the default password manager): wires SSH_AUTH_SOCK to
-# the Bitwarden SSH agent, deploys its XDG autostart entry and rebinds
-# Omarchy's "Passwords" shortcut (SUPER+SHIFT+SLASH) to Bitwarden. The
-# Flatpak itself and its biometric unlock polkit action are installed by
+# Bitwarden desktop client, per user — the session's password manager
+# (imported by user.yml): wires SSH_AUTH_SOCK to the Bitwarden SSH agent,
+# deploys its XDG autostart entry and rebinds Omarchy's "Passwords"
+# shortcut (SUPER+SHIFT+SLASH) to Bitwarden. The Flatpak itself and its
+# biometric unlock polkit action are installed by
 # playbooks/system/bitwarden.yml.
 #
-# The agent is socket-activated: Bitwarden can't take a listening socket
-# from systemd, so SSH_AUTH_SOCK points at bitwarden-ssh-agent.socket
-# ($XDG_RUNTIME_DIR/bitwarden-ssh-agent.sock) instead of Bitwarden's own
-# sandboxed socket (~/.var/app/com.bitwarden.desktop/data/
-# .bitwarden-ssh-agent.sock — https://bitwarden.com/help/ssh-agent/,
-# "Flatpak Installation"). The first SSH client to connect starts
-# bitwarden-ssh-agent-proxy.service, whose ExecStartPre
-# (bitwarden_ssh_agent_launcher) launches Bitwarden — or raises its window
-# to unlock — when that socket doesn't answer, and waits for it; then
-# systemd-socket-proxyd forwards to it, exiting after
-# bitwarden_ssh_agent_proxy_idle without traffic, so the next client
-# checks again (and relaunches Bitwarden if it was closed in between).
-# The .path unit pushes SSH_AUTH_SOCK into the running systemd --user
-# manager too, so it takes effect without logging out; environment.d
-# covers later logins. gcr-ssh-agent is masked so it doesn't compete for
-# the same variable.
+# KeePassXC, the previous default, is cleaned out first: its keybind,
+# autostart entry, ssh unlock prompt, browser native messaging manifests,
+# the Firefox Flatpak override for its socket and its settings. Its
+# databases are kept, and the KeePassXC-Browser extensions stay installed
+# until removed from each browser.
+#
+# Bitwarden starts with the session (XDG autostart), so SSH_AUTH_SOCK
+# points straight at its sandboxed agent socket
+# (~/.var/app/com.bitwarden.desktop/data/.bitwarden-ssh-agent.sock —
+# https://bitwarden.com/help/ssh-agent/, "Flatpak Installation"):
+# statically through environment.d, which systemd --user reads at login,
+# and through bitwarden-ssh-agent.path, which starts
+# bitwarden-ssh-agent-env.service once Bitwarden creates the socket to push
+# the variable into the running manager too, without a re-login.
+# gcr-ssh-agent is masked so it doesn't compete for the same variable. The
+# socket-activated proxy an earlier run installed is stopped and removed.
 #
 # Usage: just bitwarden
 - name: Bitwarden (user — SSH agent, autostart, keybind)
@@ -31,6 +31,52 @@
   tags: [bitwarden]
 
   tasks:
+    - name: Remove KeePassXC (superseded by Bitwarden)
+      block:
+        # The package is gone after the system half, but a running
+        # instance would keep its tray icon and browser socket until logout.
+        - name: Quit a running KeePassXC
+          ansible.builtin.command: pkill -x keepassxc
+          register: keepassxc_quit
+          changed_when: keepassxc_quit.rc == 0
+          failed_when: false
+
+        - name: Drop the KeePassXC keybinding from ~/.config/hypr/bindings.lua
+          ansible.builtin.blockinfile:
+            path: "{{ target_home }}/.config/hypr/bindings.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/keepassxc.yml — KeePassXC keybinding)"
+            state: absent
+          notify: reload Hyprland
+
+        - name: Remove KeePassXC's autostart, ssh unlock prompt, browser manifests and settings
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop: "{{ keepassxc_legacy_user_paths }}"
+          notify: reload systemd --user
+
+        - name: Look for the Firefox Flatpak's user overrides
+          ansible.builtin.stat:
+            path: "{{ firefox_flatpak_user_override }}"
+          register: keepassxc_firefox_override
+
+        # Edited rather than `flatpak override --nofilesystem=`, which would
+        # leave a negated entry behind instead of removing the grant.
+        - name: Take back the Firefox Flatpak's access to KeePassXC's socket
+          when: keepassxc_firefox_override.stat.exists
+          block:
+            - name: Remove the filesystem grant
+              ansible.builtin.replace:
+                path: "{{ firefox_flatpak_user_override }}"
+                regexp: '(?<=[=;]){{ keepassxc_legacy_firefox_filesystem | regex_escape }};'
+                replace: ""
+
+            - name: Drop the filesystems key if nothing else is left in it
+              ansible.builtin.lineinfile:
+                path: "{{ firefox_flatpak_user_override }}"
+                regexp: '^filesystems=$'
+                state: absent
+
     - name: Bitwarden SSH agent — session-wide SSH_AUTH_SOCK
       block:
         - name: Create ~/.config/environment.d
@@ -40,43 +86,10 @@
             mode: "0755"
 
         - name: Set a static SSH_AUTH_SOCK for IDEs and session apps
-          ansible.builtin.copy:
-            src: 20-bitwarden-ssh-agent.conf
+          ansible.builtin.template:
+            src: 20-bitwarden-ssh-agent.conf.j2
             dest: "{{ target_home }}/.config/environment.d/20-bitwarden-ssh-agent.conf"
             mode: "0644"
-
-        - name: Create ~/.config/systemd/user
-          ansible.builtin.file:
-            path: "{{ target_home }}/.config/systemd/user"
-            state: directory
-            mode: "0755"
-
-        - name: Install the Bitwarden SSH agent's systemd --user units
-          ansible.builtin.copy:
-            src: "{{ item }}"
-            dest: "{{ target_home }}/.config/systemd/user/{{ item }}"
-            mode: "0644"
-          loop: "{{ bitwarden_ssh_agent_units }}"
-          notify: reload systemd --user
-
-        - name: Install the proxy the activation socket starts
-          ansible.builtin.template:
-            src: bitwarden-ssh-agent-proxy.service.j2
-            dest: "{{ target_home }}/.config/systemd/user/bitwarden-ssh-agent-proxy.service"
-            mode: "0644"
-          notify: reload systemd --user
-
-        - name: Create ~/.local/bin
-          ansible.builtin.file:
-            path: "{{ bitwarden_ssh_agent_launcher | dirname }}"
-            state: directory
-            mode: "0755"
-
-        - name: "Deploy the proxy's Bitwarden launcher ({{ bitwarden_ssh_agent_launcher }})"
-          ansible.builtin.template:
-            src: bitwarden-ssh-agent-launch.sh.j2
-            dest: "{{ bitwarden_ssh_agent_launcher }}"
-            mode: "0755"
 
         - name: Mask gcr-ssh-agent (avoids competing for SSH_AUTH_SOCK)
           ansible.builtin.systemd:
@@ -85,16 +98,50 @@
             masked: true
           loop: "{{ gcr_ssh_agent_units }}"
 
-        - name: Enable the Bitwarden SSH agent's activation socket and path unit
+        - name: Look for the socket-activated SSH agent units an earlier run installed
+          ansible.builtin.stat:
+            path: "{{ target_home }}/.config/systemd/user/{{ item }}"
+          loop: "{{ bitwarden_ssh_agent_legacy_units }}"
+          register: bitwarden_ssh_agent_legacy_unit_files
+
+        - name: Stop and disable those units
+          # systemctl rather than the systemd module: the proxy service is
+          # static (no [Install]), which `disable` only warns about.
+          ansible.builtin.command:
+            cmd: systemctl --user disable --now {{ bitwarden_ssh_agent_legacy_present | join(' ') }}
+          vars:
+            bitwarden_ssh_agent_legacy_present: >-
+              {{ bitwarden_ssh_agent_legacy_unit_files.results | selectattr('stat.exists') | map(attribute='item') | list }}
+          when: bitwarden_ssh_agent_legacy_present | length > 0
+          changed_when: true
+
+        - name: Remove those units and the proxy's Bitwarden launcher
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop: >-
+            {{ bitwarden_ssh_agent_legacy_units
+               | map('regex_replace', '^', target_home ~ '/.config/systemd/user/')
+               | list + [bitwarden_ssh_agent_legacy_launcher] }}
+          notify: reload systemd --user
+
+        - name: Install the units that export SSH_AUTH_SOCK once Bitwarden's socket exists
+          ansible.builtin.template:
+            src: "{{ item }}.j2"
+            dest: "{{ target_home }}/.config/systemd/user/{{ item }}"
+            mode: "0644"
+          loop: "{{ bitwarden_ssh_agent_units }}"
+          notify:
+            - reload systemd --user
+            - re-export SSH_AUTH_SOCK
+
+        - name: Enable the Bitwarden SSH agent's path unit
           ansible.builtin.systemd:
-            name: "{{ item }}"
+            name: bitwarden-ssh-agent.path
             scope: user
             daemon_reload: true
             enabled: true
             state: started
-          loop:
-            - bitwarden-ssh-agent.socket
-            - bitwarden-ssh-agent.path
 
     - name: "Autostart Bitwarden at session login ({{ bitwarden_autostart_desktop }})"
       block:
@@ -130,14 +177,28 @@
           ansible.builtin.blockinfile:
             path: "{{ target_home }}/.config/hypr/bindings.lua"
             marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/bitwarden.yml — Bitwarden keybinding)"
-            # The Electron app runs under XWayland (checked with
-            # `hyprctl clients` against a running instance — xwayland: 1),
-            # so its window class is the plain X11 WM_CLASS "bitwarden",
-            # not a Wayland xdg_toplevel.app_id derived from the flatpak
-            # id.
+            # The window class is "bitwarden" (checked with
+            # `hyprctl clients`), not the flatpak id — both under XWayland
+            # (WM_CLASS) and natively on Wayland (app_id, see
+            # bitwarden_flatpak_env).
             block: |
               hl.unbind("{{ bitwarden_hypr_keybind }}")
               o.bind("{{ bitwarden_hypr_keybind }}", "Bitwarden", { launch = "flatpak run {{ bitwarden_flatpak_id }}", focus = "^bitwarden$" })
+          notify: reload Hyprland
+
+        - name: "{{ 'Keep' if bitwarden_floating else 'Tile' }} the Bitwarden window (Omarchy floats it by default)"
+          ansible.builtin.blockinfile:
+            path: "{{ target_home }}/.config/hypr/bindings.lua"
+            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/bitwarden.yml — Bitwarden tiled)"
+            state: "{{ 'absent' if bitwarden_floating else 'present' }}"
+            # Dropping the tag undoes the center and size Omarchy's
+            # system.lua rules give it, but not the float: that static rule
+            # already fired while the tag was still on (checked with
+            # `hyprctl clients` — tags: [], floating: true), so tile it
+            # explicitly too, as Omarchy's apps/browser.lua does.
+            block: |
+              o.window("^([bB]itwarden)$", { tag = "-floating-window" })
+              o.window("^([bB]itwarden)$", { tile = true })
           notify: reload Hyprland
 
   handlers:
@@ -146,6 +207,16 @@
         daemon_reload: true
         scope: user
       listen: reload systemd --user
+
+    - name: re-export SSH_AUTH_SOCK
+      # Stopping the oneshot unsets the variable an older unit exported;
+      # the path unit starts it again with the new value as soon as (or if)
+      # Bitwarden's socket exists.
+      ansible.builtin.systemd:
+        name: bitwarden-ssh-agent-env.service
+        scope: user
+        state: stopped
+      listen: re-export SSH_AUTH_SOCK
 
     - name: reload Hyprland
       # Only has an effect inside a real Hyprland session; the bind

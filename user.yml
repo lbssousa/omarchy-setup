@@ -38,13 +38,12 @@
   ansible.builtin.import_playbook: playbooks/user/default-browser.yml
   tags: [default-browser]
 
-# The password manager: KeePassXC, its browser native messaging manifests,
-# autostart, Omarchy's "Passwords" keybind (SUPER+SHIFT+SLASH) and a udev
-# rule that locks every open database when the YubiKey is unplugged. The
-# file's OpenSSH agent play stays off (keepassxc_ssh_agent_enabled).
-- name: KeePassXC (default password manager, YubiKey auto-lock)
-  ansible.builtin.import_playbook: playbooks/user/keepassxc.yml
-  tags: [keepassxc]
+# The password manager: Bitwarden, with autostart, its SSH agent as
+# SSH_AUTH_SOCK and Omarchy's "Passwords" keybind (SUPER+SHIFT+SLASH).
+# Cleans out what KeePassXC, the previous default, left behind.
+- name: Bitwarden (default password manager, SSH agent)
+  ansible.builtin.import_playbook: playbooks/user/bitwarden.yml
+  tags: [bitwarden]
 
 - name: Emacs + AUCTeX, yasnippet, lsp-mode (classic teal theme)
   ansible.builtin.import_playbook: playbooks/user/emacs.yml

@@ -12,7 +12,7 @@ defaults. Typical keys:
 | `firefox_taskbar_apps` | Firefox Taskbar Tabs replacing Omarchy's web apps (`user/firefox-taskbar-apps.yml`) |
 | `omarchy_plugins` | shell plugins (default: this machine's list) |
 | `omarchy_text_size_px`, `omarchy_monitor_scale`, `omarchy_system_ui_font_pt` | text size and scale |
-| `keepassxc_primary`, `keepassxc_hypr_keybind` | password manager choice and key |
+| `bitwarden_hypr_keybind`, `bitwarden_floating` | password manager key and window |
 | `omaraptor_auto_day_theme`, `omaraptor_auto_night_theme` | automatic themes |
 
 Accounts themselves (full name, admin, shell) are declared in

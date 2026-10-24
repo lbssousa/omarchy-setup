@@ -4,16 +4,21 @@
 # "fully support biometric unlock and automatic updates"
 # (https://bitwarden.com/help/biometrics/).
 #
-# Imported by system.yml so the Flatpak and the polkit action biometric
-# unlock needs are installed alongside KeePassXC (which stays the default
-# password manager in user.yml). Running `just bitwarden` also runs
-# playbooks/user/bitwarden.yml, which wires SSH_AUTH_SOCK to Bitwarden's
-# sandboxed SSH agent socket (through a socket-activated proxy that
-# launches Bitwarden on first use), deploys its XDG autostart entry and rebinds
-# SUPER+SHIFT+SLASH to Bitwarden.
+# Bitwarden is the system's password manager: system.yml imports this
+# playbook for the Flatpak and the polkit action biometric unlock needs,
+# and user.yml imports playbooks/user/bitwarden.yml, which wires
+# SSH_AUTH_SOCK to Bitwarden's sandboxed SSH agent socket, deploys its XDG
+# autostart entry and rebinds SUPER+SHIFT+SLASH to Bitwarden.
+#
+# It also removes KeePassXC, the previous default: the package, and the
+# udev rule + script that locked it when the YubiKey was unplugged.
 #
 # Bootstraps Flatpak + the Flathub remote itself (system-wide), same as
-# playbooks/system/firefox.yml, so `just bitwarden` works standalone.
+# playbooks/system/firefox.yml, so `just bitwarden` works standalone. Also
+# pins the installation's Flatpak languages (bitwarden_flatpak_languages),
+# so the app follows the session's language, lets the sandbox own the
+# D-Bus name its tray icon needs (bitwarden_flatpak_own_names) and runs it
+# natively on Wayland (bitwarden_flatpak_env).
 #
 # Usage: just bitwarden
 - name: Bitwarden (Flatpak) + polkit (biometric unlock)
@@ -37,6 +42,21 @@
         flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
       become: true
 
+    - name: Read the system installation's Flatpak languages
+      ansible.builtin.command:
+        cmd: flatpak config --system --get languages
+      register: bitwarden_flatpak_languages_current
+      changed_when: false
+
+    # Before the install, so a fresh Bitwarden already gets its translations.
+    - name: "Set the system installation's Flatpak languages ({{ bitwarden_flatpak_languages | join(';') }})"
+      ansible.builtin.command:
+        cmd: flatpak config --system --set languages {{ bitwarden_flatpak_languages | join(';') | quote }}
+      when: bitwarden_flatpak_languages_current.stdout | trim != bitwarden_flatpak_languages | join(';')
+      changed_when: true
+      become: true
+      notify: update flatpak locales
+
     - name: Install Bitwarden from Flathub
       community.general.flatpak:
         name: "{{ bitwarden_flatpak_id }}"
@@ -44,11 +64,78 @@
         method: system
       become: true
 
+    - name: Read Bitwarden's Flatpak overrides
+      ansible.builtin.command:
+        cmd: flatpak override --system --show {{ bitwarden_flatpak_id }}
+      register: bitwarden_flatpak_overrides
+      changed_when: false
+
+    - name: Let Bitwarden own its tray icon's D-Bus name
+      ansible.builtin.command:
+        cmd: >-
+          flatpak override --system
+          {{ bitwarden_flatpak_missing_names | map('regex_replace', '^(.+)$', '--own-name=\1') | map('quote') | join(' ') }}
+          {{ bitwarden_flatpak_id }}
+      vars:
+        bitwarden_flatpak_missing_names: >-
+          {{ bitwarden_flatpak_own_names
+             | reject('in', bitwarden_flatpak_overrides.stdout_lines
+                            | select('match', '^.+=own$') | map('regex_replace', '=own$', '') | list)
+             | list }}
+      when: bitwarden_flatpak_missing_names | length > 0
+      changed_when: true
+      become: true
+
+    - name: Set Bitwarden's environment (native Wayland, see bitwarden_flatpak_env)
+      ansible.builtin.command:
+        cmd: >-
+          flatpak override --system
+          {{ bitwarden_flatpak_missing_env | map('regex_replace', '^(.+)$', '--env=\1') | map('quote') | join(' ') }}
+          {{ bitwarden_flatpak_id }}
+      vars:
+        bitwarden_flatpak_missing_env: >-
+          {{ bitwarden_flatpak_env.items() | map('join', '=')
+             | reject('in', bitwarden_flatpak_overrides.stdout_lines)
+             | list }}
+      when: bitwarden_flatpak_missing_env | length > 0
+      changed_when: true
+      become: true
+
+    # The languages setting may already be right while the extension still
+    # holds the old subset (a run whose handler missed it), so check what is
+    # actually deployed rather than relying on the handler alone.
+    - name: Look for each language in Bitwarden's deployed Locale extension
+      ansible.builtin.stat:
+        path: "/var/lib/flatpak/runtime/{{ bitwarden_flatpak_id }}.Locale/x86_64/stable/active/files/{{ item }}"
+      loop: "{{ bitwarden_flatpak_languages }}"
+      register: bitwarden_flatpak_locale_dirs
+
+    - name: Re-deploy the Locale extensions with the configured languages
+      ansible.builtin.debug:
+        msg: "Missing locale subsets: {{ bitwarden_flatpak_locale_dirs.results | rejectattr('stat.exists') | map(attribute='item') | join(', ') }}"
+      when: bitwarden_flatpak_locale_dirs.results | rejectattr('stat.exists') | list | length > 0
+      changed_when: true
+      notify: update flatpak locales
+
     - name: Remove any native Bitwarden desktop package
       community.general.pacman:
         name: "{{ bitwarden_native_packages }}"
         state: absent
       become: true
+
+    - name: Remove KeePassXC (superseded by Bitwarden)
+      community.general.pacman:
+        name: "{{ keepassxc_legacy_package }}"
+        state: absent
+      become: true
+
+    - name: Remove KeePassXC's YubiKey auto-lock udev rule and script
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ keepassxc_legacy_system_paths }}"
+      become: true
+      notify: reload udev rules
 
     - name: Install the Bitwarden polkit action (biometric unlock)
       ansible.builtin.copy:
@@ -61,9 +148,27 @@
       notify: restart polkit
 
   handlers:
+    - name: reload udev rules
+      ansible.builtin.command: udevadm control --reload-rules
+      changed_when: false
+      become: true
+      listen: reload udev rules
+
     - name: restart polkit
       ansible.builtin.systemd:
         name: polkit
         state: restarted
       become: true
       listen: restart polkit
+
+    - name: update flatpak locales
+      # Re-deploys every installed .Locale extension with the new language
+      # subset; the apps themselves aren't touched. --all: plain --runtime
+      # hides .Locale extensions, so the grep would come up empty.
+      ansible.builtin.shell:
+        cmd: >-
+          flatpak list --system --all --columns=ref
+          | grep '\.Locale/'
+          | xargs -r flatpak update --system --noninteractive -y
+      become: true
+      listen: update flatpak locales

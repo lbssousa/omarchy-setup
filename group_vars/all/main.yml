@@ -172,9 +172,8 @@ flathub_app_migrations:
 # Bitwarden (playbooks/{system,user}/bitwarden.yml) — installed from Flathub,
 # the build Bitwarden recommends on Linux for biometric unlock and automatic
 # updates (https://bitwarden.com/help/biometrics/). system.yml installs the
-# Flatpak and the biometric-unlock polkit action alongside KeePassXC (which
-# stays the session's default password manager in user.yml); running
-# `just bitwarden` also runs playbooks/user/bitwarden.yml to hand Bitwarden
+# Flatpak and the biometric-unlock polkit action, and user.yml makes it the
+# session's password manager through playbooks/user/bitwarden.yml:
 # autostart, SSH_AUTH_SOCK and SUPER+SHIFT+SLASH.
 bitwarden_flatpak_id: com.bitwarden.desktop
 bitwarden_native_packages:
@@ -185,23 +184,80 @@ bitwarden_native_packages:
 # https://bitwarden.com/help/biometrics/ drops this exact file
 # (playbooks/files/com.bitwarden.Bitwarden.policy) at this exact path.
 bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarden.policy
+# Languages the system Flatpak installation pulls into each app's .Locale
+# extension (`flatpak config --system languages`). Left unset, Flatpak
+# derives them from the locale of whoever runs it — root under Ansible,
+# i.e. just "en" — and Bitwarden's Electron falls back to en-US because
+# its locales/pt-BR.pak points into a subset that was never downloaded.
+# The setting is installation-wide, so every Flathub app's translations
+# follow it.
+bitwarden_flatpak_languages:
+  - pt
+  - en
+# D-Bus names the sandbox may own on top of the Flathub manifest. Current
+# Electron registers its tray icon as org.freedesktop.StatusNotifierItem-<pid>-<n>
+# (older builds used org.kde.*, which the manifest already allows), so
+# without this the request is denied and no icon reaches the Omarchy bar.
+# Inside the sandbox the app is always PID 2 and has a single icon; Flatpak
+# only accepts wildcards on whole name elements, and org.freedesktop.* would
+# be far too broad for a password manager. The icon itself is still an
+# in-app setting (Settings → "Show icon in the system tray", off by default).
+bitwarden_flatpak_own_names:
+  - org.kde.*
+  - org.freedesktop.StatusNotifierItem-2-1
+# Environment the Flatpak runs with. The Flathub wrapper (/app/bin/bitwarden.sh)
+# forces XWayland unless DISPLAY_MODE says otherwise, and under XWayland
+# Electron's context menus come with a dark rectangular "shadow" (no X11
+# compositor to make it translucent). WAYLAND runs it natively; the window
+# class stays "bitwarden", so the Hyprland rules still match.
+bitwarden_flatpak_env:
+  DISPLAY_MODE: WAYLAND
+# Omarchy floats Bitwarden (default/hypr/apps/bitwarden.lua tags it
+# floating-window, 875x600, centered); false drops that tag so it tiles.
+bitwarden_floating: false
+# The Flatpak's own agent socket (https://bitwarden.com/help/ssh-agent/,
+# "Flatpak Installation"), which SSH_AUTH_SOCK points at.
+bitwarden_ssh_agent_socket: "{{ target_home }}/.var/app/{{ bitwarden_flatpak_id }}/data/.bitwarden-ssh-agent.sock"
+# The .path unit starts the .service once that socket exists, pushing
+# SSH_AUTH_SOCK into the running systemd --user manager without a re-login.
 bitwarden_ssh_agent_units:
-  - bitwarden-ssh-agent.socket
   - bitwarden-ssh-agent.path
   - bitwarden-ssh-agent-env.service
-# Socket activation (playbooks/user/bitwarden.yml's header): the
-# ExecStartPre of bitwarden-ssh-agent-proxy.service that launches Bitwarden
-# when its agent doesn't answer, how long it waits for the agent (seconds —
-# long enough to unlock the vault), and how long the proxy idles before
-# exiting so the next client re-checks.
-bitwarden_ssh_agent_launcher: "{{ target_home }}/.local/bin/bitwarden-ssh-agent-launch"
-bitwarden_ssh_agent_launch_timeout: 120
-bitwarden_ssh_agent_proxy_idle: 60s
+# Left behind by the socket-activated SSH agent an earlier run installed;
+# playbooks/user/bitwarden.yml stops and removes them.
+bitwarden_ssh_agent_legacy_units:
+  - bitwarden-ssh-agent.socket
+  - bitwarden-ssh-agent-proxy.service
+bitwarden_ssh_agent_legacy_launcher: "{{ target_home }}/.local/bin/bitwarden-ssh-agent-launch"
 bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
 bitwarden_autostart_desktop: "{{ target_home }}/.config/autostart/com.bitwarden.desktop.desktop"
 gcr_ssh_agent_units:
   - gcr-ssh-agent.socket
   - gcr-ssh-agent.service
+# KeePassXC, the default password manager before Bitwarden: what its
+# playbooks installed, which playbooks/{system,user}/bitwarden.yml remove.
+# Its databases are left alone, wherever they are.
+keepassxc_legacy_package: keepassxc
+keepassxc_legacy_system_paths:
+  - /usr/local/bin/keepassxc-lock-on-yubikey-remove
+  - /etc/udev/rules.d/72-keepassxc-yubikey-lock.rules
+keepassxc_legacy_user_paths:
+  - "{{ target_home }}/.config/autostart/org.keepassxc.KeePassXC.desktop"
+  - "{{ target_home }}/.config/systemd/user/app-org.keepassxc.KeePassXC@autostart.service.d"
+  - "{{ target_home }}/.local/bin/keepassxc-autostart"
+  - "{{ target_home }}/.local/bin/keepassxc-autostart-wait"
+  - "{{ target_home }}/.local/bin/keepassxc-ssh-unlock"
+  - "{{ target_home }}/.ssh/config.d/keepassxc-unlock.conf"
+  - "{{ target_home }}/.config/environment.d/20-ssh-agent.conf"
+  - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
+  - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts/keepassxc-proxy-relay.py"
+  - "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
+  - "{{ target_home }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+  - "{{ target_home }}/.config/keepassxc"
+  - "{{ target_home }}/.cache/keepassxc"
+# The Firefox Flatpak override that let the relay reach KeePassXC's socket.
+keepassxc_legacy_firefox_filesystem: xdg-run/app/org.keepassxc.KeePassXC
+firefox_flatpak_user_override: "{{ target_home }}/.local/share/flatpak/overrides/{{ firefox_flatpak_id }}"
 
 # Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs, from
 # Omarchy's own pacman repo (formerly the AUR), is the package Omarchy's own
@@ -509,112 +565,6 @@ ptbr_man_pages_package: man-pages-pt_br
 ptbr_tesseract_data_package: tesseract-data-por
 ptbr_ocr_langs: "por+eng"
 
-# OpenSSH agent (playbooks/{system,user}/keepassxc.yml, the play that runs before KeePassXC's) —
-# enables the standard user-scope agent (socket + service) at the session
-# runtime socket and exports SSH_AUTH_SOCK session-wide via environment.d
-# so IDEs, CLI tools and KeePassXC can reach the same agent.
-#
-# keepassxc_ssh_agent_enabled picks the variant: false (the default) is a
-# no-op — the agent is not enabled (Omarchy leaves it off) and nothing else in
-# this setup consumes SSH_AUTH_SOCK; true enables it and exports SSH_AUTH_SOCK
-# for any client. KeePassXC can act as a client, but its SSH agent
-# integration isn't pre-seeded by the play — enable it in-app and it picks
-# the socket up from SSH_AUTH_SOCK. Override on the command line with
-# `-e keepassxc_ssh_agent_enabled=true` (or `just ssh-agent`).
-keepassxc_ssh_agent_enabled: false
-ssh_agent_socket: "/run/user/{{ target_uid }}/ssh-agent.socket"
-ssh_agent_units:
-  - ssh-agent.socket
-  - ssh-agent.service
-
-# KeePassXC (playbooks/{system,user}/keepassxc.yml) — open-source password manager
-# with browser integration (Firefox and Chromium-family browsers), system tray
-# integration and opt-in SSH agent support (the agent play above, see
-# keepassxc_ssh_agent_enabled).
-#
-# The Arch package (extra/keepassxc), installed with omarchy-pkg-add. Its
-# desktop-entry id is org.keepassxc.KeePassXC.desktop and its window class
-# keepassxc (StartupWMClass). Being a Qt5 app on the host, it takes its UI
-# font from qt5ct (playbooks/{system,user}/file-chooser.yml), so no font override is
-# needed.
-keepassxc_package: keepassxc
-# Whether KeePassXC is the session's password manager: true deploys its
-# autostart entry and hands it the keybind below. `just setup` (site.yml)
-# imports the play with the default; false would install only the browser
-# manifests and the YubiKey auto-lock rule.
-keepassxc_primary: true
-keepassxc_desktop_id: org.keepassxc.KeePassXC.desktop
-# Reuses Omarchy's default "Passwords" keybinding (originally bound to
-# 1Password).
-keepassxc_hypr_keybind: "SUPER + SHIFT + SLASH"
-# KeePassXC's "Launch KeePassXC at system startup" checkbox only writes the
-# XDG autostart entry when the settings dialog is saved, so the playbook
-# deploys the same file itself to make autostart deterministic on fresh
-# installs (see keepassxc.yml).
-keepassxc_autostart_desktop: "{{ target_home }}/.config/autostart/{{ keepassxc_desktop_id }}"
-# systemd's XDG autostart fires desktop entries before the tray and theme
-# are up, so a drop-in on the generated autostart unit runs this readiness
-# script as ExecStartPre=: it waits for the shell's StatusNotifierHost and
-# for xdg-desktop-portal before KeePassXC starts (see keepassxc.yml).
-keepassxc_autostart_wait: "{{ target_home }}/.local/bin/keepassxc-autostart-wait"
-keepassxc_autostart_dropin: "{{ target_home }}/.config/systemd/user/app-org.keepassxc.KeePassXC@autostart.service.d/50-wait-for-desktop.conf"
-
-# Raise KeePassXC's unlock prompt when ssh needs a key the agent doesn't
-# hold: a `Match exec` drop-in in ~/.ssh/config.d runs the script before
-# every connection, and with no identity in the agent it opens the last
-# active database and waits up to the timeout (seconds) for its keys. Only
-# useful with KeePassXC's SSH agent integration on and "Remove keys from
-# agent when database is closed/locked" ticked.
-keepassxc_ssh_unlock_enabled: true
-keepassxc_ssh_unlock_script: "{{ target_home }}/.local/bin/keepassxc-ssh-unlock"
-keepassxc_ssh_unlock_dropin: "{{ target_home }}/.ssh/config.d/keepassxc-unlock.conf"
-keepassxc_ssh_unlock_timeout: 60
-
-# Auto-lock KeePassXC when the YubiKey is unplugged (udev rule, ported from
-# lbssousa/nix-config's modules/system/security/keepassxc-yubikey-lock.nix).
-# ENV{PRODUCT} format is vendor/product/revision in hex, no leading zeros
-# (`lsusb`: ID 1050:0407 -> "1050/407/*") — the raw PRODUCT field is used
-# instead of ATTR{idVendor}/ATTR{idProduct} because on "remove" events the
-# device's sysfs attributes are already gone, while PRODUCT is still set.
-keepassxc_yubikey_usb_product_match: "1050/407/*"
-keepassxc_yubikey_lock_script: /usr/local/bin/keepassxc-lock-on-yubikey-remove
-keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.rules
-
-# Browser integration: KeePassXC checks a browser's native messaging
-# host manifest to decide whether it's supported. The playbook deploys
-# the manifests directly ("isBrowserEnabled" is just file existence), so
-# no GUI clicking is needed; the browser extension still has to be
-# installed and connected by the user.
-#
-# Chromium runs on the host and calls the package's own keepassxc-proxy.
-# The Firefox Flatpak can't see the host's native messaging dirs or run
-# keepassxc-proxy inside its runtime, so its manifest (under its own
-# ~/.var/app/org.mozilla.firefox/{.mozilla,config/mozilla} dirs) points at
-# a small Python relay (keepassxc-proxy-relay.py.j2) that talks to
-# KeePassXC's browser socket in $XDG_RUNTIME_DIR/app/org.keepassxc.KeePassXC
-# (granted to Firefox via a Flatpak override).
-keepassxc_app_id: org.keepassxc.KeePassXC
-keepassxc_proxy_path: /usr/bin/keepassxc-proxy
-keepassxc_firefox_nmh_dir: "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
-keepassxc_firefox_xdg_nmh_dir: "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
-keepassxc_firefox_relay_name: keepassxc-proxy-relay.py
-keepassxc_firefox_relay_sandbox_path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
-keepassxc_browser_manifests:
-  - name: Firefox
-    src: keepassxc-browser-firefox.json.j2
-    dest: "{{ keepassxc_firefox_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
-    manifest_path: "{{ keepassxc_firefox_relay_sandbox_path }}"
-    relay_src: keepassxc-proxy-relay.py.j2
-    relay_dest: "{{ keepassxc_firefox_nmh_dir }}/{{ keepassxc_firefox_relay_name }}"
-  - name: Firefox (XDG)
-    src: keepassxc-browser-firefox.json.j2
-    dest: "{{ keepassxc_firefox_xdg_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
-    manifest_path: "{{ keepassxc_firefox_relay_sandbox_path }}"
-  - name: Chromium
-    src: keepassxc-browser-chromium.json.j2
-    dest: "{{ target_home }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
-    manifest_path: "{{ keepassxc_proxy_path }}"
-
 # Homebrew for Linux (playbooks/{system,user}/homebrew.yml) — installed per upstream to
 # /home/linuxbrew/.linuxbrew and exposed via a launcher script in
 # /usr/local/bin so `brew` is on PATH without shell-profile edits.
@@ -638,7 +588,7 @@ homebrew_bbrew_package: bbrew
 homebrew_env_file: 42-homebrew.conf
 
 # Proton Pass (playbooks/{system,user}/proton-pass.yml — optional password manager
-# alternative to KeePassXC, not part of `just setup`).
+# alternative to Bitwarden, not part of `just setup`).
 #
 # Desktop client: Proton's own .deb repackaged in the AUR
 # (proton-pass-bin), installed with omarchy-pkg-aur-add.
@@ -802,9 +752,10 @@ omarchy_text_size_px: 20
 # ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
 #
 # 1.0 (100%): at 1.25 a 1920px-wide screen is only 1536 logical px, so a
-# half-screen dwindle tile (749px) is narrower than KeePassXC's ~800px
-# minimum width; Hyprland then squeezes the window's image to fit, which
-# also skews where the mouse lands on its buttons. At 100% the tile is
+# half-screen dwindle tile (749px) is narrower than some apps' ~800px
+# minimum width (KeePassXC's, back then); Hyprland then squeezes the
+# window's image to fit, which also skews where the mouse lands on its
+# buttons. At 100% the tile is
 # ~950px. omarchy_text_size_px compensates for the smaller scale.
 omarchy_monitor_scale: 1.0
 

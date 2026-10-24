@@ -53,15 +53,9 @@
   ansible.builtin.import_playbook: playbooks/system/firefox.yml
   tags: [firefox]
 
-# The password manager: KeePassXC, its browser native messaging manifests,
-# autostart, Omarchy's "Passwords" keybind (SUPER+SHIFT+SLASH) and a udev
-# rule that locks every open database when the YubiKey is unplugged. The
-# file's OpenSSH agent play stays off (keepassxc_ssh_agent_enabled).
-- name: KeePassXC (default password manager, YubiKey auto-lock)
-  ansible.builtin.import_playbook: playbooks/system/keepassxc.yml
-  tags: [keepassxc]
-
-- name: Bitwarden (Flatpak + biometric unlock policy)
+# The password manager: Bitwarden from Flathub and its biometric unlock
+# policy (removes KeePassXC, the previous default).
+- name: Bitwarden (default password manager — Flatpak + biometric unlock policy)
   ansible.builtin.import_playbook: playbooks/system/bitwarden.yml
   tags: [bitwarden]
 

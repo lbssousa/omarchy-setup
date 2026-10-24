@@ -237,19 +237,12 @@ typesetting:
 ptbr: _ensure-collections
     @just _both ptbr
 
-# Run only the OpenSSH agent (user session) play, opting in to it
-# (keepassxc_ssh_agent_enabled is false by default, so `just keepassxc`
-# leaves the agent off). Part of playbooks/user/keepassxc.yml (optional, not
-# part of `just setup`). No root needed.
-ssh-agent: _ensure-collections
-    scripts/run-phase.sh user user.yml --tags ssh-agent -e keepassxc_ssh_agent_enabled=true
-
-# Install KeePassXC (omarchy-pkg-add keepassxc), the password manager: autostart,
-# SUPER+SHIFT+SLASH, browser manifests and the YubiKey auto-lock rule. The SSH agent stays off; add
-# -e keepassxc_ssh_agent_enabled=true here (or run `just ssh-agent`) to have
-# KeePassXC act as a client for it as well.
-keepassxc: _ensure-collections
-    @just _both keepassxc
+# Install Bitwarden from Flathub (com.bitwarden.desktop), the password
+# manager, and its biometric unlock polkit action; in the user phase, deploy
+# its autostart entry, wire its SSH agent to SSH_AUTH_SOCK and rebind
+# SUPER+SHIFT+SLASH to Bitwarden. Removes KeePassXC, the previous default.
+bitwarden: _ensure-collections
+    @just _both bitwarden
 
 # Create the rclone config + systemd --user mounts for Google Drive. Needs
 # RCLONE_GDRIVE_CLIENT_ID and RCLONE_GDRIVE_CLIENT_SECRET in the environment on
@@ -258,16 +251,8 @@ keepassxc: _ensure-collections
 rclone-gdrive: _ensure-collections
     @just _both-playbook rclone-gdrive
 
-# Install Bitwarden from Flathub (com.bitwarden.desktop) and its biometric
-# unlock polkit action (also part of `just system`); in the user phase, also
-# wire its SSH agent to SSH_AUTH_SOCK (socket-activated: the first SSH client
-# launches Bitwarden), deploy its autostart entry and rebind
-# SUPER+SHIFT+SLASH to Bitwarden.
-bitwarden: _ensure-collections
-    @just _both-playbook bitwarden
-
 # Run the Proton Pass playbook: desktop client (AUR proton-pass-bin) + CLI
-# (Homebrew). Optional password manager alternative to KeePassXC, not part
+# (Homebrew). Optional password manager alternative to Bitwarden, not part
 # of `just setup`; takes over SUPER+SHIFT+SLASH.
 proton-pass: _ensure-collections
     @just _both-playbook proton-pass

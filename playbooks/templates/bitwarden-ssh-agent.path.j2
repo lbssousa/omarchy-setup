@@ -1,0 +1,10 @@
+# Managed by playbooks/user/bitwarden.yml.
+[Unit]
+Description=Watch the Bitwarden SSH agent socket (Flatpak)
+
+[Path]
+PathExists={{ bitwarden_ssh_agent_socket }}
+Unit=bitwarden-ssh-agent-env.service
+
+[Install]
+WantedBy=default.target

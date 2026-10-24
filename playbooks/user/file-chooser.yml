@@ -31,7 +31,7 @@
 # dialogs). qt5ct/qt6ct do both: their `standard_dialogs=xdgdesktopportal`
 # option delegates the dialogs to that same Qt portal helper, and their
 # config sets the UI font. The session therefore uses QT_QPA_PLATFORMTHEME=
-# qt6ct (either name loads either plugin, so Qt5 apps like KeePassXC and
+# qt6ct (either name loads either plugin, so Qt5 apps and
 # Qt6 apps each read their own ~/.config/qt{5,6}ct/qt{5,6}ct.conf), with
 # the font family taken from GTK's and the size from omarchy_system_ui_font_pt.
 # Only the three keys below are managed; the rest of those files (style,

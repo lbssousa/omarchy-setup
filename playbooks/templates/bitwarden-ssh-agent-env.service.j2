@@ -1,3 +1,4 @@
+# Managed by playbooks/user/bitwarden.yml.
 [Unit]
 Description=Export the Bitwarden SSH agent's SSH_AUTH_SOCK to the systemd session
 StartLimitIntervalSec=0
@@ -5,5 +6,5 @@ StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/usr/bin/systemctl --user set-environment SSH_AUTH_SOCK=%t/bitwarden-ssh-agent.sock
+ExecStart=/usr/bin/systemctl --user set-environment SSH_AUTH_SOCK={{ bitwarden_ssh_agent_socket }}
 ExecStop=/usr/bin/systemctl --user unset-environment SSH_AUTH_SOCK

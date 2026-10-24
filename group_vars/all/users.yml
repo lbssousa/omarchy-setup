@@ -2,7 +2,6 @@
 # The people who use this machine (playbooks/system/users.yml, `just users`).
 #
 #   name       login name
-#   full_name  what the login screen lists (GECOS); no ':' ',' or line breaks
 #   admin      true: in wheel, can run the system phase and sudo; false: in
 #              omarchy-users, which omarchy-multiuser lets register their
 #              own FIDO2 key and fingerprints
@@ -16,6 +15,11 @@
 # start locked; `just users` asks for their password right after.
 # Personal settings (rclone account, PWAs, plugins, ...) go in
 # users/<name>.yml.
+#
+# Full names (GECOS, what the login screen lists) are kept out of the
+# repository: set omarchy_user_full_names in the administrator's
+# ~/.config/omarchy-setup/local.yml (see users/local.example.yml). An
+# account without one keeps whatever GECOS it already has.
 omarchy_users:
   - name: abutre
     admin: true
@@ -41,3 +45,6 @@ omarchy_users:
   - name: coelho
     admin: false
     shell: /usr/bin/fish
+
+# login → full name; filled in by the untracked local.yml.
+omarchy_user_full_names: {}

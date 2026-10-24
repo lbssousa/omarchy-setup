@@ -38,6 +38,7 @@
         msg: >-
           SDDM now shows the multi-user greeter with no autologin; it takes
           over at the next login screen (log out or reboot). Users without a
-          full name appear by login name: set it in omarchy_users and run
+          full name appear by login name: set it in omarchy_user_full_names
+          (~/.config/omarchy-setup/local.yml) and run
           `just users`.
       when: sddm_guard.changed

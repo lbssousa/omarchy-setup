@@ -8,8 +8,9 @@ someone, and what remains shared.
 
 | Piece | What it does |
 |---|---|
-| `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, a full name (shown on the login screen), an `admin` flag, a login shell, extra groups and `luks`. |
-| `users/<name>.yml` | That user's personal settings, such as the rclone account, Firefox Taskbar Tabs, git identity, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
+| `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, an `admin` flag, a login shell, extra groups and `luks`. |
+| `~/.config/omarchy-setup/local.yml` | Untracked personal data: git identity, the rclone account and (administrator) the accounts' full names. Template: `users/local.example.yml`. |
+| `users/<name>.yml` | That user's personal settings, such as Firefox Taskbar Tabs, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
 | `system.yml` (`just system`) | The machine-wide half of every automation: packages, `/etc`, PAM, SDDM, udev, signed plugin builds and the accounts. Run by an administrator, under `run-empowered.sh`. |
 | `user.yml` (`just user`, `omarchy-setup-user`) | The half that lives in each user's home and session. Run by each user, as themselves, inside their own Hyprland session. Nothing in it becomes root. |
 | [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the greeter, autologin, FIDO2, fingerprint, lock screen PAM and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |
@@ -38,9 +39,11 @@ rules they can:
 
 ## Adding a person
 
-1. Add them to `group_vars/all/users.yml`. The full name is what the
-   greeter lists. If they want, also create `users/<name>.yml`
-   (see `users/README.md`). Commit.
+1. Add them to `group_vars/all/users.yml` and commit. Their full name,
+   which the greeter lists, goes in `omarchy_user_full_names` in the
+   administrator's untracked `~/.config/omarchy-setup/local.yml` (see
+   `users/local.example.yml`). If they want, also create
+   `users/<name>.yml` (see `users/README.md`).
 2. Run `just users`. This creates the account (home seeded from
    `/etc/skel`), asks for its password and, with `luks: true`, offers a disk
    unlock password of their own.

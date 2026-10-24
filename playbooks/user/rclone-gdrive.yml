@@ -1,7 +1,6 @@
 ---
 # Google Drive mounted with rclone (FUSE), one systemd --user service per
-# mount ("Meu Drive" and "Compartilhados Comigo"). Same layout as nix-config's
-# home/users/abutre/rclone.nix, minus Nix:
+# mount ("Meu Drive" and "Compartilhados Comigo"):
 #
 #   ~/.config/rclone/rclone.conf                         remote "Google Drive"
 #   ~/.config/systemd/user/rclone-google-drive@.service  template unit

@@ -41,7 +41,7 @@ an Ansible playbook (see below).
 
 | Automation | Tag | What it does |
 |---|---|---|
-| User accounts | `users` | System phase. Creates or updates every account in `omarchy_users` (`group_vars/all/users.yml`): full name in GECOS (what the login screen lists), login shell, `wheel` for administrators and `omarchy-users` for everyone else, a subuid/subgid range each. New accounts start locked; `just users` sets their passwords right after and, for `luks: true`, offers each a disk unlock password of their own. |
+| User accounts | `users` | System phase. Creates or updates every account in `omarchy_users` (`group_vars/all/users.yml`): full name in GECOS (what the login screen lists, from `omarchy_user_full_names` in the untracked `~/.config/omarchy-setup/local.yml`), login shell, `wheel` for administrators and `omarchy-users` for everyone else, a subuid/subgid range each. New accounts start locked; `just users` sets their passwords right after and, for `luks: true`, offers each a disk unlock password of their own. |
 | omarchy-multiuser | `omarchy-multiuser` | System phase. Builds and installs [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) from a GPG-signed release tag: the multi-user greeter, per-user FIDO2 keys and fingerprints (the lock screen keeps fingerprint unlock while anyone has prints), migrations for users outside `wheel`, account and LUKS keyslot helpers and the menu entries for them. Enables its watchers, the migration recorder for each administrator and its per-login unit for every user. |
 | SDDM | `sddm` | System phase. The login screen lists every user by full name, with an optional field to type any other username, and nobody is logged in automatically: removes Omarchy's `/etc/sddm.conf.d/autologin.conf` and checks that `zz-omarchy-multiuser.conf` wins. Never restarts sddm; it takes over at the next login screen. |
 | Shared checkout | `shared-checkout` | System phase (`just publish`). Publishes the committed HEAD to `/opt/omarchy-setup` (root-owned, world-readable) with its collections, and installs `omarchy-setup-user`, which runs the user phase from there for whoever calls it. |
@@ -215,7 +215,7 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 | `user.yml` | Index of the user phase: each `playbooks/user/*.yml` with its tag (`just user`, `omarchy-setup-user`) |
 | `scripts/run-phase.sh` | Runs a playbook in a phase: system only for `wheel`, under `run-empowered.sh`; user only as the user; loads `users/$USER.yml` |
 | `scripts/check-phases.sh` | Fails when a user-phase play becomes root or installs packages, or a system-phase play talks to a user session (`just check`, CI) |
-| `group_vars/all/users.yml` | The machine's accounts (`omarchy_users`): full name, admin, shell |
+| `group_vars/all/users.yml` | The machine's accounts (`omarchy_users`): login, admin, shell (full names live in the untracked `local.yml`) |
 | `group_vars/all/target.yml` | `target_user`/`target_home`: the account a run configures |
 | `users/<name>.yml` | Each user's own settings (see `users/README.md`) |
 | `playbooks/system/users.yml` | Accounts from `omarchy_users` (tag `users`) |

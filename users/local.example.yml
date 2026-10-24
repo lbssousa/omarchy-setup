@@ -1,0 +1,16 @@
+---
+# Template for ~/.config/omarchy-setup/local.yml: personal data that stays
+# out of the repository. scripts/run-phase.sh loads that file (when it
+# exists) after users/$USER.yml, in both phases.
+
+# git identity (playbooks/user/git-identity.yml); left alone when unset.
+git_user_name: Jane Doe
+git_user_email: jane@example.org
+
+# Google account mounted by rclone (playbooks/user/rclone-gdrive.yml).
+rclone_gdrive_email: jane@example.org
+
+# Administrator only: full names for the login screen (GECOS), by login name
+# (playbooks/system/users.yml). Accounts left out keep their current GECOS.
+omarchy_user_full_names:
+  jane: Jane Doe

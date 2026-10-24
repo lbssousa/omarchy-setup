@@ -2,14 +2,6 @@
 # abutre's own settings, loaded by scripts/run-phase.sh (-e @users/abutre.yml)
 # in both phases. Extra vars: these win over group_vars/all/*.
 
-# git identity (playbooks/user/git-identity.yml).
-git_user_email: 
-
-# Google Drive account mounted with rclone (playbooks/user/rclone-gdrive.yml).
-# Mirrors nix-config's home/users/abutre/rclone.nix. The e-mail isn't a
-# secret.
-rclone_gdrive_email: 
-
 # Firefox Taskbar Tabs ("tab apps") replacing Omarchy's web apps, each in its
 # own Firefox container (see firefox_taskbar_apps in group_vars/all/main.yml
 # for the fields).

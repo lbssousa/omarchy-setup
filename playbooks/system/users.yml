@@ -2,7 +2,8 @@
 # The machine's accounts, from omarchy_users (group_vars/all/users.yml):
 # created when missing (home seeded from /etc/skel, which also marks every
 # Omarchy migration done), with their full name in GECOS — what the
-# multi-user greeter lists — their login shell, and their groups:
+# multi-user greeter lists, from omarchy_user_full_names in the untracked
+# local.yml — their login shell, and their groups:
 #
 #   admin: true   wheel (sudo, the system phase)
 #   admin: false  omarchy-users (their own FIDO2 key and fingerprints, through
@@ -28,13 +29,14 @@
           - omarchy_users | length > 0
           - omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | list | length > 0
           - omarchy_users | map(attribute='name') | select('match', '^[a-z_][a-z0-9_-]{0,31}$') | list | length == omarchy_users | length
-          - omarchy_users | map(attribute='full_name') | select('search', '[:,\n]') | list | length == 0
+          - omarchy_user_full_names.values() | select('search', '[:,\n]') | list | length == 0
           - omarchy_users | map(attribute='name') | unique | length == omarchy_users | length
           - target_user in (omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='name'))
         fail_msg: >-
           omarchy_users (group_vars/all/users.yml) needs at least one admin,
-          valid unique login names, full names without ':' ',' or line
-          breaks, and you ({{ target_user }}) among its admins.
+          valid unique login names and you ({{ target_user }}) among its
+          admins; omarchy_user_full_names (local.yml) needs full names
+          without ':' ',' or line breaks.
         quiet: true
 
     - name: Check each login shell is listed in /etc/shells
@@ -59,7 +61,7 @@
     - name: Create or update each account
       ansible.builtin.user:
         name: "{{ item.name }}"
-        comment: "{{ item.full_name }}"
+        comment: "{{ omarchy_user_full_names[item.name] | default(omit) }}"
         shell: "{{ item.shell | default('/bin/bash') }}"
         groups: "{{ ([('wheel' if item.admin | default(false) else 'omarchy-users')] + item.groups | default([])) }}"
         append: true

@@ -14,7 +14,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [shared-checkout, publish]
+  tags: [shared-checkout]
 
   vars:
     shared_checkout_repo: "{{ playbook_dir | dirname | dirname }}"

@@ -9,6 +9,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [bgrt-theme]
 
   tasks:
     - name: Look for the machine's BGRT theme

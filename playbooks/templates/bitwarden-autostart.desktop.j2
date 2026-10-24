@@ -2,8 +2,8 @@
 Name=Bitwarden
 GenericName=Password Manager
 Comment=A secure and free password manager for all of your devices.
-Exec=flatpak run {{ bitwarden_flatpak_id }}
-Icon={{ bitwarden_flatpak_id }}
+Exec={{ bitwarden_command }}
+Icon={{ bitwarden_flatpak_id if password_default == "bitwarden-flatpak" else "bitwarden" }}
 StartupWMClass=bitwarden
 StartupNotify=false
 Terminal=false

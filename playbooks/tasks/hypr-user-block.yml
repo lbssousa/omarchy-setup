@@ -1,0 +1,44 @@
+---
+# One managed block in one of the user's Hyprland files (~/.config/hypr/
+# <hypr_file>), seeded from Omarchy's user template in /etc/skel when
+# missing — not from /usr/share/omarchy/default/hypr/, whose files of the
+# same names are Omarchy's internal loaders. Notifies `reload Hyprland`
+# (tasks/handlers-user.yml).
+#
+#   hypr_file    bindings.lua, input.lua, monitors.lua, autostart.lua, ...
+#   hypr_marker  what the block is, after "ANSIBLE MANAGED BLOCK (...)"
+#   hypr_block   its Lua (ignored when absent)
+#   hypr_state   present (default) or absent
+- name: "Create ~/.config/hypr ({{ hypr_marker }})"
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/hypr"
+    state: directory
+    mode: "0755"
+  when: hypr_state | default('present') == 'present'
+
+- name: "Seed ~/.config/hypr/{{ hypr_file }} from Omarchy's template, if missing ({{ hypr_marker }})"
+  ansible.builtin.copy:
+    src: "/etc/skel/.config/hypr/{{ hypr_file }}"
+    dest: "{{ target_home }}/.config/hypr/{{ hypr_file }}"
+    remote_src: true
+    force: false
+    mode: "0644"
+  when: hypr_state | default('present') == 'present'
+
+- name: "{{ 'Set' if hypr_state | default('present') == 'present' else 'Remove' }} the {{ hypr_marker }} block in {{ hypr_file }}"
+  ansible.builtin.blockinfile:
+    path: "{{ target_home }}/.config/hypr/{{ hypr_file }}"
+    marker: "-- {mark} ANSIBLE MANAGED BLOCK ({{ hypr_marker }})"
+    block: "{{ hypr_block | default('') }}"
+    state: "{{ hypr_state | default('present') }}"
+    create: false
+  failed_when: false
+  register: hypr_block_result
+  notify: reload Hyprland
+
+- name: "Fail if {{ hypr_file }} couldn't be edited ({{ hypr_marker }})"
+  ansible.builtin.fail:
+    msg: "{{ hypr_block_result.msg }}"
+  when:
+    - hypr_block_result.failed | default(false)
+    - hypr_state | default('present') == 'present'

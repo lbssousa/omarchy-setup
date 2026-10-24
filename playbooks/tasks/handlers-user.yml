@@ -1,0 +1,30 @@
+---
+# Handlers shared by the user-phase plays; pull them in with
+#   handlers:
+#     - ansible.builtin.import_tasks: tasks/handlers-user.yml
+- name: reload Hyprland
+  # Only has an effect inside a real Hyprland session; the change still
+  # applies at the next login either way.
+  ansible.builtin.command: hyprctl reload
+  changed_when: false
+  failed_when: false
+  listen: reload Hyprland
+
+- name: reload systemd --user
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: user
+  listen: reload systemd --user
+
+- name: restart xdg-desktop-portal
+  ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
+  changed_when: true
+  failed_when: false
+  listen: restart xdg-desktop-portal
+
+- name: refresh the applications database
+  # Best effort: lets launchers show up without a session restart.
+  ansible.builtin.command: update-desktop-database {{ target_home }}/.local/share/applications
+  changed_when: false
+  failed_when: false
+  listen: refresh the applications database

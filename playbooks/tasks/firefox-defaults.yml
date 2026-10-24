@@ -1,0 +1,61 @@
+---
+# Firefox's machine-wide defaults for one build (playbooks/system/apps/
+# browser.yml): Omarchy's policies.json (only when there is none, as
+# omarchy-install-browser does for the native build), Taskbar Tabs on (off
+# by default on Linux) and the default page font size. The prefs are
+# defaults, still changeable in about:config.
+#
+#   firefox_defaults_dir   holds defaults/pref
+#   firefox_policies_dir   holds policies.json
+- name: "Create {{ firefox_policies_dir }}"
+  ansible.builtin.file:
+    path: "{{ firefox_policies_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Seed Omarchy's default Firefox policies.json, if missing
+  ansible.builtin.copy:
+    src: /usr/share/omarchy/default/firefox/policies.json
+    dest: "{{ firefox_policies_dir }}/policies.json"
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: "Create {{ firefox_defaults_dir }}/defaults/pref"
+  ansible.builtin.file:
+    path: "{{ firefox_defaults_dir }}/defaults/pref"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: "Enable Taskbar Tabs by default ({{ firefox_taskbar_tabs_pref_name }})"
+  ansible.builtin.copy:
+    content: |
+      // Managed by omarchy-setup. Taskbar Tabs: stable but off by default on
+      // Linux; still changeable in about:config.
+      pref("{{ firefox_taskbar_tabs_pref_name }}", true);
+    dest: "{{ firefox_defaults_dir }}/defaults/pref/{{ firefox_taskbar_tabs_pref_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: "Set the default page font size to {{ firefox_default_font_size_px }}px"
+  ansible.builtin.copy:
+    content: |
+      // Managed by omarchy-setup. Default size for page text; still
+      // changeable in about:config.
+      pref("font.size.variable.x-western", {{ firefox_default_font_size_px }});
+    dest: "{{ firefox_defaults_dir }}/defaults/pref/{{ firefox_font_size_pref_file }}"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true

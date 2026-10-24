@@ -161,7 +161,7 @@
               Firefox (Flathub) not found — policies.json untouched. Run
               `just firefox` first.
           when: firefox_check.rc != 0
-      tags: [ptbr-firefox]
+      tags: [ptbr-browsers]
 
     - name: pt-BR man pages
       community.general.pacman:

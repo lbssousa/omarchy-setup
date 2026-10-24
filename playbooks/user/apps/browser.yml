@@ -1,0 +1,71 @@
+---
+# Web browsers, per user (apps: browser): the default browser, and for the
+# Firefox Flatpak the hidden firefox.desktop shim Omarchy's browser helpers
+# need. Omarchy's web apps follow in apps/webapps.yml.
+#
+# omarchy-default-browser, omarchy-cmd-default-browser and
+# omarchy-launch-browser only know the native id firefox.desktop and run
+# the first token of its Exec=; the shim's Exec is /usr/local/bin/firefox
+# (linked by system/apps/browser.yml), and NoDisplay=true keeps the app
+# launcher showing only the Flatpak's own entry. With the native build
+# installed it owns firefox.desktop, and the shim goes.
+#
+# The default is set through omarchy-default-browser (Setup > Defaults >
+# Browser), or for a build it doesn't know (the Brave Flatpak) through
+# xdg-settings; only when it isn't the default already.
+- name: Apps — web browsers (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    browser_default: "{{ apps_catalog.browser[apps.browser.default] }}"
+    firefox_shim_on: "{{ 'firefox-flatpak' in apps.browser.installed and 'firefox' not in apps.browser.installed }}"
+
+  tasks:
+    - name: Create ~/.local/share/applications
+      ansible.builtin.file:
+        path: "{{ webapps_desktop_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: "{{ 'Install' if firefox_shim_on | bool else 'Remove' }} the hidden {{ firefox_desktop_id }} shim for the Firefox Flatpak"
+      ansible.builtin.copy:
+        content: |
+          [Desktop Entry]
+          Type=Application
+          Name=Firefox
+          Icon={{ firefox_flatpak_id }}
+          TryExec={{ firefox_command_link }}
+          Exec={{ firefox_command_link }} %u
+          NoDisplay=true
+          MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+          StartupWMClass={{ firefox_flatpak_id }}
+        dest: "{{ webapps_desktop_dir }}/{{ firefox_desktop_id }}"
+        mode: "0644"
+      when: firefox_shim_on | bool
+
+    - name: Remove the Firefox Flatpak shim
+      ansible.builtin.file:
+        path: "{{ webapps_desktop_dir }}/{{ firefox_desktop_id }}"
+        state: absent
+      when: not firefox_shim_on | bool
+
+    - name: Read the current default browser
+      ansible.builtin.command: omarchy-cmd-default-browser
+      register: default_browser_current
+      changed_when: false
+      failed_when: false
+
+    - name: "Make {{ browser_default.label }} the default browser"
+      ansible.builtin.command:
+        argv: >-
+          {{ ['omarchy-default-browser', browser_default.browser] if browser_default.browser is defined
+             else ['xdg-settings', 'set', 'default-web-browser', browser_default.desktop] }}
+      vars:
+        browser_default_desktop: "{{ browser_default.desktop | default(browser_default.browser ~ '.desktop') }}"
+      when: default_browser_current.stdout | trim != browser_default_desktop
+      # omarchy-default-browser's trailing notification can fail on its own.
+      failed_when: false
+      changed_when: true

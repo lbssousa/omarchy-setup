@@ -32,6 +32,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [tpm2]
 
   vars_prompt:
     - name: tpm2_luks_passphrase

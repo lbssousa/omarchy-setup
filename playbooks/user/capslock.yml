@@ -3,7 +3,8 @@
 # omarchy:shift_caps_compose) to capslock_compose_key in
 # ~/.config/hypr/input.lua, so the machine-wide keyd remap
 # (system/capslock.yml, which explains it) can produce a real Caps Lock.
-# Every user needs this. The layout-switch option Omarchy adds for
+# Every user needs this; turning the feature off removes the block (and,
+# in the system phase, keyd). The layout-switch option Omarchy adds for
 # non-Latin layouts (grp:alts_toggle) is kept.
 #
 # Usage: just capslock
@@ -11,49 +12,29 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [capslock]
+
+  vars:
+    feature_on: "{{ features['capslock'] | default(true) }}"
 
   tasks:
-    - name: "Move Compose off Caps Lock, onto {{ capslock_compose_key }}"
-      block:
-        - name: Create ~/.config/hypr
-          ansible.builtin.file:
-            path: "{{ target_home }}/.config/hypr"
-            state: directory
-            mode: "0755"
-
-        - name: Create ~/.config/hypr/input.lua from the Omarchy template, if missing
-          # The right source is /etc/skel, not
-          # /usr/share/omarchy/default/hypr/input.lua (a different
-          # internal file with the same basename).
-          ansible.builtin.copy:
-            src: /etc/skel/.config/hypr/input.lua
-            dest: "{{ target_home }}/.config/hypr/input.lua"
-            remote_src: true
-            force: false
-            mode: "0644"
-
-        - name: "Set kb_options = compose:{{ capslock_compose_key }}"
-          ansible.builtin.blockinfile:
-            path: "{{ target_home }}/.config/hypr/input.lua"
-            marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/capslock.yml — Compose on {{ capslock_compose_key }})"
-            block: |
-              local capslock_kb_options = "compose:{{ capslock_compose_key }}"
-              local omarchy_kb_options = hl.get_config("input.kb_options")
-              if type(omarchy_kb_options) == "string" and omarchy_kb_options:find("grp:alts_toggle", 1, true) then
-                capslock_kb_options = capslock_kb_options .. ",grp:alts_toggle"
-              end
-              hl.config({
-                input = {
-                  kb_options = capslock_kb_options,
-                },
-              })
-          notify: reload Hyprland
+    - name: "{{ 'Move Compose off Caps Lock, onto ' ~ capslock_compose_key if feature_on | bool else 'Give Compose back to Omarchy (Shift+Caps Lock)' }}"
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        hypr_file: input.lua
+        hypr_marker: "playbooks/user/capslock.yml — Compose on {{ capslock_compose_key }}"
+        hypr_state: "{{ 'present' if feature_on | bool else 'absent' }}"
+        hypr_block: |
+          local capslock_kb_options = "compose:{{ capslock_compose_key }}"
+          local omarchy_kb_options = hl.get_config("input.kb_options")
+          if type(omarchy_kb_options) == "string" and omarchy_kb_options:find("grp:alts_toggle", 1, true) then
+            capslock_kb_options = capslock_kb_options .. ",grp:alts_toggle"
+          end
+          hl.config({
+            input = {
+              kb_options = capslock_kb_options,
+            },
+          })
 
   handlers:
-    - name: reload Hyprland
-      # Only has an effect inside a real Hyprland session; kb_options
-      # still applies on next login either way.
-      ansible.builtin.command: hyprctl reload
-      changed_when: false
-      failed_when: false
-      listen: reload Hyprland
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

@@ -20,7 +20,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [yubikey, gpg-yubikey]
+  tags: [gpg-yubikey]
 
   tasks:
     - name: Check for a connected OpenPGP card (Yubikey)

@@ -1,0 +1,70 @@
+---
+# Installs or updates one AUR package: `aur_package`. Runs as root only
+# where it must: makepkg refuses root, and its own sudo (for missing build
+# dependencies) can't take a password from Ansible, so the build
+# dependencies listed in .SRCINFO come from pacman first and makepkg runs
+# with --nodeps; `pacman -U` then pulls the runtime dependencies itself.
+# Rebuilds only when the installed version differs from the AUR's.
+- name: "[{{ aur_package }}] Read the installed version"
+  ansible.builtin.command: pacman -Q {{ aur_package }}
+  register: aur_installed
+  changed_when: false
+  failed_when: false
+
+- name: "[{{ aur_package }}] Read the AUR's version"
+  ansible.builtin.uri:
+    url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ aur_package }}"
+    return_content: true
+  register: aur_info
+
+- name: "[{{ aur_package }}] Build and install (missing or outdated)"
+  vars:
+    aur_build_dir: "{{ target_home }}/.cache/omarchy-setup/aur/{{ aur_package }}"
+  when: >-
+    aur_info.json.resultcount > 0 and (
+    aur_installed.rc != 0
+    or (aur_installed.stdout.split() | last) != aur_info.json.results[0].Version)
+  block:
+    - name: "[{{ aur_package }}] Clone/update the AUR repo"
+      ansible.builtin.git:
+        repo: "https://aur.archlinux.org/{{ aur_package }}.git"
+        dest: "{{ aur_build_dir }}"
+        update: true
+        force: true
+
+    - name: "[{{ aur_package }}] Read the build dependencies (.SRCINFO)"
+      ansible.builtin.shell: >-
+        sed -n 's/^\s*\(make\|check\)\?depends = //p' {{ (aur_build_dir ~ '/.SRCINFO') | quote }}
+        | sed 's/[<>=].*//' | sort -u
+      register: aur_build_deps
+      changed_when: false
+
+    - name: "[{{ aur_package }}] Install the build dependencies from the repos"
+      community.general.pacman:
+        name: "{{ aur_build_deps.stdout_lines }}"
+        state: present
+      become: true
+      when: aur_build_deps.stdout_lines | length > 0
+
+    - name: "[{{ aur_package }}] Build the package (makepkg, unprivileged)"
+      ansible.builtin.command:
+        cmd: makepkg --nodeps --noconfirm --force --cleanbuild
+        chdir: "{{ aur_build_dir }}"
+
+    - name: "[{{ aur_package }}] Locate the built package"
+      ansible.builtin.command:
+        cmd: makepkg --packagelist
+        chdir: "{{ aur_build_dir }}"
+      register: aur_packagelist
+      changed_when: false
+
+    - name: "[{{ aur_package }}] Install the built package"
+      community.general.pacman:
+        name: "{{ aur_packagelist.stdout_lines | select('search', '/' ~ aur_package ~ '-') | list }}"
+        state: present
+      become: true
+
+- name: "[{{ aur_package }}] Note that the AUR doesn't have it"
+  ansible.builtin.debug:
+    msg: "{{ aur_package }} isn't on the AUR (anymore); left as it is."
+  when: aur_info.json.resultcount == 0

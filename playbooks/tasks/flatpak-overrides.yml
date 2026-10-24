@@ -1,0 +1,47 @@
+---
+# Adds system-wide `flatpak override`s to one app, only those it doesn't
+# have yet (so re-runs change nothing). Overrides add to the manifest's
+# own permissions; nothing is ever taken away here.
+#
+#   override_app          the Flatpak id
+#   override_own_names    D-Bus names it may own (default [])
+#   override_env          {NAME: value} (default {})
+#   override_filesystems  --filesystem values (default [])
+- name: "[{{ override_app }}] Read its effective permissions and overrides"
+  ansible.builtin.command:
+    cmd: flatpak override --system --show {{ override_app }}
+  register: override_current
+  changed_when: false
+
+- name: "[{{ override_app }}] Read its manifest's filesystem grants"
+  ansible.builtin.command:
+    cmd: flatpak info --show-permissions --system {{ override_app }}
+  register: override_permissions
+  changed_when: false
+  when: override_filesystems | default([]) | length > 0
+
+- name: "[{{ override_app }}] Add the missing overrides"
+  vars:
+    override_missing_names: >-
+      {{ override_own_names | default([])
+         | reject('in', override_current.stdout_lines
+                        | select('match', '^.+=own$') | map('regex_replace', '=own$', '') | list)
+         | list }}
+    override_missing_env: >-
+      {{ (override_env | default({})).items() | map('join', '=')
+         | reject('in', override_current.stdout_lines) | list }}
+    override_granted_paths: >-
+      {{ ((override_permissions.stdout_lines | default([])) + override_current.stdout_lines)
+         | select('match', '^filesystems\s*=') | map('regex_replace', '^filesystems\s*=\s*', '')
+         | join(';') | split(';') | map('trim') | reject('equalto', '') | list }}
+    override_missing_paths: >-
+      {{ override_filesystems | default([]) | difference(override_granted_paths) }}
+    override_args: >-
+      {{ override_missing_names | map('regex_replace', '^(.+)$', '--own-name=\1') | list
+         + override_missing_env | map('regex_replace', '^(.+)$', '--env=\1') | list
+         + override_missing_paths | map('regex_replace', '^(.+)$', '--filesystem=\1') | list }}
+  ansible.builtin.command:
+    argv: "{{ ['flatpak', 'override', '--system'] + override_args + [override_app] }}"
+  when: override_args | length > 0
+  changed_when: true
+  become: true

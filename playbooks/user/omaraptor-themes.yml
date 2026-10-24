@@ -71,6 +71,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [omaraptor-themes]
 
   vars:
     omaraptor_themes_dir: "{{ target_home }}/.config/omarchy/themes"

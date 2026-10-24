@@ -1,8 +1,8 @@
 ---
-# GNU Emacs, installed the way Omarchy's own installer does it
-# (/usr/share/omarchy/bin/omarchy-install-editor-emacs): the AUR
-# omarchy-emacs package via omarchy-pkg-aur-add, then omarchy-install-emacs
-# (emacs-wayland, Omarchy theme/font integration, emacs.service). On top of
+# GNU Emacs (apps: editor), set up the way Omarchy's own installer does it
+# (omarchy-install-editor-emacs: the omarchy-emacs package, then
+# omarchy-install-emacs — emacs-wayland, Omarchy theme/font integration,
+# emacs.service). On top of
 # that: AUCTeX, yasnippet and lsp-mode (emacs_packages) and the "classic" theme (light beige on dark
 # slate, from emacs-jp/replace-colorthemes) as Emacs' theme, replacing
 # Omarchy's color theme (font syncing is kept).
@@ -17,20 +17,24 @@
 # stanza appended to init.el (which also loads omarchy.el, since an init.el
 # created earlier doesn't have Omarchy's own load line). omarchy-emacs always uses ~/.config/emacs.
 #
-# The packages (omarchy-emacs, emacs-wayland) are installed by
-# system/emacs.yml; omarchy-install-emacs's other two steps,
+# The packages (omarchy-emacs, emacs-wayland) come from the system phase
+# (system/apps/packages.yml); omarchy-install-emacs's other two steps,
 # omarchy-emacs-setup and enabling emacs.service, run here per user.
 #
-# Usage: just emacs
 - name: Emacs (omarchy-emacs) + AUCTeX, yasnippet, lsp-mode (classic theme) (user)
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [apps]
 
   vars:
     emacs_config_dir: "{{ target_home }}/.config/emacs"
 
   tasks:
+    - name: Skip unless Emacs is installed (apps, editor)
+      ansible.builtin.meta: end_host
+      when: "'emacs' not in apps.editor.installed"
+
     # Emacs uses ~/.emacs.d instead of ~/.config/emacs whenever ~/.emacs.d
     # exists, so the batch package.el runs below must never create it: they
     # get --init-directory, and the directory exists before they run.

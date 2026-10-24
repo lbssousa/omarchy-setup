@@ -1,0 +1,17 @@
+---
+# Zathura's `font` (statusbar, inputbar, notifications) for one build
+# (pdf_viewer_zathurarc_paths, `zathura` = {key, value}; playbooks/user/apps/
+# pdf.yml). A managed line, so the rest of the zathurarc stays yours.
+- name: "[{{ zathura.key }}] Create Zathura's config directory"
+  ansible.builtin.file:
+    path: "{{ zathura.value | dirname }}"
+    state: directory
+    mode: "0755"
+
+- name: "[{{ zathura.key }}] Set its font"
+  ansible.builtin.lineinfile:
+    path: "{{ zathura.value }}"
+    regexp: '^set font '
+    line: 'set font "{{ pdf_viewer_zathura_font }}"'
+    create: true
+    mode: "0644"

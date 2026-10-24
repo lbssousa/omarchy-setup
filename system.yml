@@ -1,152 +1,100 @@
 ---
 # System phase: everything that needs root or is shared by every user —
 # packages, /etc, PAM, SDDM, udev, system services, signed plugin builds,
-# user accounts. Run once by an administrator (a wheel member), under
-# run-empowered.sh, after each change here and after adding a user.
+# user accounts. Run by an administrator (wheel), under run-empowered.sh,
+# after each change and after adding a user.
 #
-# Each automation keeps its tag; a tag that names a feature runs that
-# feature's system part (user.yml has the other half under the same tag).
+# Which plays run is the feature selection (features.yml + the choices from
+# `just configure`): scripts/run-phase.sh passes it and the matching --tags.
+# Each play is tagged with its feature id (user.yml has the other half under
+# the same id); the app plays (tag apps) and the always-tagged ones run
+# every time.
 #
-# Usage: just system   (./run-empowered.sh ansible-playbook system.yml)
+# Usage: just system
 
-# Fish, every account's login shell, with the same Starship prompt as
-# Omarchy (see playbooks/{system,user}/fish.yml). Always runs, and before
-# users.yml, which checks fish_login_shell against /etc/shells.
-- name: Fish shell
+- name: "Preflight: the selection came through scripts/run-phase.sh"
+  ansible.builtin.import_playbook: playbooks/system/preflight.yml
+
+- name: Fish, every account's login shell (always; before the accounts, which check it in /etc/shells)
   ansible.builtin.import_playbook: playbooks/system/fish.yml
-  tags: [always]
 
-# The accounts in omarchy_users (group_vars/all/users.yml): full names (the
-# greeter lists them; omarchy_user_full_names in the untracked local.yml), fish as login shell, wheel or
-# omarchy-users, subuid ranges.
-- name: User accounts
+- name: "Accounts (omarchy_users): fish, wheel or omarchy-users, subuid ranges"
   ansible.builtin.import_playbook: playbooks/system/users.yml
-  tags: [users]
 
-# The forks of Omarchy's single-owner tools, from a signed release tag:
-# greeter, per-user FIDO2/fingerprint, migrations for non-admins, helpers.
-- name: omarchy-multiuser
+- name: "omarchy-multiuser: forks of Omarchy's single-owner tools"
   ansible.builtin.import_playbook: playbooks/system/omarchy-multiuser.yml
-  tags: [omarchy-multiuser]
 
-# The login screen: the multi-user greeter and no autologin.
-- name: SDDM (multi-user greeter, no autologin)
+- name: The multi-user login screen, no autologin (feature omarchy-multiuser)
   ansible.builtin.import_playbook: playbooks/system/sddm.yml
-  tags: [sddm]
 
-- name: polkitd ExpirationSeconds
+- name: polkitd's authentication cache
   ansible.builtin.import_playbook: playbooks/system/polkit.yml
-  tags: [polkit]
 
-# Fingerprint, then FIDO2/U2F key, then password, in the sudo and polkit PAM
-# stacks (Omarchy's setup scripts each insert at the top, so the order
-# otherwise depends on which ran last). A no-op when either is not set up.
-- name: PAM auth order (fingerprint, then FIDO2/U2F, then password)
+- name: "sudo/polkit PAM order: fingerprint, FIDO2/U2F, password"
   ansible.builtin.import_playbook: playbooks/system/pam-auth-order.yml
-  tags: [pam-auth-order]
 
-- name: Flatpak + Flathub + Bazaar
+- name: Flatpak + Flathub + Bazaar, and the installation's languages
   ansible.builtin.import_playbook: playbooks/system/flatpak.yml
-  tags: [flatpak]
 
-- name: Firefox (Flatpak)
-  ansible.builtin.import_playbook: playbooks/system/firefox.yml
-  tags: [firefox]
+- name: "Apps: every option installed or removed as chosen"
+  ansible.builtin.import_playbook: playbooks/system/apps/packages.yml
 
-# The password manager: Bitwarden from Flathub and its biometric unlock
-# policy (removes KeePassXC, the previous default).
-- name: Bitwarden (default password manager — Flatpak + biometric unlock policy)
-  ansible.builtin.import_playbook: playbooks/system/bitwarden.yml
-  tags: [bitwarden]
+- name: "Apps: web browsers (Firefox defaults, PWA policy)"
+  ansible.builtin.import_playbook: playbooks/system/apps/browser.yml
 
-- name: ONLYOFFICE Desktop Editors (Flatpak)
-  ansible.builtin.import_playbook: playbooks/system/onlyoffice.yml
-  tags: [onlyoffice]
+- name: "Apps: password managers (Flatpak overrides, polkit action)"
+  ansible.builtin.import_playbook: playbooks/system/apps/password.yml
 
-- name: Flathub app migrations (Kdenlive, OBS Studio, Pinta, Xournal++)
-  ansible.builtin.import_playbook: playbooks/system/flathub-apps.yml
-  tags: [flathub-apps]
+- name: "Apps: PDF viewers (Zathura sandbox paths)"
+  ansible.builtin.import_playbook: playbooks/system/apps/pdf.yml
 
-- name: Emacs + AUCTeX, yasnippet, lsp-mode (classic teal theme)
-  ansible.builtin.import_playbook: playbooks/system/emacs.yml
-  tags: [emacs]
+- name: "Apps: graphics (svg2tikz with the native Inkscape)"
+  ansible.builtin.import_playbook: playbooks/system/apps/graphics.yml
 
-- name: Zed editor
-  ansible.builtin.import_playbook: playbooks/system/zed.yml
-  tags: [zed]
-
-- name: gregorio-lsp
-  ansible.builtin.import_playbook: playbooks/system/gregorio-lsp.yml
-  tags: [gregorio-lsp]
-
-- name: PDF viewer (Zathura default, Papers optional, Evince removed)
-  ansible.builtin.import_playbook: playbooks/system/pdf-viewer.yml
-  tags: [pdf-viewer]
-
-- name: File manager (Flea default)
-  ansible.builtin.import_playbook: playbooks/system/file-manager.yml
-  # file-chooser routes the portal to Flea's picker, so it needs Flea first.
-  tags: [file-manager, file-chooser]
-
-- name: Flea file chooser dialogs for non-GNOME apps
+- name: "Flea file dialogs: qt5ct/qt6ct"
   ansible.builtin.import_playbook: playbooks/system/file-chooser.yml
-  tags: [file-chooser]
 
-- name: pt-BR localization
+- name: "gregorio-lsp: clang"
+  ansible.builtin.import_playbook: playbooks/system/gregorio-lsp.yml
+
+- name: "Portuguese (Brazil): locale, folders, browsers, man pages, OCR (after the apps: the Firefox step looks for it)"
   ansible.builtin.import_playbook: playbooks/system/ptbr.yml
-  tags: [ptbr]
 
-# Plays: Podman (tag podman), Distrobox (tag distrobox, which also runs
-# Podman first). The starship prompt inside distrobox is per user only
-# (user/containers.yml, tag starship-distrobox).
-- name: Containers (Podman, Distrobox)
+- name: Podman, Distrobox
   ansible.builtin.import_playbook: playbooks/system/containers.yml
-  tags: [containers]
 
-# Plays: Nix (tag nix), direnv with bash + fish hooks (tag direnv),
-# nix-direnv for cached `use flake` (tag nix-direnv). The nix tag runs
-# all three.
-- name: Nix + direnv
+- name: Nix, direnv
   ansible.builtin.import_playbook: playbooks/system/nix.yml
-  tags: [nix]
 
-- name: libfprint (goodix538d)
+- name: Goodix 538d fingerprint reader
   ansible.builtin.import_playbook: playbooks/system/libfprint.yml
-  tags: [libfprint]
 
-- name: EPSON L4160 printer (driverless)
+- name: EPSON L4160 queue
   ansible.builtin.import_playbook: playbooks/system/printer.yml
-  tags: [printer]
 
 - name: Caps Lock via keyd
   ansible.builtin.import_playbook: playbooks/system/capslock.yml
-  tags: [capslock]
 
-- name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
-  ansible.builtin.import_playbook: playbooks/system/inkscape.yml
-  tags: [inkscape]
-
-- name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
+- name: openssh rebuilt with askpass touch notifications
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml
-  tags: [openssh-askpass]
 
-# Third-party shell plugins: this desktop's own list (omarchy_plugins in
-# group_vars/all/main.yml — Radio Atlas first) plus omapin,
-# ssh-askpass-omarchy and polkit-omarchy. No tags here on purpose: each play
-# in the file carries its own (plugins, pinentry, ssh-askpass, polkit-agent),
-# and a tag on the import would be inherited by all of them.
-- name: Omarchy shell plugins
+- name: Omarchy shell plugins, omapin, ssh-askpass-omarchy, polkit-omarchy
   ansible.builtin.import_playbook: playbooks/system/plugins.yml
 
-# Google Drive (Meu Drive + Compartilhados Comigo) mounted with rclone. Tag "never":
-# needs the Google OAuth credentials, so it only runs on
-# request (--tags rclone-gdrive / `just rclone-gdrive`).
-- name: rclone — Google Drive mounts
-  ansible.builtin.import_playbook: playbooks/system/rclone-gdrive.yml
-  tags: [rclone-gdrive, never]
+- name: Homebrew (opt-in)
+  ansible.builtin.import_playbook: playbooks/system/homebrew.yml
 
-# A world-readable copy of this repository's HEAD in /opt/omarchy-setup and
-# `omarchy-setup-user`, so every user can run their own phase.
-- name: Shared checkout (omarchy-setup-user)
+- name: Google Drive via rclone (opt-in)
+  ansible.builtin.import_playbook: playbooks/system/rclone-gdrive.yml
+
+- name: BGRT boot theme (opt-in)
+  ansible.builtin.import_playbook: playbooks/system/bgrt-theme.yml
+
+- name: Secure Boot (opt-in)
+  ansible.builtin.import_playbook: playbooks/system/secureboot.yml
+
+- name: LUKS auto-unlock with TPM2 (opt-in)
+  ansible.builtin.import_playbook: playbooks/system/tpm2.yml
+
+- name: /opt/omarchy-setup and omarchy-setup-user
   ansible.builtin.import_playbook: playbooks/system/shared-checkout.yml
-  tags: [shared-checkout]

@@ -11,6 +11,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [nix]
 
   tasks:
     - name: Create ~/.config/environment.d
@@ -107,7 +108,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [nix-direnv]
+  tags: [nix]
 
   tasks:
     - name: List the user's Nix profile

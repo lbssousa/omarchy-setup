@@ -18,41 +18,71 @@
   gather_facts: false
   tags: [omaraptor-theme-auto]
 
+  vars:
+    feature_on: "{{ features['omaraptor-theme-auto'] | default(true) }}"
+
   tasks:
-    - name: Create ~/.local/bin
-      ansible.builtin.file:
-        path: "{{ target_home }}/.local/bin"
-        state: directory
-        mode: "0755"
+    - name: Day/night switching on
+      when: feature_on | bool
+      block:
+        - name: Create ~/.local/bin
+          ansible.builtin.file:
+            path: "{{ target_home }}/.local/bin"
+            state: directory
+            mode: "0755"
 
-    - name: Create ~/.config/systemd/user
-      ansible.builtin.file:
-        path: "{{ target_home }}/.config/systemd/user"
-        state: directory
-        mode: "0755"
+        - name: Create ~/.config/systemd/user
+          ansible.builtin.file:
+            path: "{{ target_home }}/.config/systemd/user"
+            state: directory
+            mode: "0755"
 
-    - name: Install the switch script (omaraptor-theme-auto)
-      ansible.builtin.template:
-        src: omaraptor-theme-auto.sh.j2
-        dest: "{{ target_home }}/.local/bin/omaraptor-theme-auto"
-        mode: "0755"
+        - name: Install the switch script (omaraptor-theme-auto)
+          ansible.builtin.template:
+            src: omaraptor-theme-auto.sh.j2
+            dest: "{{ target_home }}/.local/bin/omaraptor-theme-auto"
+            mode: "0755"
 
-    - name: Install the systemd --user unit (service)
-      ansible.builtin.copy:
-        src: omaraptor-theme-auto.service
-        dest: "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.service"
-        mode: "0644"
+        - name: Install the systemd --user unit (service)
+          ansible.builtin.copy:
+            src: omaraptor-theme-auto.service
+            dest: "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.service"
+            mode: "0644"
 
-    - name: Install the systemd --user unit (timer)
-      ansible.builtin.template:
-        src: omaraptor-theme-auto.timer.j2
-        dest: "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.timer"
-        mode: "0644"
+        - name: Install the systemd --user unit (timer)
+          ansible.builtin.template:
+            src: omaraptor-theme-auto.timer.j2
+            dest: "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.timer"
+            mode: "0644"
 
-    - name: Enable and start the omaraptor-theme-auto timer
-      ansible.builtin.systemd:
-        name: omaraptor-theme-auto.timer
-        scope: user
-        daemon_reload: true
-        enabled: true
-        state: started
+        - name: Enable and start the omaraptor-theme-auto timer
+          ansible.builtin.systemd:
+            name: omaraptor-theme-auto.timer
+            scope: user
+            daemon_reload: true
+            enabled: true
+            state: started
+
+    - name: Day/night switching off (the current theme stays)
+      when: not feature_on | bool
+      block:
+        - name: Stop and disable the timer
+          ansible.builtin.systemd:
+            name: omaraptor-theme-auto.timer
+            scope: user
+            enabled: false
+            state: stopped
+          failed_when: false
+
+        - name: Remove the script and units
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ target_home }}/.local/bin/omaraptor-theme-auto"
+            - "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.service"
+            - "{{ target_home }}/.config/systemd/user/omaraptor-theme-auto.timer"
+          notify: reload systemd --user
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

@@ -40,114 +40,127 @@
 # palette, ...) is left to qt5ct/qt6ct.
 #
 # The qt5ct/qt6ct packages are installed by system/file-chooser.yml.
+# Turning the feature off takes the FileChooser line and the environment
+# block out again (the qt5ct/qt6ct font settings stay, unused).
 - name: Flea file chooser dialogs for non-GNOME apps (user)
   hosts: localhost
   connection: local
   gather_facts: false
   tags: [file-chooser]
 
+  vars:
+    feature_on: "{{ features['file-chooser'] | default(true) }}"
+
   tasks:
-    - name: Create ~/.config/xdg-desktop-portal
-      ansible.builtin.file:
-        path: "{{ file_chooser_portals_conf | dirname }}"
-        state: directory
-        mode: "0755"
+    - name: Flea file dialogs
+      when: feature_on | bool
+      block:
+        - name: Create ~/.config/xdg-desktop-portal
+          ansible.builtin.file:
+            path: "{{ file_chooser_portals_conf | dirname }}"
+            state: directory
+            mode: "0755"
 
-    - name: Seed the portals config from Omarchy's, if missing
-      ansible.builtin.copy:
-        src: "{{ file_chooser_portals_conf_seed }}"
-        dest: "{{ file_chooser_portals_conf }}"
-        remote_src: true
-        force: false
-        mode: "0644"
-      register: file_chooser_portals_seed_result
+        - name: Seed the portals config from Omarchy's, if missing
+          ansible.builtin.copy:
+            src: "{{ file_chooser_portals_conf_seed }}"
+            dest: "{{ file_chooser_portals_conf }}"
+            remote_src: true
+            force: false
+            mode: "0644"
+          register: file_chooser_portals_seed_result
 
-    - name: "Keep Omarchy's portal defaults ({{ item.key }})"
-      community.general.ini_file:
-        path: "{{ file_chooser_portals_conf }}"
-        section: preferred
-        option: "{{ item.key }}"
-        value: "{{ item.value }}"
-        no_extra_spaces: true
-        mode: "0644"
-      loop: "{{ file_chooser_portals_defaults | dict2items }}"
-      register: file_chooser_portals_defaults_result
+        - name: Keep Omarchy's portal defaults
+          community.general.ini_file:
+            path: "{{ file_chooser_portals_conf }}"
+            section: preferred
+            option: "{{ item.key }}"
+            value: "{{ item.value }}"
+            no_extra_spaces: true
+            mode: "0644"
+          loop: "{{ file_chooser_portals_defaults | dict2items }}"
+          register: file_chooser_portals_defaults_result
 
-    - name: "Route the FileChooser portal to Flea ({{ file_chooser_portals_conf }})"
-      community.general.ini_file:
-        path: "{{ file_chooser_portals_conf }}"
-        section: preferred
-        option: org.freedesktop.impl.portal.FileChooser
-        value: flea;gtk
-        no_extra_spaces: true
-        mode: "0644"
-      register: file_chooser_portals_conf_result
+        - name: "Route the FileChooser portal to Flea ({{ file_chooser_portals_conf }})"
+          community.general.ini_file:
+            path: "{{ file_chooser_portals_conf }}"
+            section: preferred
+            option: org.freedesktop.impl.portal.FileChooser
+            value: flea;gtk
+            no_extra_spaces: true
+            mode: "0644"
+          register: file_chooser_portals_conf_result
 
-    - name: Restart xdg-desktop-portal to pick up the change
-      ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
-      when: >-
-        file_chooser_portals_seed_result.changed or
-        file_chooser_portals_defaults_result.changed or
-        file_chooser_portals_conf_result.changed
-      changed_when: true
-      failed_when: false
+        - name: Restart xdg-desktop-portal to pick up the change
+          ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
+          when: >-
+            file_chooser_portals_seed_result.changed or
+            file_chooser_portals_defaults_result.changed or
+            file_chooser_portals_conf_result.changed
+          changed_when: true
+          failed_when: false
 
-    - name: Read the GTK UI font (its family is reused for Qt apps)
-      ansible.builtin.command: gsettings get org.gnome.desktop.interface font-name
-      register: file_chooser_gtk_font
-      changed_when: false
+        - name: Read the GTK UI font (its family is reused for Qt apps)
+          ansible.builtin.command: gsettings get org.gnome.desktop.interface font-name
+          register: file_chooser_gtk_font
+          changed_when: false
 
-    - name: Read the GTK monospace font (family and size are reused for Qt apps)
-      ansible.builtin.command: gsettings get org.gnome.desktop.interface monospace-font-name
-      register: file_chooser_gtk_mono_font
-      changed_when: false
+        - name: Read the GTK monospace font (family and size are reused for Qt apps)
+          ansible.builtin.command: gsettings get org.gnome.desktop.interface monospace-font-name
+          register: file_chooser_gtk_mono_font
+          changed_when: false
 
-    - name: Work out the Qt UI and fixed-width fonts
-      ansible.builtin.set_fact:
-        file_chooser_qt_ui_family: "{{ file_chooser_gtk_font.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
-        file_chooser_qt_mono_family: "{{ file_chooser_gtk_mono_font.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
-        file_chooser_qt_mono_pt: "{{ file_chooser_gtk_mono_font.stdout | trim | trim(\"'\") | regex_search('[0-9.]+$') | default(omarchy_system_ui_font_pt, true) }}"
+        - name: Work out the Qt UI and fixed-width fonts
+          ansible.builtin.set_fact:
+            file_chooser_qt_ui_family: "{{ file_chooser_gtk_font.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
+            file_chooser_qt_mono_family: "{{ file_chooser_gtk_mono_font.stdout | trim | trim(\"'\") | regex_replace(' [0-9.]+$', '') }}"
+            file_chooser_qt_mono_pt: "{{ file_chooser_gtk_mono_font.stdout | trim | trim(\"'\") | regex_search('[0-9.]+$') | default(omarchy_system_ui_font_pt, true) }}"
 
-    - name: "Set the Qt UI font ({{ file_chooser_qt_ui_family }} {{ omarchy_system_ui_font_pt }}) and portal dialogs in qt5ct/qt6ct"
-      community.general.ini_file:
-        path: "{{ target_home }}/.config/qt{{ item.0.version }}ct/qt{{ item.0.version }}ct.conf"
-        section: "{{ item.1.section }}"
-        option: "{{ item.1.option }}"
-        value: "{{ item.1.value }}"
-        no_extra_spaces: true
-        create: true
-        mode: "0644"
-      loop: "{{ file_chooser_qt_configs | subelements('settings') }}"
-      loop_control:
-        label: "qt{{ item.0.version }}ct {{ item.1.section }}/{{ item.1.option }}"
+        - name: "Set the Qt UI font ({{ file_chooser_qt_ui_family }} {{ omarchy_system_ui_font_pt }}) and portal dialogs in qt5ct/qt6ct"
+          community.general.ini_file:
+            path: "{{ target_home }}/.config/qt{{ item.0.version }}ct/qt{{ item.0.version }}ct.conf"
+            section: "{{ item.1.section }}"
+            option: "{{ item.1.option }}"
+            value: "{{ item.1.value }}"
+            no_extra_spaces: true
+            create: true
+            mode: "0644"
+          loop: "{{ file_chooser_qt_configs | subelements('settings') }}"
+          loop_control:
+            label: "qt{{ item.0.version }}ct {{ item.1.section }}/{{ item.1.option }}"
+          vars:
+            # QFont::toString(): Qt5 and Qt6 differ in the weight scale
+            # (50 vs 400) and in the number of trailing fields.
+            file_chooser_qt_configs:
+              - version: 5
+                settings:
+                  - { section: Appearance, option: standard_dialogs, value: xdgdesktopportal }
+                  - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,50,0,0,0,0,0"' }
+                  - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,50,0,0,0,0,0"' }
+              - version: 6
+                settings:
+                  - { section: Appearance, option: standard_dialogs, value: xdgdesktopportal }
+                  - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
+                  - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
+
+    - name: Back to Omarchy's file dialogs
+      when: not feature_on | bool
+      block:
+        - name: Stop routing the FileChooser portal to Flea
+          community.general.ini_file:
+            path: "{{ file_chooser_portals_conf }}"
+            section: preferred
+            option: org.freedesktop.impl.portal.FileChooser
+            state: absent
+          notify: restart xdg-desktop-portal
+
+    - name: "{{ 'Make' if feature_on | bool else 'Stop making' }} GTK, Qt and Firefox apps ask the portal for file dialogs"
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
       vars:
-        # QFont::toString(): Qt5 and Qt6 differ in the weight scale
-        # (50 vs 400) and in the number of trailing fields.
-        file_chooser_qt_configs:
-          - version: 5
-            settings:
-              - { section: Appearance, option: standard_dialogs, value: xdgdesktopportal }
-              - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,50,0,0,0,0,0"' }
-              - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,50,0,0,0,0,0"' }
-          - version: 6
-            settings:
-              - { section: Appearance, option: standard_dialogs, value: xdgdesktopportal }
-              - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
-              - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
-
-    - name: Create ~/.config/hypr/hyprland.lua from the Omarchy default, if missing
-      ansible.builtin.copy:
-        src: /usr/share/omarchy/config/hypr/hyprland.lua
-        dest: "{{ target_home }}/.config/hypr/hyprland.lua"
-        remote_src: true
-        force: false
-        mode: "0644"
-
-    - name: "Make GTK, Qt and Firefox apps ask the portal for file dialogs"
-      ansible.builtin.blockinfile:
-        path: "{{ target_home }}/.config/hypr/hyprland.lua"
-        marker: "-- {mark} ANSIBLE MANAGED BLOCK (playbooks/user/file-chooser.yml — GTK4 file chooser)"
-        block: |
+        hypr_file: hyprland.lua
+        hypr_marker: playbooks/user/file-chooser.yml — GTK4 file chooser
+        hypr_state: "{{ 'present' if feature_on | bool else 'absent' }}"
+        hypr_block: |
           -- Ask xdg-desktop-portal (routed to Flea's picker by
           -- ~/.config/xdg-desktop-portal/hyprland-portals.conf) for
           -- open/save dialogs instead of drawing GTK3 ones in-process.
@@ -157,3 +170,6 @@
           -- xdgdesktopportal in ~/.config/qt{5,6}ct/) ask the portal
           -- instead and keep setting the UI font.
           hl.env("QT_QPA_PLATFORMTHEME", "qt6ct")
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

@@ -47,6 +47,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [nix]
 
   handlers:
     - name: Restart nix-daemon if it is running

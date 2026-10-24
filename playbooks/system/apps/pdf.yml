@@ -1,0 +1,37 @@
+---
+# PDF viewers, system phase (apps: pdf). The packages come from
+# apps/packages.yml; for the Zathura Flatpak this adds the paths in
+# pdf_viewer_zathura_extra_paths to its sandbox (so PDFs there keep
+# auto-reloading) and checks it still exports the desktop id the default
+# points at. The default itself is per user (user/apps/pdf.yml).
+- name: Apps — PDF viewers
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  tasks:
+    - name: Zathura (Flatpak)
+      when: "'zathura-flatpak' in apps.pdf.installed"
+      block:
+        - name: Grant Zathura the extra paths
+          ansible.builtin.include_tasks: tasks/flatpak-overrides.yml
+          vars:
+            override_app: "{{ pdf_viewer_zathura_flatpak_id }}"
+            override_filesystems: "{{ pdf_viewer_zathura_extra_paths }}"
+
+        - name: Look for Zathura's exported desktop entry
+          ansible.builtin.stat:
+            path: "{{ flatpak_system_exports_dir }}/applications/{{ pdf_viewer_zathura_desktop_id }}"
+          register: pdf_viewer_zathura_exported_entry
+
+        - name: Expect the Flatpak to still export the desktop id the default points at
+          ansible.builtin.assert:
+            that: pdf_viewer_zathura_exported_entry.stat.exists
+            fail_msg: >-
+              {{ pdf_viewer_zathura_flatpak_id }} no longer exports
+              {{ pdf_viewer_zathura_desktop_id }}: its desktop id changed
+              upstream, so the PDF default would point at nothing. Fix
+              pdf_viewer_zathura_desktop_id (group_vars/all/main.yml) and the
+              zathura options' desktop field (features.yml).
+            quiet: true

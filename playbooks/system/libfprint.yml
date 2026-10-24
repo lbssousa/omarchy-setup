@@ -39,6 +39,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [libfprint]
 
   tasks:
     - name: Find the installed libfprint-git version

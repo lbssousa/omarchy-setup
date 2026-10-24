@@ -9,6 +9,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [homebrew]
 
   tasks:
     - name: Check whether Homebrew is installed

@@ -1,8 +1,10 @@
-"""Creates the Firefox Taskbar Tabs ("tab apps") in firefox_taskbar_apps.
+"""Creates the Firefox Taskbar Tabs ("tab apps") in a user's webapps list.
 
-Run by playbooks/user/firefox-taskbar-apps.yml with one JSON argument:
-{"apps": [...], "flatpak_id": ..., "profiles_dirs": [...], "desktop_dir": ...,
- "portal_dir": ..., "backup_dir": ...}. Writes the entries straight into the
+Run by playbooks/user/apps/webapps.yml with one JSON argument:
+{"apps": [...], "desktop_prefix": ..., "exec_argv": [...], "try_exec": ...,
+ "flatpak_id": ... (empty for the native build), "stale_prefixes": [...],
+ "profiles_dirs": [...], "desktop_dir": ..., "portal_dir": ...,
+ "backup_dir": ...}. Writes the entries straight into the
 default profile's taskbartabs.json plus one launcher each in desktop_dir, the
 same files Firefox itself writes when a tab is pinned (TaskbarTabsPin.sys.mjs),
 minus the DynamicLauncher portal's confirmation dialog. Firefox must not be
@@ -14,6 +16,7 @@ whether anything changed.
 
 import configparser
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -234,10 +237,14 @@ def desktop_exec(argv):
 
 
 def firefox_running(flatpak_id):
-    ps = subprocess.run(
-        ["flatpak", "ps", "--columns=application"], capture_output=True, text=True, check=True
-    )
-    return flatpak_id in ps.stdout.split()
+    if flatpak_id:
+        ps = subprocess.run(
+            ["flatpak", "ps", "--columns=application"], capture_output=True, text=True, check=True
+        )
+        return flatpak_id in ps.stdout.split()
+    # The native build: this user's own firefox processes only.
+    ps = subprocess.run(["pgrep", "-u", str(os.getuid()), "-x", "firefox"], capture_output=True)
+    return ps.returncode == 0
 
 
 def write_if_changed(path, data):
@@ -256,7 +263,8 @@ def main():
     apps = config["apps"]
     if not apps:
         return
-    flatpak_id = config["flatpak_id"]
+    flatpak_id = config.get("flatpak_id") or ""
+    exec_argv = config["exec_argv"]
     desktop_dir = pathlib.Path(config["desktop_dir"])
     backup_dir = pathlib.Path(config["backup_dir"])
     # Where the DynamicLauncher portal keeps the launchers (and icons) of
@@ -264,7 +272,7 @@ def main():
     portal_dir = pathlib.Path(
         config.get("portal_dir") or (pathlib.Path.home() / ".local" / "share" / "xdg-desktop-portal")
     )
-    webapp_prefix = f"{flatpak_id}.webapp-"
+    webapp_prefix = f"{config['desktop_prefix']}.webapp-"
 
     profile = default_profile(config["profiles_dirs"])
     if profile is None:
@@ -280,7 +288,7 @@ def main():
     # memory and overwrite ours (the playbook checks too, but before this).
     icons = {app["url"]: best_icon(app["url"]) for app in apps}
     if firefox_running(flatpak_id):
-        print(f"{flatpak_id} is running; nothing written.", file=sys.stderr)
+        print(f"{flatpak_id or 'firefox'} is running; nothing written.", file=sys.stderr)
         sys.exit(FIREFOX_RUNNING)
 
     registry_path = profile / "taskbartabs" / "taskbartabs.json"
@@ -326,10 +334,10 @@ def main():
             write_if_changed(icon_path, icon)
         # A failed fetch keeps the icon from an earlier run; with none at
         # all, the launcher falls back to the Firefox icon.
-        icon_value = str(icon_path) if icon_path.exists() else flatpak_id
+        icon_value = str(icon_path) if icon_path.exists() else (flatpak_id or "firefox")
 
         exec_line = desktop_exec([
-            "flatpak", "run", "--command=/app/lib/firefox/firefox", flatpak_id,
+            *exec_argv,
             # The same arguments Firefox puts in its own launchers
             # (TaskbarTabsPin.sys.mjs).
             "-taskbar-tab", tab["id"],
@@ -346,8 +354,8 @@ def main():
                 f"Name={name}\n"
                 f"Icon={icon_value}\n"
                 f"Exec={exec_line}\n"
-                f"TryExec=/var/lib/flatpak/exports/bin/{flatpak_id}\n"
-                f"X-Flatpak={flatpak_id}\n"
+                f"TryExec={config['try_exec']}\n"
+                + (f"X-Flatpak={flatpak_id}\n" if flatpak_id else "")
             ).encode(),
         )
 
@@ -407,7 +415,7 @@ def main():
 
     # Orphans: launchers and icons of Taskbar Tabs no longer in the registry
     # (earlier runs, Firefox-recreated shadows, tabs pinned through the
-    # portal and since dropped, or native firefox.webapp-* launchers).
+    # portal and since dropped), and launchers of the other Firefox build.
     # Firefox's own "unpin" goes through the portal, which can't remove
     # launchers written here.
     live_ids = {tab["id"] for tab in tabs}
@@ -418,9 +426,10 @@ def main():
     ):
         for path in pattern_dir.glob(pattern):
             if path.name[len(webapp_prefix):].removesuffix(path.suffix) not in live_ids:
-                remove(path, backup=path.suffix == ".desktop")
-    for path in desktop_dir.glob("firefox.webapp-*.desktop"):
-        remove(path, backup=True)
+                remove(path, backup=False)
+    for prefix in config.get("stale_prefixes", []):
+        for path in desktop_dir.glob(f"{prefix}.webapp-*.desktop"):
+            remove(path, backup=False)
     for icon_file in icons_dir.glob("*.png"):
         if icon_file.stem not in live_ids:
             remove(icon_file, backup=False)

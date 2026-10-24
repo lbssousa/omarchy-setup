@@ -16,6 +16,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [printer]
 
   tasks:
     - name: Ensure CUPS (lpadmin) is available

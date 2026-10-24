@@ -1,0 +1,36 @@
+---
+# One entry of apps_packages (scripts/features.py): `pkg` = {source, names,
+# state, keep}. Installs it or removes it; a kept one is only ever
+# installed. Runs in the system phase.
+- name: "{{ pkg.state | capitalize }}: {{ pkg.names | join(', ') }} ({{ pkg.source }})"
+  community.general.pacman:
+    name: "{{ pkg.names }}"
+    state: "{{ pkg.state }}"
+  become: true
+  when:
+    - pkg.source == 'pacman' or (pkg.source == 'aur' and pkg.state == 'absent')
+    - pkg.state == 'present' or not pkg.keep
+
+- name: "Present (AUR): {{ pkg.names | join(', ') }}"
+  ansible.builtin.include_tasks: aur-build.yml
+  loop: "{{ pkg.names }}"
+  loop_control:
+    loop_var: aur_package
+  when: pkg.source == 'aur' and pkg.state == 'present'
+
+- name: "{{ pkg.state | capitalize }}: {{ pkg.names | join(', ') }} (Flathub)"
+  community.general.flatpak:
+    name: "{{ pkg.names }}"
+    state: "{{ pkg.state }}"
+    method: system
+    remote: "{{ flatpak_flathub_remote }}"
+  become: true
+  when:
+    - pkg.source == 'flatpak'
+    - pkg.state == 'present' or not pkg.keep
+
+- name: "{{ pkg.state | capitalize }}: {{ pkg.names | join(', ') }} (release bundle)"
+  ansible.builtin.include_tasks: "{{ pkg.names | first }}.yml"
+  vars:
+    bundle_state: "{{ pkg.state }}"
+  when: pkg.source == 'bundle'

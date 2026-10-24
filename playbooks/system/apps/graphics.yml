@@ -1,0 +1,33 @@
+---
+# Graphics, system phase (apps: graphics). The packages come from
+# apps/packages.yml; with the native Inkscape this adds svg2tikz, an
+# extension exporting SVG paths as TikZ/PGF for LaTeX
+# (https://github.com/xyz2tex/svg2tikz), from the AUR, and xclip for its
+# "copy to clipboard" output. Removed with Inkscape.
+- name: Apps — graphics
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  tasks:
+    - name: svg2tikz for the native Inkscape
+      when: "'inkscape' in apps.graphics.installed"
+      block:
+        - name: Install svg2tikz's runtime dependencies
+          community.general.pacman:
+            name: "{{ inkscape_svg2tikz_runtime_deps }}"
+            state: present
+          become: true
+
+        - name: Install or update svg2tikz from the AUR
+          ansible.builtin.include_tasks: tasks/aur-build.yml
+          vars:
+            aur_package: "{{ inkscape_svg2tikz_aur_package }}"
+
+    - name: Remove svg2tikz (no native Inkscape)
+      community.general.pacman:
+        name: "{{ inkscape_svg2tikz_aur_package }}"
+        state: absent
+      become: true
+      when: "'inkscape' not in apps.graphics.installed"

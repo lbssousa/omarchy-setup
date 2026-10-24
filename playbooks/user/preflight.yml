@@ -34,3 +34,12 @@
           Run the user phase from a terminal inside your own Hyprland session:
           its plays configure systemd --user, the Omarchy shell and Hyprland.
         quiet: true
+
+    - name: Expect the resolved feature selection
+      ansible.builtin.assert:
+        that: features_resolved | bool
+        fail_msg: >-
+          Run the user phase through `just user` (scripts/run-phase.sh), which
+          passes the feature and app selection (features.yml + your choices
+          from `just configure`).
+        quiet: true

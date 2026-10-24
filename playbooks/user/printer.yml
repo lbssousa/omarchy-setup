@@ -10,6 +10,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [printer]
 
   tasks:
     - name: Check the L4160 print queue exists

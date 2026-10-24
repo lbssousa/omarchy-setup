@@ -31,10 +31,15 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [capslock]
+
+  vars:
+    feature_on: "{{ features['capslock'] | default(true) }}"
 
   tasks:
     - name: Caps Lock via keyd
       become: true
+      when: feature_on | bool
       block:
         - name: Install keyd via pacman
           community.general.pacman:
@@ -59,6 +64,27 @@
             name: keyd
             enabled: true
             state: started
+
+    - name: Caps Lock back to Omarchy's
+      become: true
+      when: not feature_on | bool
+      block:
+        - name: Stop and disable keyd
+          ansible.builtin.systemd:
+            name: keyd
+            enabled: false
+            state: stopped
+          failed_when: false
+
+        - name: Remove the Caps Lock config and keyd
+          ansible.builtin.file:
+            path: "{{ keyd_config_dest }}"
+            state: absent
+
+        - name: Uninstall keyd
+          community.general.pacman:
+            name: keyd
+            state: absent
 
   handlers:
     - name: restart keyd

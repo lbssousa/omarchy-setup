@@ -8,7 +8,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [containers, podman, distrobox]
+  tags: [podman, distrobox]
 
   tasks:
     - name: Verify Podman runs rootless correctly
@@ -62,7 +62,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [containers, starship-distrobox]
+  tags: [starship-distrobox]
 
   tasks:
     - name: Create ~/.config/starship.toml from the Omarchy default, if missing

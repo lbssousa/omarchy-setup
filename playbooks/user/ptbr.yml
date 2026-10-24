@@ -117,7 +117,7 @@
       loop: "{{ ptbr_chromium_family_config_dirs }}"
       loop_control:
         loop_var: browser_config_dir
-      tags: [ptbr-chromium]
+      tags: [ptbr-browsers]
 
     - name: "OCR (omarchy-capture-text) — OMARCHY_OCR_LANGS={{ ptbr_ocr_langs }}"
       block:

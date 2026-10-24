@@ -1,0 +1,65 @@
+---
+# KeePassXC-Browser's native messaging host for one browser build
+# (keepassxc_browser_hosts, `host` = {key, value}; playbooks/user/apps/
+# password.yml): with host_on, the manifest in each of the browser's
+# directories and the relay it runs (templates/keepassxc-proxy-relay.py.j2,
+# which talks to the KeePassXC Flatpak's browser socket); without it, both
+# go. The Firefox Flatpak also gets access to that socket.
+- name: "[{{ host.key }}] KeePassXC-Browser host"
+  when: host_on | bool
+  block:
+    - name: "[{{ host.key }}] Create the native messaging host directories"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ host.value.dirs }}"
+
+    - name: "[{{ host.key }}] Deploy the relay"
+      ansible.builtin.template:
+        src: keepassxc-proxy-relay.py.j2
+        dest: "{{ host.value.dirs[0] }}/{{ keepassxc_firefox_relay_name }}"
+        mode: "0755"
+
+    - name: "[{{ host.key }}] Deploy the manifest"
+      ansible.builtin.template:
+        src: "{{ host.value.template }}"
+        dest: "{{ item }}/{{ keepassxc_browser_manifest_name }}"
+        mode: "0644"
+      vars:
+        keepassxc_browser_manifest_path: "{{ host.value.path }}"
+      loop: "{{ host.value.dirs }}"
+
+    - name: "[{{ host.key }}] Let the Firefox Flatpak reach KeePassXC's browser socket"
+      ansible.builtin.command:
+        argv: [flatpak, override, --user, "--filesystem=xdg-run/app/{{ keepassxc_flatpak_id }}", "{{ firefox_flatpak_id }}"]
+      when: host.key == 'firefox-flatpak'
+      changed_when: false
+
+- name: "[{{ host.key }}] Remove the KeePassXC-Browser host"
+  when: not host_on | bool
+  block:
+    - name: "[{{ host.key }}] Remove the manifests and the relay"
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: >-
+        {{ host.value.dirs | map('regex_replace', '$', '/' ~ keepassxc_browser_manifest_name) | list
+           + [host.value.dirs[0] ~ '/' ~ keepassxc_firefox_relay_name] }}
+
+    - name: "[{{ host.key }}] Look for the Firefox Flatpak's user overrides"
+      ansible.builtin.stat:
+        path: "{{ target_home }}/.local/share/flatpak/overrides/{{ firefox_flatpak_id }}"
+      register: keepassxc_firefox_override
+      when: host.key == 'firefox-flatpak'
+
+    # Edited rather than `flatpak override --nofilesystem=`, which would
+    # leave a negated grant behind instead of removing it.
+    - name: "[{{ host.key }}] Take back the Firefox Flatpak's access to KeePassXC's socket"
+      ansible.builtin.replace:
+        path: "{{ target_home }}/.local/share/flatpak/overrides/{{ firefox_flatpak_id }}"
+        regexp: '(?<=[=;])xdg-run/app/{{ keepassxc_flatpak_id | regex_escape }};'
+        replace: ""
+      when:
+        - host.key == 'firefox-flatpak'
+        - keepassxc_firefox_override.stat.exists | default(false)

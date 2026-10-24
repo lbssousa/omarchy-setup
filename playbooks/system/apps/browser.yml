@@ -1,0 +1,79 @@
+---
+# Web browsers, system phase (apps: browser). The packages themselves come
+# from apps/packages.yml; this adds, per installed build:
+#
+#   Firefox (Flatpak)  /usr/local/bin/firefox → its exported launcher, so
+#                      Omarchy's omarchy-default-browser and
+#                      omarchy-launch-browser find `firefox` (with the hidden
+#                      firefox.desktop shim of user/apps/browser.yml); and,
+#                      through the systemconfig extension (/app/etc/firefox
+#                      in the sandbox, which can't see /usr/lib/firefox):
+#                      Omarchy's policies.json (if missing), Taskbar Tabs on
+#                      and a larger default page font.
+#   Firefox (native)   the same policies and prefs in /usr/lib/firefox.
+#   Brave Origin,      the PWAs that rebuild Omarchy's web apps
+#   Chromium           (user/apps/webapps.yml), force-installed through the
+#                      browser's machine policy (WebAppInstallForceList),
+#                      for the union of every user's webapps list — only for
+#                      the engine of the machine's default browser, so a
+#                      browser that merely stays installed (Omarchy's
+#                      Chromium) gets no PWAs.
+- name: Apps — web browsers
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    browser_default: "{{ apps_catalog.browser[apps.browser.default] }}"
+    firefox_flatpak_on: "{{ 'firefox-flatpak' in apps.browser.installed }}"
+    firefox_native_on: "{{ 'firefox' in apps.browser.installed }}"
+
+  tasks:
+    - name: Firefox (Flatpak)
+      when: firefox_flatpak_on | bool
+      block:
+        - name: Expose `firefox` on PATH via the Flatpak's exported launcher
+          ansible.builtin.file:
+            src: "{{ flatpak_system_exports_bin_dir }}/{{ firefox_flatpak_id }}"
+            dest: "{{ firefox_command_link }}"
+            state: link
+            force: true
+          become: true
+          # The native build owns `firefox` when both are installed.
+          when: not firefox_native_on | bool
+
+        - name: Look up the arch/branch of the installed Firefox Flatpak
+          ansible.builtin.command: "flatpak info --show-ref {{ firefox_flatpak_id }}"
+          register: firefox_flatpak_ref
+          changed_when: false
+
+        - name: Firefox defaults inside the systemconfig extension
+          ansible.builtin.include_tasks: tasks/firefox-defaults.yml
+          vars:
+            firefox_defaults_dir: >-
+              {{ firefox_systemconfig_dir }}/{{ firefox_flatpak_ref.stdout_lines[0].split('/')[2] }}/{{ firefox_flatpak_ref.stdout_lines[0].split('/')[3] }}
+            firefox_policies_dir: "{{ firefox_defaults_dir }}/policies"
+
+    - name: Remove the `firefox` link to the Flatpak when it isn't installed
+      ansible.builtin.file:
+        path: "{{ firefox_command_link }}"
+        state: absent
+      become: true
+      when: not firefox_flatpak_on | bool or firefox_native_on | bool
+
+    - name: Firefox (native) defaults in /usr/lib/firefox
+      ansible.builtin.include_tasks: tasks/firefox-defaults.yml
+      vars:
+        firefox_defaults_dir: "{{ firefox_native_dir }}"
+        firefox_policies_dir: "{{ firefox_native_dir }}/distribution"
+      when: firefox_native_on | bool
+
+    - name: PWA machine policy, per Chromium-family engine
+      ansible.builtin.include_tasks: tasks/webapps-pwa-policy.yml
+      loop: "{{ webapps_pwa_engines | dict2items }}"
+      loop_control:
+        loop_var: engine
+        label: "{{ engine.key }}"
+      vars:
+        pwa_policy_on: "{{ browser_default.engine | default('none') == engine.key }}"

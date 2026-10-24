@@ -1,0 +1,44 @@
+---
+# Leaving a PWA engine (playbooks/user/apps/webapps.yml): the PWA launchers
+# this setup wrote under the web apps' names go. With webapps_restore (an
+# engine that rebuilds none of them: the Brave Flatpak), every Omarchy
+# launcher set aside in webapps_backup_dir comes back too; the backups stay,
+# so a later engine can set them aside again. Firefox needs no restore: its
+# script sets Omarchy's launchers aside itself.
+- name: Find the PWA launchers written for the web apps
+  ansible.builtin.find:
+    paths: "{{ webapps_desktop_dir }}"
+    patterns: "*.desktop"
+    contains: "Exec=.*--app-id="
+    read_whole_file: true
+  register: webapps_pwa_launchers
+
+- name: Remove them
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ webapps_pwa_launchers.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: (item.path | basename | regex_replace('\.desktop$', '')) in (webapps | map(attribute='label') | list)
+  notify: refresh the applications database
+
+- name: Find the Omarchy launchers set aside
+  when: webapps_restore | bool
+  ansible.builtin.find:
+    paths: "{{ webapps_backup_dir }}"
+    patterns: "*.desktop"
+  register: webapps_omarchy_backups
+
+- name: Put Omarchy's launchers back
+  when: webapps_restore | bool
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ webapps_desktop_dir }}/{{ item.path | basename }}"
+    remote_src: true
+    force: false
+    mode: "0644"
+  loop: "{{ webapps_omarchy_backups.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  notify: refresh the applications database

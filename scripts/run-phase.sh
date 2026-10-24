@@ -7,9 +7,10 @@
 #   user    runs as you, never under run0: refused as root or from an
 #           empowered process. Needs your graphical session for most plays.
 #
-# Both load users/$USER.yml (your settings, if the file exists) and then
-# ~/.config/omarchy-setup/local.yml (machine-local overrides, if any) as
-# extra vars.
+# Both load users/$USER.yml (your settings, if the file exists),
+# ~/.config/omarchy-setup/local.yml (machine-local overrides, if any) and the
+# resolved feature selection (scripts/features.py) as extra vars, and run
+# the selected features' tags unless the arguments name their own.
 #
 # Usage: scripts/run-phase.sh system|user <playbook> [ansible-playbook args]
 set -euo pipefail
@@ -28,6 +29,18 @@ extra=()
 [[ -f users/$USER.yml ]] && extra+=(-e "@users/$USER.yml")
 local_vars=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy-setup/local.yml
 [[ -f $local_vars ]] && extra+=(-e "@$local_vars")
+
+# The feature and app selection (features.yml + the choices from `just
+# configure`), as extra vars, and the --tags that go with it — unless the
+# caller picked its own tags (e.g. `just users`).
+selection=${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-setup/selection-$phase.json
+tags=$(python3 scripts/features.py resolve "$phase" "$selection")
+extra+=(-e "@$selection")
+caller_tags=false
+for arg in "$@"; do
+    [[ $arg == --tags || $arg == --tags=* || $arg == -t ]] && caller_tags=true
+done
+$caller_tags || extra+=(--tags "$tags")
 
 case $phase in
     system)

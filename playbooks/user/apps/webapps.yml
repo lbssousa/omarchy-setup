@@ -1,0 +1,189 @@
+---
+# Omarchy's web apps, rebuilt with the default browser's own solution
+# (apps: browser). The sites come from this user's webapps list
+# (users/<name>.yml; fields in group_vars/all/main.yml):
+#
+#   Firefox (either build)  Taskbar Tabs, written by files/
+#                           firefox-taskbar-apps.py straight into the
+#                           profile (no DynamicLauncher dialog per site).
+#                           Firefox has to be closed: it keeps the registry
+#                           in memory. While it is open this part is skipped
+#                           with a warning.
+#   Brave Origin, Chromium  PWAs force-installed by the browser's machine
+#                           policy (system/apps/browser.yml), each launcher
+#                           pointed at its container (Brave). The browser
+#                           has to be open: it installs them live. While it
+#                           is closed this part is skipped with a warning.
+#   Brave (Flatpak)         none: Omarchy's own launchers stay.
+#
+# Omarchy's launcher for each site is set aside in webapps_backup_dir and
+# comes back when the engine changes. The keybinds in the list (Omarchy's
+# own SUPER+SHIFT+Y and friends, among others) are pointed at the new
+# launchers, and their windows open tiled fullscreen.
+- name: Apps — Omarchy's web apps with the default browser
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    browser_default_id: "{{ apps.browser.default }}"
+    webapps_engine: "{{ apps_catalog.browser[browser_default_id].engine | default('none') }}"
+    firefox_variant: "{{ firefox_variants[browser_default_id] | default({}) }}"
+    webapps_keybinds: "{{ webapps | selectattr('keybind', 'defined') | selectattr('keybind') | list }}"
+
+  tasks:
+    - name: Create the web apps backup directory
+      ansible.builtin.file:
+        path: "{{ webapps_backup_dir }}"
+        state: directory
+        mode: "0755"
+
+    # Leaving Firefox: its Taskbar Tab launchers go (the registry in the
+    # profile stays, harmless). Leaving a PWA engine, or with none: the PWA
+    # launchers go and Omarchy's come back.
+    - name: Remove the Firefox Taskbar Tab launchers
+      when: webapps_engine != 'firefox'
+      block:
+        - name: Find them
+          ansible.builtin.find:
+            paths: "{{ webapps_desktop_dir }}"
+            patterns: "{{ firefox_variants.values() | map(attribute='desktop_prefix') | map('regex_replace', '$', '.webapp-*.desktop') | list }}"
+          register: webapps_firefox_launchers
+
+        - name: Remove them
+          ansible.builtin.file:
+            path: "{{ item.path }}"
+            state: absent
+          loop: "{{ webapps_firefox_launchers.files }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+          notify: refresh the applications database
+
+        - name: Remove the Taskbar Tab launcher script
+          ansible.builtin.file:
+            path: "{{ firefox_taskbar_app_launcher }}"
+            state: absent
+
+    - name: Remove the PWA launchers (and with no engine, put Omarchy's back)
+      ansible.builtin.include_tasks: tasks/webapps-restore-omarchy.yml
+      vars:
+        webapps_restore: "{{ webapps_engine == 'none' }}"
+      when: webapps_engine in ['firefox', 'none']
+
+    - name: Firefox Taskbar Tabs
+      when: webapps_engine == 'firefox' and webapps | length > 0
+      block:
+        - name: Create ~/.local/bin
+          ansible.builtin.file:
+            path: "{{ firefox_taskbar_app_launcher | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Deploy the Taskbar Tab launcher script (opens one by its Name=)
+          ansible.builtin.template:
+            src: launch-firefox-taskbar-app.sh.j2
+            dest: "{{ firefox_taskbar_app_launcher }}"
+            mode: "0755"
+
+        - name: Create the Taskbar Tabs and set Omarchy's launchers aside
+          ansible.builtin.script:
+            cmd: >-
+              firefox-taskbar-apps.py {{ {
+                'apps': webapps,
+                'desktop_prefix': firefox_variant.desktop_prefix,
+                'exec_argv': firefox_variant.exec_argv,
+                'try_exec': firefox_variant.try_exec,
+                'flatpak_id': firefox_variant.flatpak_id,
+                'stale_prefixes': firefox_variants.values() | map(attribute='desktop_prefix')
+                                  | reject('eq', firefox_variant.desktop_prefix) | list,
+                'profiles_dirs': firefox_variant.profiles_dirs,
+                'desktop_dir': webapps_desktop_dir,
+                'portal_dir': target_home ~ '/.local/share/xdg-desktop-portal',
+                'backup_dir': webapps_backup_dir,
+              } | to_json | quote }}
+            executable: python3
+          register: webapps_firefox_result
+          # 3: Firefox is (or was started) running; nothing was written.
+          failed_when: webapps_firefox_result.rc not in [0, 3]
+          changed_when: webapps_firefox_result.stdout | trim | length > 0
+          notify: refresh the applications database
+
+        - name: Warn that Firefox is running
+          ansible.builtin.debug:
+            msg: >-
+              SKIPPED the Firefox Taskbar Tabs: Firefox is running and keeps
+              their registry in memory, overwriting any change. Close it and
+              run `just user` again.
+          when: webapps_firefox_result.rc == 3
+
+    - name: PWAs (Brave Origin, Chromium)
+      when: webapps_engine in webapps_pwa_engines and webapps | length > 0
+      vars:
+        pwa_engine: "{{ webapps_pwa_engines[webapps_engine] }}"
+        pwa_prefs_path: "{{ target_xdg_config_home }}/{{ pwa_engine.config_dir }}/{{ webapps_pwa_profile_directory }}/Preferences"
+      block:
+        - name: Check that the browser is running (it installs the PWAs live)
+          ansible.builtin.command: pgrep -u {{ target_user }} -f {{ pwa_engine.binary | quote }}
+          register: pwa_browser_running
+          changed_when: false
+          failed_when: false
+
+        - name: Warn that the browser is closed
+          ansible.builtin.debug:
+            msg: >-
+              SKIPPED the PWAs: open {{ apps_catalog.browser[browser_default_id].label }}
+              and keep it open while `just user` runs, so it installs them.
+          when: pwa_browser_running.rc != 0
+
+        - name: Swap each web app
+          when: pwa_browser_running.rc == 0
+          block:
+            - name: Read the browser's containers
+              ansible.builtin.set_fact:
+                pwa_containers: >-
+                  {{ (lookup('ansible.builtin.file', pwa_prefs_path) | from_json)
+                     .get('brave', {}).get('containers', {}).get('list', [])
+                     if pwa_engine.containers else [] }}
+
+            - name: Swap each web app for its PWA
+              ansible.builtin.include_tasks: tasks/webapps-pwa-swap.yml
+              loop: "{{ webapps }}"
+              loop_control:
+                loop_var: webapp
+                label: "{{ webapp.label }}"
+
+    - name: Keybindings and tiled fullscreen windows
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      loop:
+        - marker: web apps — keybindings
+          state: "{{ 'present' if webapps_engine != 'none' and webapps_keybinds | length > 0 else 'absent' }}"
+          block: |
+            {% for app in webapps_keybinds %}
+            {% if webapps_engine == 'firefox' %}
+            o.rebind("{{ app.keybind }}", "{{ app.label }}", { launch = "{{ firefox_taskbar_app_launcher }} {{ app.desktop_name | default(app.label) | quote }}" })
+            {% elif app.label in (pwa_app_ids | default({})) %}
+            o.rebind("{{ app.keybind }}", "{{ app.label }}", { launch = "gtk-launch {{ app.label | quote }}", focus = "^{{ webapps_pwa_engines[webapps_engine].shortcut_prefix }}-{{ pwa_app_ids[app.label] }}-{{ webapps_pwa_profile_directory }}$" })
+            {% endif %}
+            {% endfor %}
+        - marker: web apps — tiled fullscreen
+          state: "{{ 'absent' if webapps_engine == 'none' else 'present' }}"
+          block: |
+            {% if webapps_engine == 'firefox' %}
+            o.window("^{{ firefox_variant.desktop_prefix | replace('.', '\\.') }}\\.webapp-.*$", { fullscreen_state = "0 2" })
+            {% else %}
+            o.window("^{{ webapps_pwa_engines[webapps_engine].shortcut_prefix | default('none') }}-[a-p]+-{{ webapps_pwa_profile_directory }}$", { fullscreen_state = "0 2" })
+            {% endif %}
+      loop_control:
+        label: "{{ item.marker }}"
+      vars:
+        hypr_file: bindings.lua
+        hypr_marker: "{{ item.marker }}"
+        hypr_block: "{{ item.block }}"
+        hypr_state: "{{ item.state }}"
+      # A PWA engine whose browser was closed keeps the keybinds an earlier
+      # run wrote rather than dropping them.
+      when: not (webapps_engine in webapps_pwa_engines and pwa_browser_running.rc | default(0) != 0)
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

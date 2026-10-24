@@ -44,6 +44,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [bgrt-theme]
 
   pre_tasks:
     - name: Check this machine's firmware has a BGRT boot logo

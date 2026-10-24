@@ -28,6 +28,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [lazyvim]
 
   tasks:
     - name: Check whether lazyvim.json already exists

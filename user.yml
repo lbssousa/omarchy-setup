@@ -5,141 +5,97 @@
 # run0): no task here becomes root. What it needs installed comes from
 # system.yml, run by an administrator first.
 #
-# Each automation keeps its tag (the system half is under the same tag in
-# system.yml). Per-user settings come from users/<user>.yml.
+# Which plays run is the feature selection (features.yml + this user's
+# choices from `just configure`): scripts/run-phase.sh passes it and the
+# matching --tags. Each play is tagged with its feature id; the app plays
+# (tag apps) and the always-tagged ones run every time. Per-user settings
+# come from users/<user>.yml and ~/.config/omarchy-setup/local.yml.
 #
-# Usage: just user   (ansible-playbook user.yml -e @users/$USER.yml)
+# Usage: just user
 
-- name: Preflight (as the user, inside the graphical session)
+- name: "Preflight: as the user, in the graphical session, with the selection"
   ansible.builtin.import_playbook: playbooks/user/preflight.yml
 
-# user.name and user.email from users/<name>.yml.
-- name: git identity
-  ansible.builtin.import_playbook: playbooks/user/git-identity.yml
-  tags: [git-identity]
-
-- name: Flatpak + Flathub (user session XDG_DATA_DIRS + Bazaar D-Bus mask)
-  ansible.builtin.import_playbook: playbooks/user/flatpak.yml
-  tags: [flatpak]
-
-- name: Firefox (Flatpak)
-  ansible.builtin.import_playbook: playbooks/user/firefox.yml
-  tags: [firefox]
-
-# The tab apps in firefox_taskbar_apps, with the webapp keybinds pointed at
-# them instead of Omarchy's own web app launchers.
-- name: Firefox Taskbar Tabs
-  ansible.builtin.import_playbook: playbooks/user/firefox-taskbar-apps.yml
-  tags: [firefox-taskbar-apps]
-
-# Firefox as the default browser, set with omarchy-default-browser
-# (Setup > Defaults > Browser in the Omarchy menu).
-- name: Default browser (Firefox)
-  ansible.builtin.import_playbook: playbooks/user/default-browser.yml
-  tags: [default-browser]
-
-# The password manager: Bitwarden, with autostart, its SSH agent as
-# SSH_AUTH_SOCK and Omarchy's "Passwords" keybind (SUPER+SHIFT+SLASH).
-# Cleans out what KeePassXC, the previous default, left behind.
-- name: Bitwarden (default password manager, SSH agent)
-  ansible.builtin.import_playbook: playbooks/user/bitwarden.yml
-  tags: [bitwarden]
-
-- name: Emacs + AUCTeX, yasnippet, lsp-mode (classic teal theme)
-  ansible.builtin.import_playbook: playbooks/user/emacs.yml
-  tags: [emacs]
-
-- name: Zed editor
-  ansible.builtin.import_playbook: playbooks/user/zed.yml
-  tags: [zed]
-
-- name: gregorio-lsp
-  ansible.builtin.import_playbook: playbooks/user/gregorio-lsp.yml
-  tags: [gregorio-lsp]
-
-- name: PDF viewer (Zathura default, Papers optional, Evince removed)
-  ansible.builtin.import_playbook: playbooks/user/pdf-viewer.yml
-  tags: [pdf-viewer]
-
-- name: File manager (Flea default)
-  ansible.builtin.import_playbook: playbooks/user/file-manager.yml
-  # file-chooser routes the portal to Flea's picker, so it needs Flea first.
-  tags: [file-manager, file-chooser]
-
-- name: Flea file chooser dialogs for non-GNOME apps
-  ansible.builtin.import_playbook: playbooks/user/file-chooser.yml
-  tags: [file-chooser]
-
-- name: LazyVim plugin preferences (LaTeX extra + gregorio.nvim)
-  ansible.builtin.import_playbook: playbooks/user/lazyvim.yml
-  tags: [lazyvim]
-
-- name: pt-BR localization
-  ansible.builtin.import_playbook: playbooks/user/ptbr.yml
-  tags: [ptbr]
-
-# Plays: Podman (tag podman), Distrobox (tag distrobox, which also runs
-# Podman first), starship prompt inside distrobox (tag starship-distrobox).
-- name: Containers (Podman, Distrobox, starship in distrobox)
-  ansible.builtin.import_playbook: playbooks/user/containers.yml
-  tags: [containers]
-
-# Plays: Nix (tag nix), direnv with bash + fish hooks (tag direnv),
-# nix-direnv for cached `use flake` (tag nix-direnv). The nix tag runs
-# all three.
-- name: Nix + direnv
-  ansible.builtin.import_playbook: playbooks/user/nix.yml
-  tags: [nix]
-
-- name: EPSON L4160 printer (driverless)
-  ansible.builtin.import_playbook: playbooks/user/printer.yml
-  tags: [printer]
-
-# Plays: scrolling column resize (tag hypr-scrolling-resize), screen scale +
-# text size (tag text-size), night light (tag nightlight-solar).
-- name: Desktop tuning (Hyprland resize, text size, night light)
-  ansible.builtin.import_playbook: playbooks/user/desktop.yml
-  tags: [desktop]
-
-- name: Caps Lock via keyd
-  ansible.builtin.import_playbook: playbooks/user/capslock.yml
-  tags: [capslock]
-
-- name: Omadwaita Omarchy themes (Adwaita-based)
-  ansible.builtin.import_playbook: playbooks/user/omadwaita-themes.yml
-  tags: [omadwaita-themes]
-
-- name: Omaraptor Omarchy themes (GNOME palette + Bluefin wallpapers)
-  ansible.builtin.import_playbook: playbooks/user/omaraptor-themes.yml
-  tags: [omaraptor-themes]
-
-- name: Omaraptor day/night theme switching (systemd --user timer)
-  ansible.builtin.import_playbook: playbooks/user/omaraptor-theme-auto.yml
-  tags: [omaraptor-theme-auto]
-
-# Fish, every account's login shell, with the same Starship prompt as
-# Omarchy (see playbooks/{system,user}/fish.yml). Always runs.
-- name: Fish shell
+- name: Fish, every account's login shell, with Omarchy's Starship prompt (always)
   ansible.builtin.import_playbook: playbooks/user/fish.yml
-  tags: [always]
 
-# Starship prompt extras: Nix dev shell badge and unpushed/unpulled commits
-# (see playbooks/user/starship.yml).
-- name: Starship prompt extras
+- name: git identity (from the untracked local.yml)
+  ansible.builtin.import_playbook: playbooks/user/git-identity.yml
+
+- name: Flatpak apps in the session (XDG_DATA_DIRS, Bazaar's D-Bus mask)
+  ansible.builtin.import_playbook: playbooks/user/flatpak.yml
+
+- name: "Apps: the default browser (and the Firefox Flatpak shim)"
+  ansible.builtin.import_playbook: playbooks/user/apps/browser.yml
+
+- name: "Apps: Omarchy's web apps rebuilt with the default browser"
+  ansible.builtin.import_playbook: playbooks/user/apps/webapps.yml
+
+- name: "Apps: the default password manager (keybind, autostart, SSH agent)"
+  ansible.builtin.import_playbook: playbooks/user/apps/password.yml
+
+- name: "Apps: the default PDF viewer, Zathura's tweaks"
+  ansible.builtin.import_playbook: playbooks/user/apps/pdf.yml
+
+- name: "Apps: the default file manager"
+  ansible.builtin.import_playbook: playbooks/user/apps/file-manager.yml
+
+- name: "Apps: Emacs (AUCTeX, yasnippet, lsp-mode, classic theme)"
+  ansible.builtin.import_playbook: playbooks/user/apps/emacs.yml
+
+- name: "Apps: Zed (Omazed, font sizes, Podman)"
+  ansible.builtin.import_playbook: playbooks/user/apps/zed.yml
+
+- name: Flea file dialogs for non-GNOME apps
+  ansible.builtin.import_playbook: playbooks/user/file-chooser.yml
+
+- name: gregorio-lsp, grelint, grefmt
+  ansible.builtin.import_playbook: playbooks/user/gregorio-lsp.yml
+
+- name: "LazyVim: LaTeX extra, gregorio.nvim"
+  ansible.builtin.import_playbook: playbooks/user/lazyvim.yml
+
+- name: "Portuguese (Brazil): Omarchy's language, folders, browsers, OCR"
+  ansible.builtin.import_playbook: playbooks/user/ptbr.yml
+
+- name: Podman check, the container name in the prompt
+  ansible.builtin.import_playbook: playbooks/user/containers.yml
+
+- name: Nix session, direnv hooks, nix-direnv
+  ansible.builtin.import_playbook: playbooks/user/nix.yml
+
+- name: The L4160 as this user's default printer
+  ansible.builtin.import_playbook: playbooks/user/printer.yml
+
+- name: Column resize keys, scale and text size, night light at sunset
+  ansible.builtin.import_playbook: playbooks/user/desktop.yml
+
+- name: Compose off Caps Lock (for keyd)
+  ansible.builtin.import_playbook: playbooks/user/capslock.yml
+
+- name: Omadwaita themes
+  ansible.builtin.import_playbook: playbooks/user/omadwaita-themes.yml
+
+- name: Omaraptor themes
+  ansible.builtin.import_playbook: playbooks/user/omaraptor-themes.yml
+
+- name: Omaraptor day/night switching
+  ansible.builtin.import_playbook: playbooks/user/omaraptor-theme-auto.yml
+
+- name: "Starship extras: Nix badge, ahead/behind"
   ansible.builtin.import_playbook: playbooks/user/starship.yml
-  tags: [starship]
 
-# Third-party shell plugins: this desktop's own list (omarchy_plugins in
-# group_vars/all/main.yml — Radio Atlas first) plus omapin,
-# ssh-askpass-omarchy and polkit-omarchy. No tags here on purpose: each play
-# in the file carries its own (plugins, pinentry, ssh-askpass, polkit-agent),
-# and a tag on the import would be inherited by all of them.
-- name: Omarchy shell plugins
+- name: Omarchy shell plugins, omapin, ssh-askpass-omarchy, polkit-omarchy
   ansible.builtin.import_playbook: playbooks/user/plugins.yml
 
-# Google Drive (Meu Drive + Compartilhados Comigo) mounted with rclone. Tag "never":
-# needs the Google OAuth credentials, so it only runs on
-# request (--tags rclone-gdrive / `just rclone-gdrive`).
-- name: rclone — Google Drive mounts
+- name: Homebrew on PATH (opt-in)
+  ansible.builtin.import_playbook: playbooks/user/homebrew.yml
+
+- name: Google Drive via rclone (opt-in)
   ansible.builtin.import_playbook: playbooks/user/rclone-gdrive.yml
-  tags: [rclone-gdrive, never]
+
+- name: BGRT theme (opt-in)
+  ansible.builtin.import_playbook: playbooks/user/bgrt-theme.yml
+
+- name: Yubikey GPG key and git signing (opt-in)
+  ansible.builtin.import_playbook: playbooks/user/yubikey.yml

@@ -11,9 +11,9 @@ ansible_local_become_success_timeout: 60
 polkit_expiration_seconds: 1800
 
 # Flatpak (playbooks/{system,user}/flatpak.yml) — Flatpak itself plus the
-# Flathub remote, system-wide (every app below is installed once, for every
-# user). Omarchy doesn't ship Flatpak. Every play that installs a Flatpak
-# bootstraps both itself, so each one also works standalone.
+# Flathub remote, system-wide (every Flatpak app is installed once, for
+# every user). Omarchy doesn't ship Flatpak; the feature is forced on as
+# soon as any Flatpak app option is chosen.
 flatpak_package: flatpak
 flatpak_flathub_remote: flathub
 flatpak_flathub_repo_url: https://flathub.org/repo/flathub.flatpakrepo
@@ -31,233 +31,213 @@ flatpak_user_exports_dir: "{{ target_home }}/.local/share/flatpak/exports/share"
 # exports under ~/.local/share/flatpak/exports/bin instead).
 flatpak_system_exports_bin_dir: /var/lib/flatpak/exports/bin
 flatpak_env_file: 40-flatpak.conf
+# Languages the system installation pulls into each app's .Locale extension
+# (`flatpak config --system languages`). Left unset, Flatpak derives them
+# from the locale of whoever runs it — root under Ansible, i.e. just "en" —
+# and apps like Bitwarden fall back to English because their pt-BR
+# translation sits in a subset that was never downloaded.
+flatpak_languages:
+  - pt
+  - en
 
-# Firefox (playbooks/{system,user}/firefox.yml) — installed from Flathub
-# (org.mozilla.firefox), replacing the Arch `firefox` package. Flathub's build
-# bundles every locale itself, so no firefox-i18n-<locale> package is needed
-# (see playbooks/system/ptbr.yml). Runs before pt-BR localization, which
-# depends on Firefox already being installed.
+# The resolved feature and app selection: features.yml (the catalog) plus
+# ~/.config/omarchy-setup/features.yml (`just configure`), passed as extra
+# vars by scripts/run-phase.sh (scripts/features.py resolve). The empty
+# values here only keep a bare `ansible-playbook --syntax-check` happy: the
+# app plays refuse to run without features_resolved, since an empty
+# selection would mean "uninstall everything".
+features_resolved: false
+features: {}
+apps: {}
+apps_installed: []
+apps_packages: []
+apps_catalog: {}
+
+# Firefox, in either build (apps: browser, playbooks/{system,user}/apps/
+# browser.yml). omarchy-default-browser only knows the native names
+# (`firefox`, firefox.desktop), so for the Flatpak the system phase links
+# /usr/local/bin/firefox to its exported launcher and the user phase adds a
+# hidden firefox.desktop that runs it. Default preferences and
+# policies.json reach the Flatpak through the systemconfig extension point
+# (mounted at /app/etc/firefox inside the sandbox), the native build
+# through /usr/lib/firefox. Taskbar Tabs (Firefox's web apps) are named
+# after the app id: <desktop_prefix>.webapp-<uuid>, for launchers and window
+# classes alike. Flathub's build bundles every locale.
 firefox_flatpak_id: org.mozilla.firefox
-# The Arch packages the Flatpak replaces (removed by playbooks/system/firefox.yml).
-firefox_native_packages:
-  - firefox
-  - firefox-i18n-pt-br
-# Default preferences and policies.json reach the sandbox through this
-# extension point (mounted at /app/etc/firefox inside it), since the
-# Flatpak can't see the host's /usr/lib/firefox.
 firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
 firefox_systemconfig_dir: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}"
-# The name omarchy-default-browser takes. It only knows the native ids
-# (firefox.desktop, command `firefox`), so the system phase links
-# /usr/local/bin/firefox to the Flatpak's exported launcher and the user
-# phase adds a hidden firefox.desktop that runs it — see
-# playbooks/{system,user}/firefox.yml.
-firefox_browser: firefox
+firefox_native_dir: /usr/lib/firefox
 firefox_command_link: /usr/local/bin/firefox
 firefox_desktop_id: firefox.desktop
-# What Firefox names its Taskbar Tabs launchers and window classes after
-# (<prefix>.webapp-<uuid>): its own app id, the Flatpak id.
-firefox_desktop_prefix: "{{ firefox_flatpak_id }}"
-# Firefox's own data, inside the sandbox's per-app directory: the profiles
-# dirs (XDG layout first, as Firefox 147+ uses it, then the legacy
-# ~/.mozilla one) and the native ones they're migrated from on first run
-# (playbooks/user/firefox.yml), pairwise.
 firefox_app_dir: "{{ target_home }}/.var/app/{{ firefox_flatpak_id }}"
-firefox_profiles_dirs:
-  - "{{ firefox_app_dir }}/config/mozilla/firefox"
-  - "{{ firefox_app_dir }}/.mozilla/firefox"
-firefox_native_profiles_dirs:
-  - "{{ target_home }}/.config/mozilla/firefox"
-  - "{{ target_home }}/.mozilla/firefox"
+firefox_variants:
+  firefox-flatpak:
+    desktop_prefix: "{{ firefox_flatpak_id }}"
+    # XDG layout first, as Firefox 147+ uses it, then the legacy one.
+    profiles_dirs:
+      - "{{ firefox_app_dir }}/config/mozilla/firefox"
+      - "{{ firefox_app_dir }}/.mozilla/firefox"
+    exec_argv: [flatpak, run, --command=/app/lib/firefox/firefox, "{{ firefox_flatpak_id }}"]
+    try_exec: "{{ flatpak_system_exports_bin_dir }}/{{ firefox_flatpak_id }}"
+    flatpak_id: "{{ firefox_flatpak_id }}"
+  firefox:
+    desktop_prefix: firefox
+    profiles_dirs:
+      - "{{ target_home }}/.config/mozilla/firefox"
+      - "{{ target_home }}/.mozilla/firefox"
+    exec_argv: ["{{ firefox_native_dir }}/firefox"]
+    try_exec: "{{ firefox_native_dir }}/firefox"
+    flatpak_id: ""
 firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
 firefox_taskbar_tabs_pref_file: omarchy-setup.js
-# Firefox's "Default font size" (Settings > General > Fonts and Colors >
-# Advanced; font.size.variable.x-western in about:config), px. Firefox's
-# browser chrome follows org.gnome.desktop.interface font-name directly (see
-# omarchy_gnome_font_sizes), so this is only the default size for page
-# text. 17px is what 13pt renders to at the standard 96dpi (the size
-# omarchy_system_ui_font_pt still uses), written as an integer px because
-# that's what the pref takes. playbooks/system/firefox.yml drops it as a
-# defaults/preferences file, so it's a default like the browser's own 16px,
-# not a forced value.
+# Firefox's "Default font size" (font.size.variable.x-western), px: only
+# page text, the browser chrome follows the GNOME font (see
+# omarchy_gnome_font_sizes). 17px is 13pt at 96dpi, as an integer px
+# because that's what the pref takes; a default, not a forced value.
 firefox_font_size_pref_file: omarchy-setup-font.js
 firefox_default_font_size_px: 17
 
-# Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
-# (playbooks/user/firefox-taskbar-apps.yml). Omarchy binds YouTube to
-# SUPER+SHIFT+Y, WhatsApp to SUPER+SHIFT+ALT+G, Google Maps to
-# SUPER+SHIFT+S, Google Photos to SUPER+SHIFT+P and Google Messages to
-# SUPER+SHIFT+CTRL+G through omarchy-launch-webapp, which only knows the
-# Chromium family's --app= flag and falls back to chromium.desktop for every
-# other default browser — Firefox included, and Firefox is the default here
-# (see default_browser below). The tab apps are created by the same playbook,
-# straight into Firefox's profile without the DynamicLauncher portal's
-# confirmation dialog, and Omarchy's own launchers for the same sites are
-# removed.
+# Omarchy's web apps, rebuilt with the default browser's own solution
+# (playbooks/user/apps/webapps.yml): Firefox Taskbar Tabs, or PWAs for Brave
+# Origin and Chromium. Each user lists theirs in users/<name>.yml:
 #
-# One launcher per pinned site, at
-# <dir>/<firefox_desktop_prefix>.webapp-<uuid>.desktop. The uuid is generated
-# per install and the Exec= line inside hardcodes the profile path, so neither
-# is something a keybind can name — desktop_name (the pinned tab's own title,
-# the one field that survives a reinstall) is the stable handle, and the
-# keybind goes through a wrapper that resolves it at launch time.
-# Microsoft Teams has no Omarchy keybind of its own, so it takes the same
-# SUPER+SHIFT+ALT+<letter> shape as WhatsApp.
-# Omarchy's own launcher for a site is removed when its Name= equals the
-# app's desktop_name or label; set omarchy_webapp_name when it's neither.
-# container (optional) is the Firefox container the app runs in, by name as
-# in about:preferences#containers. It has to be the one Multi-Account
-# Containers (or Facebook Container) assigns the site — and its login pages
-# — to: otherwise the extension reopens the page as a tab in the main window
-# and closes the app's window.
+#   label         what the keybind is called (and Omarchy's launcher Name=,
+#                 unless omarchy_webapp_name says otherwise)
+#   desktop_name  the app's own Name= (a Taskbar Tab's title)
+#   url           the site
+#   container     Firefox / Brave container it runs in (optional; for
+#                 Firefox it must be the one Multi-Account Containers assigns
+#                 the site to, or the extension reopens it in the main window)
+#   keybind       Hyprland key that opens it (optional)
+#   manifest_hint Name= Brave gives its shortcut, when it isn't desktop_name
 #
-# This machine's default: none. Each user lists their own in
-# users/<name>.yml (see users/abutre.yml).
-firefox_webapp_desktop_dir: "{{ target_home }}/.local/share/applications"
-firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/{{ firefox_desktop_prefix }}.webapp-*.desktop"
+# Omarchy's own launchers for the same sites are moved to
+# webapps_backup_dir, and moved back when the engine changes (or the
+# default browser has none: Brave Flatpak). Taskbar Tab windows and PWAs
+# open tiled fullscreen.
+webapps: []
+webapps_desktop_dir: "{{ target_home }}/.local/share/applications"
+webapps_backup_dir: "{{ target_home }}/.local/share/omarchy-setup/webapps-omarchy"
 firefox_taskbar_app_launcher: "{{ target_home }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
-firefox_taskbar_apps: []
+# PWAs force-installed through each Chromium-family browser's machine
+# policy directory, the union of every user's webapps list.
+webapps_pwa_engines:
+  brave:
+    policy_dir: /etc/brave/policies/managed
+    config_dir: BraveSoftware/Brave-Origin
+    shortcut_prefix: brave
+    binary: /opt/brave-origin-bin/brave
+    containers: true
+  chromium:
+    policy_dir: /etc/chromium/policies/managed
+    config_dir: chromium
+    shortcut_prefix: chrome
+    binary: /usr/lib/chromium/chromium
+    containers: false
+webapps_pwa_profile_directory: Default
+webapps_pwa_policy_file: omarchy-setup-webapps.json
 
-# Default browser the main run leaves behind
-# (playbooks/user/default-browser.yml), as the name `omarchy-default-browser`
-# takes (Setup > Defaults > Browser in the Omarchy menu). Only set when it
-# isn't already the default, so a later switch in the menu isn't undone.
-default_browser: "{{ firefox_browser }}"
+# ArtCraft Launcher (apps: office, graphics, video — the `artcraft` option;
+# playbooks/tasks/artcraft-launcher.yml).
+artcraft_launcher_id: ai.storyteller.artcraft-launcher
+artcraft_launcher_release_api: https://api.github.com/repos/storytold/craft-launcher/releases/latest
+artcraft_launcher_stamp: /var/lib/omarchy-setup/artcraft-launcher.tag
 
-# ONLYOFFICE Desktop Editors (playbooks/system/onlyoffice.yml) — installed
-# from Flathub, replacing Omarchy's pre-installed native libreoffice-fresh
-# (and the AUR onlyoffice-bin an earlier version of this repo installed).
-# ONLYOFFICE ships as a single desktop application, so there are no
-# secondary components to hide from the app launcher.
-onlyoffice_flatpak_id: org.onlyoffice.desktopeditors
-onlyoffice_native_packages:
-  - libreoffice-fresh
-  - libreoffice-fresh-pt-br
-  - onlyoffice-bin
+# Password managers (apps: password, playbooks/{system,user}/apps/
+# password.yml). Only the default one takes SUPER+SHIFT+SLASH (Omarchy's
+# "Passwords" key, bound to 1Password, which this setup doesn't install),
+# autostart and the SSH agent.
+password_hypr_keybind: "SUPER + SHIFT + SLASH"
+gcr_ssh_agent_units:
+  - gcr-ssh-agent.socket
+  - gcr-ssh-agent.service
 
-# Native GUI apps Omarchy pre-installs (all in
-# /usr/share/omarchy/install/omarchy-base.packages) replaced by their
-# Flathub builds (playbooks/system/flathub-apps.yml). See that playbook's
-# header for what's excluded and why.
-#
-# Every entry keeps the SAME desktop-entry id in both builds, so nothing has
-# to be re-curated afterwards (no launcher NoDisplay stubs, no mimeapps
-# rewrite, no window-rule edits) — the id is the contract, and the playbook
-# fails if a Flatpak ever stops honouring it.
-flathub_app_migrations:
-  - name: Kdenlive
-    flatpak_id: org.kde.kdenlive
-    native_packages:
-      - kdenlive
-  - name: OBS Studio
-    flatpak_id: com.obsproject.Studio
-    native_packages:
-      - obs-studio
-  - name: Pinta
-    flatpak_id: com.github.PintaProject.Pinta
-    native_packages:
-      - pinta
-  - name: Xournal++
-    flatpak_id: com.github.xournalpp.xournalpp
-    native_packages:
-      - xournalpp
-
-# Bitwarden (playbooks/{system,user}/bitwarden.yml) — installed from Flathub,
-# the build Bitwarden recommends on Linux for biometric unlock and automatic
-# updates (https://bitwarden.com/help/biometrics/). system.yml installs the
-# Flatpak and the biometric-unlock polkit action, and user.yml makes it the
-# session's password manager through playbooks/user/bitwarden.yml:
-# autostart, SSH_AUTH_SOCK and SUPER+SHIFT+SLASH.
+# Bitwarden. Its docs recommend the Flatpak on Linux, for biometric unlock
+# and automatic updates (https://bitwarden.com/help/biometrics/). The
+# polkit action its biometric unlock needs before it even offers the
+# option is that page's own file (playbooks/files/com.bitwarden.Bitwarden.policy).
 bitwarden_flatpak_id: com.bitwarden.desktop
-bitwarden_native_packages:
-  - bitwarden
-  - bitwarden-bin
-# The polkit action Bitwarden's biometric unlock needs before it even offers
-# the option — the "Flatpak-Specific Configuration" section of
-# https://bitwarden.com/help/biometrics/ drops this exact file
-# (playbooks/files/com.bitwarden.Bitwarden.policy) at this exact path.
 bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarden.policy
-# Languages the system Flatpak installation pulls into each app's .Locale
-# extension (`flatpak config --system languages`). Left unset, Flatpak
-# derives them from the locale of whoever runs it — root under Ansible,
-# i.e. just "en" — and Bitwarden's Electron falls back to en-US because
-# its locales/pt-BR.pak points into a subset that was never downloaded.
-# The setting is installation-wide, so every Flathub app's translations
-# follow it.
-bitwarden_flatpak_languages:
-  - pt
-  - en
-# D-Bus names the sandbox may own on top of the Flathub manifest. Current
-# Electron registers its tray icon as org.freedesktop.StatusNotifierItem-<pid>-<n>
-# (older builds used org.kde.*, which the manifest already allows), so
-# without this the request is denied and no icon reaches the Omarchy bar.
-# Inside the sandbox the app is always PID 2 and has a single icon; Flatpak
-# only accepts wildcards on whole name elements, and org.freedesktop.* would
-# be far too broad for a password manager. The icon itself is still an
-# in-app setting (Settings → "Show icon in the system tray", off by default).
+# D-Bus names the Flatpak may own on top of its manifest. Current Electron
+# registers its tray icon as org.freedesktop.StatusNotifierItem-<pid>-<n>
+# (older builds used org.kde.*); inside the sandbox the app is always PID 2
+# with a single icon. Flatpak only accepts wildcards on whole name
+# elements, and org.freedesktop.* would be far too broad for a password
+# manager. The icon itself is an in-app setting (Settings → "Show icon in
+# the system tray", off by default).
 bitwarden_flatpak_own_names:
   - org.kde.*
   - org.freedesktop.StatusNotifierItem-2-1
-# Environment the Flatpak runs with. The Flathub wrapper (/app/bin/bitwarden.sh)
-# forces XWayland unless DISPLAY_MODE says otherwise, and under XWayland
-# Electron's context menus come with a dark rectangular "shadow" (no X11
-# compositor to make it translucent). WAYLAND runs it natively; the window
-# class stays "bitwarden", so the Hyprland rules still match.
+# The Flathub wrapper (/app/bin/bitwarden.sh) forces XWayland unless
+# DISPLAY_MODE says otherwise, and under XWayland Electron's context menus
+# get a dark rectangular "shadow" (no X11 compositor). WAYLAND runs it
+# natively; the window class stays "bitwarden".
 bitwarden_flatpak_env:
   DISPLAY_MODE: WAYLAND
-# Omarchy floats Bitwarden (default/hypr/apps/bitwarden.lua tags it
-# floating-window, 875x600, centered); false drops that tag so it tiles.
+# Omarchy floats Bitwarden (default/hypr/apps/bitwarden.lua); false tiles it.
 bitwarden_floating: false
-# The Flatpak's own agent socket (https://bitwarden.com/help/ssh-agent/,
-# "Flatpak Installation"), which SSH_AUTH_SOCK points at.
-bitwarden_ssh_agent_socket: "{{ target_home }}/.var/app/{{ bitwarden_flatpak_id }}/data/.bitwarden-ssh-agent.sock"
-# The .path unit starts the .service once that socket exists, pushing
+# Per build: what the keybind and autostart launch, and the agent socket
+# SSH_AUTH_SOCK points at (https://bitwarden.com/help/ssh-agent/).
+bitwarden_variants:
+  bitwarden-flatpak:
+    command: "flatpak run {{ bitwarden_flatpak_id }}"
+    ssh_agent_socket: "{{ target_home }}/.var/app/{{ bitwarden_flatpak_id }}/data/.bitwarden-ssh-agent.sock"
+  bitwarden:
+    command: bitwarden-desktop
+    ssh_agent_socket: "{{ target_home }}/.bitwarden-ssh-agent.sock"
+# The .path unit starts the .service once the socket exists, pushing
 # SSH_AUTH_SOCK into the running systemd --user manager without a re-login.
 bitwarden_ssh_agent_units:
   - bitwarden-ssh-agent.path
   - bitwarden-ssh-agent-env.service
-# Left behind by the socket-activated SSH agent an earlier run installed;
-# playbooks/user/bitwarden.yml stops and removes them.
-bitwarden_ssh_agent_legacy_units:
-  - bitwarden-ssh-agent.socket
-  - bitwarden-ssh-agent-proxy.service
-bitwarden_ssh_agent_legacy_launcher: "{{ target_home }}/.local/bin/bitwarden-ssh-agent-launch"
-bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
 bitwarden_autostart_desktop: "{{ target_home }}/.config/autostart/com.bitwarden.desktop.desktop"
-gcr_ssh_agent_units:
-  - gcr-ssh-agent.socket
-  - gcr-ssh-agent.service
-# KeePassXC, the default password manager before Bitwarden: what its
-# playbooks installed, which playbooks/{system,user}/bitwarden.yml remove.
-# Its databases are left alone, wherever they are.
-keepassxc_legacy_package: keepassxc
-keepassxc_legacy_system_paths:
-  - /usr/local/bin/keepassxc-lock-on-yubikey-remove
-  - /etc/udev/rules.d/72-keepassxc-yubikey-lock.rules
-keepassxc_legacy_user_paths:
-  - "{{ target_home }}/.config/autostart/org.keepassxc.KeePassXC.desktop"
-  - "{{ target_home }}/.config/systemd/user/app-org.keepassxc.KeePassXC@autostart.service.d"
-  - "{{ target_home }}/.local/bin/keepassxc-autostart"
-  - "{{ target_home }}/.local/bin/keepassxc-autostart-wait"
-  - "{{ target_home }}/.local/bin/keepassxc-ssh-unlock"
-  - "{{ target_home }}/.ssh/config.d/keepassxc-unlock.conf"
-  - "{{ target_home }}/.config/environment.d/20-ssh-agent.conf"
-  - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
-  - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts/keepassxc-proxy-relay.py"
-  - "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts/org.keepassxc.keepassxc_browser.json"
-  - "{{ target_home }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
-  - "{{ target_home }}/.config/keepassxc"
-  - "{{ target_home }}/.cache/keepassxc"
-# The Firefox Flatpak override that let the relay reach KeePassXC's socket.
-keepassxc_legacy_firefox_filesystem: xdg-run/app/org.keepassxc.KeePassXC
-firefox_flatpak_user_override: "{{ target_home }}/.local/share/flatpak/overrides/{{ firefox_flatpak_id }}"
 
-# Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs, from
-# Omarchy's own pacman repo (formerly the AUR), is the package Omarchy's own
-# installer uses (omarchy-install-editor-emacs); it pulls in emacs-wayland
-# and syncs the Omarchy theme and font.
-emacs_package: omarchy-emacs
+# KeePassXC (Flatpak). Its manifest already grants the SSH agent socket
+# (sockets=ssh-auth, SSH_AUTH_SOCK passed through), so as the default it is
+# a client of Omarchy's own agent (omarchy-setup-security-ssh-agent,
+# gcr-ssh-agent). Like Bitwarden, it may own its tray icon's name. Its
+# browser socket lives in $XDG_RUNTIME_DIR/app/<id>, which the relay
+# (templates/keepassxc-proxy-relay.py.j2) talks to from inside the Firefox
+# Flatpak. Databases are never touched.
+keepassxc_flatpak_id: org.keepassxc.KeePassXC
+keepassxc_flatpak_own_names:
+  - org.kde.*
+  - org.freedesktop.StatusNotifierItem-2-1
+keepassxc_autostart_desktop: "{{ target_home }}/.config/autostart/{{ keepassxc_flatpak_id }}.desktop"
+keepassxc_browser_manifest_name: org.keepassxc.keepassxc_browser.json
+keepassxc_firefox_relay_name: keepassxc-proxy-relay.py
+# Native messaging hosts per browser build: where the manifest goes and
+# what it runs.
+keepassxc_browser_hosts:
+  firefox-flatpak:
+    dirs:
+      - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
+      - "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
+    path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
+    relay: true
+    template: keepassxc-browser-firefox.json.j2
+  firefox:
+    dirs:
+      - "{{ target_home }}/.mozilla/native-messaging-hosts"
+    path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
+    relay: true
+    template: keepassxc-browser-firefox.json.j2
+  chromium:
+    dirs:
+      - "{{ target_home }}/.config/chromium/NativeMessagingHosts"
+    path: "{{ target_home }}/.config/chromium/NativeMessagingHosts/{{ keepassxc_firefox_relay_name }}"
+    relay: true
+    template: keepassxc-browser-chromium.json.j2
+  brave-origin:
+    dirs:
+      - "{{ target_home }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts"
+    path: "{{ target_home }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/{{ keepassxc_firefox_relay_name }}"
+    relay: true
+    template: keepassxc-browser-chromium.json.j2
 
+# Emacs (apps: editor, playbooks/user/apps/emacs.yml): omarchy-emacs from
+# Omarchy's own repo (what omarchy-install-editor-emacs installs, with
+# emacs-wayland), plus AUCTeX, yasnippet and lsp-mode.
 # Emacs packages installed with package.el (batch mode, only the missing
 # ones), and the archives they come from. AUCTeX and yasnippet live in GNU
 # ELPA; lsp-mode (and its dependencies) only in MELPA. The same archives are
@@ -274,10 +254,8 @@ emacs_packages:
   - yasnippet
   - lsp-mode
 
-# Zed editor (playbooks/{system,user}/zed.yml) — installed via Omarchy's own packages
-# so the Omarchy theme integration (omazed) comes along.
-zed_package: zed
-zed_omazed_package: omazed
+# Zed (apps: editor, playbooks/user/apps/zed.yml), with omazed for the
+# Omarchy theme.
 # px. Zed sizes are in logical pixels, so at the 100% monitor scale
 # (omarchy_monitor_scale) this is the previous 20 times the old 1.25 scale,
 # which keeps the same apparent size.
@@ -443,56 +421,28 @@ lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
 gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
 gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
 
-# File manager (playbooks/{system,user}/file-manager.yml) — Flea, the default handler
-# for directories, the "File manager" keys and FileManager1.
-file_manager_package: flea
-file_manager_desktop_id: com.thisisgm.flea.desktop
-
-# PDF viewer (playbooks/{system,user}/pdf-viewer.yml) — Zathura (Flathub)
-# becomes the default PDF viewer; Papers stays native as an extra,
-# non-default viewer (Nautilus's sushi previewer depends on the package);
-# Evince is removed.
-pdf_viewer_zathura_flatpak_id: org.pwmt.zathura
-pdf_viewer_papers_package: papers
-# Removed if an earlier run installed it, so Papers isn't listed twice.
-pdf_viewer_papers_flatpak_id: org.gnome.Papers
-# The Arch packages removed: Zathura plus its MuPDF backend (the Flatpak
-# bundles zathura-pdf-poppler instead), and Evince. Nothing depends on
-# them, so removing them can't cascade.
-pdf_viewer_native_packages:
-  - zathura
-  - zathura-pdf-mupdf
-  - evince
-# Same in both builds, which is what lets the mimeapps.list default survive
-# the swap untouched (neither side overrides `desktop-file-name`).
-pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
+# PDF viewers (apps: pdf, playbooks/{system,user}/apps/pdf.yml). Zathura's
+# desktop id is the same in both builds. The Flatpak gets a user-level copy
+# of its exported entry, same id so it shadows the export (~/.local/share
+# comes first in XDG_DATA_DIRS), whose Exec swaps `@@u %U @@` for
+# `@@ %F @@`: without it `xdg-open relative.pdf` opens an empty Zathura.
 pdf_viewer_mimeapps_path: "{{ target_home }}/.config/mimeapps.list"
-# User-level copy of the Flatpak's exported desktop entry, same id, so it
-# shadows the export (~/.local/share comes first in XDG_DATA_DIRS). Its Exec
-# swaps the export's `@@u %U @@` for `@@ %F @@` — see
-# playbooks/user/pdf-viewer.yml for why `xdg-open relative.pdf` opens an
-# empty Zathura without it.
+pdf_viewer_zathura_flatpak_id: org.pwmt.zathura
+pdf_viewer_zathura_desktop_id: org.pwmt.zathura.desktop
 pdf_viewer_zathura_user_desktop_path: "{{ target_home }}/.local/share/applications/{{ pdf_viewer_zathura_desktop_id }}"
-# Paths handed to the Zathura Flatpak (system-wide override, so for every
-# user) on top of the two its manifest already grants (xdg-documents,
-# xdg-download), in Flatpak's --filesystem syntax (~ is each user's home). A
-# PDF outside every granted path still opens — flatpak hands it over through
-# the document portal — but the portal never reports changes to the file, so
-# Zathura stops auto-reloading it (rebuilt LaTeX output stays stale on
-# screen). Hence ~/Projetos, where this desktop's typeset PDFs live.
+# Paths handed to the Zathura Flatpak (system-wide override) on top of the
+# xdg-documents and xdg-download its manifest grants. A PDF elsewhere still
+# opens through the document portal, but the portal never reports changes,
+# so Zathura stops auto-reloading it (rebuilt LaTeX output stays stale).
 pdf_viewer_zathura_extra_paths:
   - "~/Projetos"
-# Zathura's statusbar/inputbar/notification font (playbooks/{system,user}/pdf-viewer.yml).
-# Zathura has a single `font` option covering all three; there's no
-# statusbar-only setting. Reuses omarchy_system_ui_font_pt so it matches
-# the rest of the desktop instead of Zathura's own default ("monospace
-# normal 9").
-#
-# The path is the Flatpak's per-app config dir, NOT ~/.config/zathura:
-# inside the sandbox XDG_CONFIG_HOME is redirected to
-# ~/.var/app/<app-id>/config, and ~/.config isn't visible at all.
-pdf_viewer_zathurarc_path: "{{ target_home }}/.var/app/{{ pdf_viewer_zathura_flatpak_id }}/config/zathura/zathurarc"
+# Zathura's single `font` option (statusbar, inputbar, notifications), at
+# the desktop's UI size. The Flatpak reads ~/.var/app/<id>/config, not
+# ~/.config (which the sandbox doesn't see).
 pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
+pdf_viewer_zathurarc_paths:
+  zathura-flatpak: "{{ target_home }}/.var/app/{{ pdf_viewer_zathura_flatpak_id }}/config/zathura/zathurarc"
+  zathura: "{{ target_xdg_config_home }}/zathura/zathurarc"
 
 # File chooser dialogs (playbooks/{system,user}/file-chooser.yml) — the per-desktop
 # portals.conf that routes the FileChooser interface to Flea's picker
@@ -748,27 +698,13 @@ nightlight_solar_night_temperature: 4000
 nightlight_solar_geoip_url: "http://ip-api.com/json/"
 nightlight_solar_oncalendar: "*-*-* 00:05:00"
 
-# Inkscape (playbooks/system/inkscape.yml) — official repo. svg2tikz (an
-# Inkscape extension exporting SVG paths as TikZ/PGF for LaTeX,
-# https://github.com/xyz2tex/svg2tikz) has no official Arch package, so
-# it's built from the AUR with an unprivileged clone+makepkg+pacman -U.
-# xclip is an optional runtime
-# dependency the extension uses for its "copy to clipboard" output mode.
-#
-# TeX Live's own fonts are registered with fontconfig by
-# local-typesetting/scripts/configure-fonts.sh, not by this playbook —
-# see local-typesetting/README.md.
-inkscape_package: inkscape
+# svg2tikz, with the native Inkscape (apps: graphics,
+# playbooks/system/apps/graphics.yml): an Inkscape extension exporting SVG
+# paths as TikZ/PGF for LaTeX (https://github.com/xyz2tex/svg2tikz), from
+# the AUR (tasks/aur-build.yml). xclip is what its "copy to clipboard"
+# output mode uses. TeX Live's fonts reach Inkscape through fontconfig,
+# set up by local-typesetting/scripts/configure-fonts.sh.
 inkscape_svg2tikz_aur_package: python-svg2tikz
-inkscape_svg2tikz_aur_git_url: "https://aur.archlinux.org/{{ inkscape_svg2tikz_aur_package }}.git"
-inkscape_svg2tikz_aur_build_dir: "{{ target_home }}/.cache/omarchy-setup/aur/{{ inkscape_svg2tikz_aur_package }}"
-inkscape_svg2tikz_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ inkscape_svg2tikz_aur_package }}"
-inkscape_svg2tikz_aur_build_deps:
-  - python-build
-  - python-installer
-  - python-setuptools
-  - python-wheel
-  - python-poetry
 inkscape_svg2tikz_runtime_deps:
   - xclip
 

@@ -18,7 +18,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [sddm, omarchy-multiuser]
+  tags: [omarchy-multiuser]
 
   tasks:
     - name: Expect the multi-user greeter theme (system/omarchy-multiuser.yml)

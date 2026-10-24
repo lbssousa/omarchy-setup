@@ -1,0 +1,33 @@
+---
+# User apps, system phase: every option in features.yml's apps catalog is
+# installed or removed as chosen (`just configure`), from its source —
+# pacman, the AUR, Flathub or a release bundle (tasks/app-package.yml).
+# Installs go before removals, so a category swapping one build for another
+# is never left empty halfway. Options marked keep are only ever installed.
+#
+# The category plays that follow (browser, password, pdf, graphics) add what
+# each installed app needs on top of its package.
+- name: Apps — install and remove the chosen options
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  tasks:
+    - name: Expect the resolved selection (scripts/run-phase.sh)
+      ansible.builtin.assert:
+        that: features_resolved | bool
+        fail_msg: >-
+          Run this through `just system` / `just setup` (scripts/run-phase.sh),
+          which passes the app selection; without it every app would count as
+          unchosen and be uninstalled.
+        quiet: true
+
+    - name: Install or remove each option
+      ansible.builtin.include_tasks: tasks/app-package.yml
+      loop: >-
+        {{ apps_packages | selectattr('state', 'eq', 'present') | list
+           + apps_packages | selectattr('state', 'eq', 'absent') | list }}
+      loop_control:
+        loop_var: pkg
+        label: "{{ pkg.state }}: {{ pkg.names | join(', ') }}"

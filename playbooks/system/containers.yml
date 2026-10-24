@@ -1,9 +1,9 @@
 ---
 # Container tooling, in this order:
 #
-#   Podman              tags: containers, podman, distrobox
-#   Distrobox           tags: containers, distrobox
-#   Starship prompt     tags: containers, starship-distrobox  (user/containers.yml)
+#   Podman              tag: podman (also run by distrobox)
+#   Distrobox           tag: distrobox
+#   Starship prompt     tag: starship-distrobox  (user/containers.yml)
 #
 # Distrobox needs Podman, so the Podman play also carries the `distrobox`
 # tag: `--tags distrobox` (or `just distrobox`) installs Podman first,
@@ -24,7 +24,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [containers, podman, distrobox]
+  tags: [podman, distrobox]
 
   tasks:
     - name: Install Podman via pacman
@@ -45,7 +45,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [containers, distrobox]
+  tags: [distrobox]
 
   tasks:
     - name: Install distrobox via pacman

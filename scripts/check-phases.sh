@@ -34,14 +34,14 @@ code() {
     grep -nHE "$pattern" "$@" | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#'
 }
 
-mapfile -t hits < <(code 'become: *(true|yes)' playbooks/user/*.yml)
+mapfile -t hits < <(code 'become: *(true|yes)' playbooks/user/*.yml playbooks/user/apps/*.yml)
 report "playbooks/user/ must not become root" "${hits[@]}"
 
-mapfile -t hits < <(code 'community\.general\.pacman|omarchy-pkg-|omarchy-install-' playbooks/user/*.yml |
+mapfile -t hits < <(code 'community\.general\.pacman|omarchy-pkg-|omarchy-install-' playbooks/user/*.yml playbooks/user/apps/*.yml |
     grep -vE 'omarchy-install-(chromium-[a-z-]+|video-decode)')
 report "playbooks/user/ must not install packages" "${hits[@]}"
 
-mapfile -t hits < <(code 'systemctl +--user|scope: *user|omarchy-shell|omarchy-restart-shell|hyprctl' playbooks/system/*.yml)
+mapfile -t hits < <(code 'systemctl +--user|scope: *user|omarchy-shell|omarchy-restart-shell|hyprctl' playbooks/system/*.yml playbooks/system/apps/*.yml)
 report "playbooks/system/ must not talk to a user session" "${hits[@]}"
 
 if (( status == 0 )); then

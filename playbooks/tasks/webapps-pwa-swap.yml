@@ -1,0 +1,142 @@
+---
+# One web app as a PWA of a Chromium-family browser (playbooks/user/apps/
+# webapps.yml): `webapp`, with `pwa_engine` (webapps_pwa_engines entry) and
+# `pwa_containers` (the browser's containers, Brave only) in scope. The
+# browser force-installed it (system/apps/browser.yml's policy) and wrote
+# its own shortcut, named after the app id it assigned:
+# <shortcut_prefix>-<app id>-<profile>.desktop. That id isn't predictable,
+# so it is read back from the shortcut (or from the launcher an earlier run
+# wrote). Omarchy's launcher for the site is set aside (webapps_backup_dir)
+# and replaced, under the same name, by one that opens the PWA in its
+# container. Records the app id in pwa_app_ids for the keybinds.
+- name: "[{{ webapp.label }}] Expect its container to exist"
+  ansible.builtin.fail:
+    msg: >-
+      No container named "{{ webapp.container }}" in the browser's
+      Preferences. Create it (hamburger menu → Containers → New — there is
+      no command line for it), then run this again.
+  when:
+    - pwa_engine.containers | bool
+    - webapp.container is defined
+    - webapp.container not in (pwa_containers | map(attribute='name') | list)
+
+- name: "[{{ webapp.label }}] Read the launcher an earlier run wrote, if any"
+  ansible.builtin.command:
+    argv: [grep, -m1, "^Exec=", "{{ webapps_desktop_dir }}/{{ webapp.label }}.desktop"]
+  register: pwa_existing_exec
+  changed_when: false
+  failed_when: false
+
+- name: "[{{ webapp.label }}] Reuse its app id when it already opens in the right container"
+  ansible.builtin.set_fact:
+    pwa_app_id: "{{ pwa_existing_exec.stdout | regex_replace('.*--app-id=([a-p]+).*', '\\1') }}"
+  when:
+    - "'--app-id=' in pwa_existing_exec.stdout"
+    - >-
+      (webapp.container is defined and pwa_engine.containers | bool
+       and ('--container=' ~ webapp.container) in pwa_existing_exec.stdout)
+      or ((webapp.container is not defined or not pwa_engine.containers | bool)
+          and '--container=' not in pwa_existing_exec.stdout)
+
+- name: "[{{ webapp.label }}] Find the app id from the browser's own shortcut"
+  when: "'--app-id=' not in pwa_existing_exec.stdout or pwa_app_id | default('') | length == 0"
+  block:
+    - name: "[{{ webapp.label }}] Wait for the browser to install {{ webapp.url }}"
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -il "^Name=\({{ webapp.manifest_hint | default(webapp.desktop_name | default(webapp.label)) }}\|{{ webapp.url }}\)$" \
+          {{ webapps_desktop_dir | quote }}/{{ pwa_engine.shortcut_prefix }}-*-{{ webapps_pwa_profile_directory }}.desktop 2>/dev/null | head -1
+      args:
+        executable: /bin/bash
+      register: pwa_shortcut
+      changed_when: false
+      until: pwa_shortcut.stdout | length > 0
+      retries: 30
+      delay: 2
+
+    - name: "[{{ webapp.label }}] Read the app id off it"
+      ansible.builtin.set_fact:
+        pwa_app_id: >-
+          {{ pwa_shortcut.stdout | basename
+             | regex_replace('^' ~ pwa_engine.shortcut_prefix ~ '-(.*)-' ~ webapps_pwa_profile_directory ~ '\.desktop$', '\1') }}
+        pwa_shortcut_icon: "{{ lookup('ansible.builtin.ini', 'Icon', section='Desktop Entry', file=pwa_shortcut.stdout) }}"
+  rescue:
+    - name: "[{{ webapp.label }}] The browser never installed it"
+      ansible.builtin.debug:
+        msg: >-
+          SKIPPED {{ webapp.label }}: no PWA shortcut for {{ webapp.url }}
+          after 60s (is the browser open, and does its policy list the
+          url?). Omarchy's launcher stays.
+    - name: "[{{ webapp.label }}] Leave it out"
+      ansible.builtin.set_fact:
+        pwa_app_id: ""
+
+- name: "[{{ webapp.label }}] Swap Omarchy's launcher for the PWA"
+  when: pwa_app_id | default('') | length > 0
+  block:
+    - name: "[{{ webapp.label }}] Look for Omarchy's launcher"
+      ansible.builtin.command:
+        argv: [grep, -q, omarchy-launch-webapp, "{{ webapps_desktop_dir }}/{{ webapp.omarchy_webapp_name | default(webapp.label) }}.desktop"]
+      register: pwa_omarchy_launcher
+      changed_when: false
+      failed_when: false
+
+    - name: "[{{ webapp.label }}] Set Omarchy's launcher aside"
+      ansible.builtin.copy:
+        src: "{{ webapps_desktop_dir }}/{{ webapp.omarchy_webapp_name | default(webapp.label) }}.desktop"
+        dest: "{{ webapps_backup_dir }}/"
+        remote_src: true
+        mode: "0644"
+      when: pwa_omarchy_launcher.rc == 0
+
+    - name: "[{{ webapp.label }}] Remove it (when it has another name than the PWA's)"
+      ansible.builtin.file:
+        path: "{{ webapps_desktop_dir }}/{{ webapp.omarchy_webapp_name }}.desktop"
+        state: absent
+      when:
+        - pwa_omarchy_launcher.rc == 0
+        - webapp.omarchy_webapp_name is defined
+        - webapp.omarchy_webapp_name != webapp.label
+
+    # Without --container= it would sit beside the launcher below as a
+    # second, container-less way into the same app.
+    - name: "[{{ webapp.label }}] Remove the browser's own shortcut"
+      ansible.builtin.file:
+        path: "{{ webapps_desktop_dir }}/{{ pwa_engine.shortcut_prefix }}-{{ pwa_app_id }}-{{ webapps_pwa_profile_directory }}.desktop"
+        state: absent
+
+    - name: "[{{ webapp.label }}] Write the launcher (omarchy-webapp-install)"
+      ansible.builtin.command:
+        argv:
+          - omarchy-webapp-install
+          - "{{ webapp.label }}"
+          - "{{ webapp.url }}"
+          - "{{ webapp.icon | default(pwa_shortcut_icon | default(pwa_engine.shortcut_prefix)) }}"
+          - >-
+            {{ pwa_engine.binary }} --profile-directory={{ webapps_pwa_profile_directory }} --app-id={{ pwa_app_id }}{{
+            (' --container=' ~ webapp.container) if (webapp.container is defined and pwa_engine.containers | bool) else '' }}
+      when: >-
+        ('--app-id=' ~ pwa_app_id) not in pwa_existing_exec.stdout
+        or (webapp.container is defined and pwa_engine.containers | bool
+            and ('--container=' ~ webapp.container) not in pwa_existing_exec.stdout)
+      changed_when: true
+      notify: refresh the applications database
+
+    # The class of a PWA window under Wayland, which the dock and the
+    # keybind's focus match by (omarchy-webapp-install derives it from the
+    # url, the class of a plain omarchy-launch-webapp window).
+    - name: "[{{ webapp.label }}] Point StartupWMClass at the PWA's window"
+      ansible.builtin.lineinfile:
+        path: "{{ webapps_desktop_dir }}/{{ webapp.label }}.desktop"
+        regexp: "^StartupWMClass="
+        line: "StartupWMClass={{ pwa_engine.shortcut_prefix }}-{{ pwa_app_id }}-{{ webapps_pwa_profile_directory }}"
+        insertafter: "^Icon="
+
+    - name: "[{{ webapp.label }}] Remember its app id"
+      ansible.builtin.set_fact:
+        pwa_app_ids: "{{ pwa_app_ids | default({}) | combine({webapp.label: pwa_app_id}) }}"
+
+- name: "[{{ webapp.label }}] Forget this app's id before the next one"
+  ansible.builtin.set_fact:
+    pwa_app_id: ""
+    pwa_shortcut_icon: ""

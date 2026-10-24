@@ -1,5 +1,5 @@
 ---
-# Zed editor, installed the same way Omarchy's own TUI installer does it
+# Zed (apps: editor), set up the same way Omarchy's own TUI installer does it
 # (see /usr/share/omarchy/bin/omarchy-install-editor-zed): the "zed" and
 # "omazed" packages, then `omazed setup`. omazed is what generates the
 # custom Zed color theme from the active Omarchy palette (colors.toml)
@@ -26,13 +26,13 @@
 # All of the above is merged into settings.json without touching the
 # theme/other settings omazed (or the user) already put there.
 #
-# The packages are installed by system/zed.yml.
+# The packages come from the system phase (system/apps/packages.yml).
 #
-# Usage: just zed
 - name: Zed editor (Omarchy theme + font size + buffer font) (user)
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [apps]
 
   vars:
     zed_config_dir: "{{ target_home }}/.config/zed"
@@ -44,6 +44,10 @@
     zed_omazed_hook_path: "{{ target_home }}/.config/omarchy/hooks/theme-set.d/omazed"
 
   tasks:
+    - name: Skip unless Zed is installed (apps, editor)
+      ansible.builtin.meta: end_host
+      when: "'zed' not in apps.editor.installed"
+
     - name: Check whether omazed's theme-sync hook is already set up
       ansible.builtin.stat:
         path: "{{ zed_omazed_hook_path }}"

@@ -32,9 +32,56 @@
         flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
       become: true
 
+    - name: Read the system installation's Flatpak languages
+      ansible.builtin.command:
+        cmd: flatpak config --system --get languages
+      register: flatpak_languages_current
+      changed_when: false
+
+    # Before any app is installed, so a fresh one already gets its
+    # translations.
+    - name: "Set the system installation's Flatpak languages ({{ flatpak_languages | join(';') }})"
+      ansible.builtin.command:
+        cmd: flatpak config --system --set languages {{ flatpak_languages | join(';') | quote }}
+      when: flatpak_languages_current.stdout | trim != flatpak_languages | join(';')
+      changed_when: true
+      become: true
+      notify: update flatpak locales
+
+    # The setting may already be right while an extension still holds an
+    # older subset (deployed before it was set), so look at what is actually
+    # deployed: each .Locale extension needs a directory per language.
+    - name: Find .Locale extensions missing one of the languages
+      ansible.builtin.shell: |
+        set -o pipefail
+        for dir in /var/lib/flatpak/runtime/*.Locale/*/*/active/files; do
+          [[ -d $dir ]] || continue
+          for lang in {{ flatpak_languages | map('quote') | join(' ') }}; do
+            [[ -d $dir/$lang || $lang == en ]] || echo "$dir"
+          done
+        done
+      args:
+        executable: /bin/bash
+      register: flatpak_locales_missing
+      changed_when: flatpak_locales_missing.stdout | length > 0
+      notify: update flatpak locales
+
     - name: Install Bazaar (app store) from Flathub system-wide
       community.general.flatpak:
         name: "{{ flatpak_bazaar_id }}"
         state: present
         method: system
       become: true
+
+  handlers:
+    - name: update flatpak locales
+      # Re-deploys every installed .Locale extension with the language
+      # subset; the apps themselves aren't touched. --all: plain --runtime
+      # hides .Locale extensions.
+      ansible.builtin.shell:
+        cmd: >-
+          flatpak list --system --all --columns=ref
+          | grep '\.Locale/'
+          | xargs -r flatpak update --system --noninteractive -y
+      become: true
+      listen: update flatpak locales

@@ -1,0 +1,19 @@
+---
+# Runs first in the system phase, whatever the tags: the feature and app
+# selection must have come in through scripts/run-phase.sh. Without it every
+# app would count as unchosen and the app plays would uninstall it.
+- name: System phase preflight
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+
+  tasks:
+    - name: Expect the resolved feature selection
+      ansible.builtin.assert:
+        that: features_resolved | bool
+        fail_msg: >-
+          Run the system phase through `just system` / `just setup`
+          (scripts/run-phase.sh), which passes the feature and app selection
+          (features.yml + the choices from `just configure`).
+        quiet: true

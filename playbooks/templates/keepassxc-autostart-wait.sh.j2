@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# Hold KeePassXC's autostart until the Omarchy desktop is actually up — the
+# ExecStartPre= of its systemd-xdg-autostart unit (see
+# playbooks/user/apps/password.yml).
+#
+# systemd's XDG autostart starts the org.keepassxc.KeePassXC desktop entry
+# right at graphical-session.target, before quickshell registers the system
+# tray (org.kde.StatusNotifierWatcher / StatusNotifierHost) and before
+# xdg-desktop-portal answers. KeePassXC (Qt5) samples both only once at
+# startup — the tray to pick a D-Bus tray icon, the portal's
+# org.freedesktop.appearance color-scheme to pick its dark theme — so
+# launching early makes it open with the stock light theme and without its
+# appindicator icon; restarting it after login "fixes" both only because the
+# environment happens to be ready by then. gsettings is no signal: it
+# already says prefer-dark at boot, a second before the portal is up. Wait
+# up to the timeout for both, then let it start regardless so a slowly
+# starting desktop never swallows the autostart entry.
+set -uo pipefail
+
+timeout=${KEEPASSXC_AUTOSTART_TIMEOUT:-60}
+
+for ((i = 0; i < timeout; i++)); do
+  tray=$(
+    busctl --user get-property \
+      org.kde.StatusNotifierWatcher /StatusNotifierWatcher \
+      org.kde.StatusNotifierWatcher IsStatusNotifierHostRegistered \
+      2>/dev/null
+  )
+
+  if [[ $tray == *" true"* ]] &&
+    busctl --user --timeout=2 call \
+      org.freedesktop.portal.Desktop /org/freedesktop/portal/desktop \
+      org.freedesktop.portal.Settings ReadOne ss \
+      org.freedesktop.appearance color-scheme &>/dev/null; then
+    exit 0
+  fi
+
+  sleep 1
+done
+
+echo "Desktop not ready after ${timeout}s; starting KeePassXC anyway" >&2
+exit 0

@@ -2,10 +2,10 @@
 # abutre's own settings, loaded by scripts/run-phase.sh (-e @users/abutre.yml)
 # in both phases. Extra vars: these win over group_vars/all/*.
 
-# Firefox Taskbar Tabs ("tab apps") replacing Omarchy's web apps, each in its
-# own Firefox container (see firefox_taskbar_apps in group_vars/all/main.yml
-# for the fields).
-firefox_taskbar_apps:
+# Omarchy's web apps, rebuilt with the default browser (Firefox Taskbar Tabs
+# or Brave PWAs), each in its own container (see webapps in
+# group_vars/all/main.yml for the fields).
+webapps:
   - label: YouTube
     desktop_name: YouTube
     url: https://www.youtube.com

@@ -1,0 +1,78 @@
+---
+# PDF viewers, per user (apps: pdf): the default viewer for application/pdf
+# in ~/.config/mimeapps.list, and Zathura's font (statusbar, inputbar,
+# notifications) at the desktop's UI size, in whichever config its build
+# reads.
+#
+# The Zathura Flatpak also gets a user-level copy of its exported desktop
+# entry, same id so it shadows the export, whose Exec forwards files as
+# paths (`@@ %F @@`) instead of URIs (`@@u %U @@`): through the URI route
+# `xdg-open relative.pdf` reaches the sandbox as a relative path and opens an
+# empty Zathura. The copy goes when the Flatpak does.
+- name: Apps — PDF viewers (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    pdf_default: "{{ apps_catalog.pdf[apps.pdf.default] }}"
+    zathura_flatpak_on: "{{ 'zathura-flatpak' in apps.pdf.installed }}"
+
+  tasks:
+    - name: Zathura (Flatpak) shadow entry
+      when: zathura_flatpak_on | bool
+      block:
+        - name: Read the Flatpak's exported desktop entry
+          ansible.builtin.slurp:
+            src: "{{ flatpak_system_exports_dir }}/applications/{{ pdf_viewer_zathura_desktop_id }}"
+          register: pdf_viewer_zathura_exported
+
+        - name: Expect its Exec to still forward files as URIs
+          # The rewrite below targets exactly this string; if upstream
+          # changes it, check whether the relative-path bug still applies.
+          ansible.builtin.assert:
+            that: "'@@u %U @@' in (pdf_viewer_zathura_exported.content | b64decode)"
+            fail_msg: >-
+              {{ pdf_viewer_zathura_desktop_id }}'s Exec no longer contains
+              `@@u %U @@`, so the `@@ %F @@` rewrite has nothing to replace.
+            quiet: true
+
+        - name: Create ~/.local/share/applications
+          ansible.builtin.file:
+            path: "{{ pdf_viewer_zathura_user_desktop_path | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Shadow the exported entry with a file-forwarding copy
+          ansible.builtin.copy:
+            content: |
+              # Managed by omarchy-setup (playbooks/user/apps/pdf.yml): the
+              # Flatpak's export with `@@ %F @@` instead of `@@u %U @@`.
+              {{ pdf_viewer_zathura_exported.content | b64decode | replace('@@u %U @@', '@@ %F @@') | trim }}
+            dest: "{{ pdf_viewer_zathura_user_desktop_path }}"
+            mode: "0644"
+
+    - name: Remove the Zathura Flatpak's shadow entry
+      ansible.builtin.file:
+        path: "{{ pdf_viewer_zathura_user_desktop_path }}"
+        state: absent
+      when: not zathura_flatpak_on | bool
+
+    - name: "Make {{ pdf_default.label }} the default PDF viewer"
+      community.general.ini_file:
+        path: "{{ pdf_viewer_mimeapps_path }}"
+        section: Default Applications
+        option: application/pdf
+        value: "{{ pdf_default.desktop }}"
+        no_extra_spaces: true
+        create: true
+        mode: "0644"
+
+    - name: Zathura's font
+      ansible.builtin.include_tasks: tasks/zathura-font.yml
+      loop: "{{ pdf_viewer_zathurarc_paths | dict2items }}"
+      loop_control:
+        loop_var: zathura
+        label: "{{ zathura.key }}"
+      when: zathura.key in apps.pdf.installed

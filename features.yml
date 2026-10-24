@@ -1,0 +1,460 @@
+---
+# The feature catalog: every automation this repository can apply, what it
+# does to a stock Omarchy 4.5 and whether it is on by default. The single
+# source of truth for `just configure` (scripts/configure.sh, the gum menu),
+# scripts/run-phase.sh (which plays run, which revert), `just check` and
+# docs/features.md (generated from this file: `just docs`).
+#
+# Choices live in ~/.config/omarchy-setup/features.yml (written by
+# `just configure`); anything not chosen there takes the default below.
+#
+# features: individual toggles. Each id is the tag of the plays that
+#   implement it, in both phases.
+#     effect    adds / modifies / removes (relative to stock Omarchy) and what
+#     phases    system, user or both
+#     default   on (true) or off (false) until chosen otherwise
+#     revert    true: turning it off undoes it on the next run; false: off
+#               only stops managing it (what it did stays)
+#     requires  other feature ids it needs on
+#     hidden    always applied, not offered in the menu
+#
+# apps: user apps by category, each with its installation alternatives.
+#   Several options of a category can be installed; categories with a
+#   `role` also have a default app, which must be among those installed.
+#   Options are always declarative: an option left out is uninstalled
+#   (including Omarchy's own, marked stock). Options with `keep: true`
+#   can't be removed (something else depends on them) but can still be
+#   the default.
+#     source    pacman | aur | flatpak (Flathub, system-wide) | bundle
+#               (a release's .flatpak, see the artcraft option)
+#     desktop   desktop-entry id, for categories with a default app
+#     browser   omarchy-default-browser's name for it (browsers)
+#     engine    how Omarchy's web apps are rebuilt when it is the default:
+#               firefox (Taskbar Tabs), brave or chromium (PWAs), none
+
+groups:
+  accounts: Accounts and login
+  base: Base
+  shell: Shell and prompt
+  desktop: Desktop
+  plugins: Omarchy shell plugins and prompts
+  dev: Development
+  locale: Portuguese (Brazil)
+  hardware: Hardware
+  security: Boot and security (opt-in)
+  extras: Extras (opt-in)
+
+features:
+  - id: users
+    group: accounts
+    title: User accounts
+    effect: adds the accounts in group_vars/all/users.yml (fish as login shell, wheel or omarchy-users, subuid ranges)
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: omarchy-multiuser
+    group: accounts
+    title: omarchy-multiuser
+    effect: adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin)
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: pam-auth-order
+    group: accounts
+    title: PAM order
+    effect: modifies the sudo and polkit PAM stacks (fingerprint, then FIDO2/U2F, then password)
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: polkit
+    group: accounts
+    title: polkit authentication cache
+    effect: modifies polkitd's ExpirationSeconds
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: shared-checkout
+    group: accounts
+    title: Shared checkout
+    effect: adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: flatpak
+    group: base
+    title: Flatpak + Flathub + Bazaar
+    effect: adds Flatpak, the Flathub remote, Bazaar and the installation's languages; required by every Flatpak app option
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: git-identity
+    group: base
+    title: git identity
+    effect: modifies ~/.gitconfig (user.name, user.email from the untracked local.yml)
+    phases: [user]
+    default: true
+    revert: false
+
+  - id: starship
+    group: shell
+    title: Starship extras
+    effect: modifies ~/.config/starship.toml (Nix dev shell badge, commits ahead of/behind)
+    phases: [user]
+    default: true
+    revert: false
+
+  - id: starship-distrobox
+    group: shell
+    title: Starship inside distrobox
+    effect: modifies ~/.config/starship.toml and ~/.bashrc (container name in the prompt)
+    phases: [user]
+    default: true
+    revert: false
+    requires: [distrobox]
+
+  - id: file-chooser
+    group: desktop
+    title: Flea file dialogs
+    effect: modifies the FileChooser portal (Flea) and the Qt platform theme (qt6ct); adds qt5ct/qt6ct
+    phases: [system, user]
+    default: true
+    revert: true
+    requires: [app:file_manager:flea]
+
+  - id: hypr-scrolling-resize
+    group: desktop
+    title: Column resize keys (scrolling layout)
+    effect: adds SUPER+[ and SUPER+] to ~/.config/hypr/bindings.lua
+    phases: [user]
+    default: true
+    revert: true
+
+  - id: text-size
+    group: desktop
+    title: Screen scale + text size
+    effect: modifies the monitor scale (100%), GDK_SCALE, the shell/terminal text size and the GNOME font sizes
+    phases: [user]
+    default: true
+    revert: false
+
+  - id: nightlight-solar
+    group: desktop
+    title: Night light at sunset/sunrise
+    effect: adds a timer that follows the real sunset/sunrise with hyprsunset
+    phases: [user]
+    default: true
+    revert: true
+
+  - id: capslock
+    group: desktop
+    title: Caps Lock via keyd
+    effect: adds keyd (tap Esc, hold Ctrl, Shift+Caps Lock = Caps Lock); modifies Compose (Menu key instead of Shift+Caps Lock)
+    phases: [system, user]
+    default: true
+    revert: true
+
+  - id: omadwaita-themes
+    group: desktop
+    title: Omadwaita themes
+    effect: adds three Adwaita-based Omarchy themes
+    phases: [user]
+    default: true
+    revert: false
+
+  - id: omaraptor-themes
+    group: desktop
+    title: Omaraptor themes
+    effect: adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only)
+    phases: [user]
+    default: true
+    revert: false
+
+  - id: omaraptor-theme-auto
+    group: desktop
+    title: Omaraptor day/night switching
+    effect: adds a timer switching the Omaraptor theme at sunrise/sunset
+    phases: [user]
+    default: true
+    revert: true
+    requires: [omaraptor-themes]
+
+  - id: plugins
+    group: plugins
+    title: Omarchy shell plugins
+    effect: adds the shell plugins in omarchy_plugins (and their dependencies)
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: pinentry
+    group: plugins
+    title: omapin (GnuPG prompt)
+    effect: adds omapin and makes it gpg-agent's pinentry
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: ssh-askpass
+    group: plugins
+    title: ssh-askpass-omarchy
+    effect: adds the SSH key/FIDO2 prompt as a shell dialog (SSH_ASKPASS)
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: polkit-agent
+    group: plugins
+    title: polkit-omarchy
+    effect: modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin)
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: openssh-askpass
+    group: plugins
+    title: openssh with askpass touch notifications
+    effect: modifies the openssh package (rebuilt with a patch)
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: gregorio-lsp
+    group: dev
+    title: gregorio-lsp
+    effect: adds clang, rustup and the Gregorio language server, grelint and grefmt
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: lazyvim
+    group: dev
+    title: LazyVim extras
+    effect: modifies LazyVim (LaTeX extra, gregorio.nvim)
+    phases: [user]
+    default: true
+    revert: false
+
+  - id: podman
+    group: dev
+    title: Podman
+    effect: adds rootless Podman (alongside Omarchy's Docker)
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: distrobox
+    group: dev
+    title: Distrobox
+    effect: adds Distrobox
+    phases: [system, user]
+    default: true
+    revert: false
+    requires: [podman]
+
+  - id: nix
+    group: dev
+    title: Nix
+    effect: adds Nix (multi-user, flakes) on its own btrfs subvolume, and nix-direnv
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: direnv
+    group: dev
+    title: direnv
+    effect: adds direnv, hooked into fish and bash
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: homebrew
+    group: extras
+    title: Homebrew
+    effect: adds Homebrew for Linux (/home/linuxbrew) and bbrew
+    phases: [system, user]
+    default: false
+    revert: false
+
+  - id: ptbr-locale
+    group: locale
+    title: pt-BR language
+    effect: modifies Omarchy's language (omarchy-language pt-BR) and /etc/locale.conf
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: ptbr-xdg-user-dirs
+    group: locale
+    title: Folders in Portuguese
+    effect: modifies the personal folders (Documents → Documentos, Pictures → Imagens, ...)
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: ptbr-browsers
+    group: locale
+    title: Browsers in Portuguese
+    effect: modifies Firefox's RequestedLocale and the Chromium family's page language
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: ptbr-man-pages
+    group: locale
+    title: man pages in Portuguese
+    effect: adds man-pages-pt_br
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: ptbr-ocr
+    group: locale
+    title: OCR in Portuguese
+    effect: adds tesseract-data-por; modifies OMARCHY_OCR_LANGS
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: libfprint
+    group: hardware
+    title: Goodix 538d fingerprint reader
+    effect: modifies libfprint (goodix538d fork); adds a desync watchdog
+    phases: [system]
+    default: true
+    revert: false
+
+  - id: printer
+    group: hardware
+    title: EPSON L4160 printer
+    effect: adds the driverless L4160 queue as the default printer
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: secureboot
+    group: security
+    title: Secure Boot (sbctl)
+    effect: adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic)
+    phases: [system]
+    default: false
+    revert: false
+
+  - id: tpm2
+    group: security
+    title: LUKS auto-unlock (TPM2)
+    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot
+    phases: [system]
+    default: false
+    revert: false
+
+  - id: gpg-yubikey
+    group: security
+    title: Yubikey GPG key
+    effect: adds the card's public key (ultimate trust) and git commit signing
+    phases: [user]
+    default: false
+    revert: false
+
+  - id: bgrt-theme
+    group: extras
+    title: BGRT boot theme
+    effect: adds an Omarchy theme and a Plymouth theme from the firmware logo
+    phases: [system, user]
+    default: false
+    revert: false
+
+  - id: rclone-gdrive
+    group: extras
+    title: Google Drive (rclone)
+    effect: adds rclone mounts of Google Drive (systemd --user)
+    phases: [system, user]
+    default: false
+    revert: false
+
+apps:
+  - id: browser
+    title: Web browsers
+    role: default browser (omarchy-default-browser), and the engine Omarchy's web apps are rebuilt with
+    default: firefox-flatpak
+    options:
+      - { id: chromium, label: Chromium, source: pacman, package: chromium, stock: true, installed: true, engine: chromium, browser: chromium }
+      - { id: firefox, label: Firefox, source: pacman, package: firefox, engine: firefox, browser: firefox }
+      - { id: firefox-flatpak, label: Firefox, source: flatpak, flatpak: org.mozilla.firefox, installed: true, engine: firefox, browser: firefox }
+      - { id: brave-origin, label: Brave Origin, source: aur, package: brave-origin-bin, engine: brave, browser: brave-origin }
+      - { id: brave-flatpak, label: Brave, source: flatpak, flatpak: com.brave.Browser, engine: none, desktop: com.brave.Browser.desktop, note: "Omarchy's web apps stay as they are: PWA install through machine policy is unverified inside its sandbox" }
+
+  - id: password
+    title: Password managers
+    role: default password manager (SUPER+SHIFT+SLASH, autostart, SSH agent)
+    default: bitwarden-flatpak
+    options:
+      - { id: bitwarden-flatpak, label: Bitwarden, source: flatpak, flatpak: com.bitwarden.desktop, installed: true }
+      - { id: bitwarden, label: Bitwarden, source: pacman, package: bitwarden }
+      - { id: keepassxc-flatpak, label: KeePassXC, source: flatpak, flatpak: org.keepassxc.KeePassXC }
+
+  - id: office
+    title: Office suites
+    options:
+      - { id: libreoffice, label: LibreOffice, source: pacman, package: libreoffice-fresh, stock: true }
+      - { id: libreoffice-flatpak, label: LibreOffice, source: flatpak, flatpak: org.libreoffice.LibreOffice }
+      - { id: onlyoffice-flatpak, label: ONLYOFFICE, source: flatpak, flatpak: org.onlyoffice.desktopeditors, installed: true }
+      - { id: onlyoffice, label: ONLYOFFICE, source: aur, package: onlyoffice-bin }
+      - { id: artcraft, label: "ArtCraft: WordCraft, GridCraft, DeckCraft", source: bundle, bundle: artcraft-launcher, note: "early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak)" }
+
+  - id: graphics
+    title: Graphics
+    options:
+      - { id: pinta, label: Pinta, source: pacman, package: pinta, stock: true }
+      - { id: pinta-flatpak, label: Pinta, source: flatpak, flatpak: com.github.PintaProject.Pinta, installed: true }
+      - { id: inkscape, label: Inkscape (+ svg2tikz), source: pacman, package: inkscape, installed: true }
+      - { id: inkscape-flatpak, label: Inkscape, source: flatpak, flatpak: org.inkscape.Inkscape }
+      - { id: gimp, label: GIMP, source: pacman, package: gimp }
+      - { id: gimp-flatpak, label: GIMP, source: flatpak, flatpak: org.gimp.GIMP }
+      - { id: krita, label: Krita, source: pacman, package: krita }
+      - { id: krita-flatpak, label: Krita, source: flatpak, flatpak: org.kde.krita }
+      - { id: artcraft, label: "ArtCraft: PhotoCraft, VectorCraft, LightCraft, DesignCraft, FigCraft", source: bundle, bundle: artcraft-launcher, note: "early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak)" }
+
+  - id: pdf
+    title: Document viewers (PDF)
+    role: default PDF viewer
+    default: zathura-flatpak
+    options:
+      - { id: evince, label: Evince, source: pacman, package: evince, stock: true, desktop: org.gnome.Evince.desktop }
+      - { id: papers, label: Papers, source: pacman, package: papers, installed: true, keep: true, desktop: org.gnome.Papers.desktop, note: Nautilus's previewer (sushi) depends on it }
+      - { id: zathura-flatpak, label: Zathura, source: flatpak, flatpak: org.pwmt.zathura, installed: true, desktop: org.pwmt.zathura.desktop }
+      - { id: zathura, label: Zathura, source: pacman, package: [zathura, zathura-pdf-mupdf], desktop: org.pwmt.zathura.desktop }
+
+  - id: video
+    title: Video and streaming
+    options:
+      - { id: kdenlive-flatpak, label: Kdenlive, source: flatpak, flatpak: org.kde.kdenlive, installed: true }
+      - { id: kdenlive, label: Kdenlive, source: pacman, package: kdenlive }
+      - { id: obs-flatpak, label: OBS Studio, source: flatpak, flatpak: com.obsproject.Studio, installed: true }
+      - { id: obs, label: OBS Studio, source: pacman, package: obs-studio }
+      - { id: artcraft, label: "ArtCraft: FilmCraft, EffectCraft", source: bundle, bundle: artcraft-launcher, note: "early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak)" }
+
+  - id: notes
+    title: Notes and handwriting
+    options:
+      - { id: xournalpp-flatpak, label: Xournal++, source: flatpak, flatpak: com.github.xournalpp.xournalpp, installed: true }
+      - { id: xournalpp, label: Xournal++, source: pacman, package: xournalpp }
+
+  - id: editor
+    title: Editors
+    options:
+      - { id: emacs, label: Emacs (AUCTeX, lsp-mode, classic theme), source: pacman, package: [omarchy-emacs, emacs-wayland], installed: true }
+      - { id: zed, label: Zed (Omazed theme), source: pacman, package: [zed, omazed], installed: true }
+
+  - id: file_manager
+    title: File managers
+    role: default file manager (inode/directory)
+    default: flea
+    options:
+      - { id: nautilus, label: Nautilus, source: pacman, package: nautilus, stock: true, installed: true, keep: true, desktop: org.gnome.Nautilus.desktop, note: Omarchy's own previews and scripts use it }
+      - { id: flea, label: Flea, source: pacman, package: flea, installed: true, desktop: com.thisisgm.flea.desktop }

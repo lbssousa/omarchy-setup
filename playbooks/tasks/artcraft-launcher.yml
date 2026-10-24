@@ -1,0 +1,108 @@
+---
+# The ArtCraft Launcher (https://github.com/storytold/craft-launcher), from
+# the .flatpak bundle attached to its latest GitHub release, after checking
+# it against the release's SHA256SUMS.txt. Not on Flathub; the community
+# remote (artcraft.p4rzl.it) is unofficial and has GPG verification off, so
+# it isn't used. The Craft apps themselves are picked inside the launcher,
+# which installs them as host Flatpaks (its sandbox talks to
+# org.freedesktop.Flatpak for that). Reinstalled when a new release is out;
+# the installed release's tag is kept in artcraft_launcher_stamp.
+#
+# Included by tasks/app-package.yml with bundle_state present or absent.
+- name: Install or update the ArtCraft Launcher
+  when: bundle_state == 'present'
+  block:
+    - name: Read the ArtCraft Launcher's latest release
+      ansible.builtin.uri:
+        url: "{{ artcraft_launcher_release_api }}"
+        headers:
+          Accept: application/vnd.github+json
+        return_content: true
+      register: artcraft_release
+
+    - name: Read the installed release's tag
+      ansible.builtin.slurp:
+        src: "{{ artcraft_launcher_stamp }}"
+      register: artcraft_stamp
+      failed_when: false
+
+    - name: Check whether the launcher is installed
+      ansible.builtin.command: flatpak info --system {{ artcraft_launcher_id }}
+      register: artcraft_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Download, verify and install the release's bundle
+      vars:
+        artcraft_tag: "{{ artcraft_release.json.tag_name }}"
+        artcraft_bundle_name: "artcraft-launcher-{{ artcraft_tag | regex_replace('^v', '') }}-linux-x86_64.flatpak"
+        artcraft_assets: "{{ artcraft_release.json.assets | items2dict(key_name='name', value_name='browser_download_url') }}"
+        artcraft_bundle_path: "{{ target_home }}/.cache/omarchy-setup/bundles/{{ artcraft_bundle_name }}"
+      when: >-
+        artcraft_installed.rc != 0
+        or (artcraft_stamp.content | default('') | b64decode | trim) != artcraft_tag
+      block:
+        - name: Read the release's checksums
+          ansible.builtin.uri:
+            url: "{{ artcraft_assets['SHA256SUMS.txt'] }}"
+            return_content: true
+          register: artcraft_sums
+
+        - name: Create the download directory
+          ansible.builtin.file:
+            path: "{{ artcraft_bundle_path | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: "Download {{ artcraft_bundle_name }} (checked against SHA256SUMS.txt)"
+          ansible.builtin.get_url:
+            url: "{{ artcraft_assets[artcraft_bundle_name] }}"
+            dest: "{{ artcraft_bundle_path }}"
+            checksum: >-
+              sha256:{{ artcraft_sums.content.splitlines()
+                        | select('search', '\s\*?' ~ (artcraft_bundle_name | regex_escape) ~ '$')
+                        | first | split | first }}
+            mode: "0644"
+
+        - name: Install the bundle (its runtime comes from Flathub)
+          ansible.builtin.command:
+            argv:
+              - flatpak
+              - install
+              - --system
+              - --noninteractive
+              - --reinstall
+              - --bundle
+              - "{{ artcraft_bundle_path }}"
+          become: true
+          changed_when: true
+
+        - name: Create the stamp's directory
+          ansible.builtin.file:
+            path: "{{ artcraft_launcher_stamp | dirname }}"
+            state: directory
+            mode: "0755"
+          become: true
+
+        - name: Record the installed release
+          ansible.builtin.copy:
+            content: "{{ artcraft_tag }}\n"
+            dest: "{{ artcraft_launcher_stamp }}"
+            mode: "0644"
+          become: true
+
+- name: Remove the ArtCraft Launcher (the Craft apps it installed stay)
+  when: bundle_state == 'absent'
+  block:
+    - name: Uninstall the launcher
+      community.general.flatpak:
+        name: "{{ artcraft_launcher_id }}"
+        state: absent
+        method: system
+      become: true
+
+    - name: Forget the installed release
+      ansible.builtin.file:
+        path: "{{ artcraft_launcher_stamp }}"
+        state: absent
+      become: true

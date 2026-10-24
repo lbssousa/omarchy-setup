@@ -36,6 +36,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [secureboot]
 
   pre_tasks:
     - name: Check the bootloader is Limine with limine-entry-tool

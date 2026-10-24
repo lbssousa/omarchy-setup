@@ -1,0 +1,64 @@
+---
+# The PWA force-install policy of one Chromium-family engine
+# (webapps_pwa_engines, `engine` = {key, value}; playbooks/system/apps/
+# browser.yml). With pwa_policy_on, the engine's managed policy directory
+# gets a WebAppInstallForceList with every user's webapps (users/*.yml,
+# plus the caller's own list), each opening in its own window with a
+# desktop shortcut, which user/apps/webapps.yml turns into the launcher
+# Omarchy's web app had. The browser picks the file up live. Without it,
+# the file goes (the PWAs it installed are uninstalled by the browser).
+- name: "[{{ engine.key }}] PWA policy"
+  when: pwa_policy_on | bool
+  block:
+    - name: "[{{ engine.key }}] Find every user's settings"
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../../../users"
+        patterns: "*.yml"
+        excludes: "local.example.yml"
+      register: webapps_user_files
+
+    - name: "[{{ engine.key }}] Start from the caller's own web apps"
+      ansible.builtin.set_fact:
+        webapps_all: "{{ webapps }}"
+
+    - name: "[{{ engine.key }}] Add every user's web apps"
+      ansible.builtin.set_fact:
+        webapps_all: >-
+          {{ webapps_all
+             + ((lookup('ansible.builtin.file', item.path) | from_yaml | default({}, true)).webapps | default([])) }}
+      loop: "{{ webapps_user_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
+
+    - name: "[{{ engine.key }}] One entry per url"
+      ansible.builtin.set_fact:
+        webapps_all: "{{ webapps_all | unique(attribute='url') }}"
+
+    - name: "[{{ engine.key }}] Create {{ engine.value.policy_dir }}"
+      ansible.builtin.file:
+        path: "{{ engine.value.policy_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: "[{{ engine.key }}] Force-install every web app as a PWA"
+      ansible.builtin.copy:
+        dest: "{{ engine.value.policy_dir }}/{{ webapps_pwa_policy_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+        content: >-
+          {{ {'WebAppInstallForceList': webapps_all | map(attribute='url') | map('community.general.dict_kv', 'url')
+              | map('combine', {'default_launch_container': 'window', 'create_desktop_shortcut': true})
+              | list}
+             | to_nice_json(indent=2) }}
+      become: true
+
+- name: "[{{ engine.key }}] Remove the PWA policy (not the default browser's engine)"
+  ansible.builtin.file:
+    path: "{{ engine.value.policy_dir }}/{{ webapps_pwa_policy_file }}"
+    state: absent
+  become: true
+  when: not pwa_policy_on | bool

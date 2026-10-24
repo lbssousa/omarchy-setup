@@ -26,6 +26,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  tags: [homebrew]
 
   tasks:
     # The installer and every `brew install` run as the prefix's owner;

@@ -65,6 +65,10 @@
   ansible.builtin.import_playbook: playbooks/system/onlyoffice.yml
   tags: [onlyoffice]
 
+- name: Flathub app migrations (Kdenlive, OBS Studio, Pinta, Xournal++)
+  ansible.builtin.import_playbook: playbooks/system/flathub-apps.yml
+  tags: [flathub-apps]
+
 - name: Emacs + AUCTeX, yasnippet, lsp-mode (classic teal theme)
   ansible.builtin.import_playbook: playbooks/system/emacs.yml
   tags: [emacs]

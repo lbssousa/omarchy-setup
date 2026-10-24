@@ -142,6 +142,33 @@ onlyoffice_native_packages:
   - libreoffice-fresh-pt-br
   - onlyoffice-bin
 
+# Native GUI apps Omarchy pre-installs (all in
+# /usr/share/omarchy/install/omarchy-base.packages) replaced by their
+# Flathub builds (playbooks/system/flathub-apps.yml). See that playbook's
+# header for what's excluded and why.
+#
+# Every entry keeps the SAME desktop-entry id in both builds, so nothing has
+# to be re-curated afterwards (no launcher NoDisplay stubs, no mimeapps
+# rewrite, no window-rule edits) — the id is the contract, and the playbook
+# fails if a Flatpak ever stops honouring it.
+flathub_app_migrations:
+  - name: Kdenlive
+    flatpak_id: org.kde.kdenlive
+    native_packages:
+      - kdenlive
+  - name: OBS Studio
+    flatpak_id: com.obsproject.Studio
+    native_packages:
+      - obs-studio
+  - name: Pinta
+    flatpak_id: com.github.PintaProject.Pinta
+    native_packages:
+      - pinta
+  - name: Xournal++
+    flatpak_id: com.github.xournalpp.xournalpp
+    native_packages:
+      - xournalpp
+
 # Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs is the AUR package
 # Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in
 # emacs-wayland and syncs the Omarchy theme and font.

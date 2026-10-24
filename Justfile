@@ -159,6 +159,11 @@ default-browser: _ensure-collections
 onlyoffice: _ensure-collections
     scripts/run-phase.sh system system.yml --tags onlyoffice
 
+# Replace Omarchy's pre-installed Kdenlive, OBS Studio, Pinta and Xournal++
+# with their Flathub builds.
+flathub-apps: _ensure-collections
+    scripts/run-phase.sh system system.yml --tags flathub-apps
+
 # Install Emacs + AUCTeX, yasnippet (GNU ELPA) and lsp-mode (MELPA) with the classic beige-on-teal theme.
 emacs: _ensure-collections
     @just _both emacs

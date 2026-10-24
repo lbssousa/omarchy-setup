@@ -1,9 +1,9 @@
-# `just tpm2` — Automatic LUKS Unlock via TPM2
+# `just apply tpm2` — Automatic LUKS Unlock via TPM2
 
 Usage guide for `playbooks/system/tpm2.yml` and `scripts/enroll-tpm2.sh`. Unlike
 most automations in this repository, **this playbook is not part of `just setup`**
 — it touches disk encryption and bootloader configuration, so it only runs when
-called explicitly: `just tpm2` (or `just tpm2-wipe`).
+called explicitly: `just apply tpm2` (or `just tpm2-wipe`).
 
 ## Overview
 
@@ -38,7 +38,7 @@ passphrase until you re-enroll.
   fTPM, or discrete TPM).
 - Encrypted root partition using **LUKS2** format.
 - Run after the initial successful boot (and ideally after enabling Secure Boot
-  via `just secureboot`).
+  via `just apply secureboot`).
 - Administrator (`wheel`) access with `run0` empowerment.
 
 ## How it works in Omarchy
@@ -67,7 +67,7 @@ passphrase until you re-enroll.
 Run the playbook via `just`:
 
 ```bash
-just tpm2
+just apply tpm2
 ```
 
 Ansible will configure the initramfs, crypttab, packages, and prompt you for

@@ -10,7 +10,8 @@ someone, and what remains shared.
 |---|---|
 | `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, an `admin` flag, extra groups and `luks`. Everyone logs into fish. |
 | `~/.config/omarchy-setup/local.yml` | Untracked personal data: git identity, the rclone account and (administrator) the accounts' full names. Template: `users/local.example.yml`. |
-| `users/<name>.yml` | That user's personal settings, such as Firefox Taskbar Tabs, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
+| `~/.config/omarchy-setup/features.yml` | That user's choices from `just configure`: which apps and features apply. The user phase follows each user's own; the system phase follows the administrator's. |
+| `users/<name>.yml` | That user's personal settings, such as their web apps, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
 | `system.yml` (`just system`) | The machine-wide half of every automation: packages, `/etc`, PAM, SDDM, udev, signed plugin builds and the accounts. Run by an administrator, under `run-empowered.sh`. |
 | `user.yml` (`just user`, `omarchy-setup-user`) | The half that lives in each user's home and session. Run by each user, as themselves, inside their own Hyprland session. Nothing in it becomes root. |
 | [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the greeter, autologin, FIDO2, fingerprint, lock screen PAM and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |

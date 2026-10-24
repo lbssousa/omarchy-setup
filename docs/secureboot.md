@@ -1,9 +1,9 @@
-# `just secureboot` — Secure Boot (Limine + sbctl)
+# `just apply secureboot` — Secure Boot (Limine + sbctl)
 
 Usage guide for `playbooks/system/secureboot.yml`. Unlike the rest of this
 repo, **this playbook is not part of `just setup`** — it touches
 firmware/boot, so it only runs when called explicitly:
-`just secureboot` (or `./run-empowered.sh ansible-playbook
+`just apply secureboot` (or `./run-empowered.sh ansible-playbook
 playbooks/system/secureboot.yml`).
 
 ## Prerequisites
@@ -29,13 +29,13 @@ playbook relies on that instead of a manual sign-and-enroll process.
 ## Step by step
 
 Two runs of the playbook, with a BIOS trip in between — run
-`just secureboot` the same way both times; it detects which stage
+`just apply secureboot` the same way both times; it detects which stage
 you're at.
 
 ### 1st run — preparation
 
 ```bash
-just secureboot
+just apply secureboot
 ```
 
 With Secure Boot off, the playbook:
@@ -66,7 +66,7 @@ With Secure Boot off, the playbook:
 ### 2nd run — key enrollment
 
 ```bash
-just secureboot
+just apply secureboot
 ```
 
 This time the playbook detects Setup Mode and:
@@ -144,6 +144,6 @@ or a reinstall.
 
 ## Running again
 
-The playbook is idempotent: rerunning `just secureboot` on an
+The playbook is idempotent: rerunning `just apply secureboot` on an
 already-configured machine just confirms the state and does nothing
 new, except `limine-update` itself (always run, safe by design).

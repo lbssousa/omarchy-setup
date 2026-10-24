@@ -57,8 +57,14 @@ rules they can:
 
 `omarchy-mu-user-add` (Setup › Users › Add User) does steps 1–2 by hand,
 outside Ansible. `omarchy-mu-user-remove` removes an account along with its
-FIDO2 line, prints and disk keyslot. Removing someone from `users.yml` does
-**not** delete their account.
+FIDO2 line, prints, disk keyslot and the sudo grants that would outlive it
+(the installer's by name, passwordless sudo's by UID). Removing someone from
+`users.yml` does **not** delete their account.
+
+Root's password is the owner's on a fresh Omarchy, which would let anyone who
+learns it reach root outside `wheel`. With several accounts it is locked
+(`omarchy-mu-accounts root-sync`, run by the system phase and by the add and
+remove commands); administrators use `sudo`.
 
 ## The login screen
 

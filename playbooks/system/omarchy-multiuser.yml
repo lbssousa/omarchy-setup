@@ -18,6 +18,8 @@
 #     tells non-admins' migrations what an admin has already run;
 #   - omarchy-mu-login.service for every user (systemctl --global): the
 #     menu entries and the fingerprint invitation at each login;
+#   - root's password locked while there are several accounts
+#     (omarchy-mu-accounts root-sync);
 #
 # and runs each once. SDDM itself is handled by system/sddm.yml.
 #
@@ -154,6 +156,12 @@
       ansible.builtin.command: systemctl --global enable omarchy-mu-login.service
       when: omarchy_multiuser_login_unit.stdout | trim != 'enabled'
       changed_when: true
+      become: true
+
+    - name: Lock root's password while there are several accounts
+      ansible.builtin.command: omarchy-mu-accounts root-sync
+      register: omarchy_multiuser_root_sync
+      changed_when: omarchy_multiuser_root_sync.stdout | length > 0
       become: true
 
     - name: Bring the lock screen PAM and greeter colors in line now

@@ -127,33 +127,29 @@ polkit: _ensure-collections
 pam-auth-order: _ensure-collections
     scripts/run-phase.sh system system.yml --tags pam-auth-order
 
-# Install Brave Origin with Omarchy's browser installer
-# (omarchy-install-browser brave-origin) plus Omarchy's web app container
-# wiring (see brave-webapp-containers below).
-brave: _ensure-collections
-    @just _both brave
+# Install Flatpak, enable the Flathub remote, install Bazaar (the Flathub
+# app-store frontend) and expose the Flatpak export dirs on XDG_DATA_DIRS.
+flatpak: _ensure-collections
+    @just _both flatpak
 
-# Convert Omarchy's preinstalled web apps (brave_pwa_webapps in
-# group_vars/all/main.yml) into Brave Origin PWAs, each opening in its own
-# Brave container, and drop leftover Firefox Taskbar Tab shortcuts. Needs
-# root (writes /etc/brave/policies/managed). Every container named in
-# brave_pwa_webapps must already exist in Brave.
-brave-pwa-webapps: _ensure-collections
-    @just _both-playbook brave-pwa-webapps
+# Install Firefox from Flathub (org.mozilla.firefox), enable tab apps
+# (Taskbar Tabs) by default, set the default page font size and install the
+# firefox.desktop shim for Omarchy's browser helpers.
+firefox: _ensure-collections
+    @just _both firefox
 
-# Rerun just the Omarchy web app -> Brave container wiring (also installs
-# the systemd --user watcher that reruns it when the launchers change).
-# Launchers listed in brave_omarchy_webapp_containers get a trailing
-# --container=<name> on their Exec=, so they open inside that Brave
-# container. No root needed.
-brave-webapp-containers: _ensure-collections
-    scripts/run-phase.sh user user.yml --tags brave-webapp-containers
+# Create the Firefox Taskbar Tabs ("tab apps") in firefox_taskbar_apps
+# (users/$USER.yml), remove Omarchy's launchers for the same sites and point
+# the webapp keybinds at them. Firefox must be closed while this runs. No
+# root needed.
+firefox-taskbar-apps: _ensure-collections
+    scripts/run-phase.sh user user.yml --tags firefox-taskbar-apps
 
 # Set git user.name/user.email from users/$USER.yml.
 git-identity: _ensure-collections
     scripts/run-phase.sh user user.yml --tags git-identity
 
-# Make Brave Origin the default browser with omarchy-default-browser
+# Make Firefox the default browser with omarchy-default-browser
 # (unless it already is). No root needed.
 default-browser: _ensure-collections
     scripts/run-phase.sh user user.yml --tags default-browser

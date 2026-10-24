@@ -1,8 +1,8 @@
 ---
-# Makes Brave Origin (playbooks/user/brave.yml) the default browser with
-# Omarchy's own tool, `omarchy-default-browser brave-origin` — the same
+# Makes Firefox (playbooks/{system,user}/firefox.yml) the default browser with
+# Omarchy's own tool, `omarchy-default-browser firefox` — the same
 # action as Setup > Defaults > Browser in the Omarchy menu. It runs
-# `xdg-settings set default-web-browser brave-origin.desktop` the way
+# `xdg-settings set default-web-browser firefox.desktop` the way
 # Omarchy expects (BROWSER unset and XDG_CURRENT_DESKTOP cleared, so the
 # browser lands in mimeapps.list rather than the desktop-specific list,
 # which keeps routing links through omarchy-browser.desktop on 4.5).
@@ -14,11 +14,13 @@
 # play is often run over SSH), so the result is checked by reading the
 # default back rather than by its exit code.
 #
-# Nothing else is needed for the browser keybinds or Omarchy's web apps:
-# omarchy-launch-browser and omarchy-launch-webapp read the command from
-# the first token of brave-origin.desktop's Exec= (/usr/bin/brave-origin),
-# and omarchy-launch-webapp accepts every brave* id.
-- name: Default browser (Brave Origin)
+# Nothing else is needed for the browser keybinds: playbooks/system/firefox.yml
+# links /usr/local/bin/firefox to the Flatpak's exported launcher and
+# playbooks/user/firefox.yml installs a hidden firefox.desktop shim whose
+# Exec= is /usr/local/bin/firefox, which omarchy-launch-browser reads as a
+# single token. Web apps use Firefox Taskbar Tabs instead of
+# omarchy-launch-webapp (see playbooks/user/firefox-taskbar-apps.yml).
+- name: Default browser (Firefox)
   hosts: localhost
   connection: local
   gather_facts: false

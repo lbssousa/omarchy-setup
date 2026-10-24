@@ -18,13 +18,23 @@
   ansible.builtin.import_playbook: playbooks/user/git-identity.yml
   tags: [git-identity]
 
-- name: Brave Origin
-  ansible.builtin.import_playbook: playbooks/user/brave.yml
-  tags: [brave]
+- name: Flatpak + Flathub (user session XDG_DATA_DIRS + Bazaar D-Bus mask)
+  ansible.builtin.import_playbook: playbooks/user/flatpak.yml
+  tags: [flatpak]
 
-# Brave Origin as the default browser, set with omarchy-default-browser
+- name: Firefox (Flatpak)
+  ansible.builtin.import_playbook: playbooks/user/firefox.yml
+  tags: [firefox]
+
+# The tab apps in firefox_taskbar_apps, with the webapp keybinds pointed at
+# them instead of Omarchy's own web app launchers.
+- name: Firefox Taskbar Tabs
+  ansible.builtin.import_playbook: playbooks/user/firefox-taskbar-apps.yml
+  tags: [firefox-taskbar-apps]
+
+# Firefox as the default browser, set with omarchy-default-browser
 # (Setup > Defaults > Browser in the Omarchy menu).
-- name: Default browser (Brave Origin)
+- name: Default browser (Firefox)
   ansible.builtin.import_playbook: playbooks/user/default-browser.yml
   tags: [default-browser]
 

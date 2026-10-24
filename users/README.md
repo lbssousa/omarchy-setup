@@ -9,8 +9,7 @@ defaults. Typical keys:
 |---|---|
 | `git_user_name`, `git_user_email` | git identity (`user/git-identity.yml`) |
 | `rclone_gdrive_email` | Google Drive account to mount (`just rclone-gdrive`) |
-| `brave_pwa_webapps` | Brave PWAs replacing Omarchy's web apps (`just brave-pwa-webapps`) |
-| `brave_omarchy_webapp_containers` | Omarchy web app launchers → Brave containers |
+| `firefox_taskbar_apps` | Firefox Taskbar Tabs replacing Omarchy's web apps (`user/firefox-taskbar-apps.yml`) |
 | `omarchy_plugins` | shell plugins (default: this machine's list) |
 | `omarchy_text_size_px`, `omarchy_monitor_scale`, `omarchy_system_ui_font_pt` | text size and scale |
 | `keepassxc_primary`, `keepassxc_hypr_keybind` | password manager choice and key |

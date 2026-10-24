@@ -83,9 +83,9 @@
 # keepassxc) every time its settings are saved with autostart on.
 #
 # The native messaging host manifests are deployed by this playbook to
-# the Chromium and Brave Origin locations, pointing at the package's own
-# keepassxc-proxy; the user still needs to install the KeePassXC-Browser
-# extension in each browser and connect it.
+# the Firefox Flatpak's sandbox (with a Python relay to KeePassXC's browser
+# socket) and to the host Chromium location; the user still needs to install
+# the KeePassXC-Browser extension in each browser and connect it.
 #
 # A `Match exec` drop-in in ~/.ssh/config.d raises KeePassXC's unlock
 # prompt whenever ssh needs a key and the agent holds none, and waits for
@@ -114,14 +114,33 @@
 
     - name: Deploy the browser integration native messaging host manifests
       ansible.builtin.template:
-        src: keepassxc-browser-chromium.json.j2
+        src: "{{ item.src }}"
         dest: "{{ item.dest }}"
         mode: "0644"
       vars:
-        keepassxc_browser_manifest_path: "{{ keepassxc_proxy_path }}"
+        keepassxc_browser_manifest_path: "{{ item.manifest_path | default(keepassxc_proxy_path) }}"
       loop: "{{ keepassxc_browser_manifests }}"
       loop_control:
         label: "{{ item.name }}"
+
+    - name: Deploy the relay the Firefox Flatpak runs as its native messaging host
+      ansible.builtin.template:
+        src: "{{ item.relay_src }}"
+        dest: "{{ item.relay_dest }}"
+        mode: "0755"
+      loop: "{{ keepassxc_browser_manifests | selectattr('relay_src', 'defined') }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Let the Firefox Flatpak reach KeePassXC's browser socket
+      ansible.builtin.command:
+        argv:
+          - flatpak
+          - override
+          - --user
+          - "--filesystem=xdg-run/app/{{ keepassxc_app_id }}"
+          - "{{ firefox_flatpak_id }}"
+      changed_when: false
 
     # Autostart and the keybind below make KeePassXC the session's password
     # manager (see group_vars/all/main.yml).

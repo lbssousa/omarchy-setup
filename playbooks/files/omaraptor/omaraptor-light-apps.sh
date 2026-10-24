@@ -29,6 +29,10 @@
 # ~/.config/gtk-3.0/gtk.css. Some of them take their accent from
 # @accent_bg_color (Firefox's libadwaita-colors mode, for one), so the GTK3
 # file defines that as well as the classic @theme_selected_bg_color.
+#
+# Flatpak apps (Bazaar, Firefox, ...) can't see either file unless the sandbox
+# is given the directories: playbooks/user/omaraptor-themes.yml sets a
+# user-wide `--filesystem=xdg-config/gtk-{3,4}.0:ro` override for that.
 
 # gsettings needs a user DBus session (absent e.g. during ISO installs).
 [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] || exit 0

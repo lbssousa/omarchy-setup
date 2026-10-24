@@ -10,70 +10,126 @@ ansible_local_become_success_timeout: 60
 # cover.
 polkit_expiration_seconds: 1800
 
-# Brave Origin (playbooks/{system,user}/brave.yml) — Brave without Rewards, Wallet,
-# VPN, Leo and News, installed the way Omarchy's own menu does it
-# (Install > Browser > Brave Origin, i.e. `omarchy-install-browser
-# brave-origin`): the AUR brave-origin-bin package, Omarchy's Chromium
-# flags (~/.config/brave-origin-flags.conf), its managed browser policy in
-# /etc/brave/policies/managed and the theme color sync. Its desktop id,
-# brave-origin.desktop, is one omarchy-launch-webapp accepts (brave*), so
-# Omarchy's web apps open in it as --app= windows with no shim.
-brave_origin_package: brave-origin-bin
-# The name omarchy-install-browser and omarchy-default-browser take.
-brave_origin_browser: brave-origin
-brave_origin_desktop_id: brave-origin.desktop
+# Flatpak (playbooks/{system,user}/flatpak.yml) — Flatpak itself plus the
+# Flathub remote, system-wide (every app below is installed once, for every
+# user). Omarchy doesn't ship Flatpak. Every play that installs a Flatpak
+# bootstraps both itself, so each one also works standalone.
+flatpak_package: flatpak
+flatpak_flathub_remote: flathub
+flatpak_flathub_repo_url: https://flathub.org/repo/flathub.flatpakrepo
+# Bazaar — a Flathub app-store frontend.
+flatpak_bazaar_id: io.github.kolunmi.Bazaar
+# Flatpak desktop entries are exported to these dirs; Quickshell's
+# DesktopEntries (the Omarchy app library) only scans the dirs named in
+# XDG_DATA_DIRS, which the graphical session doesn't get from
+# /etc/profile.d/flatpak.sh. flatpak_env_file is deployed to each user's
+# ~/.config/environment.d (playbooks/user/flatpak.yml) so the session sees
+# the Flatpak apps.
+flatpak_system_exports_dir: /var/lib/flatpak/exports/share
+flatpak_user_exports_dir: "{{ target_home }}/.local/share/flatpak/exports/share"
+# Only system-wide installs export their launchers here (a user install
+# exports under ~/.local/share/flatpak/exports/bin instead).
+flatpak_system_exports_bin_dir: /var/lib/flatpak/exports/bin
+flatpak_env_file: 40-flatpak.conf
 
-# Omarchy's native web apps (YouTube, WhatsApp, Google Maps, ...) are
-# launchers in ~/.local/share/applications whose Exec runs
-# `omarchy-launch-webapp <url>`; with Brave Origin the default browser
-# that opens a Brave Origin --app= window in the profile's default (non-container)
-# partition. Brave supports `--container=<name>` together with `--app=`
-# since 1.95.x (brave/brave-browser#58019 landed via brave-core#38964,
-# shared by Brave Origin), so a launcher
-# can opt into a storage-isolated container by appending the flag to its
-# Exec=. This map wires each launcher, keyed by its own Name= field/path
-# (the desktop file name minus .desktop, e.g. "YouTube"), to an existing
-# Brave container:
-# playbooks/templates/fix-brave-omarchy-webapp-containers.sh.j2 appends
-# --container=<name> to every Exec= line (dropping a stale
-# --container=<other> first) and reruns whenever a launcher is written
-# or rewritten (systemd --user path unit, tag brave-webapp-containers).
-# Key only launchers you actually have: `omarchy-webapp-install` writes
-# `$APP_NAME.desktop`, so a new "GitHub" launcher is wired in by adding
-# `GitHub: GitHub` below and rerunning `just brave-webapp-containers`.
+# Firefox (playbooks/{system,user}/firefox.yml) — installed from Flathub
+# (org.mozilla.firefox), replacing the Arch `firefox` package. Flathub's build
+# bundles every locale itself, so no firefox-i18n-<locale> package is needed
+# (see playbooks/system/ptbr.yml). Runs before pt-BR localization, which
+# depends on Firefox already being installed.
+firefox_flatpak_id: org.mozilla.firefox
+# The Arch packages the Flatpak replaces (removed by playbooks/system/firefox.yml).
+firefox_native_packages:
+  - firefox
+  - firefox-i18n-pt-br
+# Default preferences and policies.json reach the sandbox through this
+# extension point (mounted at /app/etc/firefox inside it), since the
+# Flatpak can't see the host's /usr/lib/firefox.
+firefox_systemconfig_extension: org.mozilla.firefox.systemconfig
+firefox_systemconfig_dir: "/var/lib/flatpak/extension/{{ firefox_systemconfig_extension }}"
+# The name omarchy-default-browser takes. It only knows the native ids
+# (firefox.desktop, command `firefox`), so the system phase links
+# /usr/local/bin/firefox to the Flatpak's exported launcher and the user
+# phase adds a hidden firefox.desktop that runs it — see
+# playbooks/{system,user}/firefox.yml.
+firefox_browser: firefox
+firefox_command_link: /usr/local/bin/firefox
+firefox_desktop_id: firefox.desktop
+# What Firefox names its Taskbar Tabs launchers and window classes after
+# (<prefix>.webapp-<uuid>): its own app id, the Flatpak id.
+firefox_desktop_prefix: "{{ firefox_flatpak_id }}"
+# The Taskbar Tabs launchers run the browser binary inside the sandbox
+# directly, as Firefox's own pinned launchers do.
+firefox_launcher_argv:
+  - flatpak
+  - run
+  - --command=/app/lib/firefox/firefox
+  - "{{ firefox_flatpak_id }}"
+# Firefox's own data, inside the sandbox's per-app directory: the profiles
+# dirs (XDG layout first, as Firefox 147+ uses it, then the legacy
+# ~/.mozilla one) and the native ones they're migrated from on first run
+# (playbooks/user/firefox.yml), pairwise.
+firefox_app_dir: "{{ target_home }}/.var/app/{{ firefox_flatpak_id }}"
+firefox_profiles_dirs:
+  - "{{ firefox_app_dir }}/config/mozilla/firefox"
+  - "{{ firefox_app_dir }}/.mozilla/firefox"
+firefox_native_profiles_dirs:
+  - "{{ target_home }}/.config/mozilla/firefox"
+  - "{{ target_home }}/.mozilla/firefox"
+firefox_taskbar_tabs_pref_name: browser.taskbarTabs.enabled
+firefox_taskbar_tabs_pref_file: omarchy-setup.js
+# Firefox's "Default font size" (Settings > General > Fonts and Colors >
+# Advanced; font.size.variable.x-western in about:config), px. Firefox's
+# browser chrome follows org.gnome.desktop.interface font-name directly (see
+# omarchy_gnome_font_sizes), so this is only the default size for page
+# text. 17px is what 13pt renders to at the standard 96dpi (the size
+# omarchy_system_ui_font_pt still uses), written as an integer px because
+# that's what the pref takes. playbooks/system/firefox.yml drops it as a
+# defaults/preferences file, so it's a default like the browser's own 16px,
+# not a forced value.
+firefox_font_size_pref_file: omarchy-setup-font.js
+firefox_default_font_size_px: 17
+
+# Firefox Taskbar Tabs ("tab apps") and the Hyprland keybinds that open them
+# (playbooks/user/firefox-taskbar-apps.yml). Omarchy binds YouTube to
+# SUPER+SHIFT+Y, WhatsApp to SUPER+SHIFT+ALT+G, Google Maps to
+# SUPER+SHIFT+S, Google Photos to SUPER+SHIFT+P and Google Messages to
+# SUPER+SHIFT+CTRL+G through omarchy-launch-webapp, which only knows the
+# Chromium family's --app= flag and falls back to chromium.desktop for every
+# other default browser — Firefox included, and Firefox is the default here
+# (see default_browser below). The tab apps are created by the same playbook,
+# straight into Firefox's profile without the DynamicLauncher portal's
+# confirmation dialog, and Omarchy's own launchers for the same sites are
+# removed.
 #
-# Empty by default; each user maps their own launchers in users/<name>.yml.
-brave_omarchy_webapp_containers: {}
-
-# Brave Origin PWAs replacing Omarchy's preinstalled web apps
-# (playbooks/{system,user}/brave-pwa-webapps.yml, tasks/brave-pwa-webapp-swap.yml).
-# Each entry force-installs url as a Brave web app via the
-# WebAppInstallForceList machine policy
-# (/etc/brave/policies/managed/omarchy-setup-webapps.json — needs root),
-# discovers the app id Brave assigns it, then overwrites the Omarchy web
-# app launcher named name (~/.local/share/applications/<name>.desktop) to
-# launch that app id inside container_name via `--app-id=... --container=...`,
-# and rebinds hypr_keybind to it. container_name must already exist as a
-# Brave container (brave://settings/containers — no CLI to create one).
-# /usr/bin/brave-origin, not /opt/brave-origin-bin/brave-origin directly:
-# the wrapper reads ~/.config/brave-origin-flags.conf (Omarchy's Chromium
-# flags).
-brave_binary: /usr/bin/brave-origin
-brave_profile_dir: Brave-Origin
-brave_profile_directory: Default
-# manifest_hint is the PWA's own Name= (what Brave titles the installed
-# app), used to find its shortcut when it differs from name. icon: ""
-# lets omarchy-webapp-install fetch the site's favicon.
+# One launcher per pinned site, at
+# <dir>/<firefox_desktop_prefix>.webapp-<uuid>.desktop. The uuid is generated
+# per install and the Exec= line inside hardcodes the profile path, so neither
+# is something a keybind can name — desktop_name (the pinned tab's own title,
+# the one field that survives a reinstall) is the stable handle, and the
+# keybind goes through a wrapper that resolves it at launch time.
+# Microsoft Teams has no Omarchy keybind of its own, so it takes the same
+# SUPER+SHIFT+ALT+<letter> shape as WhatsApp.
+# Omarchy's own launcher for a site is removed when its Name= equals the
+# app's desktop_name or label; set omarchy_webapp_name when it's neither.
+# container (optional) is the Firefox container the app runs in, by name as
+# in about:preferences#containers. It has to be the one Multi-Account
+# Containers (or Facebook Container) assigns the site — and its login pages
+# — to: otherwise the extension reopens the page as a tab in the main window
+# and closes the app's window.
+#
 # This machine's default: none. Each user lists their own in
-# users/<name>.yml; the system phase force-installs the union of every
-# user's urls (playbooks/system/brave-pwa-webapps.yml).
-brave_pwa_webapps: []
+# users/<name>.yml (see users/abutre.yml).
+firefox_webapp_desktop_dir: "{{ target_home }}/.local/share/applications"
+firefox_webapp_desktop_glob: "{{ firefox_webapp_desktop_dir }}/{{ firefox_desktop_prefix }}.webapp-*.desktop"
+firefox_taskbar_app_launcher: "{{ target_home }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
+firefox_taskbar_apps: []
 
 # Default browser the main run leaves behind
 # (playbooks/user/default-browser.yml), as the name `omarchy-default-browser`
 # takes (Setup > Defaults > Browser in the Omarchy menu). Only set when it
 # isn't already the default, so a later switch in the menu isn't undone.
-default_browser: "{{ brave_origin_browser }}"
+default_browser: "{{ firefox_browser }}"
 
 # ONLYOFFICE Desktop Editors (playbooks/system/onlyoffice.yml) — the AUR
 # onlyoffice-bin package (upstream's own .deb, repackaged), installed with
@@ -339,19 +395,20 @@ ptbr_xdg_user_dirs:
   - { name: VIDEOS, default: "Videos", translated: "Vídeos" }
   - { name: PROJECTS, default: "Projects", translated: "Projetos" }
 
+ptbr_firefox_requested_locale:
+  - pt-BR
+  - en-US
+
 # Accept-Language for Chromium-family web apps (affects page content
 # language, not the browser's own UI language).
 ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
 
 # Profile directories fixed by
 # playbooks/tasks/ptbr-chromium-family-browser.yml. Each entry is a path
-# relative to $HOME (~/.config/<dir>; Brave-Origin is the one
-# playbooks/{system,user}/brave.yml installs). Opera and Helium are excluded:
+# relative to $HOME (~/.config/<dir>). Opera and Helium are excluded:
 # unconfirmed profile layout on this machine.
 ptbr_chromium_family_config_dirs:
   - .config/chromium
-  - .config/BraveSoftware/Brave-Browser
-  - .config/BraveSoftware/Brave-Origin
   - .config/google-chrome
   - .config/microsoft-edge
   - .config/vivaldi
@@ -381,7 +438,7 @@ ssh_agent_units:
   - ssh-agent.service
 
 # KeePassXC (playbooks/{system,user}/keepassxc.yml) — open-source password manager
-# with browser integration (Chromium-family browsers), system tray
+# with browser integration (Firefox and Chromium-family browsers), system tray
 # integration and opt-in SSH agent support (the agent play above, see
 # keepassxc_ssh_agent_enabled).
 #
@@ -437,16 +494,36 @@ keepassxc_yubikey_lock_udev_rule: /etc/udev/rules.d/72-keepassxc-yubikey-lock.ru
 # host manifest to decide whether it's supported. The playbook deploys
 # the manifests directly ("isBrowserEnabled" is just file existence), so
 # no GUI clicking is needed; the browser extension still has to be
-# installed and connected by the user. Every browser here is a host
-# install, so each manifest names the package's own keepassxc-proxy.
+# installed and connected by the user.
+#
+# Chromium runs on the host and calls the package's own keepassxc-proxy.
+# The Firefox Flatpak can't see the host's native messaging dirs or run
+# keepassxc-proxy inside its runtime, so its manifest (under its own
+# ~/.var/app/org.mozilla.firefox/{.mozilla,config/mozilla} dirs) points at
+# a small Python relay (keepassxc-proxy-relay.py.j2) that talks to
+# KeePassXC's browser socket in $XDG_RUNTIME_DIR/app/org.keepassxc.KeePassXC
+# (granted to Firefox via a Flatpak override).
+keepassxc_app_id: org.keepassxc.KeePassXC
 keepassxc_proxy_path: /usr/bin/keepassxc-proxy
+keepassxc_firefox_nmh_dir: "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
+keepassxc_firefox_xdg_nmh_dir: "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
+keepassxc_firefox_relay_name: keepassxc-proxy-relay.py
+keepassxc_firefox_relay_sandbox_path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
 keepassxc_browser_manifests:
+  - name: Firefox
+    src: keepassxc-browser-firefox.json.j2
+    dest: "{{ keepassxc_firefox_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
+    manifest_path: "{{ keepassxc_firefox_relay_sandbox_path }}"
+    relay_src: keepassxc-proxy-relay.py.j2
+    relay_dest: "{{ keepassxc_firefox_nmh_dir }}/{{ keepassxc_firefox_relay_name }}"
+  - name: Firefox (XDG)
+    src: keepassxc-browser-firefox.json.j2
+    dest: "{{ keepassxc_firefox_xdg_nmh_dir }}/org.keepassxc.keepassxc_browser.json"
+    manifest_path: "{{ keepassxc_firefox_relay_sandbox_path }}"
   - name: Chromium
+    src: keepassxc-browser-chromium.json.j2
     dest: "{{ target_home }}/.config/chromium/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
-  # Brave Origin keeps its own profile directory (not the stable
-  # Brave-Browser one), with its own NativeMessagingHosts folder.
-  - name: Brave Origin
-    dest: "{{ target_home }}/.config/BraveSoftware/Brave-Origin/NativeMessagingHosts/org.keepassxc.keepassxc_browser.json"
+    manifest_path: "{{ keepassxc_proxy_path }}"
 
 # Homebrew for Linux (playbooks/{system,user}/homebrew.yml) — installed per upstream to
 # /home/linuxbrew/.linuxbrew and exposed via a launcher script in

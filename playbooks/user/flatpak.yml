@@ -1,0 +1,55 @@
+---
+# Flatpak, per user: puts the Flatpak export dirs on XDG_DATA_DIRS for the
+# graphical session and masks Bazaar's D-Bus activation.
+#
+# Flatpak desktop shortcuts only reach Omarchy's app UI via XDG_DATA_DIRS:
+# Quickshell's DesktopEntries scans the dirs in that var (see
+# /usr/share/omarchy/shell/services/AppLibrary.qml), but the graphical
+# session never sources /etc/profile.d/flatpak.sh, so the system Flatpak
+# exports are missed. The environment.d export below fixes that for the
+# session.
+#
+# Bazaar opens two windows when launched from the Omarchy shell, which runs
+# `uwsm-app -- gtk-launch <id>.desktop`: gtk-launch pings the app's D-Bus
+# name before running the desktop entry's Exec, and that ping bus-activates
+# Bazaar's own service file (a bazaar-daemon that opens a window); the Exec
+# then starts a second bazaar-daemon, which asks the first one to relaunch,
+# so it opens another. A user-level service file of the same name, whose
+# Exec does nothing, shadows the exported one: the activation fails
+# harmlessly and only the desktop entry's Exec runs. (Bazaar's separate
+# .SearchProvider service is untouched.)
+#
+# Usage: just flatpak
+- name: Flatpak + Flathub (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [flatpak]
+
+  tasks:
+    - name: Create ~/.config/environment.d
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config/environment.d"
+        state: directory
+        mode: "0755"
+
+    - name: Put Flatpak export dirs on XDG_DATA_DIRS for the session
+      ansible.builtin.template:
+        src: flatpak-env.conf.j2
+        dest: "{{ target_home }}/.config/environment.d/{{ flatpak_env_file }}"
+        mode: "0644"
+
+    - name: Create ~/.local/share/dbus-1/services
+      ansible.builtin.file:
+        path: "{{ target_home }}/.local/share/dbus-1/services"
+        state: directory
+        mode: "0755"
+
+    - name: Mask Bazaar's D-Bus activation (gtk-launch would open a second window)
+      ansible.builtin.copy:
+        content: |
+          [D-BUS Service]
+          Name={{ flatpak_bazaar_id }}
+          Exec=/usr/bin/true
+        dest: "{{ target_home }}/.local/share/dbus-1/services/{{ flatpak_bazaar_id }}.service"
+        mode: "0644"

@@ -1,0 +1,40 @@
+---
+# Flatpak support with the Flathub remote enabled — the cross-distro source
+# for this desktop's GUI apps (Firefox, ONLYOFFICE, Zathura,
+# Bitwarden, Kdenlive, OBS Studio, Pinta, Xournal++, Bazaar). Omarchy doesn't
+# include Flatpak by default, so installing an app from flathub.org needs
+# this first. The remote and apps are installed system-wide (available to
+# every user, not just the current one). Bazaar is installed here as the
+# Flathub app-store frontend.
+#
+# Per-user session wiring (XDG_DATA_DIRS and Bazaar's D-Bus mask) lives in
+# playbooks/user/flatpak.yml.
+#
+# Usage: just flatpak
+- name: Flatpak + Flathub + Bazaar
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [flatpak]
+
+  tasks:
+    - name: Install flatpak via pacman
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Add the Flathub remote (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Bazaar (app store) from Flathub system-wide
+      community.general.flatpak:
+        name: "{{ flatpak_bazaar_id }}"
+        state: present
+        method: system
+      become: true

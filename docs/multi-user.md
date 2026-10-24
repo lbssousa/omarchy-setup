@@ -9,7 +9,7 @@ someone, and what remains shared.
 | Piece | What it does |
 |---|---|
 | `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, a full name (shown on the login screen), an `admin` flag, a login shell, extra groups and `luks`. |
-| `users/<name>.yml` | That user's personal settings, such as the rclone account, PWAs, git identity, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
+| `users/<name>.yml` | That user's personal settings, such as the rclone account, Firefox Taskbar Tabs, git identity, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
 | `system.yml` (`just system`) | The machine-wide half of every automation: packages, `/etc`, PAM, SDDM, udev, signed plugin builds and the accounts. Run by an administrator, under `run-empowered.sh`. |
 | `user.yml` (`just user`, `omarchy-setup-user`) | The half that lives in each user's home and session. Run by each user, as themselves, inside their own Hyprland session. Nothing in it becomes root. |
 | [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the greeter, autologin, FIDO2, fingerprint, lock screen PAM and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |
@@ -101,7 +101,6 @@ notified only when one actually fails (log:
 | What | Why | Where |
 |---|---|---|
 | Packages, `/etc/locale.conf`, keyd, the printer queue, Plymouth, Limine | They belong to the machine | system phase |
-| The Brave PWA force-install policy | One policy per machine; it is the union of every user's list and applies to every profile | `system/brave-pwa-webapps.yml` |
 | Homebrew | One prefix with one owner (`homebrew_owner`); others can run what it installed | `system/homebrew.yml` |
 | The greeter's colors | Style › Unlock recolors the login screen for everyone, so only administrators see it in the menu | omarchy-multiuser |
 | The browsers' theme color policy | Omarchy writes it to `/etc` on every theme change, and its sudoers rule is `%wheel`. The last administrator to change theme wins; other users' theme changes leave it alone. | Omarchy |

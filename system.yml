@@ -45,9 +45,13 @@
   ansible.builtin.import_playbook: playbooks/system/pam-auth-order.yml
   tags: [pam-auth-order]
 
-- name: Brave Origin
-  ansible.builtin.import_playbook: playbooks/system/brave.yml
-  tags: [brave]
+- name: Flatpak + Flathub + Bazaar
+  ansible.builtin.import_playbook: playbooks/system/flatpak.yml
+  tags: [flatpak]
+
+- name: Firefox (Flatpak)
+  ansible.builtin.import_playbook: playbooks/system/firefox.yml
+  tags: [firefox]
 
 # The password manager: KeePassXC, its browser native messaging manifests,
 # autostart, Omarchy's "Passwords" keybind (SUPER+SHIFT+SLASH) and a udev

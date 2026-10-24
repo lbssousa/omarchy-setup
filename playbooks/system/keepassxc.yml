@@ -33,10 +33,10 @@
 # not a wrapper in the entry's Exec: KeePassXC rewrites the entry (Exec=
 # keepassxc) every time its settings are saved with autostart on.
 #
-# The native messaging host manifests are deployed by this playbook to
-# the Chromium and Brave Origin locations, pointing at the package's own
-# keepassxc-proxy; the user still needs to install the KeePassXC-Browser
-# extension in each browser and connect it.
+# The native messaging host manifests are deployed by user/keepassxc.yml to
+# the Firefox Flatpak's sandbox (with a Python relay to KeePassXC's browser
+# socket) and to the host Chromium location; the user still needs to install
+# the KeePassXC-Browser extension in each browser and connect it.
 #
 # A `Match exec` drop-in in ~/.ssh/config.d raises KeePassXC's unlock
 # prompt whenever ssh needs a key and the agent holds none, and waits for

@@ -3,9 +3,8 @@
 # Inkscape extension that exports SVG paths as TikZ/PGF code for LaTeX
 # documents. https://github.com/xyz2tex/svg2tikz
 #
-# svg2tikz has no official Arch package, so it's built from the AUR the
-# same unprivileged clone+makepkg+pacman -U pattern as
-# playbooks/system/blesh.yml: makepkg refuses to run as root, and its own
+# svg2tikz has no official Arch package, so it's built from the AUR with an
+# unprivileged clone+makepkg+pacman -U: makepkg refuses to run as root, and its own
 # sudo (for missing build deps) can't take an interactive password from
 # Ansible, so build deps are installed via pacman first and makepkg runs
 # with --nodeps.

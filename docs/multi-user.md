@@ -8,7 +8,7 @@ someone, and what remains shared.
 
 | Piece | What it does |
 |---|---|
-| `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, an `admin` flag, a login shell, extra groups and `luks`. |
+| `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, an `admin` flag, extra groups and `luks`. Everyone logs into fish. |
 | `~/.config/omarchy-setup/local.yml` | Untracked personal data: git identity, the rclone account and (administrator) the accounts' full names. Template: `users/local.example.yml`. |
 | `users/<name>.yml` | That user's personal settings, such as Firefox Taskbar Tabs, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
 | `system.yml` (`just system`) | The machine-wide half of every automation: packages, `/etc`, PAM, SDDM, udev, signed plugin builds and the accounts. Run by an administrator, under `run-empowered.sh`. |

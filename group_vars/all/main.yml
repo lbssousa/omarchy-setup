@@ -587,6 +587,10 @@ homebrew_bbrew_package: bbrew
 # header comment in playbooks/{system,user}/homebrew.yml.
 homebrew_env_file: 42-homebrew.conf
 
+# Every account's login shell (playbooks/system/{fish,users}.yml): fish is
+# mandatory, not a feature you can switch off.
+fish_login_shell: /usr/bin/fish
+
 # Podman rootless (playbooks/{system,user}/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.
 podman_subuid_start: 100000
@@ -754,8 +758,8 @@ nightlight_solar_oncalendar: "*-*-* 00:05:00"
 # Inkscape (playbooks/system/inkscape.yml) — official repo. svg2tikz (an
 # Inkscape extension exporting SVG paths as TikZ/PGF for LaTeX,
 # https://github.com/xyz2tex/svg2tikz) has no official Arch package, so
-# it's built from the AUR the same unprivileged clone+makepkg+pacman -U
-# pattern as playbooks/{system,user}/blesh.yml. xclip is an optional runtime
+# it's built from the AUR with an unprivileged clone+makepkg+pacman -U.
+# xclip is an optional runtime
 # dependency the extension uses for its "copy to clipboard" output mode.
 #
 # TeX Live's own fonts are registered with fontconfig by
@@ -791,25 +795,6 @@ inkscape_svg2tikz_runtime_deps:
 limine_silent_boot_conf: /boot/limine.conf
 limine_silent_boot_quiet: "yes"
 limine_silent_boot_timeout: "1"
-
-# ble.sh (playbooks/{system,user}/blesh.yml) — Bash Line Editor: fish-style
-# autosuggestions + syntax highlighting. Built from the AUR (unprivileged
-# clone+makepkg+pacman -U, same as inkscape_svg2tikz_*).
-# blesh-git (0.4.0-devel) rather than the stable `blesh` (0.3.4): 0.3.4
-# predates Bash 5.3 and prints "unsupported readline function" warnings
-# on every shell start against Omarchy's inputrc (menu-complete-backward,
-# emacs-editing-mode, vi-editing-mode); 0.4 loads cleanly.
-blesh_aur_package: blesh-git
-blesh_aur_git_url: "https://aur.archlinux.org/{{ blesh_aur_package }}.git"
-blesh_aur_build_dir: "{{ target_home }}/.cache/omarchy-setup/aur/{{ blesh_aur_package }}"
-blesh_aur_rpc_url: "https://aur.archlinux.org/rpc/v5/info?arg[]={{ blesh_aur_package }}"
-blesh_aur_build_deps:
-  - git
-  - make
-  - gawk
-blesh_script: /usr/share/blesh/ble.sh
-blesh_bashrc: "{{ target_home }}/.bashrc"
-blesh_blerc: "{{ target_home }}/.blerc"
 
 # Starship prompt inside distrobox (playbooks/{system,user}/containers.yml).
 starship_distrobox_config: "{{ target_home }}/.config/starship.toml"

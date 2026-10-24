@@ -49,8 +49,7 @@
 # behind `command -v`; the rest (g, d, t, ...) are shortcuts that only fail
 # when used without the tool.
 #
-# The ~/.bashrc block goes right before Omarchy's `source` line, the same
-# anchor playbooks/user/blesh.yml uses, so the two coexist in either order. The
+# The ~/.bashrc block goes right before Omarchy's `source` line. The
 # starship.toml `format` edit only matches Omarchy's stock line: if you
 # customized it, the playbook leaves it alone and warns, and you add
 # ${env_var.CONTAINER_ID} to it yourself.

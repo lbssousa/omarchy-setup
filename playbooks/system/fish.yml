@@ -1,40 +1,28 @@
 ---
-# Fish shell, system phase: fish, starship and fzf.fish's dependencies,
-# /usr/bin/fish as a valid login shell, and a warning about the
-# omarchy-fish package. The port itself (and the warnings when Omarchy's
-# bash setup moves away from it) is installed per user by user/fish.yml,
-# which explains it. Who logs into fish is declared per
-# account (omarchy_users[].shell, applied by system/users.yml).
-#
-# Usage: just fish
+# Fish shell, system phase: fish as a valid login shell and a warning
+# about the omarchy-fish package. Not a feature: it always runs, because
+# every account logs into fish (fish_login_shell, applied by
+# system/users.yml). starship and fzf.fish's dependencies (fzf, fd, bat)
+# already ship with Omarchy. The port itself (and the warnings when
+# Omarchy's bash setup moves away from it) is installed per user by
+# user/fish.yml, which explains it.
 - name: Fish shell (Starship prompt, default login shell)
   hosts: localhost
   connection: local
   gather_facts: false
-  tags: [fish, users]
+  tags: [always]
 
   tasks:
-    - name: Install fish (and starship, in case it is missing)
+    - name: Install fish
       community.general.pacman:
-        name:
-          - fish
-          - starship
+        name: fish
         state: present
       become: true
 
-    - name: Make sure /usr/bin/fish is a valid login shell
+    - name: Make sure {{ fish_login_shell }} is a valid login shell
       ansible.builtin.lineinfile:
         path: /etc/shells
-        line: /usr/bin/fish
-      become: true
-
-    - name: Install fzf.fish's dependencies (fzf, fd, bat)
-      community.general.pacman:
-        name:
-          - fzf
-          - fd
-          - bat
-        state: present
+        line: "{{ fish_login_shell }}"
       become: true
 
     # The omarchy-fish package is another port of the same defaults: its

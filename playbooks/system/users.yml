@@ -3,7 +3,7 @@
 # created when missing (home seeded from /etc/skel, which also marks every
 # Omarchy migration done), with their full name in GECOS — what the
 # multi-user greeter lists, from omarchy_user_full_names in the untracked
-# local.yml — their login shell, and their groups:
+# local.yml — fish as their login shell, and their groups:
 #
 #   admin: true   wheel (sudo, the system phase)
 #   admin: false  omarchy-users (their own FIDO2 key and fingerprints, through
@@ -39,9 +39,8 @@
           without ':' ',' or line breaks.
         quiet: true
 
-    - name: Check each login shell is listed in /etc/shells
-      ansible.builtin.command: grep -qx {{ item | quote }} /etc/shells
-      loop: "{{ omarchy_users | map(attribute='shell', default='/bin/bash') | unique }}"
+    - name: Check the login shell is listed in /etc/shells
+      ansible.builtin.command: grep -qx {{ fish_login_shell | quote }} /etc/shells
       changed_when: false
 
     - name: Read the existing accounts
@@ -62,7 +61,7 @@
       ansible.builtin.user:
         name: "{{ item.name }}"
         comment: "{{ omarchy_user_full_names[item.name] | default(omit) }}"
-        shell: "{{ item.shell | default('/bin/bash') }}"
+        shell: "{{ fish_login_shell }}"
         groups: "{{ ([('wheel' if item.admin | default(false) else 'omarchy-users')] + item.groups | default([])) }}"
         append: true
         create_home: true

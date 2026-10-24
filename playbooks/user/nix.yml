@@ -42,9 +42,9 @@
 # Hooked into both shells this desktop uses:
 #
 # - bash: a block in ~/.bashrc, after Omarchy's rc (so after starship's
-#   PROMPT_COMMAND) and before ble.sh's `ble-attach` block when that's
-#   there, which playbooks/user/blesh.yml wants last. Below the rc's
-#   non-interactive `return`, so scripts never run the hook.
+#   PROMPT_COMMAND). Below the rc's non-interactive `return`, so scripts
+#   never run the hook. fish is everyone's login shell; this is for a
+#   `bash` opened by hand.
 # - fish: fish's per-user vendor_conf.d (~/.local/share/fish), next to
 #   playbooks/user/fish.yml's port of Omarchy's setup, so ~/.config/fish stays
 #   yours (and a conf.d/direnv.fish of your own there wins).
@@ -66,7 +66,6 @@
         marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/nix.yml — direnv hook)"
         block: |
           command -v direnv &> /dev/null && eval "$(direnv hook bash)"
-        insertbefore: '^# BEGIN ANSIBLE MANAGED BLOCK \(playbooks/blesh\.yml — attach ble\.sh\)'
         create: true
         mode: "0644"
 

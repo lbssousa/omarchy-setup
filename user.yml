@@ -117,15 +117,11 @@
   ansible.builtin.import_playbook: playbooks/user/omaraptor-theme-auto.yml
   tags: [omaraptor-theme-auto]
 
-- name: ble.sh (Bash autosuggestions + syntax highlighting)
-  ansible.builtin.import_playbook: playbooks/user/blesh.yml
-  tags: [blesh]
-
-# Fish shell as the default login shell, with the same Starship prompt as
-# Omarchy (see playbooks/{system,user}/fish.yml).
+# Fish, every account's login shell, with the same Starship prompt as
+# Omarchy (see playbooks/{system,user}/fish.yml). Always runs.
 - name: Fish shell
   ansible.builtin.import_playbook: playbooks/user/fish.yml
-  tags: [fish]
+  tags: [always]
 
 # Starship prompt extras: Nix dev shell badge and unpushed/unpulled commits
 # (see playbooks/user/starship.yml).

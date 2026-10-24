@@ -46,15 +46,14 @@
 # Ghostty, Alacritty, Foot and Kitty all use when they have no explicit
 # `command`.
 #
-# The packages are in system/fish.yml; the login
-# shell itself comes from omarchy_users[].shell (system/users.yml).
-#
-# Usage: just fish
+# The package is in system/fish.yml; the login shell itself is set for
+# every account by system/users.yml (fish_login_shell). Not a feature:
+# it always runs.
 - name: Fish shell (Starship prompt, default login shell) (user)
   hosts: localhost
   connection: local
   gather_facts: true
-  tags: [fish]
+  tags: [always]
 
   vars:
     fish_starship_config: "{{ target_home }}/.config/starship.toml"
@@ -185,7 +184,7 @@
     - name: Remind about picking the new shell up
       ansible.builtin.debug:
         msg: >-
-          Fish's Omarchy setup is installed for you. It is your login shell
-          when omarchy_users gives you shell: /usr/bin/fish (`just users`);
-          open a new terminal (or log out and back in) after that. The Starship prompt reads ~/.config/starship.toml,
+          Fish's Omarchy setup is installed for you. fish is every
+          account's login shell (`just users` sets it); open a new terminal
+          (or log out and back in) after that. The Starship prompt reads ~/.config/starship.toml,
           the same one Omarchy uses.

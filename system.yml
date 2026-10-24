@@ -9,16 +9,16 @@
 #
 # Usage: just system   (./run-empowered.sh ansible-playbook system.yml)
 
-# Fish shell as the default login shell, with the same Starship prompt as
-# Omarchy (see playbooks/{system,user}/fish.yml). Runs before users.yml — and
-# shares the `users` tag — because omarchy_users sets shell: /usr/bin/fish,
-# which users.yml checks against /etc/shells.
+# Fish, every account's login shell, with the same Starship prompt as
+# Omarchy (see playbooks/{system,user}/fish.yml). Always runs, and before
+# users.yml, which checks fish_login_shell against /etc/shells.
 - name: Fish shell
   ansible.builtin.import_playbook: playbooks/system/fish.yml
-  tags: [fish, users]
+  tags: [always]
 
 # The accounts in omarchy_users (group_vars/all/users.yml): full names (the
-# greeter lists them; omarchy_user_full_names in the untracked local.yml), login shells, wheel or omarchy-users, subuid ranges.
+# greeter lists them; omarchy_user_full_names in the untracked local.yml), fish as login shell, wheel or
+# omarchy-users, subuid ranges.
 - name: User accounts
   ansible.builtin.import_playbook: playbooks/system/users.yml
   tags: [users]
@@ -134,10 +134,6 @@
 - name: Limine silent boot (quiet + 1s timeout)
   ansible.builtin.import_playbook: playbooks/system/limine-silent-boot.yml
   tags: [limine-silent-boot]
-
-- name: ble.sh (Bash autosuggestions + syntax highlighting)
-  ansible.builtin.import_playbook: playbooks/system/blesh.yml
-  tags: [blesh]
 
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml

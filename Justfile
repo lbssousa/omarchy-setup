@@ -326,15 +326,11 @@ omaraptor-theme-auto: _ensure-collections
 limine-silent-boot: _ensure-collections
     scripts/run-phase.sh system system.yml --tags limine-silent-boot
 
-# Install ble.sh (AUR blesh-git) and load it by default in Bash, with
-# autosuggestions + syntax highlighting.
-blesh: _ensure-collections
-    @just _both blesh
-
-# Install Fish shell and make it the default login shell, reusing
-# Omarchy's Starship prompt (~/.config/starship.toml).
+# Only the fish setup (every account's login shell, reusing Omarchy's
+# Starship prompt). It also runs with every other recipe: its plays are
+# tagged `always`.
 fish: _ensure-collections
-    @just _both fish
+    @just _both always
 
 # Record the versions of Omarchy's bash files that the fish port follows,
 # after reviewing a change the fish play warned about.

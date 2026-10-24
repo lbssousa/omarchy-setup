@@ -5,10 +5,11 @@
 #   admin      true: in wheel, can run the system phase and sudo; false: in
 #              omarchy-users, which omarchy-multiuser lets register their
 #              own FIDO2 key and fingerprints
-#   shell      login shell (must be in /etc/shells; system/fish.yml adds fish)
 #   groups     extra groups, on top of omarchy-users / wheel
 #   luks       true: `just users` offers to add a disk unlock password for
 #              them (omarchy-mu-luks-enroll); the disk prompt is shared
+#
+# Every account logs into fish (fish_login_shell, playbooks/system/fish.yml).
 #
 # Accounts are created and updated, never removed: remove one with
 # omarchy-mu-user-remove (Setup > Users in the Omarchy menu). New accounts
@@ -23,28 +24,20 @@
 omarchy_users:
   - name: abutre
     admin: true
-    shell: /usr/bin/fish
   - name: surubi
     admin: false
-    shell: /usr/bin/fish
   - name: coruja
     admin: false
-    shell: /usr/bin/fish
   - name: camelo
     admin: false
-    shell: /usr/bin/fish
   - name: cavalo
     admin: false
-    shell: /usr/bin/fish
   - name: macaco
     admin: false
-    shell: /usr/bin/fish
   - name: gorila
     admin: false
-    shell: /usr/bin/fish
   - name: coelho
     admin: false
-    shell: /usr/bin/fish
 
 # login → full name; filled in by the untracked local.yml.
 omarchy_user_full_names: {}

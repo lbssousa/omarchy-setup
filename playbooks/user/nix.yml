@@ -6,7 +6,7 @@
 # daemon and the direnv package are machine-wide, in system/nix.yml, which
 # explains them.
 #
-# Usage: just nix
+# Usage: just apply nix
 - name: Nix (session environment)
   hosts: localhost
   connection: local
@@ -53,7 +53,7 @@
 # Both hooks are guarded by `command -v`/`command -q`, so uninstalling
 # direnv leaves the shells working.
 #
-# Usage: just direnv
+# Usage: just apply direnv
 - name: direnv (bash + fish hooks)
   hosts: localhost
   connection: local
@@ -103,7 +103,7 @@
 #
 # Needs both plays above, which the file's `nix` tag runs first.
 #
-# Usage: just nix (also runs this play)
+# Usage: just apply nix (also runs this play)
 - name: nix-direnv (cached `use flake` for direnv)
   hosts: localhost
   connection: local

@@ -4,7 +4,7 @@
 # The portal routing and every config file are per user, in
 # user/file-chooser.yml, which explains the whole setup.
 #
-# Usage: just file-chooser
+# Usage: just apply file-chooser
 - name: Flea file chooser dialogs for non-GNOME apps
   hosts: localhost
   connection: local

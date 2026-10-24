@@ -38,7 +38,7 @@
 # The locale and the packages are machine-wide (here); the folders, the
 # browsers' language and OMARCHY_OCR_LANGS are per user (user/ptbr.yml).
 #
-# Usage: just ptbr
+# Usage: just apply ptbr-locale ptbr-xdg-user-dirs ptbr-browsers ptbr-man-pages ptbr-ocr
 - name: pt-BR localization
   hosts: localhost
   connection: local
@@ -155,12 +155,14 @@
           become: true
           when: firefox_check.rc == 0
 
-        - name: Note that Firefox wasn't found (no action taken)
-          ansible.builtin.debug:
-            msg: >-
-              Firefox (Flathub) not found — policies.json untouched. Run
-              `just firefox` first.
-          when: firefox_check.rc != 0
+      tags: [ptbr-browsers]
+
+    # The native build ships English only; Flathub's bundles every locale.
+    - name: "Firefox (native): {{ 'install' if 'firefox' in apps.browser.installed else 'remove' }} the pt-BR language pack"
+      community.general.pacman:
+        name: "{{ ptbr_firefox_langpack }}"
+        state: "{{ 'present' if 'firefox' in apps.browser.installed else 'absent' }}"
+      become: true
       tags: [ptbr-browsers]
 
     - name: pt-BR man pages

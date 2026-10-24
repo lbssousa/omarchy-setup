@@ -36,7 +36,7 @@
           "{{ printer_l4160_hostname }}" didn't answer via mDNS
           (`getent hosts` found nothing) — skipping the print queue
           setup. Check the L4160 is powered on and connected to
-          Wi-Fi, then rerun (`just printer`). If the hostname changed,
+          Wi-Fi, then rerun (`just apply printer`). If the hostname changed,
           update printer_l4160_hostname in group_vars/all/main.yml.
       when: printer_l4160_resolve.rc != 0
 

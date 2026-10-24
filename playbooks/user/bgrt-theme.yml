@@ -4,7 +4,7 @@
 # explains it) into ~/.config/omarchy/themes, where Style > Theme lists it.
 # Skipped until an administrator has built it.
 #
-# Usage: just bgrt-theme
+# Usage: just apply bgrt-theme
 - name: BGRT-derived Omarchy theme (user)
   hosts: localhost
   connection: local
@@ -29,5 +29,5 @@
       ansible.builtin.debug:
         msg: >-
           {{ bgrt_shared_theme_dir }} doesn't exist yet. An administrator
-          builds it with `just bgrt-theme`.
+          builds it with `just apply bgrt-theme`.
       when: not bgrt_shared_theme.stat.exists

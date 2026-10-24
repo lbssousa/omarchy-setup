@@ -23,7 +23,7 @@
 #
 # and runs each once. SDDM itself is handled by system/sddm.yml.
 #
-# Usage: just omarchy-multiuser
+# Usage: just apply omarchy-multiuser
 - name: omarchy-multiuser (multi-user forks of Omarchy's tools)
   hosts: localhost
   connection: local

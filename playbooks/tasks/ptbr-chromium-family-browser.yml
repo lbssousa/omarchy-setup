@@ -78,8 +78,7 @@
       {{ browser_config_dir }} is running (profile at
       {{ browser_profile_base }}) — editing Preferences now would be
       overwritten on exit. Close all its windows (including
-      omarchy-launch-webapp web apps) and rerun `just ptbr` (or
-      `just ptbr --tags ptbr-chromium`).
+      omarchy-launch-webapp web apps) and rerun `just apply ptbr-browsers`.
   when:
     - browser_prefs_stat.stat.exists
     - browser_lock_stat.stat.exists

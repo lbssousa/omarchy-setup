@@ -1,7 +1,7 @@
 ---
 # Secure Boot (Limine + sbctl) — not part of site.yml/`just setup`,
 # deliberately: touches firmware/boot, so it only runs when called
-# explicitly (`just secureboot`).
+# explicitly (`just apply secureboot`).
 #
 # Limine's own limine-entry-tool already re-signs its binary
 # automatically whenever sbctl has keys configured (enroll_config()

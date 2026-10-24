@@ -27,7 +27,7 @@
 # during which touching the key does nothing. A failed or timed-out
 # fingerprint falls through to the key, then to the password.
 #
-# Usage: just pam-auth-order
+# Usage: just apply pam-auth-order
 - name: PAM auth order (fingerprint, then FIDO2/U2F, then password)
   hosts: localhost
   connection: local

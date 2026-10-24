@@ -42,7 +42,7 @@
 # Here (system phase): the subvolume, the package, nix.conf and the daemon.
 # Each user's session environment and nix-direnv are in user/nix.yml.
 #
-# Usage: just nix
+# Usage: just apply nix
 - name: Nix (multi-user, store on its own btrfs subvolume)
   hosts: localhost
   connection: local
@@ -206,7 +206,7 @@
 # direnv, system phase: the package. Its hooks are per user
 # (user/nix.yml, which explains them).
 #
-# Usage: just direnv
+# Usage: just apply direnv
 - name: direnv (bash + fish hooks)
   hosts: localhost
   connection: local

@@ -6,7 +6,7 @@
 # OMARCHY_OCR_LANGS for omarchy-capture-text. The locale, man pages and OCR
 # data are machine-wide, in system/ptbr.yml, which describes each area.
 #
-# Usage: just ptbr
+# Usage: just apply ptbr-locale ptbr-xdg-user-dirs ptbr-browsers ptbr-man-pages ptbr-ocr
 - name: pt-BR localization (user)
   hosts: localhost
   connection: local

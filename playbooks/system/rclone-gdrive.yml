@@ -3,7 +3,7 @@
 # OAuth token and mount units are per user, in user/rclone-gdrive.yml, which
 # explains them.
 #
-# Usage: just rclone-gdrive
+# Usage: just apply rclone-gdrive
 - name: rclone — Google Drive mounts
   hosts: localhost
   connection: local

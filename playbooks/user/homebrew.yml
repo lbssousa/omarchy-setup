@@ -4,7 +4,7 @@
 # system/homebrew.yml, owned by homebrew_owner; other users can run what it
 # installed but not install formulae.
 #
-# Usage: just homebrew
+# Usage: just apply homebrew
 - name: Homebrew (session PATH)
   hosts: localhost
   connection: local

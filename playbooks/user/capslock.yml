@@ -7,7 +7,7 @@
 # in the system phase, keyd). The layout-switch option Omarchy adds for
 # non-Latin layouts (grp:alts_toggle) is kept.
 #
-# Usage: just capslock
+# Usage: just apply capslock
 - name: Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock) (user)
   hosts: localhost
   connection: local

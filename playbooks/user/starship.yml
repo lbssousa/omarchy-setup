@@ -22,7 +22,7 @@
 # Open a new shell to pick it up (starship rereads the file on every prompt,
 # so already-open shells update too).
 #
-# Usage: just starship
+# Usage: just apply starship
 - name: Starship prompt extras (Nix dev shell badge, unpushed commits)
   hosts: localhost
   connection: local

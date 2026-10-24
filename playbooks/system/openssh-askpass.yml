@@ -28,7 +28,7 @@
 # - Nothing happens while the installed package already carries the
 #   suffix.
 #
-# Usage: just openssh-askpass
+# Usage: just apply openssh-askpass
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   hosts: localhost
   connection: local

@@ -2,7 +2,7 @@
 # Yubikey GPG public key — imports it, assigns ultimate trust, and
 # configures git to sign commits/tags with it. Not part of
 # site.yml/`just setup`: depends on the physical token being connected,
-# so it runs on its own (`just gpg-yubikey`).
+# so it runs on its own (`just apply gpg-yubikey`).
 #
 # Imports via `gpg --card-edit fetch`, which reads the URL stored on the
 # card's OpenPGP applet and pulls the public key from there — no
@@ -15,7 +15,7 @@
 #
 # Never uses `become: true` for GPG or git tasks — the keyring and
 # ~/.gitconfig are personal user data. gnupg itself ships with Omarchy.
-# Usage: just gpg-yubikey
+# Usage: just apply gpg-yubikey
 - name: Yubikey GPG public key — import, trust, sign in git (user)
   hosts: localhost
   connection: local

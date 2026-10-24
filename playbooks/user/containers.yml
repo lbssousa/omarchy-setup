@@ -3,7 +3,7 @@
 # prompt inside distrobox. Podman, Distrobox and the subuid/subgid ranges are
 # installed by system/containers.yml.
 #
-# Usage: just podman | just distrobox | just starship-distrobox
+# Usage: just apply podman | just apply distrobox | just apply starship-distrobox
 - name: Podman (rootless check)
   hosts: localhost
   connection: local
@@ -57,7 +57,7 @@
 # The container's name is available right away in new shells; nothing to
 # reload inside the containers.
 #
-# Usage: just starship-distrobox
+# Usage: just apply starship-distrobox
 - name: Starship prompt inside distrobox (container name + Omarchy rc)
   hosts: localhost
   connection: local

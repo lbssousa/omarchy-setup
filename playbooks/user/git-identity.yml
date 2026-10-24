@@ -4,7 +4,7 @@
 # from the owner's answers (install/user/git.sh); other users get theirs
 # here. Left alone when the variables aren't set.
 #
-# Usage: just git-identity
+# Usage: just apply git-identity
 - name: git identity
   hosts: localhost
   connection: local

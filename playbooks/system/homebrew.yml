@@ -15,13 +15,13 @@
 # bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
 #
 # Not imported by site.yml: Homebrew is only needed by whatever you
-# `brew install` yourself, so it is not part of `just setup` — run it explicitly with `just homebrew`.
+# `brew install` yourself, so it is not part of `just setup` — run it explicitly with `just apply homebrew`.
 #
 # One owner per machine (homebrew_owner, an administrator): the prefix is
 # theirs and only they `brew install`. user/homebrew.yml puts its binaries
 # on every user's PATH (they can run them, not change them).
 #
-# Usage: just homebrew
+# Usage: just apply homebrew
 - name: Homebrew
   hosts: localhost
   connection: local

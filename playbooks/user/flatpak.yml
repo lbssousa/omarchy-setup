@@ -19,7 +19,7 @@
 # harmlessly and only the desktop entry's Exec runs. (Bazaar's separate
 # .SearchProvider service is untouched.)
 #
-# Usage: just flatpak
+# Usage: just apply flatpak
 - name: Flatpak + Flathub (user)
   hosts: localhost
   connection: local

@@ -504,6 +504,8 @@ ptbr_chromium_family_config_dirs:
   - .config/vivaldi
 
 ptbr_man_pages_package: man-pages-pt_br
+# The native Firefox's language pack (the Flathub build bundles every locale).
+ptbr_firefox_langpack: firefox-i18n-pt-br
 
 # OCR languages for omarchy-capture-text (tesseract "+" syntax).
 ptbr_tesseract_data_package: tesseract-data-por
@@ -775,7 +777,7 @@ nix_direnv_rc: "{{ nix_user_profile }}/share/nix-direnv/direnvrc"
 direnv_rc: "{{ target_xdg_config_home }}/direnv/direnvrc"
 
 # Omarchy shell plugins (playbooks/{system,user}/plugins.yml) — this desktop's list of
-# third-party plugins, applied by `just plugins`. Append one entry per plugin;
+# third-party plugins, applied by `just apply plugins`. Append one entry per plugin;
 # the play installs the whole list, so the list is the only place to edit.
 #
 # Plugins are arbitrary unsandboxed QML running inside the long-lived

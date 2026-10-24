@@ -5,7 +5,7 @@
 # Without it, apps can fall back to other discovered queues. Skipped while
 # the queue doesn't exist (the system phase skips it when the printer is off).
 #
-# Usage: just printer
+# Usage: just apply printer
 - name: EPSON L4160 printer (user default)
   hosts: localhost
   connection: local

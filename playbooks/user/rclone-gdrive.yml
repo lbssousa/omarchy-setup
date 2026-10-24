@@ -13,7 +13,7 @@
 # The Google API OAuth client_id/client_secret are not in this repo: you
 # supply them through the environment
 #
-#   RCLONE_GDRIVE_CLIENT_ID=... RCLONE_GDRIVE_CLIENT_SECRET=... just rclone-gdrive
+#   RCLONE_GDRIVE_CLIENT_ID=... RCLONE_GDRIVE_CLIENT_SECRET=... just apply rclone-gdrive
 #
 # or -e rclone_gdrive_client_id=... -e rclone_gdrive_client_secret=...
 # When omitted they are reused from the existing ~/.config/rclone/rclone.conf
@@ -30,12 +30,12 @@
 # only fail); re-run this play after the login to start them.
 #
 # Tag "never": needs the OAuth credentials, so it only runs on request
-# (`just rclone-gdrive`). No root needed except for the pacman packages
+# (`just apply rclone-gdrive`). No root needed except for the pacman packages
 # (rclone, fuse3).
 #
 # rclone and fuse3 are installed by system/rclone-gdrive.yml.
 #
-# Usage: just rclone-gdrive
+# Usage: just apply rclone-gdrive
 - name: rclone — Google Drive mounts (user)
   hosts: localhost
   connection: local
@@ -163,5 +163,5 @@
         msg: >-
           No OAuth token yet: run `rclone config reconnect "{{ rclone_gdrive_remote }}:"`
           (opens the browser; log in as {{ rclone_gdrive_email }}), then re-run
-          `just rclone-gdrive` to start the mounts.
+          `just apply rclone-gdrive` to start the mounts.
       when: rclone_gdrive_token | length == 0

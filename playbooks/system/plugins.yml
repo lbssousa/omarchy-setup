@@ -9,11 +9,11 @@
 #                 /usr/share
 #
 # The release signing key only needs to be in the keyring of the
-# administrator running this (`just gpg-yubikey`). Linking and enabling the
+# administrator running this (`just apply gpg-yubikey`). Linking and enabling the
 # plugins in each user's shell, and their per-user configuration, happen in
 # user/plugins.yml, which explains the plugin list.
 #
-# Usage: just plugins (or just pinentry / ssh-askpass / polkit-agent)
+# Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent)
 - name: Omarchy shell plugins (omarchy_plugins runtime dependencies)
   hosts: localhost
   connection: local
@@ -80,7 +80,7 @@
 #   annotated tag.
 # - gpg_allowlist pins the signer.
 # The releases are signed with the Yubikey's OpenPGP key, which
-# playbooks/system/yubikey.yml imports (`just gpg-yubikey`). main itself only
+# playbooks/user/yubikey.yml imports (`just apply gpg-yubikey`). main itself only
 # holds squash merges signed by GitHub's key, so it isn't deployable.
 #
 # The plugin is a keepLoaded service, and those survive the shell's plugin
@@ -94,7 +94,7 @@
 # is then disabled (the shell drops its shell.json entry even with the
 # plugin's files gone) and its dangling link removed.
 #
-# Usage: just pinentry
+# Usage: just apply pinentry
 - name: omapin (GnuPG prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local
@@ -179,7 +179,7 @@
 # links the shell plugin, enables it via omarchy-shell IPC,
 # and configures SSH to use it.
 #
-# Usage: just ssh-askpass
+# Usage: just apply ssh-askpass
 - name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local

@@ -6,7 +6,7 @@
 # interface to a backend. Omarchy ships xdg-desktop-portal-gtk, whose
 # dialog is GTK3, and Hyprland's own portal has no file chooser at all
 # (hyprland-portals.conf: default=hyprland;gtk). Flea
-# (playbooks/user/file-manager.yml, which site.yml runs first under this tag)
+# (apps: file_manager, which this feature requires installed)
 # ships its own FileChooser backend (flea.portal), named explicitly for
 # FileChooser in a per-desktop portals.conf, with gtk behind it in case
 # Flea is missing. Everything else (screencast, screenshot, ...) stays as

@@ -6,14 +6,14 @@
 #   Starship prompt     tag: starship-distrobox  (user/containers.yml)
 #
 # Distrobox needs Podman, so the Podman play also carries the `distrobox`
-# tag: `--tags distrobox` (or `just distrobox`) installs Podman first,
+# tag: `--tags distrobox` (or `just apply distrobox`) installs Podman first,
 # instead of failing on a missing engine. `--tags podman` runs just the
 # engine, and `--tags containers` all three.
 #
 # Here the packages and every user's subuid/subgid range (system phase);
 # the rootless check and the prompt are per user, in user/containers.yml.
 #
-# Usage: just podman | just distrobox
+# Usage: just apply podman | just apply distrobox
 
 # Podman, configured for rootless use — the container engine used by
 # the Distrobox play below, but usable on its own too. The Arch package

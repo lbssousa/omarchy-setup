@@ -3,7 +3,7 @@
 # installs before rustup (bindgen loads libclang). Each user's rustup and
 # build happen in user/gregorio-lsp.yml.
 #
-# Usage: just gregorio-lsp
+# Usage: just apply gregorio-lsp
 - name: gregorio-lsp (clang for rustup builds)
   hosts: localhost
   connection: local

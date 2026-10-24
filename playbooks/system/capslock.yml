@@ -26,7 +26,7 @@
 # off Caps Lock, and every user needs it (`just user`), or keyd swallows
 # their Compose key.
 #
-# Usage: just capslock
+# Usage: just apply capslock
 - name: Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)
   hosts: localhost
   connection: local

@@ -7,7 +7,7 @@
 #
 # hyprsunset and jq (night light) ship with Omarchy.
 #
-# Usage: just hypr-scrolling-resize | just text-size | just nightlight-solar
+# Usage: just apply hypr-scrolling-resize | just apply text-size | just apply nightlight-solar
 
 # Hyprland's "scrolling" layout has its own resize dispatcher,
 # hl.dsp.layout("colresize <±fraction>") — the generic window-resize

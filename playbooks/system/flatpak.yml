@@ -10,7 +10,7 @@
 # Per-user session wiring (XDG_DATA_DIRS and Bazaar's D-Bus mask) lives in
 # playbooks/user/flatpak.yml.
 #
-# Usage: just flatpak
+# Usage: just apply flatpak
 - name: Flatpak + Flathub + Bazaar
   hosts: localhost
   connection: local

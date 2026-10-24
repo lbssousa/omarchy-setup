@@ -13,7 +13,7 @@
 # sddm is never restarted from here (it would end every open session): the
 # greeter takes over at the next login screen.
 #
-# Usage: just sddm (also part of `just omarchy-multiuser`)
+# Usage: just apply omarchy-multiuser (this is part of that feature)
 - name: SDDM — multi-user greeter, no autologin
   hosts: localhost
   connection: local

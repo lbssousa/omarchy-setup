@@ -51,7 +51,7 @@
 # (tasks/plugin-code-stamp.yml) tells this phase when new plugin code needs
 # a shell restart.
 #
-# Usage: just plugins
+# Usage: just apply plugins
 - name: Omarchy shell plugins (omarchy_plugins) (user)
   hosts: localhost
   connection: local

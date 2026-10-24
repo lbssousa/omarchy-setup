@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Bitwarden
+GenericName=Password Manager
+Comment=A secure and free password manager for all of your devices.
+Exec=flatpak run {{ bitwarden_flatpak_id }}
+Icon={{ bitwarden_flatpak_id }}
+StartupWMClass=bitwarden
+StartupNotify=false
+Terminal=false
+Type=Application
+Categories=System;Security;
+X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=2

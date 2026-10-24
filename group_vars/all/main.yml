@@ -169,6 +169,40 @@ flathub_app_migrations:
     native_packages:
       - xournalpp
 
+# Bitwarden (playbooks/{system,user}/bitwarden.yml) — installed from Flathub,
+# the build Bitwarden recommends on Linux for biometric unlock and automatic
+# updates (https://bitwarden.com/help/biometrics/). system.yml installs the
+# Flatpak and the biometric-unlock polkit action alongside KeePassXC (which
+# stays the session's default password manager in user.yml); running
+# `just bitwarden` also runs playbooks/user/bitwarden.yml to hand Bitwarden
+# autostart, SSH_AUTH_SOCK and SUPER+SHIFT+SLASH.
+bitwarden_flatpak_id: com.bitwarden.desktop
+bitwarden_native_packages:
+  - bitwarden
+  - bitwarden-bin
+# The polkit action Bitwarden's biometric unlock needs before it even offers
+# the option — the "Flatpak-Specific Configuration" section of
+# https://bitwarden.com/help/biometrics/ drops this exact file
+# (playbooks/files/com.bitwarden.Bitwarden.policy) at this exact path.
+bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarden.policy
+bitwarden_ssh_agent_units:
+  - bitwarden-ssh-agent.socket
+  - bitwarden-ssh-agent.path
+  - bitwarden-ssh-agent-env.service
+# Socket activation (playbooks/user/bitwarden.yml's header): the
+# ExecStartPre of bitwarden-ssh-agent-proxy.service that launches Bitwarden
+# when its agent doesn't answer, how long it waits for the agent (seconds —
+# long enough to unlock the vault), and how long the proxy idles before
+# exiting so the next client re-checks.
+bitwarden_ssh_agent_launcher: "{{ target_home }}/.local/bin/bitwarden-ssh-agent-launch"
+bitwarden_ssh_agent_launch_timeout: 120
+bitwarden_ssh_agent_proxy_idle: 60s
+bitwarden_hypr_keybind: "SUPER + SHIFT + SLASH"
+bitwarden_autostart_desktop: "{{ target_home }}/.config/autostart/com.bitwarden.desktop.desktop"
+gcr_ssh_agent_units:
+  - gcr-ssh-agent.socket
+  - gcr-ssh-agent.service
+
 # Emacs + AUCTeX (playbooks/{system,user}/emacs.yml). omarchy-emacs is the AUR package
 # Omarchy's own installer uses (omarchy-install-editor-emacs); it pulls in
 # emacs-wayland and syncs the Omarchy theme and font.

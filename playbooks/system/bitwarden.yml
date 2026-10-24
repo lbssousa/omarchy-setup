@@ -1,0 +1,69 @@
+---
+# Bitwarden desktop client — installed from Flathub. Bitwarden's own docs
+# recommend Flatpak (or Snap) over the native package for Linux: both
+# "fully support biometric unlock and automatic updates"
+# (https://bitwarden.com/help/biometrics/).
+#
+# Imported by system.yml so the Flatpak and the polkit action biometric
+# unlock needs are installed alongside KeePassXC (which stays the default
+# password manager in user.yml). Running `just bitwarden` also runs
+# playbooks/user/bitwarden.yml, which wires SSH_AUTH_SOCK to Bitwarden's
+# sandboxed SSH agent socket (through a socket-activated proxy that
+# launches Bitwarden on first use), deploys its XDG autostart entry and rebinds
+# SUPER+SHIFT+SLASH to Bitwarden.
+#
+# Bootstraps Flatpak + the Flathub remote itself (system-wide), same as
+# playbooks/system/firefox.yml, so `just bitwarden` works standalone.
+#
+# Usage: just bitwarden
+- name: Bitwarden (Flatpak) + polkit (biometric unlock)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [bitwarden]
+
+  tasks:
+    - name: Ensure Flatpak is installed
+      community.general.pacman:
+        name: "{{ flatpak_package }}"
+        state: present
+      become: true
+
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Bitwarden from Flathub
+      community.general.flatpak:
+        name: "{{ bitwarden_flatpak_id }}"
+        state: present
+        method: system
+      become: true
+
+    - name: Remove any native Bitwarden desktop package
+      community.general.pacman:
+        name: "{{ bitwarden_native_packages }}"
+        state: absent
+      become: true
+
+    - name: Install the Bitwarden polkit action (biometric unlock)
+      ansible.builtin.copy:
+        src: com.bitwarden.Bitwarden.policy
+        dest: "{{ bitwarden_polkit_action_dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+      notify: restart polkit
+
+  handlers:
+    - name: restart polkit
+      ansible.builtin.systemd:
+        name: polkit
+        state: restarted
+      become: true
+      listen: restart polkit

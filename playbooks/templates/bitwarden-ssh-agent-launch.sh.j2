@@ -1,0 +1,35 @@
+#!/bin/bash
+# Managed by playbooks/user/bitwarden.yml — ExecStartPre of
+# bitwarden-ssh-agent-proxy.service. Makes sure Bitwarden's own SSH agent
+# socket answers before the proxy starts forwarding to it: if it doesn't,
+# launches Bitwarden (or, if it's already running, raises its window —
+# Electron's single-instance lock — so a locked vault can be unlocked) and
+# waits for the agent to come up.
+#
+# Always exits 0: if the agent never comes up (SSH agent disabled in
+# Bitwarden's settings, say), the proxy still starts, fails each queued
+# connection cleanly and exits idle, instead of leaving the clients hanging
+# and the socket re-triggering this unit in a loop.
+
+sock="$HOME/.var/app/{{ bitwarden_flatpak_id }}/data/.bitwarden-ssh-agent.sock"
+timeout={{ bitwarden_ssh_agent_launch_timeout }}
+
+# A connect, not just `-S`: a crashed Bitwarden leaves a dead socket file.
+listening() {
+  python3 -I -c 'import socket, sys; socket.socket(socket.AF_UNIX).connect(sys.argv[1])' "$sock" 2>/dev/null
+}
+
+listening && exit 0
+
+# In its own unit, outside this service's cgroup, so Bitwarden outlives the
+# proxy when it exits idle.
+systemd-run --user --collect --quiet --slice=app-graphical.slice -- \
+  flatpak run {{ bitwarden_flatpak_id }}
+
+for ((i = 0; i < timeout; i++)); do
+  listening && exit 0
+  sleep 1
+done
+
+echo "Bitwarden's SSH agent didn't answer at $sock within ${timeout}s (is it enabled in Bitwarden's settings?)" >&2
+exit 0

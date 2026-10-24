@@ -61,6 +61,10 @@
   ansible.builtin.import_playbook: playbooks/system/keepassxc.yml
   tags: [keepassxc]
 
+- name: Bitwarden (Flatpak + biometric unlock policy)
+  ansible.builtin.import_playbook: playbooks/system/bitwarden.yml
+  tags: [bitwarden]
+
 - name: ONLYOFFICE Desktop Editors (Flatpak)
   ansible.builtin.import_playbook: playbooks/system/onlyoffice.yml
   tags: [onlyoffice]

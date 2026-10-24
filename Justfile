@@ -258,6 +258,14 @@ keepassxc: _ensure-collections
 rclone-gdrive: _ensure-collections
     @just _both-playbook rclone-gdrive
 
+# Install Bitwarden from Flathub (com.bitwarden.desktop) and its biometric
+# unlock polkit action (also part of `just system`); in the user phase, also
+# wire its SSH agent to SSH_AUTH_SOCK (socket-activated: the first SSH client
+# launches Bitwarden), deploy its autostart entry and rebind
+# SUPER+SHIFT+SLASH to Bitwarden.
+bitwarden: _ensure-collections
+    @just _both-playbook bitwarden
+
 # Run the Proton Pass playbook: desktop client (AUR proton-pass-bin) + CLI
 # (Homebrew). Optional password manager alternative to KeePassXC, not part
 # of `just setup`; takes over SUPER+SHIFT+SLASH.

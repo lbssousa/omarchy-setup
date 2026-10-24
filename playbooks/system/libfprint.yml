@@ -110,15 +110,11 @@
             - restart fprintd
 
         - name: Install the fprintd desync watchdog script
-          # Two independent detectors: the goodix538d driver desyncing
-          # its protocol with the sensor's MCU after a verify cancel
-          # (leaves fprintd stuck failing every verify instantly), and
-          # the Omarchy lock screen's fingerprint retry loop hammering
-          # fprintd with no backoff for as long as the screen stays
-          # locked (upstream omacom/omarchy#7176, #7172 — open,
-          # unfixed as of Omarchy 4.0.1). Both get the same fix:
-          # restart fprintd the moment the signature shows up, instead
-          # of waiting for a manual restart.
+          # The goodix538d driver can desync its protocol with the
+          # sensor's MCU after a verify cancel, leaving fprintd failing
+          # every verify instantly: restart it the moment that shows up.
+          # The lock screen's retry storm it used to catch too is handled
+          # by Omarchy 4.5 (backoff + fprintd-resume sleep hook).
           ansible.builtin.copy:
             src: fprintd-desync-watchdog.sh
             dest: /usr/local/bin/fprintd-desync-watchdog

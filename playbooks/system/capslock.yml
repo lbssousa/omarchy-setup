@@ -3,11 +3,12 @@
 # Shift+Caps Lock = literal Caps Lock. Works the same in TTY and
 # Wayland, unlike setxkbmap/GNOME "Input Sources".
 #
-# Omarchy defaults to `compose:caps` (Caps Lock doubles as the Compose
-# key), which silently blocks any keyd remap from producing a real Caps
-# Lock toggle — the XKB layer intercepts the keycode first, regardless of
-# which device sent it. This playbook moves Compose to another key
-# first. It must be a non-hardware-modifier key: Ctrl/Alt/Win stay wired
+# Omarchy 4.5 makes Shift+Caps Lock the Compose key
+# (`omarchy:shift_caps_compose`, defined in /etc/xkb). keyd's
+# Shift+CapsLock = CapsLock reaches XKB as exactly that chord, so it would
+# type Compose instead of toggling Caps Lock — the XKB layer acts on the
+# keycode regardless of which device sent it. user/capslock.yml therefore
+# moves Compose to another key. It must be a non-hardware-modifier key: Ctrl/Alt/Win stay wired
 # into XKB's modifier_map by keycode regardless of their assigned
 # symbol, so they'd keep acting as both the modifier and Compose at
 # once. The Menu key works cleanly and is already the natural Compose

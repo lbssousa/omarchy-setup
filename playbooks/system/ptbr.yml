@@ -3,7 +3,11 @@
 # sub-tag to run or skip on its own):
 #
 #   - locale + LANG/LANGUAGE (ptbr-locale): enables pt_BR.UTF-8 without
-#     removing other locales, and sets LANG/LANGUAGE in /etc/locale.conf.
+#     removing other locales, and sets LANG/LANGUAGE in /etc/locale.conf
+#     for TTYs and system services. The graphical session takes its LANG
+#     from Omarchy's own setting instead, which user/ptbr.yml sets with
+#     `omarchy-language pt-BR`; LANGUAGE (the gettext fallback chain)
+#     Omarchy doesn't set, so /etc/locale.conf's still applies.
 #   - xdg-user-dirs (ptbr-xdg-user-dirs): renames personal folders
 #     (~/Downloads, etc.) to their pt-BR translations, and creates the
 #     mapped folders that never existed yet — typically the ones
@@ -165,18 +169,11 @@
         state: present
       become: true
       tags: [ptbr-man-pages]
-    - name: "OCR (omarchy-capture-text) — pt-BR tesseract data"
-      block:
-        - name: Check whether tesseract is installed
-          ansible.builtin.command: pacman -Q tesseract
-          register: tesseract_check
-          changed_when: false
-          failed_when: false
-
-        - name: Install Portuguese OCR data (tesseract-data-por)
-          community.general.pacman:
-            name: "{{ ptbr_tesseract_data_package }}"
-            state: present
-          become: true
-          when: tesseract_check.rc == 0
+    # tesseract ships with Omarchy (omarchy-capture-text); only its English
+    # data does.
+    - name: "OCR (omarchy-capture-text) — Portuguese tesseract data"
+      community.general.pacman:
+        name: "{{ ptbr_tesseract_data_package }}"
+        state: present
+      become: true
       tags: [ptbr-ocr]

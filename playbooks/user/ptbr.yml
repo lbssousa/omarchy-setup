@@ -1,5 +1,7 @@
 ---
-# pt-BR localization, per user: personal folders (xdg-user-dirs) renamed to
+# pt-BR localization, per user: Omarchy's own language setting
+# (omarchy-language pt-BR: the session's LANG and Omarchy's menus, shell and
+# notifications in Portuguese), personal folders (xdg-user-dirs) renamed to
 # their pt-BR names, the Chromium-family browsers' page language, and
 # OMARCHY_OCR_LANGS for omarchy-capture-text. The locale, man pages and OCR
 # data are machine-wide, in system/ptbr.yml, which describes each area.
@@ -11,6 +13,21 @@
   gather_facts: true
 
   tasks:
+    # Omarchy 4.5's Setup > Language: writes ~/.config/omarchy/language and
+    # LANG to ~/.config/uwsm/env.d/50-omarchy-language (which wins over
+    # /etc/locale.conf for the session) and generates the locale if needed.
+    - name: Omarchy language (omarchy-language {{ ptbr_omarchy_language }})
+      block:
+        - name: Read the current Omarchy language
+          ansible.builtin.command: omarchy-language
+          register: ptbr_omarchy_language_current
+          changed_when: false
+
+        - name: "Switch Omarchy to {{ ptbr_omarchy_language }}"
+          ansible.builtin.command: omarchy-language {{ ptbr_omarchy_language }}
+          when: ptbr_omarchy_language_current.stdout | trim != ptbr_omarchy_language
+      tags: [ptbr-locale]
+
     - name: Personal folders (xdg-user-dirs) in pt-BR
       block:
         - name: Look up the current path for each XDG folder

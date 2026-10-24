@@ -14,8 +14,7 @@
 # corrupts UTF-8 in an accented cardholder name.
 #
 # Never uses `become: true` for GPG or git tasks — the keyring and
-# ~/.gitconfig are personal user data. The only privileged step is
-# ensuring the gnupg package is installed.
+# ~/.gitconfig are personal user data. gnupg itself ships with Omarchy.
 # Usage: just gpg-yubikey
 - name: Yubikey GPG public key — import, trust, sign in git (user)
   hosts: localhost

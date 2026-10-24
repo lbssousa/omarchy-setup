@@ -1,5 +1,5 @@
 [Unit]
-Description=Restart fprintd on goodix538d desync or lock-screen fingerprint retry storms
+Description=Restart fprintd when the goodix538d driver desyncs
 After=fprintd.service
 
 [Service]

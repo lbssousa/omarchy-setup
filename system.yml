@@ -117,12 +117,6 @@
   ansible.builtin.import_playbook: playbooks/system/printer.yml
   tags: [printer]
 
-# Plays: scrolling column resize (tag hypr-scrolling-resize), screen scale +
-# text size (tag text-size), night light (tag nightlight-solar).
-- name: Desktop tuning (Hyprland resize, text size, night light)
-  ansible.builtin.import_playbook: playbooks/system/desktop.yml
-  tags: [desktop]
-
 - name: Caps Lock via keyd
   ansible.builtin.import_playbook: playbooks/system/capslock.yml
   tags: [capslock]
@@ -130,10 +124,6 @@
 - name: Inkscape + svg2tikz (SVG to TikZ/PGF export extension)
   ansible.builtin.import_playbook: playbooks/system/inkscape.yml
   tags: [inkscape]
-
-- name: Limine silent boot (quiet + 1s timeout)
-  ansible.builtin.import_playbook: playbooks/system/limine-silent-boot.yml
-  tags: [limine-silent-boot]
 
 - name: openssh with askpass touch notifications (SSH_ASKPASS_REQUIRE in notify_start)
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml

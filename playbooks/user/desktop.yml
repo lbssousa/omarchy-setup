@@ -5,7 +5,7 @@
 #   Screen scale + text size  tags: desktop, text-size
 #   Night light (solar)       tags: desktop, nightlight-solar
 #
-# hyprsunset and jq (night light) are installed by system/desktop.yml.
+# hyprsunset and jq (night light) ship with Omarchy.
 #
 # Usage: just desktop
 

@@ -110,6 +110,22 @@ If the machine doesn't boot with Secure Boot on, see
   it means editing boot files by hand without going through
   limine-entry-tool afterward breaks boot.
 
+- **Silent boot** is Omarchy's own since 4.5: `timeout: 1` and `quiet: yes`
+  in the `limine.conf` header (template and migration `1791898365`). That
+  migration edits the file with `sed` and doesn't run `limine-update`, so
+  with `ENABLE_ENROLL_LIMINE_CONFIG=yes` any header change it makes leaves
+  a stale enrolled checksum: run `run0 limine-update` before rebooting.
+  Notes kept from the playbook that used to pin these options:
+  - `quiet` only works in the header (before the first entry). With it,
+    Limine never clears the framebuffer, so the firmware (BGRT) logo stays
+    on screen until Plymouth's `omarchy-bgrt` theme takes over.
+  - To reveal the menu during the 1-second window, press ↑, ↓, Home or
+    End — not Space: the key that stops the countdown is also fed to the
+    menu, and Space/Enter/→ boot the selected entry.
+  - Leave `firmware_logo` unset: Limine ignores it under `quiet`, and
+    otherwise it recentres the logo away from where `omarchy-bgrt`
+    expects it.
+
 ## If boot fails
 
 A misconfigured Secure Boot setup typically doesn't boot at all (black

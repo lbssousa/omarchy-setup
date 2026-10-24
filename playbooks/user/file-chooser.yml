@@ -11,12 +11,14 @@
 # FileChooser in a per-desktop portals.conf, with gtk behind it in case
 # Flea is missing. Everything else (screencast, screenshot, ...) stays as
 # configured upstream. `flea --default` writes the same line into the same
-# file; this play writes it whole so a full run leaves one owner and
-# re-runs are no-ops.
+# file.
 #
 # ~/.config/xdg-desktop-portal/hyprland-portals.conf replaces the packaged
 # /usr/share/xdg-desktop-portal/hyprland-portals.conf as a whole (the files
-# aren't merged), so the packaged `default=` line is repeated here.
+# aren't merged). Omarchy 4.5 ships its own copy of that user file
+# (config/xdg-desktop-portal/hyprland-portals.conf), with the Secret portal
+# on gnome-keyring, which sandboxed apps need for their keyring: the file is
+# seeded from it when missing, and only the FileChooser line is managed.
 #
 # Portal use is otherwise opt-in for GTK apps and Firefox outside a
 # sandbox: GTK_USE_PORTAL=1 (exported to the session from Hyprland's config,
@@ -51,22 +53,42 @@
         state: directory
         mode: "0755"
 
-    - name: "Route the FileChooser portal to Flea ({{ file_chooser_portals_conf }})"
+    - name: Seed the portals config from Omarchy's, if missing
       ansible.builtin.copy:
-        content: |
-          # Managed by playbooks/user/file-chooser.yml — Flea file chooser dialogs.
-          # Replaces /usr/share/xdg-desktop-portal/hyprland-portals.conf, so
-          # its `default=` line is repeated.
-          [preferred]
-          default=hyprland;gtk
-          org.freedesktop.impl.portal.FileChooser=flea;gtk
+        src: "{{ file_chooser_portals_conf_seed }}"
         dest: "{{ file_chooser_portals_conf }}"
+        remote_src: true
+        force: false
+        mode: "0644"
+      register: file_chooser_portals_seed_result
+
+    - name: "Keep Omarchy's portal defaults ({{ item.key }})"
+      community.general.ini_file:
+        path: "{{ file_chooser_portals_conf }}"
+        section: preferred
+        option: "{{ item.key }}"
+        value: "{{ item.value }}"
+        no_extra_spaces: true
+        mode: "0644"
+      loop: "{{ file_chooser_portals_defaults | dict2items }}"
+      register: file_chooser_portals_defaults_result
+
+    - name: "Route the FileChooser portal to Flea ({{ file_chooser_portals_conf }})"
+      community.general.ini_file:
+        path: "{{ file_chooser_portals_conf }}"
+        section: preferred
+        option: org.freedesktop.impl.portal.FileChooser
+        value: flea;gtk
+        no_extra_spaces: true
         mode: "0644"
       register: file_chooser_portals_conf_result
 
     - name: Restart xdg-desktop-portal to pick up the change
       ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
-      when: file_chooser_portals_conf_result.changed
+      when: >-
+        file_chooser_portals_seed_result.changed or
+        file_chooser_portals_defaults_result.changed or
+        file_chooser_portals_conf_result.changed
       changed_when: true
       failed_when: false
 

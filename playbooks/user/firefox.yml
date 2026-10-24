@@ -1,7 +1,5 @@
 ---
 # Firefox (Flatpak), per user:
-#   - Wayland environment variable (MOZ_ENABLE_WAYLAND=1 in
-#     ~/.config/environment.d/omarchy-firefox-wayland.conf)
 #   - Hidden ~/.local/share/applications/firefox.desktop shim whose Exec= is
 #     /usr/local/bin/firefox (a single token), so Omarchy's own
 #     `omarchy-default-browser firefox`, `omarchy-cmd-default-browser` and
@@ -25,18 +23,6 @@
   tags: [firefox]
 
   tasks:
-    - name: Create ~/.config/environment.d
-      ansible.builtin.file:
-        path: "{{ target_home }}/.config/environment.d"
-        state: directory
-        mode: "0755"
-
-    - name: Enable native Wayland in Firefox (MOZ_ENABLE_WAYLAND=1)
-      ansible.builtin.copy:
-        content: "MOZ_ENABLE_WAYLAND=1\n"
-        dest: "{{ target_home }}/.config/environment.d/omarchy-firefox-wayland.conf"
-        mode: "0644"
-
     - name: Create ~/.local/share/applications
       ansible.builtin.file:
         path: "{{ target_home }}/.local/share/applications"

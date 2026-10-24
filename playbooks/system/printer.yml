@@ -1,9 +1,8 @@
 ---
 # EPSON L4160 printer — driverless CUPS queue (IPP Everywhere). Network
 # URI resolved by mDNS hostname, with printer-error-policy=abort-job so
-# one bad job doesn't jam the whole queue. CUPS + Avahi + nss-mdns aren't
-# installed by default on a clean Omarchy, so this playbook installs and
-# enables all three first.
+# one bad job doesn't jam the whole queue. CUPS, Avahi and nss-mdns (with
+# mdns_minimal in nsswitch.conf) ship enabled with Omarchy.
 #
 # If the printer doesn't answer via mDNS (most likely just powered
 # off), the queue setup is skipped with a warning instead of failing
@@ -19,25 +18,6 @@
   gather_facts: true
 
   tasks:
-    - name: Install CUPS, Avahi and nss-mdns via pacman
-      community.general.pacman:
-        name:
-          - cups
-          - avahi
-          - nss-mdns
-        state: present
-      become: true
-
-    - name: Enable and start CUPS (socket) and Avahi
-      ansible.builtin.systemd:
-        name: "{{ item }}"
-        enabled: true
-        state: started
-      loop:
-        - cups.socket
-        - avahi-daemon.service
-      become: true
-
     - name: Ensure CUPS (lpadmin) is available
       ansible.builtin.command: which lpadmin
       register: lpadmin_check

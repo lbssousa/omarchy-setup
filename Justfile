@@ -321,11 +321,6 @@ omaraptor-themes: _ensure-collections
 omaraptor-theme-auto: _ensure-collections
     scripts/run-phase.sh user user.yml --tags omaraptor-theme-auto
 
-# Hide the Limine boot menu (quiet: yes + timeout: 1)
-# for a flicker-free boot; a 1-second key window still reveals the menu.
-limine-silent-boot: _ensure-collections
-    scripts/run-phase.sh system system.yml --tags limine-silent-boot
-
 # Only the fish setup (every account's login shell, reusing Omarchy's
 # Starship prompt). It also runs with every other recipe: its plays are
 # tagged `always`.

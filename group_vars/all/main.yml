@@ -587,53 +587,6 @@ homebrew_bbrew_package: bbrew
 # header comment in playbooks/{system,user}/homebrew.yml.
 homebrew_env_file: 42-homebrew.conf
 
-# Proton Pass (playbooks/{system,user}/proton-pass.yml — optional password manager
-# alternative to Bitwarden, not part of `just setup`).
-#
-# Desktop client: Proton's own .deb repackaged in the AUR
-# (proton-pass-bin), installed with omarchy-pkg-aur-add.
-proton_pass_aur_package: proton-pass-bin
-proton_pass_command: proton-pass
-
-# Reuses Omarchy's default "Passwords" keybinding (originally bound to
-# 1Password, which this setup doesn't install).
-proton_pass_hypr_keybind: "SUPER + SHIFT + SLASH"
-
-# CLI: the AUR packages (proton-pass-cli, proton-pass-cli-bin) are
-# unreliable upstream (checksum failures / AUR pushes disabled), and
-# Proton's own official installer script has no update mechanism of its
-# own — `proton-pass-cli` is an official Homebrew (homebrew-core)
-# formula instead, with a prebuilt x86_64_linux bottle (depends on
-# homebrew_bin/homebrew_symlink/homebrew_prefix, group_vars above).
-# Points straight at Homebrew's Cellar bin — playbooks/{system,user}/homebrew.yml
-# already puts {{ homebrew_prefix }}/bin on PATH session-wide (via
-# ~/.config/environment.d), so nothing needs mirroring into ~/.local/bin.
-proton_pass_cli_bin: "{{ homebrew_prefix }}/bin/pass-cli"
-
-# Proton Pass CLI SSH agent — a systemd --user service runs `pass-cli
-# ssh-agent start` as the long-running agent (the desktop app's own "Use
-# Proton Pass as SSH agent" toggle is a separate, GUI-only setup flow that
-# defaults to a different socket, ~/.ssh/proton-pass-ssh-agent.sock — see
-# the header comment above the CLI play). Socket path here matches
-# pass-cli's own upstream default ($HOME/.ssh/proton-pass-agent.sock), so
-# ad-hoc CLI calls agree with the systemd-managed agent.
-proton_pass_ssh_agent_socket: "{{ target_home }}/.ssh/proton-pass-agent.sock"
-
-# pass-cli's local encryption key backend. Defaults to the Linux kernel
-# keyring, which is wiped on every reboot — so the session persisted at
-# `pass-cli login` time silently becomes unreadable on the next boot
-# (ssh-agent.service logs "there is no session" and never recovers on
-# its own; a fresh interactive `pass-cli login` is required every time).
-# "dbus" stores it in the D-Bus Secret Service (GNOME Keyring here)
-# instead, which survives reboots as long as the keyring is unlocked —
-# true here even under SDDM autologin (no password reaches PAM, so
-# gnome-keyring's own auto-unlock fails, but this account's default
-# collection has no passphrase set, so it still ends up unlocked moments
-# after the daemon starts). Applied to both the systemd service and
-# interactive shells (below) so `pass-cli login` and the ssh-agent daemon
-# agree on where the key lives.
-proton_pass_cli_linux_keyring: dbus
-
 # Podman rootless (playbooks/{system,user}/containers.yml) — subuid/subgid range, same
 # default useradd already allocates.
 podman_subuid_start: 100000

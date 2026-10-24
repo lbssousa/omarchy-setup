@@ -251,16 +251,6 @@ bitwarden: _ensure-collections
 rclone-gdrive: _ensure-collections
     @just _both-playbook rclone-gdrive
 
-# Run the Proton Pass playbook: desktop client (AUR proton-pass-bin) + CLI
-# (Homebrew). Optional password manager alternative to Bitwarden, not part
-# of `just setup`; takes over SUPER+SHIFT+SLASH.
-proton-pass: _ensure-collections
-    @just _both-playbook proton-pass
-
-# Run only the Proton Pass CLI install (no root needed).
-proton-pass-cli: _ensure-collections
-    scripts/run-phase.sh user playbooks/user/proton-pass.yml --tags proton-pass-cli
-
 # Run only the Podman (rootless) play.
 podman: _ensure-collections
     @just _both podman

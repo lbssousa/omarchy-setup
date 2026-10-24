@@ -9,16 +9,13 @@
 # binaries do (playbooks/user/nix.yml):
 # {{ homebrew_prefix }}/bin(+/sbin) is appended to PATH session-wide via
 # ~/.config/environment.d rather than mirrored one symlink at a time, so
-# whatever a playbook (e.g. proton-pass-cli, playbooks/user/proton-pass.yml) or
-# a plain `brew install foo` adds is visible to the session. New PATH
+# whatever a plain `brew install foo` adds is visible to the session. New PATH
 # entries apply to new sessions only (log out and back in to pick it up —
 # same caveat already true for Nix's PATH export).
 # bbrew is installed here as a TUI frontend for Homebrew/Flatpak.
 #
-# Not imported by site.yml: Homebrew is only needed by the tooling that
-# installs formulae from it (e.g. the Proton Pass CLI,
-# playbooks/system/proton-pass.yml) and by whatever you `brew install` yourself,
-# so it is not part of `just setup` — run it explicitly with `just homebrew`.
+# Not imported by site.yml: Homebrew is only needed by whatever you
+# `brew install` yourself, so it is not part of `just setup` — run it explicitly with `just homebrew`.
 #
 # One owner per machine (homebrew_owner, an administrator): the prefix is
 # theirs and only they `brew install`. user/homebrew.yml puts its binaries

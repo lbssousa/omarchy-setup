@@ -13,7 +13,7 @@
 #   enable   (re)write the GitHub SSH drop-in, without touching the token
 #   disable  turn the GitHub SSH drop-in off by renaming it to
 #            <name>.conf.disabled — do this when migrating to an
-#            ssh-agent (Proton Pass, ...) that serves the key
+#            ssh-agent (Bitwarden, ...) that serves the key
 #   status   show the keys and whether the drop-in is active
 #
 # The SSH configuration lives in one self-contained drop-in per key,

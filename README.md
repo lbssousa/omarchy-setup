@@ -26,12 +26,11 @@ own tag, the same in both phases: run one with `just <tag>` or `--tags
 a dependency also runs the play it depends on first (e.g. `--tags
 distrobox` sets Podman up first), and files with several plays have an
 umbrella tag for the whole file (`containers`, `desktop`, `nix`,
-`yubikey`). Exceptions: `secureboot`, `tpm2`, `bgrt-theme`, `proton-pass`,
+`yubikey`). Exceptions: `secureboot`, `tpm2`, `bgrt-theme`,
 `homebrew` and `yubikey` are **not** in
 `system.yml`/`user.yml` — Secure Boot, TPM2 auto-unlock and the BGRT boot theme touch
-firmware/boot/crypto, Proton Pass is an alternative to Bitwarden, the default
-password manager (it takes over the `SUPER+SHIFT+SLASH` keybind when run),
-Homebrew is only needed by the tools that install formulae from it, and the
+firmware/boot/crypto, Homebrew is only needed for whatever you `brew
+install` yourself, and the
 Yubikey helpers need the physical token plugged in — so they only run when called explicitly. TeX
 Live, LilyPond and Gregorio are a separate tool entirely
 (`local-typesetting/`, `just typesetting`) — a standalone shell script, not
@@ -86,7 +85,7 @@ an Ansible playbook (see below).
 | rclone Google Drive | `rclone-gdrive` | Writes the config to mount Google Drive with rclone, same layout as nix-config's `rclone.nix`: `~/.config/rclone/rclone.conf` (remote `Google Drive`, `0600`), a `rclone-google-drive@.service` systemd `--user` template plus one env file per mount, and the mounts `~/Público/Google Drive/<email>/Meu Drive` and `…/Compartilhados Comigo` (base in `rclone_gdrive_base_dir`, instances in `rclone_gdrive_instances`; the unit creates `~/.cache/rclone` for the log file). The Google API OAuth `client_id`/`client_secret` are supplied by you on the first run — `RCLONE_GDRIVE_CLIENT_ID=… RCLONE_GDRIVE_CLIENT_SECRET=… just rclone-gdrive` (or `-e rclone_gdrive_client_id=…`) — and reused from `rclone.conf` afterwards. The OAuth token rclone stores is preserved across runs; the one manual step is `rclone config reconnect "Google Drive:"`, after which re-running starts the mounts. Installs `rclone` and `fuse3` via pacman. Not part of `just setup` (tag `never`): `just rclone-gdrive`. |
 | Starship in distrobox | `starship-distrobox` | Makes the prompt work inside distrobox containers and show which one you're in (`⬢ <container> <dir> <branch> ❯`). Omarchy's `~/.bashrc` sources `$OMARCHY_PATH/default/bash/rc`, which doesn't exist in the container (its `/usr` is the image's; the host's is at `/run/host`), so starship never started: a `~/.bashrc` block points `OMARCHY_PATH` at `/run/host` inside distrobox and falls back to the host's starship binary (same Arch userland; another distro may need its own). The name comes from `CONTAINER_ID`, exported by `distrobox-enter`, through starship's `env_var` module in `~/.config/starship.toml` (blank on the host). |
 | Starship extras | `starship` | Two increments to Omarchy's prompt in `~/.config/starship.toml`: a `❄ dev` badge at the start while a Nix dev shell is active (`nix develop`, `nix-shell`, direnv's `use flake` — all export `IN_NIX_SHELL`, read by starship's `nix_shell` module; blank elsewhere), and `⇡N`/`⇣N` for commits not pushed to/pulled from the upstream (Omarchy defines those symbols, but its `git_status` format lacks `$ahead_behind`, so they never showed). Edits only Omarchy's stock lines; a customized `format` is left alone with a warning. |
-| Homebrew | — | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and installs a `brew` launcher in `/usr/local/bin`, then puts `bin`/`sbin` on the session `PATH` via `environment.d` (log out and back in to pick it up). Not part of `just setup` — run explicitly with `just homebrew`; only the tooling that installs formulae from it (e.g. the Proton Pass CLI) needs it. |
+| Homebrew | — | Installs Homebrew for Linux to `/home/linuxbrew/.linuxbrew` and installs a `brew` launcher in `/usr/local/bin`, then puts `bin`/`sbin` on the session `PATH` via `environment.d` (log out and back in to pick it up). Not part of `just setup` — run explicitly with `just homebrew`; only what you `brew install` yourself needs it. |
 | TeX Live + LilyPond + Gregorio | — | Not an Ansible playbook: `local-typesetting/install-typesetting.sh` (`just typesetting`) installs TeX Live and LilyPond under `/opt`, builds Gregorio from source, and registers TeX Live's fonts with fontconfig, directly on the host with `sudo` — no containers. Not part of `just setup` — a long network install, run explicitly. See [`local-typesetting/README.md`](local-typesetting/README.md). |
 | BGRT boot theme | `bgrt-theme` | Builds an Omarchy theme + a standalone Plymouth theme from this machine's own UEFI BGRT boot logo, so the same picture stays on screen from firmware through Plymouth to Hyprlock. Not part of `just setup` — rewrites the default Plymouth theme and rebuilds the initramfs. |
 | Secure Boot | `secureboot` | Limine + sbctl. Not part of `just setup` — see [`docs/secureboot.md`](docs/secureboot.md). |
@@ -105,8 +104,6 @@ See each playbook's own header comment for implementation details.
   the user phase only.
 - The libfprint playbook builds with `makepkg` on the host (no container);
   it replaces the official `libfprint`/`libfprint-git` via `pacman -U`.
-- The Proton Pass playbook needs Homebrew (`just homebrew` — not part of
-  `just setup`) for its CLI.
 - The Secure Boot playbook only covers Limine + limine-entry-tool.
 
 Neither `just` nor `ansible` need to be pre-installed: `./bootstrap.sh`
@@ -186,14 +183,12 @@ phases.
 
 The playbooks are idempotent — rerunning is safe.
 
-**Proton Pass, Homebrew, the typesetting toolchain, the
+**Homebrew, the typesetting toolchain, the
 BGRT boot theme, Secure Boot, the Yubikey GPG key, and the Yubikey
 SSH keys are separate** — not part of `just setup`:
 
 ```bash
-just proton-pass   # alternative password manager: desktop client (AUR) + CLI (Homebrew)
-just proton-pass-cli  # just the CLI, no root needed
-just homebrew      # Linuxbrew; needed by the Proton Pass CLI and `brew install`
+just homebrew      # Linuxbrew, for `brew install`
 just typesetting   # TeX Live + LilyPond + Gregorio, no containers (long network install)
 just bgrt-theme    # builds the BGRT-derived boot theme; needs a firmware BGRT logo
 just secureboot    # see docs/secureboot.md for the full walkthrough
@@ -243,7 +238,6 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 | `playbooks/user/lazyvim.yml` | LazyVim LaTeX extra + gregorio.nvim (tag `lazyvim`) |
 | `playbooks/{system,user}/ptbr.yml` | pt-BR localization (tag `ptbr`) |
 | `playbooks/{system,user}/bitwarden.yml` | Bitwarden from Flathub (`com.bitwarden.desktop`) + biometric unlock polkit action, autostart, its SSH agent as `SSH_AUTH_SOCK` and `SUPER+SHIFT+SLASH` — the default password manager; removes KeePassXC (tag `bitwarden`) |
-| `playbooks/{system,user}/proton-pass.yml` | Proton Pass desktop (AUR `proton-pass-bin`) + CLI (Homebrew, `proton-pass-cli`), with the CLI's own SSH agent (`pass-cli ssh-agent`) wired to `SSH_AUTH_SOCK` via a systemd --user service — optional password manager, outside `site.yml`; takes over `SUPER+SHIFT+SLASH` (tags `proton-pass-desktop`, `proton-pass-cli`; umbrella `proton-pass`) |
 | `playbooks/{system,user}/containers.yml` | Podman rootless, Distrobox, starship prompt inside distrobox (tags `podman`, `distrobox`, `starship-distrobox`; umbrella `containers`) |
 | `playbooks/user/starship.yml` | Starship prompt extras: Nix dev shell badge, commits ahead of/behind the upstream (tag `starship`) |
 | `playbooks/{system,user}/homebrew.yml` | Homebrew for Linux in `/home/linuxbrew/.linuxbrew`, `brew` launcher in `/usr/local/bin`, `bin`/`sbin` on the session `PATH` — outside `site.yml` (`just homebrew`) |

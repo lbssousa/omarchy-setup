@@ -254,7 +254,6 @@ just ssh-yubikey-disable  # drop the GitHub SSH config (e.g. migrating to an ssh
 | `playbooks/system/tpm2.yml` | Automatic LUKS unlock via TPM2 (systemd-cryptenroll) — outside `site.yml` (recipe `tpm2`) |
 | `docs/tpm2.md` | `just tpm2` walkthrough and PCR integrity reference |
 | `scripts/enroll-tpm2.sh` | Standalone interactive TPM2 enrollment script (`just tpm2-enroll`) |
-| `docs/omarchy-4.5-migration.md` | What the next Omarchy release (Quattro RS 4.5) changes for these automations, gathered ahead of time from the upstream `quattro` branch: which playbooks become obsolete, which need fixing before running on it, and how to re-check once it is tagged |
 | `playbooks/{system,user}/yubikey.yml` | Yubikey GPG key — outside `site.yml` (tags `gpg-yubikey`, `yubikey`) |
 | `scripts/ssh-yubikey.sh` | Resident SSH keys import + GitHub SSH drop-in (`just ssh-yubikey`, `just ssh-yubikey-disable`) |
 | `playbooks/files/` | Static files copied as-is |

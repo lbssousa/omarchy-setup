@@ -178,8 +178,8 @@ zed: _ensure-collections
 gregorio-lsp: _ensure-collections
     @just _both gregorio-lsp
 
-# Make Zathura (zathura + zathura-pdf-mupdf) the default PDF viewer +
-# Papers (optional viewer); Evince stays installed (sushi depends on it).
+# Make Zathura (Flathub org.pwmt.zathura) the default PDF viewer; Papers
+# stays native as an optional viewer (sushi depends on it); Evince is removed.
 pdf-viewer: _ensure-collections
     @just _both pdf-viewer
 

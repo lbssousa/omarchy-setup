@@ -58,7 +58,7 @@
   ansible.builtin.import_playbook: playbooks/user/gregorio-lsp.yml
   tags: [gregorio-lsp]
 
-- name: PDF viewer (Zathura default, Papers optional, Evince kept for sushi)
+- name: PDF viewer (Zathura default, Papers optional, Evince removed)
   ansible.builtin.import_playbook: playbooks/user/pdf-viewer.yml
   tags: [pdf-viewer]
 

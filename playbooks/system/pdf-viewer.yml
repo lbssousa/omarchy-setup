@@ -1,42 +1,149 @@
 ---
 # Makes Zathura the default PDF viewer instead of Omarchy's default
-# (Evince), and installs Papers (Evince's GNOME successor) as an extra,
-# non-default viewer — both still reachable from a file manager's "Open
-# With", just not what double-clicking a PDF opens.
+# (Evince), and keeps Papers (Evince's GNOME successor) as an extra,
+# non-default viewer — still reachable from a file manager's "Open With",
+# just not what double-clicking a PDF opens.
 #
-# Zathura comes from the Arch packages: the viewer plus its MuPDF backend
-# (pdf_viewer_zathura_native_packages) — Zathura ships no backend of its
-# own. Nothing in /usr/share/omarchy references zathura.
+# Zathura (org.pwmt.zathura) comes from Flathub rather than the Arch
+# packages, so this play replaces the native zathura and zathura-pdf-mupdf
+# with the Flatpak. Bootstraps Flatpak + the Flathub remote itself
+# (system-wide), same approach as playbooks/system/firefox.yml, so `just
+# pdf-viewer` keeps working standalone.
 #
-# Evince itself is left installed: Nautilus's quick-previewer (sushi)
-# hard-depends on it at the package level (`pacman -Si sushi` lists
-# evince under "Depends On"), so removing evince would cascade into
-# removing sushi and losing Space-to-preview for every file type, not
-# just PDFs.
+# The native Zathura build and the Flatpak export the SAME desktop-entry id
+# (org.pwmt.zathura.desktop — neither side overrides `desktop-file-name`),
+# so the mimeapps.list default (playbooks/user/pdf-viewer.yml) survives the
+# swap untouched, and nothing in /usr/share/omarchy references zathura. The
+# play asserts that id at run time and stops rather than leaving a
+# half-migrated box behind.
 #
-# The default-application mapping is set in the user's own
-# ~/.config/mimeapps.list rather than
-# /usr/share/applications/mimeapps.list, which is owned by the
-# omarchy-settings package (see `pacman -Qo`) and would be reverted by
-# a future package update. A per-user mimeapps.list already takes
-# precedence over the system-wide one (XDG Desktop Entry spec), so this
-# doesn't need to touch the package-owned file at all.
+# What comes with the Zathura Flatpak, worth knowing before filing this as
+# "Zathura is broken now":
+#
+#   1. The rendering backend changes. The Arch build needed
+#      zathura-pdf-mupdf (MuPDF), while the Flatpak bundles
+#      zathura-pdf-poppler — same upstream version either way, just a
+#      different engine. In exchange the Flatpak carries zathura-djvu and
+#      zathura-ps too. zathurarc needs no `set backend` line.
+#   2. The sandbox only grants ~/Documents and ~/Downloads (plus
+#      pdf_viewer_zathura_extra_paths, which this play adds). A PDF from
+#      anywhere else still opens: `flatpak run --file-forwarding` hands it
+#      over through the document portal, as /run/user/<uid>/doc/<id>/….
+#      But the portal never delivers change notifications into the
+#      sandbox — not for host-side writes, not even for writes through
+#      the portal's own FUSE path — so Zathura's file monitor stays
+#      silent and the view never auto-reloads. That's what the extra
+#      paths are for: inside a granted path flatpak passes the real path
+#      and inotify works.
+#   3. The exported entry's Exec is `--file-forwarding … @@u %U @@`.
+#      playbooks/user/pdf-viewer.yml shadows it with `@@ %F @@` so
+#      relative paths from `xdg-open` resolve before portalling.
+#
+# Papers stays native: Nautilus's quick-previewer (sushi) hard-depends on
+# it at the package level (`pacman -Si sushi` lists papers under "Depends
+# On"; it used to list evince), and the Flatpak can't satisfy pacman, so
+# removing it would mean removing sushi and losing Space-to-preview for
+# every file type, not just PDFs. A Flathub Papers left by an earlier run
+# of this play is removed, so "Open With" doesn't list Papers twice.
+# Evince, which nothing depends on any more, is removed along with the
+# native Zathura (pdf_viewer_native_packages).
 #
 # Usage: just pdf-viewer
-- name: PDF viewer (Zathura default, Papers optional, Evince kept for sushi)
+- name: PDF viewer (Zathura default, Papers optional, Evince removed)
   hosts: localhost
   connection: local
-  gather_facts: true
+  gather_facts: false
+  tags: [pdf-viewer]
 
   tasks:
-    - name: Install Zathura and its MuPDF backend
+    - name: Ensure Flatpak is installed
       community.general.pacman:
-        name: "{{ pdf_viewer_zathura_native_packages }}"
+        name: "{{ flatpak_package }}"
         state: present
       become: true
 
-    - name: Install Papers (extra, non-default viewer)
+    - name: Ensure the Flathub remote is configured (system-wide)
+      community.general.flatpak_remote:
+        name: "{{ flatpak_flathub_remote }}"
+        state: present
+        method: system
+        flatpakrepo_url: "{{ flatpak_flathub_repo_url }}"
+      become: true
+
+    - name: Install Zathura from Flathub
+      community.general.flatpak:
+        name: "{{ pdf_viewer_zathura_flatpak_id }}"
+        state: present
+        method: system
+      become: true
+
+    - name: Ensure the native Papers is installed (sushi depends on it)
       community.general.pacman:
         name: "{{ pdf_viewer_papers_package }}"
         state: present
+      become: true
+
+    - name: Remove the Flathub Papers an earlier run installed
+      community.general.flatpak:
+        name: "{{ pdf_viewer_papers_flatpak_id }}"
+        state: absent
+        method: system
+      become: true
+
+    - name: Read Zathura's effective filesystem permissions
+      # The manifest's grants plus whatever `flatpak override` has added,
+      # i.e. what the sandbox will actually let it open.
+      ansible.builtin.command:
+        cmd: flatpak info --show-permissions --system {{ pdf_viewer_zathura_flatpak_id }}
+      register: pdf_viewer_zathura_permissions
+      changed_when: false
+      when: pdf_viewer_zathura_extra_paths | length > 0
+
+    - name: Grant Zathura the extra paths from pdf_viewer_zathura_extra_paths
+      # `flatpak override` adds to the existing grants rather than
+      # replacing them, so the manifest's own ~/Documents and ~/Downloads
+      # stay granted, and this only ever runs for paths the app can't
+      # reach yet (hence changed_when, and hence re-running is a no-op).
+      ansible.builtin.command:
+        cmd: >-
+          flatpak override --system
+          {{ pdf_viewer_zathura_missing_paths | map('regex_replace', '^(.+)$', '--filesystem=\1') | join(' ') }}
+          {{ pdf_viewer_zathura_flatpak_id }}
+      vars:
+        pdf_viewer_zathura_granted_paths: >-
+          {{ (pdf_viewer_zathura_permissions.stdout_lines | default([])
+             | select('match', '^filesystems\s*[=:]') | map('regex_replace', '^filesystems\s*[=:]\s*', '')
+             | first | default(''))
+             | split(';') | map('trim') | reject('equalto', '') | list }}
+        pdf_viewer_zathura_missing_paths: >-
+          {{ pdf_viewer_zathura_extra_paths | difference(pdf_viewer_zathura_granted_paths) }}
+      when: pdf_viewer_zathura_missing_paths | length > 0
+      changed_when: true
+      become: true
+
+    - name: Look for Zathura's exported desktop entry
+      ansible.builtin.stat:
+        path: "{{ flatpak_system_exports_dir }}/applications/{{ pdf_viewer_zathura_desktop_id }}"
+      register: pdf_viewer_zathura_exported_entry
+
+    - name: Expect the Flatpak to still export the desktop id the default points at
+      ansible.builtin.assert:
+        that: pdf_viewer_zathura_exported_entry.stat.exists
+        fail_msg: >-
+          {{ pdf_viewer_zathura_flatpak_id }} did not export
+          {{ flatpak_system_exports_dir }}/applications/{{ pdf_viewer_zathura_desktop_id }}.
+          Its desktop-entry id has changed upstream, so
+          {{ pdf_viewer_mimeapps_path }} would resolve to nothing and
+          double-clicking a PDF would fall back to another viewer. Fix
+          pdf_viewer_zathura_desktop_id in group_vars/all/main.yml to the
+          new id before re-running this play.
+        quiet: true
+
+    # After the assert above, so the box is never left without a viewer
+    # even if the Flatpak turned out to be a dead end. Nothing depends
+    # on these packages, so this can't cascade.
+    - name: Remove the native Zathura, its MuPDF backend and Evince
+      community.general.pacman:
+        name: "{{ pdf_viewer_native_packages }}"
+        state: absent
       become: true

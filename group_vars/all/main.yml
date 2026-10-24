@@ -376,7 +376,7 @@ shared_checkout_dir: /opt/omarchy-setup
 # deploy a new release. omarchy_multiuser_repo may also be a local checkout
 # (with the tag in it) before the repository is published.
 omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.1.0
+omarchy_multiuser_ref: v0.2.0
 omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
 omarchy_multiuser_verify_commit: true
 omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"
@@ -827,7 +827,8 @@ omarchy_shell_restart_lock_retries: 180
 omarchy_shell_restart_lock_delay: 10
 
 # Google Drive mounted through rclone (playbooks/user/rclone-gdrive.yml).
-# The account is personal: set rclone_gdrive_email in users/<name>.yml.
+# The account is personal: set rclone_gdrive_email in
+# ~/.config/omarchy-setup/local.yml (see users/local.example.yml).
 rclone_gdrive_email: ""
 rclone_bin: /usr/bin/rclone
 rclone_gdrive_remote: Google Drive

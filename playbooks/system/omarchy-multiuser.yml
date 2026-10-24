@@ -129,27 +129,11 @@
       changed_when: true
       become: true
 
-    # omarchy-mu-accounts arrived after v0.1.0: until omarchy_multiuser_ref
-    # names a release that has it, warn instead of failing the phase.
-    - name: Check whether the installed omarchy-multiuser has omarchy-mu-accounts
-      ansible.builtin.stat:
-        path: /usr/bin/omarchy-mu-accounts
-      register: omarchy_multiuser_accounts_cmd
-
     - name: Lock root's password while there are several accounts
       ansible.builtin.command: omarchy-mu-accounts root-sync
       register: omarchy_multiuser_root_sync
       changed_when: omarchy_multiuser_root_sync.stdout | length > 0
       become: true
-      when: omarchy_multiuser_accounts_cmd.stat.exists
-
-    - name: Warn that root's password isn't managed yet
-      ansible.builtin.debug:
-        msg: >-
-          SKIPPED locking root: omarchy-multiuser {{ omarchy_multiuser_ref }}
-          has no omarchy-mu-accounts. Tag a signed release that has it and
-          bump omarchy_multiuser_ref (group_vars/all/main.yml).
-      when: not omarchy_multiuser_accounts_cmd.stat.exists
 
     - name: Bring the lock screen PAM and greeter colors in line now
       ansible.builtin.command: "{{ item }}"

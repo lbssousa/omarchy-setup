@@ -1,7 +1,7 @@
 ---
 # rclone Google Drive mounts, system phase: rclone and fuse3. The remotes,
 # OAuth token and mount units are per user, in user/rclone-gdrive.yml, which
-# explains them.
+# explains them. Opt-in: off by default (features.yml).
 #
 # Usage: just apply rclone-gdrive
 - name: rclone — Google Drive mounts

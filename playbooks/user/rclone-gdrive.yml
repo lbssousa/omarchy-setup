@@ -29,8 +29,11 @@
 # Until a token exists the services are enabled but not started (they would
 # only fail); re-run this play after the login to start them.
 #
-# Tag "never": needs the OAuth credentials, so it only runs on request
-# (`just apply rclone-gdrive`). No root needed except for the pacman packages
+# Opt-in: off by default (features.yml), since it needs the OAuth
+# credentials and a Google account (rclone_gdrive_email, in
+# ~/.config/omarchy-setup/local.yml; without it the play skips with a note).
+# Turn it on with `just configure`, or run it once with
+# `just apply rclone-gdrive`. No root needed except for the pacman packages
 # (rclone, fuse3).
 #
 # rclone and fuse3 are installed by system/rclone-gdrive.yml.
@@ -43,13 +46,19 @@
   tags: [rclone-gdrive]
 
   tasks:
-    - name: Expect a Google account (rclone_gdrive_email in users/<name>.yml)
-      ansible.builtin.assert:
-        that: rclone_gdrive_email | length > 0
-        fail_msg: >-
-          Set rclone_gdrive_email (the Google account to mount) in
-          users/{{ target_user }}.yml, then rerun.
-        quiet: true
+    # Opt-in (features.yml): turned on without an account it skips with a
+    # note instead of stopping the rest of the user phase.
+    - name: Note that no Google account is set
+      ansible.builtin.debug:
+        msg: >-
+          SKIPPED Google Drive: set rclone_gdrive_email (the Google account
+          to mount) in ~/.config/omarchy-setup/local.yml, then run
+          `just apply rclone-gdrive`.
+      when: rclone_gdrive_email | length == 0
+
+    - name: Skip the rest of this play without a Google account
+      ansible.builtin.meta: end_host
+      when: rclone_gdrive_email | length == 0
 
     - name: Read the existing rclone.conf, if any (to keep its OAuth token)
       ansible.builtin.slurp:

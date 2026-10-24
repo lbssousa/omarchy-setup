@@ -371,6 +371,11 @@ fish-upstream-hash:
 starship-distrobox: _ensure-collections
     scripts/run-phase.sh user user.yml --tags starship-distrobox
 
+# Starship prompt extras: a "❄ dev" badge inside Nix dev shells and ⇡N/⇣N
+# for commits not pushed to/pulled from the upstream.
+starship: _ensure-collections
+    scripts/run-phase.sh user user.yml --tags starship
+
 # Build the BGRT-derived boot theme (Omarchy theme + Plymouth theme) and
 # set it as the default boot splash. Not part of `setup` — rewrites the
 # default Plymouth theme and rebuilds the initramfs.

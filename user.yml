@@ -128,6 +128,12 @@
   ansible.builtin.import_playbook: playbooks/user/fish.yml
   tags: [fish]
 
+# Starship prompt extras: Nix dev shell badge and unpushed/unpulled commits
+# (see playbooks/user/starship.yml).
+- name: Starship prompt extras
+  ansible.builtin.import_playbook: playbooks/user/starship.yml
+  tags: [starship]
+
 # Third-party shell plugins: this desktop's own list (omarchy_plugins in
 # group_vars/all/main.yml — Radio Atlas first) plus omapin,
 # ssh-askpass-omarchy and polkit-omarchy. No tags here on purpose: each play

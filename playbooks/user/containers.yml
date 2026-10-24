@@ -75,13 +75,14 @@
         mode: "0644"
 
     - name: Prefix the prompt format with the distrobox container name
-      # Anchored to Omarchy's stock top-level `format` line: the tables
-      # below it have `format` keys too, and a customized top-level format
-      # shouldn't be rewritten blindly. Already-prefixed lines don't match
-      # anymore, so this is idempotent.
+      # Anchored to Omarchy's stock top-level `format` line (optionally
+      # already prefixed by playbooks/user/starship.yml's $nix_shell): the
+      # tables below it have `format` keys too, and a customized top-level
+      # format shouldn't be rewritten blindly. Already-prefixed lines don't
+      # match anymore, so this is idempotent.
       ansible.builtin.replace:
         path: "{{ starship_distrobox_config }}"
-        regexp: '^format = "(\[\$directory\$git_branch\$git_status\]\(\$style\)\$character)"$'
+        regexp: '^format = "((?:\$nix_shell)?\[\$directory\$git_branch\$git_status\]\(\$style\)\$character)"$'
         replace: 'format = "${env_var.CONTAINER_ID}\1"'
 
     - name: Read back ~/.config/starship.toml

@@ -1,0 +1,97 @@
+---
+# Starship prompt extras, on top of Omarchy's ~/.config/starship.toml (the
+# same increments as nix-config-noctalia's modules/home/base/starship.nix):
+#
+# 1. A "❄ dev" badge at the start of the prompt while a Nix dev shell is
+#    active. `nix develop`, `nix-shell` and direnv's `use flake` /
+#    `use nix` all export IN_NIX_SHELL, which starship's nix_shell module
+#    reads; outside one nothing renders. The top-level `format` gets a
+#    $nix_shell prefix, and a [nix_shell] table sets the badge's look.
+#
+# 2. ⇡N / ⇣N for commits not pushed to (or not pulled from) the upstream.
+#    Omarchy's git_status already defines the ahead/behind/diverged
+#    symbols, but its format only has $all_status, which doesn't include
+#    $ahead_behind, so they never showed up. The format gets $ahead_behind
+#    appended.
+#
+# Like playbooks/user/containers.yml (which adds the distrobox container
+# name), the edits are anchored to Omarchy's stock lines: a customized
+# `format` is left alone with a warning. The two plays' prefixes coexist in
+# either order: "${env_var.CONTAINER_ID}$nix_shell[$directory…".
+#
+# Open a new shell to pick it up (starship rereads the file on every prompt,
+# so already-open shells update too).
+#
+# Usage: just starship
+- name: Starship prompt extras (Nix dev shell badge, unpushed commits)
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [starship]
+
+  tasks:
+    - name: Create ~/.config/starship.toml from the Omarchy default, if missing
+      ansible.builtin.copy:
+        src: "{{ starship_omarchy_default_config }}"
+        dest: "{{ starship_config }}"
+        remote_src: true
+        force: false
+        mode: "0644"
+
+    - name: Prefix the prompt format with the Nix dev shell badge
+      # Stock line, optionally already prefixed by containers.yml's
+      # ${env_var.CONTAINER_ID}. Already-prefixed lines don't match
+      # anymore, so this is idempotent.
+      ansible.builtin.replace:
+        path: "{{ starship_config }}"
+        regexp: '^format = "((?:\$\{env_var\.CONTAINER_ID\})?)(\[\$directory\$git_branch\$git_status\]\(\$style\)\$character)"$'
+        replace: 'format = "\1$nix_shell\2"'
+
+    - name: Show commits ahead of/behind the upstream in git_status
+      # Only [git_status] has this format in Omarchy's file.
+      ansible.builtin.replace:
+        path: "{{ starship_config }}"
+        regexp: '^(format\s*=\s*)''\[\$all_status\]\(\$style\)''$'
+        replace: '\1''[$all_status$ahead_behind]($style)'''
+
+    - name: Read back ~/.config/starship.toml
+      # slurp rather than lineinfile in check mode: that one reports
+      # "changed" whenever its pattern matches, so every run would too.
+      ansible.builtin.slurp:
+        src: "{{ starship_config }}"
+      register: starship_config_content
+
+    - name: Warn when a customized prompt format left the Nix badge out
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ starship_config }} has a customized top-level `format`,
+          so the Nix dev shell badge won't be shown. Add $nix_shell to it
+          (e.g. at the start).
+      when: >-
+        starship_config_content.content | b64decode
+        is not search('(?m)^format = ".*\$nix_shell')
+
+    - name: Warn when a customized git_status format left ahead/behind out
+      ansible.builtin.debug:
+        msg: >-
+          WARNING: {{ starship_config }} has a customized [git_status]
+          `format`, so unpushed/unpulled commits won't be shown. Add
+          $ahead_behind to it (e.g. after $all_status).
+      when: >-
+        starship_config_content.content | b64decode
+        is not search('\$ahead_behind')
+
+    - name: Style the Nix dev shell badge (nix_shell module)
+      ansible.builtin.blockinfile:
+        path: "{{ starship_config }}"
+        insertafter: EOF
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/starship.yml — Nix dev shell badge)"
+        block: |
+          # Inside a Nix dev shell (nix develop, nix-shell, direnv's use flake):
+          # all of them export IN_NIX_SHELL; unset elsewhere, so nothing renders.
+          [nix_shell]
+          format = "[ {{ starship_nix_shell_symbol }} $state ]($style) "
+          style = "{{ starship_nix_shell_style }}"
+          impure_msg = "dev"
+          pure_msg = "dev pure"
+          unknown_msg = "dev"

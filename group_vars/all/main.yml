@@ -915,6 +915,14 @@ starship_distrobox_bashrc: "{{ target_home }}/.bashrc"
 starship_distrobox_symbol: "⬢"
 starship_distrobox_style: bold yellow
 
+# Starship prompt extras (playbooks/user/starship.yml): Nix dev shell badge
+# and commits ahead of/behind the upstream.
+starship_config: "{{ target_home }}/.config/starship.toml"
+starship_omarchy_default_config: /usr/share/omarchy/config/starship.toml
+# Look of the Nix dev shell badge in the prompt.
+starship_nix_shell_symbol: "❄"
+starship_nix_shell_style: bold fg:black bg:cyan
+
 # Nix (playbooks/{system,user}/nix.yml) — the Arch `nix` package in multi-user mode
 # (nix-daemon, socket-activated), with the store on its own btrfs
 # subvolume so snapper's root snapshots leave it out.

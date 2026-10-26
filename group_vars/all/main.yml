@@ -168,12 +168,17 @@ bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarde
 bitwarden_flatpak_own_names:
   - org.kde.*
   - org.freedesktop.StatusNotifierItem-2-1
-# The Flathub wrapper (/app/bin/bitwarden.sh) forces XWayland unless
-# DISPLAY_MODE says otherwise, and under XWayland Electron's context menus
-# get a dark rectangular "shadow" (no X11 compositor). WAYLAND runs it
-# natively; the window class stays "bitwarden".
+# XWayland, explicitly: the Flathub wrapper (/app/bin/bitwarden.sh) picks
+# it by default anyway, but an earlier WAYLAND override must be replaced
+# (tasks/flatpak-overrides.yml never removes one). Natively on Wayland,
+# copying a password does nothing: Bitwarden copies them through its own
+# clipboard code, which needs the data-control protocol Hyprland hides from
+# sandboxed clients, and its X11 fallback only reaches Wayland apps while
+# an XWayland window has focus. The cost is a dark rectangular "shadow"
+# around Electron's context menus (no X11 compositor). The window class is
+# "bitwarden" either way.
 bitwarden_flatpak_env:
-  DISPLAY_MODE: WAYLAND
+  DISPLAY_MODE: X11
 # Omarchy floats Bitwarden (default/hypr/apps/bitwarden.lua); false tiles it.
 bitwarden_floating: false
 # Per build: what the keybind and autostart launch, and the agent socket

@@ -357,7 +357,7 @@ features:
     group: security
     title: Yubikey GPG key
     effect: adds the card's public key (ultimate trust) and git commit signing
-    phases: [user]
+    phases: [system, user]
     default: false
     revert: false
 

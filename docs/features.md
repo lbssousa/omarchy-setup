@@ -89,7 +89,7 @@ always applied.
 |---|---|---|---|---|---|
 | Secure Boot (sbctl) | `secureboot` | adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) | system | off | no |
 | LUKS auto-unlock (TPM2) | `tpm2` | modifies crypttab and the initramfs; adds a TPM2 keyslot | system | off | no |
-| Yubikey GPG key | `gpg-yubikey` | adds the card's public key (ultimate trust) and git commit signing | user | off | no |
+| Yubikey GPG key | `gpg-yubikey` | adds the card's public key (ultimate trust) and git commit signing | system, user | off | no |
 
 ## Extras (opt-in)
 

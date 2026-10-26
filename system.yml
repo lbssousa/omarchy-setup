@@ -78,6 +78,9 @@
 - name: openssh rebuilt with askpass touch notifications
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml
 
+- name: "Yubikey GPG key, before the plugins: their signed release tags need it in the administrator's keyring (opt-in)"
+  ansible.builtin.import_playbook: playbooks/user/yubikey.yml
+
 - name: Omarchy shell plugins, omapin, ssh-askpass-omarchy, polkit-omarchy
   ansible.builtin.import_playbook: playbooks/system/plugins.yml
 

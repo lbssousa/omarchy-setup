@@ -5,7 +5,14 @@
 # next free range after every existing one, never a fixed start that could
 # overlap another user's (the old 100000 default did, for a second user).
 #
+# Only accounts that exist: with the users feature off, omarchy_users may
+# list people who were never created (the Podman play runs this anyway).
+#
 # Expects omarchy_users; runs as root.
+- name: Read the existing accounts
+  ansible.builtin.getent:
+    database: passwd
+
 - name: Give every user a subuid/subgid range that overlaps nobody's
   ansible.builtin.shell: |
     set -euo pipefail
@@ -25,7 +32,7 @@
     executable: /bin/bash
   register: subid_ranges_result
   changed_when: "'changed=1' in subid_ranges_result.stdout"
-  loop: "{{ omarchy_users }}"
+  loop: "{{ omarchy_users | selectattr('name', 'in', ansible_facts.getent_passwd) | list }}"
   loop_control:
     label: "{{ item.name }}"
   become: true

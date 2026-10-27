@@ -480,7 +480,7 @@ fingerprint_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ fingerpri
 # (and omarchy-multiuser's Setup > Security > FIDO2). Built like
 # fingerprint-omarchy.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
-security_key_plugin_ref: v0.1.0
+security_key_plugin_ref: v0.3.0
 security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
 security_key_plugin_verify_commit: true
 security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"

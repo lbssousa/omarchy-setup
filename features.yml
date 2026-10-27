@@ -402,7 +402,7 @@ apps:
     role: default password manager (SUPER+SHIFT+SLASH, autostart, SSH agent)
     default: bitwarden-flatpak
     options:
-      - { id: bitwarden-flatpak, label: Bitwarden, source: flatpak, flatpak: com.bitwarden.desktop, installed: true }
+      - { id: bitwarden-flatpak, label: Bitwarden, source: flatpak, flatpak: com.bitwarden.desktop, installed: true, note: "copies passwords through the clipboard portal (clipboard-portal feature); without that feature it runs under XWayland" }
       - { id: bitwarden, label: Bitwarden, source: pacman, package: bitwarden }
       - { id: keepassxc-flatpak, label: KeePassXC, source: flatpak, flatpak: org.keepassxc.KeePassXC }
 

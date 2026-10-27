@@ -381,7 +381,7 @@ shared_checkout_dir: /opt/omarchy-setup
 # deploy a new release. omarchy_multiuser_repo may also be a local checkout
 # (with the tag in it) before the repository is published.
 omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.2.0
+omarchy_multiuser_ref: v0.3.0
 omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
 omarchy_multiuser_verify_commit: true
 omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"

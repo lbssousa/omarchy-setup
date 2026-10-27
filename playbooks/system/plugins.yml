@@ -7,13 +7,16 @@
 #                 installed to /usr/bin and /usr/share
 #   polkit-agent  polkit-omarchy: signed release tag verified, copied to
 #                 /usr/share
+#   clipboard-portal  xdg-desktop-portal-omarchy: signed release tag
+#                 verified, built, pacman -U; its config.toml
 #
 # The release signing key only needs to be in the keyring of the
 # administrator running this (`just apply gpg-yubikey`). Linking and enabling the
 # plugins in each user's shell, and their per-user configuration, happen in
 # user/plugins.yml, which explains the plugin list.
 #
-# Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent)
+# Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent /
+# clipboard-portal)
 - name: Omarchy shell plugins (omarchy_plugins runtime dependencies)
   hosts: localhost
   connection: local
@@ -311,4 +314,130 @@
         dest: "{{ polkit_agent_plugin_dir }}/"
         mode: preserve
         remote_src: true
+      become: true
+
+# xdg-desktop-portal-omarchy — the RemoteDesktop and Clipboard portals, for
+# the clipboard only (https://github.com/lbssousa/xdg-desktop-portal-omarchy).
+# Hyprland hides its data-control protocols from Flatpak apps, so apps that
+# copy without a focused window of their own (Bitwarden copies passwords
+# that way) can't reach the clipboard; on GNOME they use the Clipboard
+# portal, which xdg-desktop-portal-hyprland doesn't implement. This backend
+# does, next to xdph: it asks in a shell dialog (the lbssousa.portal plugin,
+# linked per user by user/plugins.yml, which also routes the two portals to
+# it) and never grants input devices.
+#
+# Built and installed like omapin (above): the repo's packaging/PKGBUILD,
+# makepkg as the user with rustup's cargo, pacman -U, only when the
+# checkout of the signed release tag changed or the package is missing.
+#
+# Usage: just apply clipboard-portal
+- name: xdg-desktop-portal-omarchy (clipboard portal)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [clipboard-portal]
+
+  vars:
+    clipboard_portal_cargo_env:
+      PATH: "{{ omapin_cargo_bin_dir }}:{{ target_path }}"
+
+  tasks:
+    - name: Install build dependencies
+      community.general.pacman:
+        name:
+          - base-devel
+          - git
+          - gnupg
+        state: present
+      become: true
+
+    - name: Check whether Rust (cargo) is already installed
+      ansible.builtin.stat:
+        path: "{{ omapin_cargo_bin_dir }}/cargo"
+      register: clipboard_portal_cargo_stat
+
+    - name: Install Rust (omarchy-install-dev-env rust)
+      ansible.builtin.command: omarchy-install-dev-env rust
+      when: not clipboard_portal_cargo_stat.stat.exists
+
+    - name: "Check out the xdg-desktop-portal-omarchy release ({{ clipboard_portal_ref }}), verifying its signed tag"
+      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
+      vars:
+        signed_checkout_name: xdg-desktop-portal-omarchy
+        signed_checkout_repo: "{{ clipboard_portal_repo }}"
+        signed_checkout_ref: "{{ clipboard_portal_ref }}"
+        signed_checkout_dest: "{{ clipboard_portal_checkout_dir }}"
+        signed_checkout_verify: "{{ clipboard_portal_verify_commit }}"
+        signed_checkout_keys: "{{ clipboard_portal_signing_keys }}"
+
+    - name: Keep the checkout's result under this play's name
+      ansible.builtin.set_fact:
+        clipboard_portal_git_result: "{{ signed_checkout_result }}"
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: "pacman -Q {{ clipboard_portal_package }}"
+      register: clipboard_portal_installed
+      changed_when: false
+      failed_when: false
+
+    # Compared with what is installed rather than relying on the checkout
+    # having changed: after a failed install the checkout is already at the
+    # tag, and the next run would otherwise leave the old package in place.
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ clipboard_portal_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: clipboard_portal_release_version
+      changed_when: false
+
+    - name: Build and install the package
+      when: >-
+        clipboard_portal_git_result.changed
+        or clipboard_portal_installed.rc != 0
+        or (clipboard_portal_installed.stdout.split() | last) != clipboard_portal_release_version.stdout
+      block:
+        - name: Build the package (makepkg)
+          ansible.builtin.command:
+            cmd: makepkg -f --nodeps --noconfirm
+            chdir: "{{ clipboard_portal_checkout_dir }}/packaging"
+          environment: "{{ clipboard_portal_cargo_env }}"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ clipboard_portal_checkout_dir }}/packaging"
+          register: clipboard_portal_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ clipboard_portal_packagelist.stdout_lines | first }}"
+            state: present
+          become: true
+
+    - name: "Create {{ clipboard_portal_config | dirname }}"
+      ansible.builtin.file:
+        path: "{{ clipboard_portal_config | dirname }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    # Read at the backend's start; each user's backend picks it up at the
+    # next login (or `systemctl --user restart xdg-desktop-portal-omarchy`).
+    - name: "Mark the password managers' clipboard content as secret ({{ clipboard_portal_config }})"
+      ansible.builtin.copy:
+        content: |
+          # Managed by omarchy-setup (playbooks/system/plugins.yml).
+          # Apps whose clipboard content is a password: their selections also
+          # offer x-kde-passwordManagerHint, which clipboard histories skip.
+          sensitive_apps = {{ clipboard_portal_sensitive_apps | to_json }}
+        dest: "{{ clipboard_portal_config }}"
+        owner: root
+        group: root
+        mode: "0644"
       become: true

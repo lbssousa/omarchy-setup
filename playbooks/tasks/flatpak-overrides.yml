@@ -1,12 +1,17 @@
 ---
 # Adds system-wide `flatpak override`s to one app, only those it doesn't
 # have yet (so re-runs change nothing). Overrides add to the manifest's
-# own permissions; nothing is ever taken away here.
+# own permissions; the only thing taken away is a socket named in
+# override_nosockets.
 #
 #   override_app          the Flatpak id
 #   override_own_names    D-Bus names it may own (default [])
 #   override_env          {NAME: value} (default {})
 #   override_filesystems  --filesystem values (default [])
+#   override_nosockets    sockets to deny (--nosocket), even if the
+#                         manifest grants them (default [])
+#   override_sockets      sockets an earlier override_nosockets denied, to
+#                         give back (--socket) (default [])
 - name: "[{{ override_app }}] Read its effective permissions and overrides"
   ansible.builtin.command:
     cmd: flatpak override --system --show {{ override_app }}
@@ -36,10 +41,25 @@
          | join(';') | split(';') | map('trim') | reject('equalto', '') | list }}
     override_missing_paths: >-
       {{ override_filesystems | default([]) | difference(override_granted_paths) }}
+    # The override's own sockets= line, e.g. ["!x11"].
+    override_socket_entries: >-
+      {{ override_current.stdout_lines
+         | select('match', '^sockets\s*=') | map('regex_replace', '^sockets\s*=\s*', '')
+         | join(';') | split(';') | map('trim') | reject('equalto', '') | list }}
+    override_missing_nosockets: >-
+      {{ override_nosockets | default([])
+         | reject('in', override_socket_entries | select('match', '^!') | map('regex_replace', '^!', '') | list)
+         | list }}
+    override_denied_sockets: >-
+      {{ override_sockets | default([])
+         | select('in', override_socket_entries | select('match', '^!') | map('regex_replace', '^!', '') | list)
+         | list }}
     override_args: >-
       {{ override_missing_names | map('regex_replace', '^(.+)$', '--own-name=\1') | list
          + override_missing_env | map('regex_replace', '^(.+)$', '--env=\1') | list
-         + override_missing_paths | map('regex_replace', '^(.+)$', '--filesystem=\1') | list }}
+         + override_missing_paths | map('regex_replace', '^(.+)$', '--filesystem=\1') | list
+         + override_missing_nosockets | map('regex_replace', '^(.+)$', '--nosocket=\1') | list
+         + override_denied_sockets | map('regex_replace', '^(.+)$', '--socket=\1') | list }}
   ansible.builtin.command:
     argv: "{{ ['flatpak', 'override', '--system'] + override_args + [override_app] }}"
   when: override_args | length > 0

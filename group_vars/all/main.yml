@@ -168,17 +168,48 @@ bitwarden_polkit_action_dest: /usr/share/polkit-1/actions/com.bitwarden.Bitwarde
 bitwarden_flatpak_own_names:
   - org.kde.*
   - org.freedesktop.StatusNotifierItem-2-1
-# XWayland, explicitly: the Flathub wrapper (/app/bin/bitwarden.sh) picks
-# it by default anyway, but an earlier WAYLAND override must be replaced
-# (tasks/flatpak-overrides.yml never removes one). Natively on Wayland,
-# copying a password does nothing: Bitwarden copies them through its own
-# clipboard code, which needs the data-control protocol Hyprland hides from
-# sandboxed clients, and its X11 fallback only reaches Wayland apps while
-# an XWayland window has focus. The cost is a dark rectangular "shadow"
-# around Electron's context menus (no X11 compositor). The window class is
-# "bitwarden" either way.
-bitwarden_flatpak_env:
+# Bitwarden copies passwords through its own clipboard code (arboard, in
+# desktop_native/core/src/clipboard): wlr/ext-data-control first, the X11
+# clipboard second, and the Clipboard portal (over a RemoteDesktop session,
+# as on GNOME) only when both fail. Hyprland hides data-control from every
+# client of Flatpak's security-context socket
+# (CProtocolManager::isGlobalPrivileged, not configurable), and X11 copies
+# reach Wayland apps only while an XWayland window has focus.
+#
+# With the clipboard-portal feature on (xdg-desktop-portal-omarchy), the
+# Flatpak runs natively on Wayland without its X11 socket, so arboard fails
+# both ways and Bitwarden takes the portal. Off, it runs under XWayland,
+# where copying works but Electron's context menus get a dark rectangle
+# around them. The window class is "bitwarden" either way.
+bitwarden_flatpak_env_portal:
+  DISPLAY_MODE: WAYLAND
+bitwarden_flatpak_env_xwayland:
   DISPLAY_MODE: X11
+bitwarden_flatpak_portal_nosockets:
+  - x11
+# What an earlier setup (an unfiltered link to the compositor's socket,
+# never released) may have left behind; password.yml resets the override
+# and removes the unit when it finds them.
+bitwarden_legacy_wayland_link_unit: bitwarden-wayland-link.service
+bitwarden_legacy_wayland_override_marks:
+  - "WAYLAND_DISPLAY=bitwarden-wayland/wayland-0"
+  - "filesystems=xdg-run/bitwarden-wayland;"
+# Natively on Wayland, Electron composites the Flatpak's frames in
+# software. With GPU compositing, a window hidden to the tray (SUPER+W)
+# sometimes never maps again: on show, Electron recreates the toplevel and
+# renders a frame but never acks the configure or attaches it, and from
+# then on takes the window for visible, so neither the keybind (a second
+# instance), nor the tray's Show, brings it back until a restart. Seen with
+# Bitwarden 2026.10.0 (Electron 43) on Hyprland 0.56: the window was lost
+# within 5 hide/show cycles with it, never in 30 without. Page content is
+# still rasterized on the GPU. Passed to every launch of the main instance:
+# the keybind, the autostart and a copy of the Flatpak's exported desktop
+# entry (bitwarden_flatpak_user_desktop_path) that shadows it for the app
+# launcher.
+bitwarden_flatpak_wayland_args:
+  - --disable-gpu-compositing
+bitwarden_flatpak_desktop_id: "{{ bitwarden_flatpak_id }}.desktop"
+bitwarden_flatpak_user_desktop_path: "{{ target_home }}/.local/share/applications/{{ bitwarden_flatpak_desktop_id }}"
 # Omarchy floats Bitwarden (default/hypr/apps/bitwarden.lua); false tiles it.
 bitwarden_floating: false
 # Per build: what the keybind and autostart launch, and the agent socket
@@ -368,6 +399,33 @@ polkit_agent_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ polkit_a
 # (PluginRegistry.setEnabled), which is the actual swap; kept here so the
 # play can assert both halves of it at the end of the run.
 polkit_agent_replaces_id: omarchy.polkit
+
+# xdg-desktop-portal-omarchy (playbooks/{system,user}/plugins.yml) — the
+# RemoteDesktop and Clipboard portals, for the clipboard only, so that
+# sandboxed apps (the Bitwarden Flatpak) can copy natively on Wayland, as
+# on GNOME, after a shell dialog. Built as an Arch package from a signed
+# release tag; bump the ref to deploy a new release. The repo may also be a
+# local checkout (with the tag in it) before it is published.
+clipboard_portal_repo: https://github.com/lbssousa/xdg-desktop-portal-omarchy.git
+clipboard_portal_ref: v0.1.0
+clipboard_portal_checkout_dir: "{{ target_home }}/src/xdg-desktop-portal-omarchy"
+clipboard_portal_verify_commit: true
+clipboard_portal_signing_keys: "{{ omapin_signing_keys }}"
+clipboard_portal_package: xdg-desktop-portal-omarchy
+clipboard_portal_program: /usr/lib/xdg-desktop-portal-omarchy
+clipboard_portal_plugin_dir: /usr/share/xdg-desktop-portal-omarchy/plugin
+clipboard_portal_plugin_id: lbssousa.portal
+clipboard_portal_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ clipboard_portal_plugin_id }}"
+clipboard_portal_config: /etc/xdg/xdg-desktop-portal-omarchy/config.toml
+# Apps whose clipboard content is a password: their selections also offer
+# x-kde-passwordManagerHint, which Omarchy's clipboard history skips.
+clipboard_portal_sensitive_apps:
+  - "{{ bitwarden_flatpak_id }}"
+# The backend's name in hyprland-portals.conf (its omarchy.portal file).
+clipboard_portal_name: omarchy
+clipboard_portal_interfaces:
+  - org.freedesktop.impl.portal.RemoteDesktop
+  - org.freedesktop.impl.portal.Clipboard
 
 # Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
 # of this repository every user runs `omarchy-setup-user` from.

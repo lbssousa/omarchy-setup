@@ -53,6 +53,7 @@ always applied.
 | omapin (GnuPG prompt) | `pinentry` | adds omapin and makes it gpg-agent's pinentry | system, user | on | no |
 | ssh-askpass-omarchy | `ssh-askpass` | adds the SSH key/FIDO2 prompt as a shell dialog (SSH_ASKPASS) | system, user | on | no |
 | polkit-omarchy | `polkit-agent` | modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin) | system, user | on | no |
+| xdg-desktop-portal-omarchy (clipboard portal) | `clipboard-portal` | adds the RemoteDesktop/Clipboard portals (clipboard only, after a shell dialog), so the Bitwarden Flatpak copies natively on Wayland; off, it runs under XWayland | system, user | on | no |
 | openssh with askpass touch notifications | `openssh-askpass` | modifies the openssh package (rebuilt with a patch) | system | on | no |
 
 ## Development
@@ -125,7 +126,7 @@ Default app: default password manager (SUPER+SHIFT+SLASH, autostart, SSH agent).
 
 | Option | Source | Notes |
 |---|---|---|
-| Bitwarden ★ (default) | flatpak `com.bitwarden.desktop` |  |
+| Bitwarden ★ (default) | flatpak `com.bitwarden.desktop` | copies passwords through the clipboard portal (clipboard-portal feature); without that feature it runs under XWayland |
 | Bitwarden | pacman `bitwarden` |  |
 | KeePassXC | flatpak `org.keepassxc.KeePassXC` |  |
 

@@ -194,6 +194,22 @@ bitwarden_legacy_wayland_link_unit: bitwarden-wayland-link.service
 bitwarden_legacy_wayland_override_marks:
   - "WAYLAND_DISPLAY=bitwarden-wayland/wayland-0"
   - "filesystems=xdg-run/bitwarden-wayland;"
+# Natively on Wayland, Electron composites the Flatpak's frames in
+# software. With GPU compositing, a window hidden to the tray (SUPER+W)
+# sometimes never maps again: on show, Electron recreates the toplevel and
+# renders a frame but never acks the configure or attaches it, and from
+# then on takes the window for visible, so neither the keybind (a second
+# instance), nor the tray's Show, brings it back until a restart. Seen with
+# Bitwarden 2026.10.0 (Electron 43) on Hyprland 0.56: the window was lost
+# within 5 hide/show cycles with it, never in 30 without. Page content is
+# still rasterized on the GPU. Passed to every launch of the main instance:
+# the keybind, the autostart and a copy of the Flatpak's exported desktop
+# entry (bitwarden_flatpak_user_desktop_path) that shadows it for the app
+# launcher.
+bitwarden_flatpak_wayland_args:
+  - --disable-gpu-compositing
+bitwarden_flatpak_desktop_id: "{{ bitwarden_flatpak_id }}.desktop"
+bitwarden_flatpak_user_desktop_path: "{{ target_home }}/.local/share/applications/{{ bitwarden_flatpak_desktop_id }}"
 # Omarchy floats Bitwarden (default/hypr/apps/bitwarden.lua); false tiles it.
 bitwarden_floating: false
 # Per build: what the keybind and autostart launch, and the agent socket

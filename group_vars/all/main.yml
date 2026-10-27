@@ -475,9 +475,10 @@ fingerprint_plugin_id: lbssousa.fingerprint
 fingerprint_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ fingerprint_plugin_id }}"
 
 # security-key-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# register a FIDO2 key for sudo and polkit (~/.config/Yubico/u2f_keys) and
-# import its OpenPGP and resident SSH keys, opened by `omarchy-security-key`
-# (and omarchy-multiuser's Setup > Security > FIDO2). Built like
+# register a FIDO2 key for sudo and polkit (the user's line of the shared
+# /etc/fido2/fido2, through omarchy-multiuser's pkexec helper) and import
+# its OpenPGP and resident SSH keys, opened by `omarchy-security-key` (and
+# omarchy-multiuser's Setup > Security > Fido2). Built like
 # fingerprint-omarchy.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
 security_key_plugin_ref: v0.3.0
@@ -502,7 +503,7 @@ shared_checkout_dir: /opt/omarchy-setup
 # deploy a new release. omarchy_multiuser_repo may also be a local checkout
 # (with the tag in it) before the repository is published.
 omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.5.0
+omarchy_multiuser_ref: v0.6.0
 omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
 omarchy_multiuser_verify_commit: true
 omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"

@@ -145,8 +145,24 @@
       changed_when: false
       failed_when: false
 
+    # Compared with what is installed rather than relying on the checkout
+    # having changed: after a failed install the checkout is already at the
+    # tag, and the next run would otherwise leave the old package in place.
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ omapin_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: omapin_release_version
+      changed_when: false
+
     - name: Build and install the package
-      when: omapin_git_result.changed or omapin_installed.rc != 0
+      when: >-
+        omapin_git_result.changed
+        or omapin_installed.rc != 0
+        or (omapin_installed.stdout.split() | last) != omapin_release_version.stdout
       block:
         - name: Build the package (makepkg)
           ansible.builtin.command:

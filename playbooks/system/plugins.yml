@@ -172,7 +172,7 @@
       block:
         - name: Build the package (makepkg)
           ansible.builtin.command:
-            cmd: makepkg -f --nodeps --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --nodeps --noconfirm"
             chdir: "{{ omapin_checkout_dir }}/packaging"
           environment: "{{ omapin_cargo_env }}"
 
@@ -275,7 +275,7 @@
       block:
         - name: Build the package (makepkg)
           ansible.builtin.command:
-            cmd: makepkg -f --nodeps --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --nodeps --noconfirm"
             chdir: "{{ omaskpass_checkout_dir }}/packaging"
           environment: "{{ omaskpass_cargo_env }}"
 
@@ -436,7 +436,7 @@
       block:
         - name: Build the package (makepkg)
           ansible.builtin.command:
-            cmd: makepkg -f --nodeps --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --nodeps --noconfirm"
             chdir: "{{ clipboard_portal_checkout_dir }}/packaging"
           environment: "{{ clipboard_portal_cargo_env }}"
 
@@ -547,7 +547,7 @@
       block:
         - name: Build the package (makepkg, runs the tests in check())
           ansible.builtin.command:
-            cmd: makepkg -f --cleanbuild --nodeps --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --cleanbuild --nodeps --noconfirm"
             chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
 
         - name: Locate the built package
@@ -618,7 +618,7 @@
       block:
         - name: Build the package (makepkg, runs the tests in check())
           ansible.builtin.command:
-            cmd: makepkg -f --cleanbuild --nodeps --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --cleanbuild --nodeps --noconfirm"
             chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
 
         - name: Locate the built package

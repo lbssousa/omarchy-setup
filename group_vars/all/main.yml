@@ -336,6 +336,15 @@ gregorio_lsp_binaries:
   - grelint
   - grefmt
 
+# Prefix for the makepkg builds that run as the user. run-empowered.sh runs
+# the playbook under `run0 --empower`, which hands every process of the run
+# all capabilities (ambient), so package builds (build.rs, proc macros,
+# check()) would run with CAP_SYS_PTRACE and the rest too, and tests that
+# check a process can't be read by its own user fail. setpriv clears the
+# inheritable and ambient sets, so makepkg starts with none; outside
+# run0 --empower it changes nothing.
+unprivileged_build: setpriv --inh-caps=-all --ambient-caps=-all --
+
 # omapin (playbooks/{system,user}/plugins.yml) — GnuPG prompts in the polkit-style
 # omarchy-shell dialog. Built as an Arch package from the repo's own
 # packaging/PKGBUILD with rustup's cargo.

@@ -83,7 +83,7 @@
       block:
         - name: Build the package (makepkg, runs the tests in check())
           ansible.builtin.command:
-            cmd: makepkg -f --cleanbuild --nodeps --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --cleanbuild --nodeps --noconfirm"
             chdir: "{{ omarchy_multiuser_checkout_dir }}/packaging"
           # run0/run-empowered sets SUDO_USER, which makes fakeroot in check()
           # think omarchy-mu-fido2-authfile was called through sudo as root,

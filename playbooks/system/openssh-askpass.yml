@@ -82,7 +82,7 @@
 
         - name: Build the package (makepkg, with the test suite)
           ansible.builtin.command:
-            cmd: makepkg -f --nodeps --skippgpcheck --noconfirm
+            cmd: "{{ unprivileged_build }} makepkg -f --nodeps --skippgpcheck --noconfirm"
             chdir: "{{ openssh_askpass_build_dir }}"
 
         - name: Locate the built package

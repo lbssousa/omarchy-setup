@@ -94,6 +94,8 @@ firefox_taskbar_tabs_pref_file: omarchy-setup.js
 # page text, the browser chrome follows the GNOME font (see
 # omarchy_gnome_font_sizes). 17px is 13pt at 96dpi, as an integer px
 # because that's what the pref takes; a default, not a forced value.
+# TODO: candidate for a reduction: sized while the monitor scale was 1.0;
+# at the current 1.25 (omarchy_monitor_scale) page text looks larger.
 firefox_font_size_pref_file: omarchy-setup-font.js
 firefox_default_font_size_px: 17
 
@@ -295,6 +297,8 @@ emacs_packages:
 # px. Zed sizes are in logical pixels, so at the 100% monitor scale
 # (omarchy_monitor_scale) this is the previous 20 times the old 1.25 scale,
 # which keeps the same apparent size.
+# TODO: candidate for a reduction: the monitor scale is back to 1.25, so
+# this now looks 25% larger than intended (20 would match it again).
 zed_font_size: 25
 
 # Same family Omarchy sets as the system-wide monospace default (see
@@ -705,24 +709,23 @@ printer_l4160_set_default: true
 # reset — the desktop's default UI font size is set directly instead, via
 # omarchy_gnome_font_sizes below.
 #
-# The monitor scale is 100%, so text is sized to make up for it: 20px is
-# the previous 16px times the old 1.25 scale, and the top of the 9–20 range
-# omarchy-display-text-size accepts. It also sets the terminal font
-# (px * 9/12 = 15pt).
-omarchy_text_size_px: 20
+# The monitor scale (omarchy_monitor_scale) already enlarges everything by
+# 1.25, so this stays at 16px — the 20px once used at a 100% scale, divided
+# by 1.25 — to keep the same apparent size. It also sets the terminal font
+# (px * 9/12 = 12pt).
+omarchy_text_size_px: 16
 
 # Hyprland monitor scale factor (playbooks/{system,user}/desktop.yml) — the
 # compositor-level "screen scale" applied to everything on screen. Fed
 # straight into hl.monitor({ scale = ... }) in
 # ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
 #
-# 1.0 (100%): at 1.25 a 1920px-wide screen is only 1536 logical px, so a
-# half-screen dwindle tile (749px) is narrower than some apps' ~800px
-# minimum width (KeePassXC's, back then); Hyprland then squeezes the
-# window's image to fit, which also skews where the mouse lands on its
-# buttons. At 100% the tile is
-# ~950px. omarchy_text_size_px compensates for the smaller scale.
-omarchy_monitor_scale: 1.0
+# 1.25 (125%). Caveat: a 1920px-wide screen is then only 1536 logical px,
+# so a half-screen dwindle tile (749px) can be narrower than some apps'
+# ~800px minimum width; Hyprland then squeezes the window's image to fit,
+# which also skews where the mouse lands on its buttons. At 100% the tile
+# is ~950px. omarchy_text_size_px is sized for this scale.
+omarchy_monitor_scale: 1.25
 
 # GDK_SCALE (playbooks/{system,user}/desktop.yml) — the integer factor GTK/Electron read
 # under XWayland, where Hyprland doesn't scale windows
@@ -747,6 +750,8 @@ omarchy_gnome_font_sizes:
 # 15pt that would match the old 1.25 monitor scale (13pt * 1.25, rounded),
 # unlike the shell bar and terminals, which stay compensated. Raised a
 # point from the 12pt Omarchy leaves behind.
+# TODO: candidate for a reduction: sized while the monitor scale was 1.0;
+# at the current 1.25 (omarchy_monitor_scale) it looks larger.
 omarchy_system_ui_font_pt: 13
 
 # Caps Lock via keyd (playbooks/{system,user}/capslock.yml). Key that takes over Compose

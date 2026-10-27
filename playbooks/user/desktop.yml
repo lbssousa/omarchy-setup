@@ -62,9 +62,9 @@
 #
 # The Hyprland monitor scale is a compositor-level multiplier applied to
 # everything on screen (~/.config/hypr/monitors.lua's omarchy_monitor_scale,
-# fed into hl.monitor({ scale = ... })). It is set to 100% (1.0) so that
-# tiled windows get the full logical width of the screen; the text sizes
-# below are raised by the old 1.25 scale to keep the same apparent size.
+# fed into hl.monitor({ scale = ... })). It is set to 125% (1.25); the
+# shell bar + terminal text size below is lowered by the same factor to
+# keep the same apparent size.
 #
 # GDK_SCALE (the same file's omarchy_gdk_scale) is the integer factor
 # X11/XWayland GTK apps read, since Hyprland doesn't scale XWayland windows.

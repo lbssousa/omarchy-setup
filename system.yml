@@ -81,7 +81,7 @@
 - name: "Yubikey GPG key, before the plugins: their signed release tags need it in the administrator's keyring (opt-in)"
   ansible.builtin.import_playbook: playbooks/user/yubikey.yml
 
-- name: Omarchy shell plugins, omapin, ssh-askpass-omarchy, polkit-omarchy
+- name: Omarchy shell plugins, omapin, omaskpass, polkit-omarchy, fingerprint and security key overlays
   ansible.builtin.import_playbook: playbooks/system/plugins.yml
 
 - name: Homebrew (opt-in)

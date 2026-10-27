@@ -5,7 +5,7 @@
 # writes "Confirm user presence for key …" to the terminal and never runs
 # the askpass. That happens even with SSH_ASKPASS_REQUIRE=prefer, which
 # read_passphrase() honours for the PIN prompt just before. So the FIDO
-# PIN shows up in ssh-askpass-omarchy's dialog but the touch request
+# PIN shows up in omaskpass's dialog but the touch request
 # doesn't. files/openssh/askpass-notify.patch makes notify_start() honour
 # SSH_ASKPASS_REQUIRE the same way (proposed upstream; drop this playbook
 # once an OpenSSH release carries it).

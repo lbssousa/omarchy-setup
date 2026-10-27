@@ -6,9 +6,11 @@
 #
 #   plugins       omarchy_plugins list, via `omarchy plugin add`
 #   pinentry      omapin  (lbssousa.omapin)
-#   ssh-askpass   ssh-askpass-omarchy  (lbssousa.ssh_askpass)
+#   ssh-askpass   omaskpass  (lbssousa.omaskpass)
 #   polkit-agent  polkit-omarchy  (lbssousa.polkit)
 #   clipboard-portal  xdg-desktop-portal-omarchy  (lbssousa.portal)
+#   fingerprint   fingerprint-omarchy  (lbssousa.fingerprint)
+#   security-key  security-key-omarchy  (lbssousa.security-key)
 #
 # Play 1 — installs this desktop's list of third-party Omarchy shell plugins:
 # omarchy_plugins in group_vars/all/main.yml (Radio Atlas first). Each entry
@@ -344,9 +346,12 @@
       when: omapin_agent_conf_result.changed or omapin_package_result is changed
       changed_when: true
 
-# ssh-askpass-omarchy, per user: link and enable the packaged plugin, and
-# make it SSH_ASKPASS for the session (environment.d).
-- name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog) (user)
+# omaskpass, per user: link and enable the packaged plugin, and make it
+# SSH_ASKPASS for the session (environment.d). An install from before the
+# rename (ssh-askpass-omarchy, plugin lbssousa.ssh_askpass) is migrated on
+# the way: the old plugin is disabled (the shell drops its shell.json entry
+# even with the plugin's files gone) and its dangling link removed.
+- name: omaskpass (SSH prompts in the polkit-style shell dialog) (user)
   hosts: localhost
   connection: local
   gather_facts: false
@@ -356,67 +361,93 @@
     - name: Check whether the installed plugin code changed for this user
       ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
       vars:
-        plugin_stamp_id: "{{ ssh_askpass_plugin_id }}"
-        plugin_stamp_paths: ["{{ ssh_askpass_program }}", "{{ ssh_askpass_plugin_dir }}"]
+        plugin_stamp_id: "{{ omaskpass_plugin_id }}"
+        plugin_stamp_paths: ["{{ omaskpass_program }}", "{{ omaskpass_plugin_dir }}"]
 
     - name: Keep the result under the name the tasks below use
       ansible.builtin.set_fact:
-        ssh_askpass_copy_result: "{{ plugin_stamp_result }}"
+        omaskpass_package_result: "{{ plugin_stamp_result }}"
 
     - name: Create ~/.config/omarchy/plugins
       ansible.builtin.file:
-        path: "{{ ssh_askpass_plugin_link | dirname }}"
+        path: "{{ omaskpass_plugin_link | dirname }}"
         state: directory
         mode: "0755"
 
-    - name: "Link the packaged shell plugin ({{ ssh_askpass_plugin_link }})"
+    - name: "Link the packaged shell plugin ({{ omaskpass_plugin_link }})"
       ansible.builtin.file:
-        src: "{{ ssh_askpass_plugin_dir }}"
-        dest: "{{ ssh_askpass_plugin_link }}"
+        src: "{{ omaskpass_plugin_dir }}"
+        dest: "{{ omaskpass_plugin_link }}"
         state: link
         force: true
-      register: ssh_askpass_link_result
+      register: omaskpass_link_result
 
     - name: Read the shell config
       ansible.builtin.slurp:
         src: "{{ omarchy_shell_json }}"
-      register: ssh_askpass_shell_json_raw
+      register: omaskpass_shell_json_raw
       failed_when: false
 
-    - name: Work out whether the plugin is already enabled
+    - name: Work out whether the plugin (and the pre-rename one) is enabled
       ansible.builtin.set_fact:
-        ssh_askpass_plugin_enabled: >-
-          {{ (ssh_askpass_shell_json_raw.content is defined)
-             and (((ssh_askpass_shell_json_raw.content | b64decode | from_json).plugins | default([]))
-                  | selectattr('id', 'equalto', ssh_askpass_plugin_id) | list | length > 0) }}
+        omaskpass_plugin_enabled: >-
+          {{ (omaskpass_shell_json_raw.content is defined)
+             and (((omaskpass_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', omaskpass_plugin_id) | list | length > 0) }}
+        omaskpass_legacy_plugin_enabled: >-
+          {{ (omaskpass_shell_json_raw.content is defined)
+             and (((omaskpass_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', omaskpass_legacy_plugin_id) | list | length > 0) }}
 
-    - name: "Enable the {{ ssh_askpass_plugin_id }} shell plugin"
+    - name: "Disable the pre-rename {{ omaskpass_legacy_plugin_id }} shell plugin"
       ansible.builtin.command:
-        argv: [omarchy-shell, shell, enablePlugin, "{{ ssh_askpass_plugin_id }}", "{}"]
-      register: ssh_askpass_enable_result
-      failed_when: ssh_askpass_enable_result.rc != 0 or ssh_askpass_enable_result.stdout | trim != 'ok'
-      when: not ssh_askpass_plugin_enabled
+        argv: [omarchy-shell, shell, setPluginEnabled, "{{ omaskpass_legacy_plugin_id }}", "false"]
+      register: omaskpass_legacy_disable_result
+      failed_when: omaskpass_legacy_disable_result.rc != 0 or omaskpass_legacy_disable_result.stdout | trim != 'ok'
+      when: omaskpass_legacy_plugin_enabled
+
+    - name: "Remove the pre-rename plugin link ({{ omaskpass_legacy_plugin_link }})"
+      ansible.builtin.file:
+        path: "{{ omaskpass_legacy_plugin_link }}"
+        state: absent
+
+    # enablePlugin answers "unknown" for a plugin the running shell hasn't
+    # scanned yet, which a freshly made link is.
+    - name: Let the shell discover the plugin
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, rescanPlugins]
+      changed_when: false
+      when: not omaskpass_plugin_enabled
+
+    - name: "Enable the {{ omaskpass_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ omaskpass_plugin_id }}", "{}"]
+      register: omaskpass_enable_result
+      failed_when: omaskpass_enable_result.rc != 0 or omaskpass_enable_result.stdout | trim != 'ok'
+      when: not omaskpass_plugin_enabled
 
     # A keepLoaded service doesn't reload when its files change, so new
     # plugin code (not just a new link) needs a restart too.
     - name: Restart the shell to load the new plugin code
       ansible.builtin.include_tasks: tasks/restart-shell.yml
       when: >-
-        (ssh_askpass_link_result is changed or ssh_askpass_copy_result is changed)
-        and ssh_askpass_enable_result is skipped
+        (omaskpass_link_result is changed or omaskpass_package_result is changed)
+        and omaskpass_enable_result is skipped
 
     - name: Create ~/.config/environment.d
       ansible.builtin.file:
-        path: "{{ ssh_askpass_environment_conf | dirname }}"
+        path: "{{ omaskpass_environment_conf | dirname }}"
         state: directory
         mode: "0755"
 
-    - name: "Configure SSH to use ssh-askpass-omarchy ({{ ssh_askpass_environment_conf }})"
+    # Read at login: a session started before this keeps the old
+    # SSH_ASKPASS until the user logs in again.
+    - name: "Configure SSH to use omaskpass ({{ omaskpass_environment_conf }})"
       ansible.builtin.copy:
         content: |
-          SSH_ASKPASS={{ ssh_askpass_program }}
+          SSH_ASKPASS={{ omaskpass_program }}
           SSH_ASKPASS_REQUIRE=prefer
-        dest: "{{ ssh_askpass_environment_conf }}"
+        dest: "{{ omaskpass_environment_conf }}"
         mode: "0644"
 
 # polkit-omarchy, per user: link the plugin and enable it, which disables
@@ -616,3 +647,139 @@
       when: clipboard_portal_package_result is changed
       changed_when: true
       failed_when: false
+
+# fingerprint-omarchy, per user: link and enable the packaged overlay, which
+# `omarchy-fingerprint` then opens.
+- name: fingerprint-omarchy (fingerprint overlay) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [fingerprint]
+
+  tasks:
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+      vars:
+        plugin_stamp_id: "{{ fingerprint_plugin_id }}"
+        plugin_stamp_paths: ["{{ fingerprint_plugin_program }}", "{{ fingerprint_plugin_dir }}"]
+
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        fingerprint_plugin_package_result: "{{ plugin_stamp_result }}"
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ fingerprint_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ fingerprint_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ fingerprint_plugin_dir }}"
+        dest: "{{ fingerprint_plugin_link }}"
+        state: link
+        force: true
+      register: fingerprint_plugin_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ omarchy_shell_json }}"
+      register: fingerprint_plugin_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        fingerprint_plugin_enabled: >-
+          {{ (fingerprint_plugin_shell_json_raw.content is defined)
+             and (((fingerprint_plugin_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', fingerprint_plugin_id) | list | length > 0) }}
+
+    # enablePlugin answers "unknown" for a plugin the running shell hasn't
+    # scanned yet, which a freshly made link is.
+    - name: Let the shell discover the plugin
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, rescanPlugins]
+      changed_when: false
+      when: not fingerprint_plugin_enabled
+
+    - name: "Enable the {{ fingerprint_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ fingerprint_plugin_id }}", "{}"]
+      register: fingerprint_plugin_enable_result
+      failed_when: fingerprint_plugin_enable_result.rc != 0 or fingerprint_plugin_enable_result.stdout | trim != 'ok'
+      when: not fingerprint_plugin_enabled
+
+    # keepLoaded: the overlay doesn't reload when its files change.
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.include_tasks: tasks/restart-shell.yml
+      when: >-
+        (fingerprint_plugin_package_result is changed or fingerprint_plugin_link_result is changed)
+        and fingerprint_plugin_enable_result is skipped
+
+# security-key-omarchy, per user: link and enable the packaged overlay, which
+# `omarchy-security-key` then opens.
+- name: security-key-omarchy (security key overlay) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [security-key]
+
+  tasks:
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+      vars:
+        plugin_stamp_id: "{{ security_key_plugin_id }}"
+        plugin_stamp_paths: ["{{ security_key_plugin_program }}", "{{ security_key_plugin_dir }}"]
+
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        security_key_plugin_package_result: "{{ plugin_stamp_result }}"
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ security_key_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ security_key_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ security_key_plugin_dir }}"
+        dest: "{{ security_key_plugin_link }}"
+        state: link
+        force: true
+      register: security_key_plugin_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ omarchy_shell_json }}"
+      register: security_key_plugin_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        security_key_plugin_enabled: >-
+          {{ (security_key_plugin_shell_json_raw.content is defined)
+             and (((security_key_plugin_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', security_key_plugin_id) | list | length > 0) }}
+
+    # enablePlugin answers "unknown" for a plugin the running shell hasn't
+    # scanned yet, which a freshly made link is.
+    - name: Let the shell discover the plugin
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, rescanPlugins]
+      changed_when: false
+      when: not security_key_plugin_enabled
+
+    - name: "Enable the {{ security_key_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ security_key_plugin_id }}", "{}"]
+      register: security_key_plugin_enable_result
+      failed_when: security_key_plugin_enable_result.rc != 0 or security_key_plugin_enable_result.stdout | trim != 'ok'
+      when: not security_key_plugin_enabled
+
+    # keepLoaded: the overlay doesn't reload when its files change.
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.include_tasks: tasks/restart-shell.yml
+      when: >-
+        (security_key_plugin_package_result is changed or security_key_plugin_link_result is changed)
+        and security_key_plugin_enable_result is skipped

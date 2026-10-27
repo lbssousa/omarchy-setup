@@ -4,7 +4,7 @@
 # physical token being connected (`just apply gpg-yubikey`).
 #
 # Runs in both phases: system.yml imports it before plugins.yml, whose
-# signed release tags (omapin, ssh-askpass-omarchy, polkit-omarchy) need
+# signed release tags (omapin, omaskpass, polkit-omarchy, ...) need
 # the key in the administrator's keyring; the user phase's run is then a
 # no-op for them, and the import for everyone else. No task here becomes
 # root, so in the system phase it still touches only the caller's keyring.

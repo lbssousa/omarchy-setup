@@ -85,7 +85,7 @@
 - name: "Starship extras: Nix badge, ahead/behind"
   ansible.builtin.import_playbook: playbooks/user/starship.yml
 
-- name: Omarchy shell plugins, omapin, ssh-askpass-omarchy, polkit-omarchy
+- name: Omarchy shell plugins, omapin, omaskpass, polkit-omarchy, fingerprint and security key overlays
   ansible.builtin.import_playbook: playbooks/user/plugins.yml
 
 - name: Homebrew on PATH (opt-in)

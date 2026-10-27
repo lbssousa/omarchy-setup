@@ -202,8 +202,8 @@ features:
 
   - id: ssh-askpass
     group: plugins
-    title: ssh-askpass-omarchy
-    effect: adds the SSH key/FIDO2 prompt as a shell dialog (SSH_ASKPASS)
+    title: omaskpass (SSH prompt)
+    effect: adds omaskpass and makes it the SSH key/FIDO2 prompt (SSH_ASKPASS); removes ssh-askpass-omarchy
     phases: [system, user]
     default: true
     revert: false
@@ -220,6 +220,22 @@ features:
     group: plugins
     title: xdg-desktop-portal-omarchy (clipboard portal)
     effect: adds the RemoteDesktop/Clipboard portals (clipboard only, after a shell dialog), so the Bitwarden Flatpak copies natively on Wayland; off, it runs under XWayland
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: fingerprint
+    group: plugins
+    title: fingerprint-omarchy (fingerprint overlay)
+    effect: adds an overlay to enroll, test and delete your fingerprints (fprintd), opened by omarchy-fingerprint
+    phases: [system, user]
+    default: true
+    revert: false
+
+  - id: security-key
+    group: plugins
+    title: security-key-omarchy (security key overlay)
+    effect: adds an overlay to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened by omarchy-security-key
     phases: [system, user]
     default: true
     revert: false

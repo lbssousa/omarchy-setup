@@ -22,7 +22,7 @@
 # rgba(6f8396ee) in colors.toml, #6f8396 being libadwaita's slate), matching
 # the GTK accent instead of the blue `accent`.
 #
-# The shell's polkit dialogs (polkit-omarchy, ssh-askpass-omarchy,
+# The shell's polkit dialogs (polkit-omarchy, omaskpass,
 # omapin) take their border from the Hyprland border above and
 # their lock-icon accent from shell.polkit.toml, a [polkit] section override
 # that sets it to the same slate.

@@ -3,12 +3,15 @@
 #
 #   plugins       runtime dependencies of the omarchy_plugins list
 #   pinentry      omapin: signed release tag verified, built, pacman -U
-#   ssh-askpass   ssh-askpass-omarchy: signed release tag verified, built,
-#                 installed to /usr/bin and /usr/share
+#   ssh-askpass   omaskpass: signed release tag verified, built, pacman -U
 #   polkit-agent  polkit-omarchy: signed release tag verified, copied to
 #                 /usr/share
 #   clipboard-portal  xdg-desktop-portal-omarchy: signed release tag
 #                 verified, built, pacman -U; its config.toml
+#   fingerprint   fingerprint-omarchy: signed release tag verified, built,
+#                 pacman -U
+#   security-key  security-key-omarchy: signed release tag verified, built,
+#                 pacman -U
 #
 # The release signing key only needs to be in the keyring of the
 # administrator running this (`just apply gpg-yubikey`). Linking and enabling the
@@ -16,7 +19,7 @@
 # user/plugins.yml, which explains the plugin list.
 #
 # Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent /
-# clipboard-portal)
+# clipboard-portal / fingerprint / security-key)
 - name: Omarchy shell plugins (omarchy_plugins runtime dependencies)
   hosts: localhost
   connection: local
@@ -186,84 +189,116 @@
             state: present
           become: true
 
-# Installs ssh-askpass-omarchy (https://github.com/lbssousa/ssh-askpass-omarchy)
-# from a release tag (ssh_askpass_ref), checked out in
-# ssh_askpass_checkout_dir only after the tag's GPG signature verifies and
-# comes from one of ssh_askpass_signing_keys: the build runs as the user,
-# and the result is installed as root. Releases are signed tags made on the
-# merged commit (see the "Releases" section of its README); main only holds
-# GitHub-signed squash merges, so it isn't deployable.
-# This compiles the Rust binary (--locked, from the repo's Cargo.lock),
-# installs it to /usr/bin,
-# links the shell plugin, enables it via omarchy-shell IPC,
-# and configures SSH to use it.
+# omaskpass — SSH's prompts (key passphrases, FIDO2 PIN and touch, host
+# key questions, ssh-add -c confirmations) in the same overlay dialog
+# (https://github.com/lbssousa/omaskpass). It was called
+# ssh-askpass-omarchy until 0.2.0.
+#
+# Built and installed like omapin (above): the repo's packaging/PKGBUILD,
+# makepkg as the user with rustup's cargo, pacman -U, only when the
+# checkout of the signed release tag changed or the installed version isn't
+# the release's.
+#
+# The pre-rename install was never a package: its binary and plugin were
+# copied to /usr/bin and /usr/share by hand, so they are deleted here once
+# omaskpass is in. Each user's link to the old plugin, its shell.json entry
+# and SSH_ASKPASS move over in the user phase.
 #
 # Usage: just apply ssh-askpass
-- name: ssh-askpass-omarchy (SSH prompts in the polkit-style shell dialog)
+- name: omaskpass (SSH prompts in the polkit-style shell dialog)
   hosts: localhost
   connection: local
   gather_facts: false
   tags: [ssh-askpass]
 
   vars:
-    ssh_askpass_cargo_env:
-      PATH: "{{ ssh_askpass_cargo_bin_dir }}:{{ target_path }}"
+    omaskpass_cargo_env:
+      PATH: "{{ omaskpass_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
-    - name: Install git and gnupg (the signature check needs both)
+    - name: Install build dependencies
       community.general.pacman:
         name:
+          - base-devel
           - git
           - gnupg
         state: present
       become: true
 
-    - name: "Check out the ssh-askpass-omarchy release ({{ ssh_askpass_ref }}), verifying its signed tag"
-      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
-      vars:
-        signed_checkout_name: ssh-askpass-omarchy
-        signed_checkout_repo: "{{ ssh_askpass_repo }}"
-        signed_checkout_ref: "{{ ssh_askpass_ref }}"
-        signed_checkout_dest: "{{ ssh_askpass_checkout_dir }}"
-        signed_checkout_verify: "{{ ssh_askpass_verify_commit }}"
-        signed_checkout_keys: "{{ ssh_askpass_signing_keys }}"
-
     - name: Check whether Rust (cargo) is already installed
       ansible.builtin.stat:
-        path: "{{ ssh_askpass_cargo_bin_dir }}/cargo"
-      register: ssh_askpass_cargo_stat
+        path: "{{ omaskpass_cargo_bin_dir }}/cargo"
+      register: omaskpass_cargo_stat
 
     - name: Install Rust (omarchy-install-dev-env rust)
       ansible.builtin.command: omarchy-install-dev-env rust
-      when: not ssh_askpass_cargo_stat.stat.exists
+      when: not omaskpass_cargo_stat.stat.exists
 
-    - name: Build the ssh-askpass-omarchy binary
-      ansible.builtin.command:
-        cmd: cargo build --release --locked
-        chdir: "{{ ssh_askpass_checkout_dir }}"
-      environment: "{{ ssh_askpass_cargo_env }}"
+    - name: "Check out the omaskpass release ({{ omaskpass_ref }}), verifying its signed tag"
+      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
+      vars:
+        signed_checkout_name: omaskpass
+        signed_checkout_repo: "{{ omaskpass_repo }}"
+        signed_checkout_ref: "{{ omaskpass_ref }}"
+        signed_checkout_dest: "{{ omaskpass_checkout_dir }}"
+        signed_checkout_verify: "{{ omaskpass_verify_commit }}"
+        signed_checkout_keys: "{{ omaskpass_signing_keys }}"
 
-    - name: Create the ssh-askpass-omarchy plugin directory
+    - name: Keep the checkout's result under this play's name
+      ansible.builtin.set_fact:
+        omaskpass_git_result: "{{ signed_checkout_result }}"
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: "pacman -Q {{ omaskpass_package }}"
+      register: omaskpass_installed
+      changed_when: false
+      failed_when: false
+
+    # Compared with what is installed rather than relying on the checkout
+    # having changed: after a failed install the checkout is already at the
+    # tag, and the next run would otherwise leave the old package in place.
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ omaskpass_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: omaskpass_release_version
+      changed_when: false
+
+    - name: Build and install the package
+      when: >-
+        omaskpass_git_result.changed
+        or omaskpass_installed.rc != 0
+        or (omaskpass_installed.stdout.split() | last) != omaskpass_release_version.stdout
+      block:
+        - name: Build the package (makepkg)
+          ansible.builtin.command:
+            cmd: makepkg -f --nodeps --noconfirm
+            chdir: "{{ omaskpass_checkout_dir }}/packaging"
+          environment: "{{ omaskpass_cargo_env }}"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ omaskpass_checkout_dir }}/packaging"
+          register: omaskpass_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ omaskpass_packagelist.stdout_lines | first }}"
+            state: present
+          become: true
+
+    - name: "Remove the pre-rename copy ({{ omaskpass_legacy_program }}, {{ omaskpass_legacy_share_dir }})"
       ansible.builtin.file:
-        path: "{{ ssh_askpass_plugin_dir }}"
-        state: directory
-        mode: "0755"
-      become: true
-
-    - name: Install the binary to /usr/bin
-      ansible.builtin.copy:
-        src: "{{ ssh_askpass_checkout_dir }}/target/release/ssh-askpass-omarchy"
-        dest: "{{ ssh_askpass_program }}"
-        mode: "0755"
-        remote_src: true
-      become: true
-
-    - name: Install the plugin to /usr/share
-      ansible.builtin.copy:
-        src: "{{ ssh_askpass_checkout_dir }}/plugin/"
-        dest: "{{ ssh_askpass_plugin_dir }}/"
-        mode: preserve
-        remote_src: true
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ omaskpass_legacy_program }}"
+        - "{{ omaskpass_legacy_share_dir }}"
       become: true
 
 # Replaces Omarchy's polkit agent (omarchy.polkit) with polkit-omarchy
@@ -441,3 +476,160 @@
         group: root
         mode: "0644"
       become: true
+
+# fingerprint-omarchy and security-key-omarchy — the overlays that manage a
+# user's own fingerprints (fprintd) and FIDO2 security key (pam_u2f, plus
+# the key's OpenPGP and resident SSH keys)
+# (https://github.com/lbssousa/fingerprint-omarchy,
+# https://github.com/lbssousa/security-key-omarchy). Both are QML plus a
+# Python helper, packaged arch=any.
+#
+# Built and installed like omapin, minus cargo: makepkg as the user, from a
+# checkout of the signed release tag, then pacman -U, which also pulls the
+# runtime dependencies (fprintd, python-gobject; libfido2, pam-u2f) that
+# makepkg --nodeps skipped. check() runs the plugins' tests, hence nodejs
+# (and python-gobject for fingerprint-omarchy's helper).
+#
+# Usage: just apply fingerprint / just apply security-key
+- name: fingerprint-omarchy (fingerprint overlay)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [fingerprint]
+
+  tasks:
+    - name: Install build dependencies
+      community.general.pacman:
+        name:
+          - base-devel
+          - git
+          - gnupg
+          - nodejs
+          - python-gobject
+        state: present
+      become: true
+
+    - name: "Check out the fingerprint-omarchy release ({{ fingerprint_plugin_ref }}), verifying its signed tag"
+      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
+      vars:
+        signed_checkout_name: fingerprint-omarchy
+        signed_checkout_repo: "{{ fingerprint_plugin_repo }}"
+        signed_checkout_ref: "{{ fingerprint_plugin_ref }}"
+        signed_checkout_dest: "{{ fingerprint_plugin_checkout_dir }}"
+        signed_checkout_verify: "{{ fingerprint_plugin_verify_commit }}"
+        signed_checkout_keys: "{{ fingerprint_plugin_signing_keys }}"
+
+    - name: Keep the checkout's result under this play's name
+      ansible.builtin.set_fact:
+        fingerprint_plugin_git_result: "{{ signed_checkout_result }}"
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: "pacman -Q {{ fingerprint_plugin_package }}"
+      register: fingerprint_plugin_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: fingerprint_plugin_release_version
+      changed_when: false
+
+    - name: Build and install the package
+      when: >-
+        fingerprint_plugin_git_result.changed
+        or fingerprint_plugin_installed.rc != 0
+        or (fingerprint_plugin_installed.stdout.split() | last) != fingerprint_plugin_release_version.stdout
+      block:
+        - name: Build the package (makepkg, runs the tests in check())
+          ansible.builtin.command:
+            cmd: makepkg -f --cleanbuild --nodeps --noconfirm
+            chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
+          register: fingerprint_plugin_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ fingerprint_plugin_packagelist.stdout_lines | first }}"
+            state: present
+          become: true
+
+- name: security-key-omarchy (security key overlay)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [security-key]
+
+  tasks:
+    - name: Install build dependencies
+      community.general.pacman:
+        name:
+          - base-devel
+          - git
+          - gnupg
+          - nodejs
+        state: present
+      become: true
+
+    - name: "Check out the security-key-omarchy release ({{ security_key_plugin_ref }}), verifying its signed tag"
+      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
+      vars:
+        signed_checkout_name: security-key-omarchy
+        signed_checkout_repo: "{{ security_key_plugin_repo }}"
+        signed_checkout_ref: "{{ security_key_plugin_ref }}"
+        signed_checkout_dest: "{{ security_key_plugin_checkout_dir }}"
+        signed_checkout_verify: "{{ security_key_plugin_verify_commit }}"
+        signed_checkout_keys: "{{ security_key_plugin_signing_keys }}"
+
+    - name: Keep the checkout's result under this play's name
+      ansible.builtin.set_fact:
+        security_key_plugin_git_result: "{{ signed_checkout_result }}"
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: "pacman -Q {{ security_key_plugin_package }}"
+      register: security_key_plugin_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: security_key_plugin_release_version
+      changed_when: false
+
+    - name: Build and install the package
+      when: >-
+        security_key_plugin_git_result.changed
+        or security_key_plugin_installed.rc != 0
+        or (security_key_plugin_installed.stdout.split() | last) != security_key_plugin_release_version.stdout
+      block:
+        - name: Build the package (makepkg, runs the tests in check())
+          ansible.builtin.command:
+            cmd: makepkg -f --cleanbuild --nodeps --noconfirm
+            chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
+          register: security_key_plugin_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ security_key_plugin_packagelist.stdout_lines | first }}"
+            state: present
+          become: true

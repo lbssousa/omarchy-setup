@@ -4,8 +4,10 @@
 # names — the SDDM greeter listing every user by full name with an optional
 # username field, no autologin, per-user FIDO2 keys and fingerprints with the
 # lock screen's fingerprint PAM kept while anyone has prints, migrations for
-# users outside wheel, account and LUKS keyslot helpers, and menu entries
-# pointing at all of that.
+# users outside wheel, account, administrator-rights and LUKS keyslot
+# helpers, and menu entries pointing at all of that. For users outside wheel
+# it also takes the update icon off their bar and has polkit refuse them the
+# browsers' theme color policy without a password dialog.
 #
 # Deployed like omapin (system/plugins.yml): a release tag whose GPG
 # signature must verify against omarchy_multiuser_signing_keys, built with
@@ -17,7 +19,8 @@
 #   - omarchy-mu-migrate-record@<admin>.path for every administrator, which
 #     tells non-admins' migrations what an admin has already run;
 #   - omarchy-mu-login.service for every user (systemctl --global): the
-#     menu entries and the fingerprint invitation at each login;
+#     menu entries, the update icon (administrators only) and the
+#     fingerprint invitation at each login;
 #   - root's password locked while there are several accounts
 #     (omarchy-mu-accounts root-sync);
 #
@@ -139,7 +142,7 @@
       changed_when: false
       failed_when: false
 
-    - name: Enable the per-login unit for every user (menu entries, fingerprint invitation)
+    - name: Enable the per-login unit for every user (menu entries, update icon, fingerprint invitation)
       ansible.builtin.command: systemctl --global enable omarchy-mu-login.service
       when: omarchy_multiuser_login_unit.stdout | trim != 'enabled'
       changed_when: true

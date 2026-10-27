@@ -38,6 +38,12 @@ rules they can:
   lock screen stays on while any user has prints.
 - apply their Omarchy migrations (Update › Omarchy), as described below.
 
+What would only end in a refusal stays out of their way: the menu hides
+the machine-wide entries, the bar's update icon comes off their bar at their
+first login (it comes back where it was if they become administrators), and
+polkit refuses them the browsers' theme color policy without asking for an
+administrator's password.
+
 ## Adding a person
 
 1. Add them to `group_vars/all/users.yml` and commit. Their full name,
@@ -61,6 +67,13 @@ outside Ansible. `omarchy-mu-user-remove` removes an account along with its
 FIDO2 line, prints, disk keyslot and the sudo grants that would outlive it
 (the installer's by name, passwordless sudo's by UID). Removing someone from
 `users.yml` does **not** delete their account.
+
+`omarchy-mu-user-admin <name> on|off` (Setup › Users › Administrator
+Rights) gives or takes away administrator rights by hand. Taking them
+deletes the account's sudo grants before it leaves `wheel`, and offers to
+log the person out, since programs already open keep `sudo` until then.
+Setting `admin: false` in `users.yml` and running `just users` does the same,
+except the logout. Neither takes away your own rights.
 
 Root's password is the owner's on a fresh Omarchy, which would let anyone who
 learns it reach root outside `wheel`. With several accounts it is locked
@@ -113,7 +126,7 @@ notified only when one actually fails (log:
 | Packages, `/etc/locale.conf`, keyd, the printer queue, Plymouth, Limine | They belong to the machine | system phase |
 | Homebrew | One prefix with one owner (`homebrew_owner`); others can run what it installed | `system/homebrew.yml` |
 | The greeter's colors | Style › Unlock recolors the login screen for everyone, so only administrators see it in the menu | omarchy-multiuser |
-| The browsers' theme color policy | Omarchy writes it to `/etc` on every theme change, and its sudoers rule is `%wheel`. The last administrator to change theme wins; other users' theme changes leave it alone. | Omarchy |
+| The browsers' theme color policy | Omarchy writes it to `/etc` on every theme change, and its sudoers rule is `%wheel`. The last administrator to change theme wins; for anyone else omarchy-multiuser's polkit rule refuses it without a prompt, so their theme changes leave it alone. | Omarchy, omarchy-multiuser |
 | Tailscale `--operator` | Tailscale allows a single operator | Omarchy |
 | Omarchy's own `omarchy-remove-security-*` commands | Still installed. Called directly, they remove FIDO2 or fingerprints for everyone; the menu points at the per-user forks | Omarchy |
 | Fast user switching | Not set up: one graphical session at a time, from the greeter | — |

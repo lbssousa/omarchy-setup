@@ -8,7 +8,9 @@
 #   admin: true   wheel (sudo, the system phase)
 #   admin: false  omarchy-users (their own FIDO2 key and fingerprints, through
 #                 omarchy-multiuser's sudoers rules); taken out of wheel if
-#                 they were in it, except the account running this
+#                 they were in it, except the account running this, after
+#                 the sudo grants that would keep root outside wheel
+#                 (omarchy-mu-accounts drop-grants)
 #
 # New accounts start with a locked password ('!'); `just users` asks for it
 # right after this play. Omarchy's per-user provisioning (theme, keyring,
@@ -72,10 +74,20 @@
         label: "{{ item.name }}"
       become: true
 
-    - name: Take non-administrators out of wheel (never the account running this)
+    # The grants go first, as omarchy-mu-user-admin does: the installer's by
+    # name and passwordless sudo's by UID would keep root outside wheel. Fails
+    # rather than leave them when omarchy-multiuser isn't installed yet.
+    - name: Take non-administrators out of wheel, and their sudo grants (never the account running this)
       ansible.builtin.shell: |
+        set -e
         if id -nG {{ item.name | quote }} | tr ' ' '\n' | grep -qx wheel; then
-          gpasswd -d {{ item.name | quote }} wheel >/dev/null && echo removed
+          if ! command -v omarchy-mu-accounts >/dev/null; then
+            echo "omarchy-multiuser isn't installed; run: just apply omarchy-multiuser, then this again" >&2
+            exit 1
+          fi
+          omarchy-mu-accounts drop-grants {{ item.name | quote }}
+          gpasswd -d {{ item.name | quote }} wheel >/dev/null
+          echo removed
         fi
       loop: "{{ omarchy_users | rejectattr('admin', 'defined') | list + omarchy_users | selectattr('admin', 'defined') | rejectattr('admin') | list }}"
       loop_control:

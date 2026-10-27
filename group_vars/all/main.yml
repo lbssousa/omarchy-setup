@@ -486,12 +486,12 @@ shared_checkout_dir: /opt/omarchy-setup
 # omarchy-multiuser (playbooks/system/omarchy-multiuser.yml) — the forks of
 # Omarchy's single-owner tools: the multi-user SDDM greeter (full names +
 # optional username field), no autologin, per-user FIDO2 and fingerprints,
-# migrations for non-admins. Built as an Arch package from a signed release
+# migrations for non-admins, administrator rights given and taken. Built as an Arch package from a signed release
 # tag of https://github.com/lbssousa/omarchy-multiuser; bump the ref to
 # deploy a new release. omarchy_multiuser_repo may also be a local checkout
 # (with the tag in it) before the repository is published.
 omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.3.0
+omarchy_multiuser_ref: v0.5.0
 omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
 omarchy_multiuser_verify_commit: true
 omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"

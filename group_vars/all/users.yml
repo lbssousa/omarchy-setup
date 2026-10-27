@@ -4,7 +4,9 @@
 #   name       login name
 #   admin      true: in wheel, can run the system phase and sudo; false: in
 #              omarchy-users, which omarchy-multiuser lets register their
-#              own FIDO2 key and fingerprints
+#              own FIDO2 key and fingerprints. Turning it off takes the
+#              account out of wheel along with its sudo grants (or by hand:
+#              omarchy-mu-user-admin <name> off)
 #   groups     extra groups, on top of omarchy-users / wheel
 #   luks       true: `just users` offers to add a disk unlock password for
 #              them (omarchy-mu-luks-enroll); the disk prompt is shared

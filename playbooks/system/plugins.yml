@@ -364,8 +364,24 @@
       changed_when: false
       failed_when: false
 
+    # Compared with what is installed rather than relying on the checkout
+    # having changed: after a failed install the checkout is already at the
+    # tag, and the next run would otherwise leave the old package in place.
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ clipboard_portal_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: clipboard_portal_release_version
+      changed_when: false
+
     - name: Build and install the package
-      when: clipboard_portal_git_result.changed or clipboard_portal_installed.rc != 0
+      when: >-
+        clipboard_portal_git_result.changed
+        or clipboard_portal_installed.rc != 0
+        or (clipboard_portal_installed.stdout.split() | last) != clipboard_portal_release_version.stdout
       block:
         - name: Build the package (makepkg)
           ansible.builtin.command:

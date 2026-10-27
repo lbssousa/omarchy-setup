@@ -8,6 +8,7 @@
 #   pinentry      omapin  (lbssousa.omapin)
 #   ssh-askpass   ssh-askpass-omarchy  (lbssousa.ssh_askpass)
 #   polkit-agent  polkit-omarchy  (lbssousa.polkit)
+#   clipboard-portal  xdg-desktop-portal-omarchy  (lbssousa.portal)
 #
 # Play 1 — installs this desktop's list of third-party Omarchy shell plugins:
 # omarchy_plugins in group_vars/all/main.yml (Radio Atlas first). Each entry
@@ -512,3 +513,106 @@
       when: >
         not (clone.enabled | default(false))
         or (replaced.enabled | default(false))
+
+# xdg-desktop-portal-omarchy, per user: link and enable the packaged dialog
+# plugin, and route the RemoteDesktop and Clipboard portals to the backend
+# in ~/.config/xdg-desktop-portal/hyprland-portals.conf — the same file
+# user/file-chooser.yml manages (seeded from Omarchy's copy when missing;
+# each play only sets its own lines). Without the routing, the frontend
+# keeps "default=hyprland;gtk", neither of which implements them.
+- name: xdg-desktop-portal-omarchy (clipboard portal) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [clipboard-portal]
+
+  tasks:
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+      vars:
+        plugin_stamp_id: "{{ clipboard_portal_plugin_id }}"
+        plugin_stamp_paths: ["{{ clipboard_portal_program }}", "{{ clipboard_portal_plugin_dir }}"]
+
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        clipboard_portal_package_result: "{{ plugin_stamp_result }}"
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ clipboard_portal_plugin_link | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Link the packaged shell plugin ({{ clipboard_portal_plugin_link }})"
+      ansible.builtin.file:
+        src: "{{ clipboard_portal_plugin_dir }}"
+        dest: "{{ clipboard_portal_plugin_link }}"
+        state: link
+        force: true
+      register: clipboard_portal_link_result
+
+    - name: Read the shell config
+      ansible.builtin.slurp:
+        src: "{{ omarchy_shell_json }}"
+      register: clipboard_portal_shell_json_raw
+      failed_when: false
+
+    - name: Work out whether the plugin is already enabled
+      ansible.builtin.set_fact:
+        clipboard_portal_plugin_enabled: >-
+          {{ (clipboard_portal_shell_json_raw.content is defined)
+             and (((clipboard_portal_shell_json_raw.content | b64decode | from_json).plugins | default([]))
+                  | selectattr('id', 'equalto', clipboard_portal_plugin_id) | list | length > 0) }}
+
+    - name: "Enable the {{ clipboard_portal_plugin_id }} shell plugin"
+      ansible.builtin.command:
+        argv: [omarchy-shell, shell, enablePlugin, "{{ clipboard_portal_plugin_id }}", "{}"]
+      register: clipboard_portal_enable_result
+      failed_when: clipboard_portal_enable_result.rc != 0 or clipboard_portal_enable_result.stdout | trim != 'ok'
+      when: not clipboard_portal_plugin_enabled
+
+    - name: Restart the shell to load the new plugin code
+      ansible.builtin.include_tasks: tasks/restart-shell.yml
+      when: >-
+        (clipboard_portal_package_result is changed or clipboard_portal_link_result is changed)
+        and clipboard_portal_enable_result is skipped
+
+    - name: Create ~/.config/xdg-desktop-portal
+      ansible.builtin.file:
+        path: "{{ file_chooser_portals_conf | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: Seed the portals config from Omarchy's, if missing
+      ansible.builtin.copy:
+        src: "{{ file_chooser_portals_conf_seed }}"
+        dest: "{{ file_chooser_portals_conf }}"
+        remote_src: true
+        force: false
+        mode: "0644"
+      register: clipboard_portal_seed_result
+
+    - name: "Route the RemoteDesktop and Clipboard portals to it ({{ file_chooser_portals_conf }})"
+      community.general.ini_file:
+        path: "{{ file_chooser_portals_conf }}"
+        section: preferred
+        option: "{{ item }}"
+        value: "{{ clipboard_portal_name }}"
+        no_extra_spaces: true
+        mode: "0644"
+      loop: "{{ clipboard_portal_interfaces }}"
+      register: clipboard_portal_routing_result
+
+    - name: Restart xdg-desktop-portal to pick up the routing
+      ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
+      when: clipboard_portal_seed_result.changed or clipboard_portal_routing_result.changed
+      changed_when: true
+      failed_when: false
+
+    # D-Bus activated: a running one keeps the old binary and config until
+    # restarted; one that isn't running starts on the next request.
+    - name: Restart the backend if it runs an older build
+      ansible.builtin.command: systemctl --user try-restart xdg-desktop-portal-omarchy.service
+      when: clipboard_portal_package_result is changed
+      changed_when: true
+      failed_when: false

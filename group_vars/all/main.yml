@@ -369,6 +369,33 @@ polkit_agent_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ polkit_a
 # play can assert both halves of it at the end of the run.
 polkit_agent_replaces_id: omarchy.polkit
 
+# xdg-desktop-portal-omarchy (playbooks/{system,user}/plugins.yml) — the
+# RemoteDesktop and Clipboard portals, for the clipboard only, so that
+# sandboxed apps (the Bitwarden Flatpak) can copy natively on Wayland, as
+# on GNOME, after a shell dialog. Built as an Arch package from a signed
+# release tag; bump the ref to deploy a new release. The repo may also be a
+# local checkout (with the tag in it) before it is published.
+clipboard_portal_repo: https://github.com/lbssousa/xdg-desktop-portal-omarchy.git
+clipboard_portal_ref: v0.1.0
+clipboard_portal_checkout_dir: "{{ target_home }}/src/xdg-desktop-portal-omarchy"
+clipboard_portal_verify_commit: true
+clipboard_portal_signing_keys: "{{ omapin_signing_keys }}"
+clipboard_portal_package: xdg-desktop-portal-omarchy
+clipboard_portal_program: /usr/lib/xdg-desktop-portal-omarchy
+clipboard_portal_plugin_dir: /usr/share/xdg-desktop-portal-omarchy/plugin
+clipboard_portal_plugin_id: lbssousa.portal
+clipboard_portal_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ clipboard_portal_plugin_id }}"
+clipboard_portal_config: /etc/xdg/xdg-desktop-portal-omarchy/config.toml
+# Apps whose clipboard content is a password: their selections also offer
+# x-kde-passwordManagerHint, which Omarchy's clipboard history skips.
+clipboard_portal_sensitive_apps:
+  - "{{ bitwarden_flatpak_id }}"
+# The backend's name in hyprland-portals.conf (its omarchy.portal file).
+clipboard_portal_name: omarchy
+clipboard_portal_interfaces:
+  - org.freedesktop.impl.portal.RemoteDesktop
+  - org.freedesktop.impl.portal.Clipboard
+
 # Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
 # of this repository every user runs `omarchy-setup-user` from.
 shared_checkout_dir: /opt/omarchy-setup

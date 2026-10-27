@@ -216,6 +216,14 @@ features:
     default: true
     revert: false
 
+  - id: clipboard-portal
+    group: plugins
+    title: xdg-desktop-portal-omarchy (clipboard portal)
+    effect: adds the RemoteDesktop/Clipboard portals (clipboard only, after a shell dialog), so the Bitwarden Flatpak copies natively on Wayland; off, it runs under XWayland
+    phases: [system, user]
+    default: true
+    revert: false
+
   - id: openssh-askpass
     group: plugins
     title: openssh with askpass touch notifications

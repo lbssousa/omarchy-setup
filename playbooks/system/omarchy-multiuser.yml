@@ -62,8 +62,24 @@
       changed_when: false
       failed_when: false
 
+    # Compared with what is installed rather than relying on the checkout
+    # having changed: after a failed install the checkout is already at the
+    # tag, and the next run would otherwise leave the old package in place.
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ omarchy_multiuser_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: omarchy_multiuser_release_version
+      changed_when: false
+
     - name: Build and install the package
-      when: omarchy_multiuser_git_result.changed or omarchy_multiuser_installed.rc != 0
+      when: >-
+        omarchy_multiuser_git_result.changed
+        or omarchy_multiuser_installed.rc != 0
+        or (omarchy_multiuser_installed.stdout.split() | last) != omarchy_multiuser_release_version.stdout
       block:
         - name: Build the package (makepkg, runs the tests in check())
           ansible.builtin.command:

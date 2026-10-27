@@ -229,6 +229,17 @@ bitwarden_ssh_agent_units:
   - bitwarden-ssh-agent.path
   - bitwarden-ssh-agent-env.service
 bitwarden_autostart_desktop: "{{ target_home }}/.config/autostart/com.bitwarden.desktop.desktop"
+# Browser integration with the Firefox Flatpak (biometric unlock in the
+# extension). Bitwarden writes its manifest and a copy of desktop_proxy
+# into this directory, and listens on .app.bw.socket there, but only when
+# it already exists at startup ("Firefox not found, skipping." otherwise):
+# it never creates it. Firefox 147+ with the XDG layout reads its manifests
+# from the second directory, which Bitwarden doesn't know, so the manifest
+# is linked there (the link and the paths in the manifest resolve the same
+# inside Firefox's sandbox).
+bitwarden_firefox_flatpak_nmh_dir: "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
+bitwarden_firefox_flatpak_xdg_nmh_dir: "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
+bitwarden_browser_manifest_name: com.8bit.bitwarden.json
 
 # KeePassXC (Flatpak). Its manifest already grants the SSH agent socket
 # (sockets=ssh-auth, SSH_AUTH_SOCK passed through), so as the default it is

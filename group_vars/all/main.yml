@@ -358,7 +358,9 @@ unprivileged_build: setpriv --inh-caps=-all --ambient-caps=-all --
 
 # omapin (playbooks/{system,user}/plugins.yml) — GnuPG prompts in the polkit-style
 # omarchy-shell dialog. Built as an Arch package from the repo's own
-# packaging/PKGBUILD with rustup's cargo.
+# packaging/PKGBUILD with rustup's cargo, for the binary; the shell plugin is
+# installed per user from the Omarchy plugin marketplace, pinned to the same
+# tag (the commit the marketplace approved).
 omapin_repo: https://github.com/lbssousa/omapin.git
 # A release tag, never a branch. main only holds GitHub-signed squash
 # merges, while releases are tags signed with the Yubikey's key (see the
@@ -379,13 +381,12 @@ omapin_program: /usr/bin/omapin
 # Third-party shell plugin ids may not start with "omarchy." (reserved for
 # first-party plugins by the shell's PluginRegistry).
 omapin_plugin_id: lbssousa.omapin
-omapin_plugin_dir: /usr/share/omapin/plugin
-omapin_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omapin_plugin_id }}"
 omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # omaskpass (playbooks/{system,user}/plugins.yml) — SSH prompts in the
 # polkit-style omarchy-shell dialog. Built as an Arch package from a signed
 # release tag of the repo's own packaging/PKGBUILD with rustup's cargo, like
-# omapin; bump the ref to deploy a new release. It was called
+# omapin (the binary; the plugin from the marketplace, at the same tag); bump
+# the ref to deploy a new release. It was called
 # ssh-askpass-omarchy until 0.2.0; the plays migrate an install of the old
 # name (omaskpass_legacy_*).
 omaskpass_repo: https://github.com/lbssousa/omaskpass.git
@@ -398,9 +399,7 @@ omaskpass_signing_keys: "{{ omapin_signing_keys }}"
 omaskpass_package: omaskpass
 omaskpass_cargo_bin_dir: "{{ target_home }}/.cargo/bin"
 omaskpass_program: /usr/bin/omaskpass
-omaskpass_plugin_dir: /usr/share/omaskpass/plugin
 omaskpass_plugin_id: lbssousa.omaskpass
-omaskpass_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omaskpass_plugin_id }}"
 omaskpass_environment_conf: "{{ target_home }}/.config/environment.d/90-ssh-askpass.conf"
 # What the pre-0.3.0 install left behind: the binary and plugin copied by
 # hand (no package owns them), its shell plugin entry in shell.json and the
@@ -459,37 +458,28 @@ clipboard_portal_interfaces:
   - org.freedesktop.impl.portal.Clipboard
 
 # fingerprint-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# enroll, test and delete fingerprints (fprintd), opened by
-# `omarchy-fingerprint` (and omarchy-multiuser's Setup > Security >
-# Fingerprint). Built as an Arch package (arch=any) from a signed release
-# tag; bump the ref to deploy a new release.
+# enroll, test and delete fingerprints (fprintd), opened by omarchy-multiuser's
+# Setup > Security > Fingerprint. Installed per user from the Omarchy plugin
+# marketplace, pinned to the release tag it approved; bump the ref (to a
+# release the marketplace has verified) to deploy a new one. The system
+# phase installs what its helper runs and removes the package earlier runs
+# built.
 fingerprint_plugin_repo: https://github.com/lbssousa/fingerprint-omarchy.git
 fingerprint_plugin_ref: v0.2.0
-fingerprint_plugin_checkout_dir: "{{ target_home }}/src/fingerprint-omarchy"
-fingerprint_plugin_verify_commit: true
-fingerprint_plugin_signing_keys: "{{ omapin_signing_keys }}"
+fingerprint_plugin_runtime_packages: [fprintd, python, python-gobject]
 fingerprint_plugin_package: fingerprint-omarchy
-fingerprint_plugin_program: /usr/bin/omarchy-fingerprint
-fingerprint_plugin_dir: /usr/share/fingerprint-omarchy/plugin
 fingerprint_plugin_id: lbssousa.fingerprint
-fingerprint_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ fingerprint_plugin_id }}"
 
 # security-key-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
 # register a FIDO2 key for sudo and polkit (the user's line of the shared
 # /etc/fido2/fido2, through omarchy-multiuser's pkexec helper) and import
-# its OpenPGP and resident SSH keys, opened by `omarchy-security-key` (and
-# omarchy-multiuser's Setup > Security > Fido2). Built like
-# fingerprint-omarchy.
+# its OpenPGP and resident SSH keys, opened by omarchy-multiuser's Setup >
+# Security > Fido2. Installed like fingerprint-omarchy.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
 security_key_plugin_ref: v0.3.0
-security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
-security_key_plugin_verify_commit: true
-security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"
+security_key_plugin_runtime_packages: [python, libfido2, pam-u2f, gnupg, openssh]
 security_key_plugin_package: security-key-omarchy
-security_key_plugin_program: /usr/bin/omarchy-security-key
-security_key_plugin_dir: /usr/share/security-key-omarchy/plugin
 security_key_plugin_id: lbssousa.security-key
-security_key_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ security_key_plugin_id }}"
 
 # Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
 # of this repository every user runs `omarchy-setup-user` from.

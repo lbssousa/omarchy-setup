@@ -1,8 +1,13 @@
 ---
 # Everything that puts a third-party plugin into the Omarchy shell, one play
 # per source (each with its own tag, so `--tags pinentry` etc. still run
-# alone; the plays below the first are the plugins that also ship a binary
-# and are deployed from a signed release tag):
+# alone). omapin, omaskpass, fingerprint-omarchy and security-key-omarchy
+# come from the Omarchy plugin marketplace, where they are listed: `omarchy
+# plugin add`, pinned to the release tag the marketplace approved
+# (tasks/marketplace-plugin.yml); the binaries of the first two still come
+# from the packages the system phase builds from the signed tags.
+# polkit-omarchy and xdg-desktop-portal-omarchy, not listed, are linked
+# from their packaged copy in /usr/share:
 #
 #   plugins       omarchy_plugins list, via `omarchy plugin add`
 #   pinentry      omapin  (lbssousa.omapin)
@@ -48,11 +53,11 @@
 #
 # Must run inside the graphical session — the shell is the IPC target.
 #
-# This is the user phase: each user links and enables the plugins in their
-# own shell. The plugin dependencies and the signed packages are installed
-# by system/plugins.yml (an administrator); the fingerprint kept per user
-# (tasks/plugin-code-stamp.yml) tells this phase when new plugin code needs
-# a shell restart.
+# This is the user phase: each user installs (or links) and enables the
+# plugins in their own shell. The plugin dependencies and the signed
+# packages are installed by system/plugins.yml (an administrator); the
+# fingerprint kept per user (tasks/plugin-code-stamp.yml) tells this phase
+# when a packaged binary or plugin changed and needs a shell restart.
 #
 # Usage: just apply plugins
 - name: Omarchy shell plugins (omarchy_plugins) (user)
@@ -267,8 +272,9 @@
         or (item.section | default('') != ''
         and (sections[item.id] | default('')) != item.section)
 
-# omapin, per user: link the packaged plugin, enable it (disabling the
-# pre-rename lbssousa.pinentry), and point gpg-agent at omapin.
+# omapin, per user: install the shell plugin from the marketplace (the
+# binary comes from the package the system phase builds), enable it, and
+# point gpg-agent at omapin.
 - name: omapin (GnuPG prompts in the polkit-style shell dialog) (user)
   hosts: localhost
   connection: local
@@ -280,25 +286,22 @@
       ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
       vars:
         plugin_stamp_id: "{{ omapin_plugin_id }}"
-        plugin_stamp_paths: ["{{ omapin_program }}", "{{ omapin_plugin_dir }}"]
+        plugin_stamp_paths: ["{{ omapin_program }}"]
 
     - name: Keep the result under the name the tasks below use
       ansible.builtin.set_fact:
         omapin_package_result: "{{ plugin_stamp_result }}"
 
-    - name: Create ~/.config/omarchy/plugins
-      ansible.builtin.file:
-        path: "{{ omapin_plugin_link | dirname }}"
-        state: directory
-        mode: "0755"
+    - name: "Install omapin from the Omarchy plugin marketplace, at {{ omapin_ref }}"
+      ansible.builtin.include_tasks: tasks/marketplace-plugin.yml
+      vars:
+        marketplace_plugin_id: "{{ omapin_plugin_id }}"
+        marketplace_plugin_repo: "{{ omapin_repo }}"
+        marketplace_plugin_ref: "{{ omapin_ref }}"
 
-    - name: "Link the packaged shell plugin ({{ omapin_plugin_link }})"
-      ansible.builtin.file:
-        src: "{{ omapin_plugin_dir }}"
-        dest: "{{ omapin_plugin_link }}"
-        state: link
-        force: true
-      register: omapin_link_result
+    - name: Keep the result under this play's name
+      ansible.builtin.set_fact:
+        omapin_plugin_changed: "{{ marketplace_plugin_changed }}"
 
     - name: Read the shell config
       ansible.builtin.slurp:
@@ -323,7 +326,7 @@
     - name: Restart the shell to load the new plugin code
       ansible.builtin.include_tasks: tasks/restart-shell.yml
       when: >-
-        (omapin_package_result is changed or omapin_link_result is changed)
+        (omapin_package_result is changed or omapin_plugin_changed | bool)
         and omapin_enable_result is skipped
 
     - name: Create ~/.gnupg
@@ -346,11 +349,13 @@
       when: omapin_agent_conf_result.changed or omapin_package_result is changed
       changed_when: true
 
-# omaskpass, per user: link and enable the packaged plugin, and make it
-# SSH_ASKPASS for the session (environment.d). An install from before the
-# rename (ssh-askpass-omarchy, plugin lbssousa.ssh_askpass) is migrated on
-# the way: the old plugin is disabled (the shell drops its shell.json entry
-# even with the plugin's files gone) and its dangling link removed.
+# omaskpass, per user: install the shell plugin from the marketplace (the
+# binary comes from the package the system phase builds), enable it, and
+# make omaskpass SSH_ASKPASS for the session (environment.d). An install
+# from before the rename (ssh-askpass-omarchy, plugin lbssousa.ssh_askpass)
+# is migrated on the way: the old plugin is disabled (the shell drops its
+# shell.json entry even with the plugin's files gone) and its dangling link
+# removed.
 - name: omaskpass (SSH prompts in the polkit-style shell dialog) (user)
   hosts: localhost
   connection: local
@@ -362,25 +367,22 @@
       ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
       vars:
         plugin_stamp_id: "{{ omaskpass_plugin_id }}"
-        plugin_stamp_paths: ["{{ omaskpass_program }}", "{{ omaskpass_plugin_dir }}"]
+        plugin_stamp_paths: ["{{ omaskpass_program }}"]
 
     - name: Keep the result under the name the tasks below use
       ansible.builtin.set_fact:
         omaskpass_package_result: "{{ plugin_stamp_result }}"
 
-    - name: Create ~/.config/omarchy/plugins
-      ansible.builtin.file:
-        path: "{{ omaskpass_plugin_link | dirname }}"
-        state: directory
-        mode: "0755"
+    - name: "Install omaskpass from the Omarchy plugin marketplace, at {{ omaskpass_ref }}"
+      ansible.builtin.include_tasks: tasks/marketplace-plugin.yml
+      vars:
+        marketplace_plugin_id: "{{ omaskpass_plugin_id }}"
+        marketplace_plugin_repo: "{{ omaskpass_repo }}"
+        marketplace_plugin_ref: "{{ omaskpass_ref }}"
 
-    - name: "Link the packaged shell plugin ({{ omaskpass_plugin_link }})"
-      ansible.builtin.file:
-        src: "{{ omaskpass_plugin_dir }}"
-        dest: "{{ omaskpass_plugin_link }}"
-        state: link
-        force: true
-      register: omaskpass_link_result
+    - name: Keep the result under this play's name
+      ansible.builtin.set_fact:
+        omaskpass_plugin_changed: "{{ marketplace_plugin_changed }}"
 
     - name: Read the shell config
       ansible.builtin.slurp:
@@ -427,11 +429,11 @@
       when: not omaskpass_plugin_enabled
 
     # A keepLoaded service doesn't reload when its files change, so new
-    # plugin code (not just a new link) needs a restart too.
+    # plugin code (a new clone, a new pin or a new binary) needs a restart.
     - name: Restart the shell to load the new plugin code
       ansible.builtin.include_tasks: tasks/restart-shell.yml
       when: >-
-        (omaskpass_link_result is changed or omaskpass_package_result is changed)
+        (omaskpass_plugin_changed | bool or omaskpass_package_result is changed)
         and omaskpass_enable_result is skipped
 
     - name: Create ~/.config/environment.d
@@ -648,8 +650,8 @@
       changed_when: true
       failed_when: false
 
-# fingerprint-omarchy, per user: link and enable the packaged overlay, which
-# `omarchy-fingerprint` then opens.
+# fingerprint-omarchy, per user: install the overlay from the marketplace and
+# enable it; Setup > Security > Fingerprint opens it (omarchy-multiuser).
 - name: fingerprint-omarchy (fingerprint overlay) (user)
   hosts: localhost
   connection: local
@@ -657,29 +659,16 @@
   tags: [fingerprint]
 
   tasks:
-    - name: Check whether the installed plugin code changed for this user
-      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+    - name: "Install fingerprint-omarchy from the Omarchy plugin marketplace, at {{ fingerprint_plugin_ref }}"
+      ansible.builtin.include_tasks: tasks/marketplace-plugin.yml
       vars:
-        plugin_stamp_id: "{{ fingerprint_plugin_id }}"
-        plugin_stamp_paths: ["{{ fingerprint_plugin_program }}", "{{ fingerprint_plugin_dir }}"]
+        marketplace_plugin_id: "{{ fingerprint_plugin_id }}"
+        marketplace_plugin_repo: "{{ fingerprint_plugin_repo }}"
+        marketplace_plugin_ref: "{{ fingerprint_plugin_ref }}"
 
-    - name: Keep the result under the name the tasks below use
+    - name: Keep the result under this play's name
       ansible.builtin.set_fact:
-        fingerprint_plugin_package_result: "{{ plugin_stamp_result }}"
-
-    - name: Create ~/.config/omarchy/plugins
-      ansible.builtin.file:
-        path: "{{ fingerprint_plugin_link | dirname }}"
-        state: directory
-        mode: "0755"
-
-    - name: "Link the packaged shell plugin ({{ fingerprint_plugin_link }})"
-      ansible.builtin.file:
-        src: "{{ fingerprint_plugin_dir }}"
-        dest: "{{ fingerprint_plugin_link }}"
-        state: link
-        force: true
-      register: fingerprint_plugin_link_result
+        fingerprint_plugin_changed: "{{ marketplace_plugin_changed }}"
 
     - name: Read the shell config
       ansible.builtin.slurp:
@@ -695,7 +684,8 @@
                   | selectattr('id', 'equalto', fingerprint_plugin_id) | list | length > 0) }}
 
     # enablePlugin answers "unknown" for a plugin the running shell hasn't
-    # scanned yet, which a freshly made link is.
+    # scanned yet (add rescans, but a clone left by a run that died before
+    # that wouldn't be known).
     - name: Let the shell discover the plugin
       ansible.builtin.command:
         argv: [omarchy-shell, shell, rescanPlugins]
@@ -713,11 +703,11 @@
     - name: Restart the shell to load the new plugin code
       ansible.builtin.include_tasks: tasks/restart-shell.yml
       when: >-
-        (fingerprint_plugin_package_result is changed or fingerprint_plugin_link_result is changed)
+        fingerprint_plugin_changed | bool
         and fingerprint_plugin_enable_result is skipped
 
-# security-key-omarchy, per user: link and enable the packaged overlay, which
-# `omarchy-security-key` then opens.
+# security-key-omarchy, per user: install the overlay from the marketplace and
+# enable it; Setup > Security > Fido2 opens it (omarchy-multiuser).
 - name: security-key-omarchy (security key overlay) (user)
   hosts: localhost
   connection: local
@@ -725,29 +715,16 @@
   tags: [security-key]
 
   tasks:
-    - name: Check whether the installed plugin code changed for this user
-      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
+    - name: "Install security-key-omarchy from the Omarchy plugin marketplace, at {{ security_key_plugin_ref }}"
+      ansible.builtin.include_tasks: tasks/marketplace-plugin.yml
       vars:
-        plugin_stamp_id: "{{ security_key_plugin_id }}"
-        plugin_stamp_paths: ["{{ security_key_plugin_program }}", "{{ security_key_plugin_dir }}"]
+        marketplace_plugin_id: "{{ security_key_plugin_id }}"
+        marketplace_plugin_repo: "{{ security_key_plugin_repo }}"
+        marketplace_plugin_ref: "{{ security_key_plugin_ref }}"
 
-    - name: Keep the result under the name the tasks below use
+    - name: Keep the result under this play's name
       ansible.builtin.set_fact:
-        security_key_plugin_package_result: "{{ plugin_stamp_result }}"
-
-    - name: Create ~/.config/omarchy/plugins
-      ansible.builtin.file:
-        path: "{{ security_key_plugin_link | dirname }}"
-        state: directory
-        mode: "0755"
-
-    - name: "Link the packaged shell plugin ({{ security_key_plugin_link }})"
-      ansible.builtin.file:
-        src: "{{ security_key_plugin_dir }}"
-        dest: "{{ security_key_plugin_link }}"
-        state: link
-        force: true
-      register: security_key_plugin_link_result
+        security_key_plugin_changed: "{{ marketplace_plugin_changed }}"
 
     - name: Read the shell config
       ansible.builtin.slurp:
@@ -763,7 +740,8 @@
                   | selectattr('id', 'equalto', security_key_plugin_id) | list | length > 0) }}
 
     # enablePlugin answers "unknown" for a plugin the running shell hasn't
-    # scanned yet, which a freshly made link is.
+    # scanned yet (add rescans, but a clone left by a run that died before
+    # that wouldn't be known).
     - name: Let the shell discover the plugin
       ansible.builtin.command:
         argv: [omarchy-shell, shell, rescanPlugins]
@@ -781,5 +759,5 @@
     - name: Restart the shell to load the new plugin code
       ansible.builtin.include_tasks: tasks/restart-shell.yml
       when: >-
-        (security_key_plugin_package_result is changed or security_key_plugin_link_result is changed)
+        security_key_plugin_changed | bool
         and security_key_plugin_enable_result is skipped

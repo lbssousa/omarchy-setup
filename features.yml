@@ -227,7 +227,7 @@ features:
   - id: fingerprint
     group: plugins
     title: fingerprint-omarchy (fingerprint overlay)
-    effect: adds an overlay to enroll, test and delete your fingerprints (fprintd), opened by omarchy-fingerprint
+    effect: adds an overlay from the Omarchy plugin marketplace to enroll, test and delete your fingerprints (fprintd), opened from Setup › Security; removes the fingerprint-omarchy package
     phases: [system, user]
     default: true
     revert: false
@@ -235,7 +235,7 @@ features:
   - id: security-key
     group: plugins
     title: security-key-omarchy (security key overlay)
-    effect: adds an overlay to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened by omarchy-security-key
+    effect: adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; removes the security-key-omarchy package
     phases: [system, user]
     default: true
     revert: false

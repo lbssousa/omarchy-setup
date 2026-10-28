@@ -1,0 +1,75 @@
+---
+# Puts one of our marketplace-listed shell plugins into the user's shell:
+# `omarchy plugin add` clones it into ~/.config/omarchy/plugins/<id>, as
+# the Omarchy plugin marketplace installs it, and the clone is then pinned
+# to the release tag the marketplace approved (it clones the mutable
+# upstream HEAD otherwise). The tag's signature isn't checked here: this is
+# the user phase, and only the administrator's keyring has the release key;
+# the pinned ref is the record of what was reviewed.
+#
+# The link an older run made to the packaged copy in /usr/share (same id)
+# is taken out first, or add would refuse the id as already installed.
+# Leaves marketplace_plugin_changed, true when the code on disk changed
+# (new clone or a new pin), for the caller's shell restart. add rescans
+# the shell's plugins itself.
+#
+#   marketplace_plugin_id    the manifest id (the directory name)
+#   marketplace_plugin_repo  git URL, the marketplace listing's repository
+#   marketplace_plugin_ref   release tag to pin to
+- name: "[{{ marketplace_plugin_id }}] Look at the plugin directory"
+  ansible.builtin.stat:
+    path: "{{ omarchy_plugins_dir }}/{{ marketplace_plugin_id }}"
+  register: marketplace_plugin_stat
+
+- name: "[{{ marketplace_plugin_id }}] Remove the link to the packaged copy"
+  ansible.builtin.file:
+    path: "{{ omarchy_plugins_dir }}/{{ marketplace_plugin_id }}"
+    state: absent
+  register: marketplace_plugin_unlink
+  when: marketplace_plugin_stat.stat.islnk | default(false)
+
+- name: "[{{ marketplace_plugin_id }}] Create ~/.config/omarchy/plugins"
+  ansible.builtin.file:
+    path: "{{ omarchy_plugins_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: "[{{ marketplace_plugin_id }}] Install it from the marketplace (omarchy plugin add)"
+  ansible.builtin.command:
+    argv: [omarchy-plugin-add, "{{ marketplace_plugin_repo }}", --yes]
+  register: marketplace_plugin_add
+  when: >-
+    not marketplace_plugin_stat.stat.exists
+    or marketplace_plugin_unlink is changed
+
+- name: "[{{ marketplace_plugin_id }}] Pin the clone to {{ marketplace_plugin_ref }}"
+  # Same as the omarchy_plugins play: a detached checkout at the tag, which
+  # `omarchy plugin update` would fast-forward off and the next run pins
+  # back; bump the ref to move forward.
+  ansible.builtin.shell:
+    cmd: |
+      set -euo pipefail
+      dir={{ (omarchy_plugins_dir ~ '/' ~ marketplace_plugin_id) | quote }}
+      if ! target=$(git -C "$dir" rev-parse --verify --quiet {{ marketplace_plugin_ref | quote }}^{commit}); then
+        git -C "$dir" fetch --quiet --tags origin
+        target=$(git -C "$dir" rev-parse --verify {{ marketplace_plugin_ref | quote }}^{commit})
+      fi
+      if [ "$target" = "$(git -C "$dir" rev-parse HEAD)" ]; then
+        echo "already at $target"
+        exit 0
+      fi
+      git -C "$dir" checkout --quiet --detach "$target"
+      echo "checked out $target"
+    executable: /bin/bash
+  register: marketplace_plugin_pin
+  changed_when: "'checked out' in marketplace_plugin_pin.stdout"
+
+- name: "[{{ marketplace_plugin_id }}] Assert the clone ships {{ marketplace_plugin_id }}"
+  ansible.builtin.command:
+    argv: [jq, -e, --arg, id, "{{ marketplace_plugin_id }}", '.id == $id',
+           "{{ omarchy_plugins_dir }}/{{ marketplace_plugin_id }}/manifest.json"]
+  changed_when: false
+
+- name: "[{{ marketplace_plugin_id }}] Keep the result for the caller"
+  ansible.builtin.set_fact:
+    marketplace_plugin_changed: "{{ marketplace_plugin_add is changed or marketplace_plugin_pin is changed }}"

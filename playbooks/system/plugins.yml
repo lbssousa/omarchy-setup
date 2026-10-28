@@ -8,14 +8,16 @@
 #                 /usr/share
 #   clipboard-portal  xdg-desktop-portal-omarchy: signed release tag
 #                 verified, built, pacman -U; its config.toml
-#   fingerprint   fingerprint-omarchy: signed release tag verified, built,
-#                 pacman -U
-#   security-key  security-key-omarchy: signed release tag verified, built,
-#                 pacman -U
+#   fingerprint   fingerprint-omarchy: its runtime dependencies (the
+#                 overlay itself comes from the marketplace, per user)
+#   security-key  security-key-omarchy: likewise
 #
-# The release signing key only needs to be in the keyring of the
-# administrator running this (`just apply gpg-yubikey`). Linking and enabling the
-# plugins in each user's shell, and their per-user configuration, happen in
+# omapin and omaskpass are listed in the Omarchy plugin marketplace too:
+# their packages are built here for the binaries, while each user's shell
+# gets the plugin from the marketplace. The release signing key only needs
+# to be in the keyring of the administrator running this (`just apply
+# gpg-yubikey`). Installing or linking and enabling the plugins in each
+# user's shell, and their per-user configuration, happen in
 # user/plugins.yml, which explains the plugin list.
 #
 # Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent /
@@ -482,13 +484,13 @@
 # the key's OpenPGP and resident SSH keys)
 # (https://github.com/lbssousa/fingerprint-omarchy,
 # https://github.com/lbssousa/security-key-omarchy). Both are QML plus a
-# Python helper, packaged arch=any.
-#
-# Built and installed like omapin, minus cargo: makepkg as the user, from a
-# checkout of the signed release tag, then pacman -U, which also pulls the
-# runtime dependencies (fprintd, python-gobject; libfido2, pam-u2f) that
-# makepkg --nodeps skipped. check() runs the plugins' tests, hence nodejs
-# (and python-gobject for fingerprint-omarchy's helper).
+# Python helper, and both are listed in the Omarchy plugin marketplace:
+# each user's phase installs them from there (user/plugins.yml), so this
+# phase only installs what their helpers run (the depends of their
+# PKGBUILDs) and removes the Arch package earlier runs built from the
+# signed tag, which nothing needs any more (it only added the
+# omarchy-fingerprint / omarchy-security-key launchers; the Setup >
+# Security menu of omarchy-multiuser summons the overlays itself).
 #
 # Usage: just apply fingerprint / just apply security-key
 - name: fingerprint-omarchy (fingerprint overlay)
@@ -498,70 +500,17 @@
   tags: [fingerprint]
 
   tasks:
-    - name: Install build dependencies
+    - name: Install what the overlay's helper runs
       community.general.pacman:
-        name:
-          - base-devel
-          - git
-          - gnupg
-          - nodejs
-          - python-gobject
+        name: "{{ fingerprint_plugin_runtime_packages }}"
         state: present
       become: true
 
-    - name: "Check out the fingerprint-omarchy release ({{ fingerprint_plugin_ref }}), verifying its signed tag"
-      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
-      vars:
-        signed_checkout_name: fingerprint-omarchy
-        signed_checkout_repo: "{{ fingerprint_plugin_repo }}"
-        signed_checkout_ref: "{{ fingerprint_plugin_ref }}"
-        signed_checkout_dest: "{{ fingerprint_plugin_checkout_dir }}"
-        signed_checkout_verify: "{{ fingerprint_plugin_verify_commit }}"
-        signed_checkout_keys: "{{ fingerprint_plugin_signing_keys }}"
-
-    - name: Keep the checkout's result under this play's name
-      ansible.builtin.set_fact:
-        fingerprint_plugin_git_result: "{{ signed_checkout_result }}"
-
-    - name: Check whether the package is installed
-      ansible.builtin.command: "pacman -Q {{ fingerprint_plugin_package }}"
-      register: fingerprint_plugin_installed
-      changed_when: false
-      failed_when: false
-
-    - name: Read the release's package version
-      ansible.builtin.shell: |
-        set -o pipefail
-        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
-      args:
-        chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
-        executable: /bin/bash
-      register: fingerprint_plugin_release_version
-      changed_when: false
-
-    - name: Build and install the package
-      when: >-
-        fingerprint_plugin_git_result.changed
-        or fingerprint_plugin_installed.rc != 0
-        or (fingerprint_plugin_installed.stdout.split() | last) != fingerprint_plugin_release_version.stdout
-      block:
-        - name: Build the package (makepkg, runs the tests in check())
-          ansible.builtin.command:
-            cmd: "{{ unprivileged_build }} makepkg -f --cleanbuild --nodeps --noconfirm"
-            chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
-
-        - name: Locate the built package
-          ansible.builtin.command:
-            cmd: makepkg --packagelist
-            chdir: "{{ fingerprint_plugin_checkout_dir }}/packaging"
-          register: fingerprint_plugin_packagelist
-          changed_when: false
-
-        - name: Install the package
-          community.general.pacman:
-            name: "{{ fingerprint_plugin_packagelist.stdout_lines | first }}"
-            state: present
-          become: true
+    - name: "Remove the package earlier runs built ({{ fingerprint_plugin_package }})"
+      community.general.pacman:
+        name: "{{ fingerprint_plugin_package }}"
+        state: absent
+      become: true
 
 - name: security-key-omarchy (security key overlay)
   hosts: localhost
@@ -570,66 +519,14 @@
   tags: [security-key]
 
   tasks:
-    - name: Install build dependencies
+    - name: Install what the overlay's helper runs
       community.general.pacman:
-        name:
-          - base-devel
-          - git
-          - gnupg
-          - nodejs
+        name: "{{ security_key_plugin_runtime_packages }}"
         state: present
       become: true
 
-    - name: "Check out the security-key-omarchy release ({{ security_key_plugin_ref }}), verifying its signed tag"
-      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
-      vars:
-        signed_checkout_name: security-key-omarchy
-        signed_checkout_repo: "{{ security_key_plugin_repo }}"
-        signed_checkout_ref: "{{ security_key_plugin_ref }}"
-        signed_checkout_dest: "{{ security_key_plugin_checkout_dir }}"
-        signed_checkout_verify: "{{ security_key_plugin_verify_commit }}"
-        signed_checkout_keys: "{{ security_key_plugin_signing_keys }}"
-
-    - name: Keep the checkout's result under this play's name
-      ansible.builtin.set_fact:
-        security_key_plugin_git_result: "{{ signed_checkout_result }}"
-
-    - name: Check whether the package is installed
-      ansible.builtin.command: "pacman -Q {{ security_key_plugin_package }}"
-      register: security_key_plugin_installed
-      changed_when: false
-      failed_when: false
-
-    - name: Read the release's package version
-      ansible.builtin.shell: |
-        set -o pipefail
-        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
-      args:
-        chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
-        executable: /bin/bash
-      register: security_key_plugin_release_version
-      changed_when: false
-
-    - name: Build and install the package
-      when: >-
-        security_key_plugin_git_result.changed
-        or security_key_plugin_installed.rc != 0
-        or (security_key_plugin_installed.stdout.split() | last) != security_key_plugin_release_version.stdout
-      block:
-        - name: Build the package (makepkg, runs the tests in check())
-          ansible.builtin.command:
-            cmd: "{{ unprivileged_build }} makepkg -f --cleanbuild --nodeps --noconfirm"
-            chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
-
-        - name: Locate the built package
-          ansible.builtin.command:
-            cmd: makepkg --packagelist
-            chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
-          register: security_key_plugin_packagelist
-          changed_when: false
-
-        - name: Install the package
-          community.general.pacman:
-            name: "{{ security_key_plugin_packagelist.stdout_lines | first }}"
-            state: present
-          become: true
+    - name: "Remove the package earlier runs built ({{ security_key_plugin_package }})"
+      community.general.pacman:
+        name: "{{ security_key_plugin_package }}"
+        state: absent
+      become: true

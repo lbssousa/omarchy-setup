@@ -54,8 +54,8 @@ always applied.
 | omaskpass (SSH prompt) | `ssh-askpass` | adds omaskpass and makes it the SSH key/FIDO2 prompt (SSH_ASKPASS); removes ssh-askpass-omarchy | system, user | on | no |
 | polkit-omarchy | `polkit-agent` | modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin) | system, user | on | no |
 | xdg-desktop-portal-omarchy (clipboard portal) | `clipboard-portal` | adds the RemoteDesktop/Clipboard portals (clipboard only, after a shell dialog), so the Bitwarden Flatpak copies natively on Wayland; off, it runs under XWayland | system, user | on | no |
-| fingerprint-omarchy (fingerprint overlay) | `fingerprint` | adds an overlay to enroll, test and delete your fingerprints (fprintd), opened by omarchy-fingerprint | system, user | on | no |
-| security-key-omarchy (security key overlay) | `security-key` | adds an overlay to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened by omarchy-security-key | system, user | on | no |
+| fingerprint-omarchy (fingerprint overlay) | `fingerprint` | adds an overlay from the Omarchy plugin marketplace to enroll, test and delete your fingerprints (fprintd), opened from Setup › Security; removes the fingerprint-omarchy package | system, user | on | no |
+| security-key-omarchy (security key overlay) | `security-key` | adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; removes the security-key-omarchy package | system, user | on | no |
 | openssh with askpass touch notifications | `openssh-askpass` | modifies the openssh package (rebuilt with a patch) | system | on | no |
 
 ## Development

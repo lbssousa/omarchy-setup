@@ -19,8 +19,12 @@
       changed_when: false
       failed_when: false
 
+    # Read ~/.cups/lpoptions itself: `lpstat -d` falls back to the system
+    # default when the user has none, which would pass for already set.
     - name: Check the current user default printer
-      ansible.builtin.command: lpstat -d
+      ansible.builtin.command: >-
+        grep -Eqs "^Default {{ printer_l4160_name }}( |$)"
+        {{ lookup('env', 'HOME') }}/.cups/lpoptions
       register: user_default_printer_current
       changed_when: false
       failed_when: false
@@ -32,4 +36,4 @@
       when:
         - printer_l4160_queue.rc == 0
         - printer_l4160_set_default
-        - printer_l4160_name not in user_default_printer_current.stdout
+        - user_default_printer_current.rc != 0

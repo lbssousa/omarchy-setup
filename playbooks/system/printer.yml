@@ -4,9 +4,11 @@
 # one bad job doesn't jam the whole queue. CUPS, Avahi and nss-mdns (with
 # mdns_minimal in nsswitch.conf) ship enabled with Omarchy.
 #
-# If the printer doesn't answer via mDNS (most likely just powered
-# off), the queue setup is skipped with a warning instead of failing
-# the play — a hard failure here would abort the whole `site.yml` run,
+# The mDNS lookup is retried for about half a minute: an L4160 in sleep
+# mode takes a while to answer, and a single `getent` used to give up on
+# it, skipping the queue on every run. If the printer still doesn't
+# answer (most likely just powered off), the queue setup is skipped
+# with a warning instead of failing the play — a hard failure here would abort the whole `site.yml` run,
 # breaking `just setup` for every other playbook over something as
 # routine as the L4160 being off.
 #
@@ -27,6 +29,9 @@
     - name: "Check the printer answers via mDNS ({{ printer_l4160_hostname }})"
       ansible.builtin.command: "getent hosts {{ printer_l4160_hostname }}"
       register: printer_l4160_resolve
+      until: printer_l4160_resolve.rc == 0
+      retries: 6
+      delay: 5
       changed_when: false
       failed_when: false
 

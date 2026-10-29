@@ -366,7 +366,7 @@ omapin_repo: https://github.com/lbssousa/omapin.git
 # merges, while releases are tags signed with the Yubikey's key (see the
 # "Releases" section of the omapin README). Bump this to deploy
 # a new release.
-omapin_ref: v0.4.0
+omapin_ref: v0.4.1
 omapin_checkout_dir: "{{ target_home }}/src/omapin"
 # Refuse to build unless the tag's GPG signature verifies (git verify-tag)
 # and was made by one of these keys (primary key fingerprints). Currently
@@ -390,7 +390,7 @@ omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # ssh-askpass-omarchy until 0.2.0; the plays migrate an install of the old
 # name (omaskpass_legacy_*).
 omaskpass_repo: https://github.com/lbssousa/omaskpass.git
-omaskpass_ref: v0.4.0
+omaskpass_ref: v0.4.1
 omaskpass_checkout_dir: "{{ target_home }}/src/omaskpass"
 # Refuse to build unless the tag's GPG signature verifies and was made by
 # one of these keys (same as omapin's).

@@ -12,11 +12,11 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| User accounts | `users` | adds the accounts in group_vars/all/users.yml (fish as login shell, wheel or omarchy-users, subuid ranges) | system | on | no |
-| omarchy-multiuser | `omarchy-multiuser` | adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin) | system | on | no |
+| User accounts | `users` | adds the accounts in group_vars/all/users.yml (fish as login shell, wheel or omarchy-users, subuid ranges) | system | off | no |
+| omarchy-multiuser | `omarchy-multiuser` | adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin) | system | off | no |
 | PAM order | `pam-auth-order` | modifies the sudo and polkit PAM stacks (fingerprint, then FIDO2/U2F, then password) | system | on | no |
 | polkit authentication cache | `polkit` | modifies polkitd's ExpirationSeconds | system | on | no |
-| Shared checkout | `shared-checkout` | adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase | system | on | no |
+| Shared checkout | `shared-checkout` | adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase | system | off | no |
 
 ## Base
 

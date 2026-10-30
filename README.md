@@ -4,16 +4,19 @@ Ansible automation for setting up a freshly installed
 [Omarchy](https://omarchy.org/) desktop (4.5), with a menu to choose what
 to apply.
 
-It sets the machine up for **several users**: each automation is split
-into a **system phase** (packages, `/etc`, PAM, the login screen, signed
-plugin builds, the accounts themselves — run by an administrator) and a
-**user phase** (each person's `~/.config`, session services and shell
-plugins — run by each user, as themselves, in their own session). The
-login screen lists everyone by full name, with an optional field for any
-other username, and nobody is logged in automatically; the Omarchy tools
-that assumed a single owner are replaced by
-[omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser). See
-[docs/multi-user.md](docs/multi-user.md) for the model.
+Each automation is split into a **system phase** (packages, `/etc`, PAM,
+the login screen, signed plugin builds — run by an administrator) and a
+**user phase** (your `~/.config`, session services and shell plugins — run
+as yourself, in your own session).
+
+It can also set the machine up for **several users**, opt-in: the
+`users`, `omarchy-multiuser` and `shared-checkout` features (all off by
+default, so a stock single-owner Omarchy keeps its autologin and its own
+tools) create the accounts, replace the Omarchy tools that assumed a single
+owner with [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser)
+— a login screen listing everyone by full name, nobody logged in
+automatically — and publish a copy every user can run their own phase
+from. See [docs/multi-user.md](docs/multi-user.md) for the model.
 
 ## Choosing what to apply
 
@@ -121,9 +124,10 @@ account for rclone and (administrator) the accounts' full names go in
 `~/.config/omarchy-setup/local.yml` (template:
 [users/local.example.yml](users/local.example.yml)).
 
-Adding someone: declare them in `group_vars/all/users.yml` (their full name
-in your `local.yml`; their settings, if any, in `users/<name>.yml`), commit,
-then:
+Adding someone (turn on the multi-user features first, in `just
+configure`: `users`, `omarchy-multiuser`, `shared-checkout`): declare them
+in `group_vars/all/users.yml` (their full name in your `local.yml`; their
+settings, if any, in `users/<name>.yml`), commit, then:
 
 ```bash
 just users       # creates the account, asks for its password

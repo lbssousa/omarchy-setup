@@ -33,9 +33,12 @@
         state: present
       become: true
 
-    # Every user's range, not just the caller's: see tasks/subid-ranges.yml.
+    # Every user's range, not just the caller's (see tasks/subid-ranges.yml)
+    # — but only with the users feature on; otherwise just the caller's.
     - name: Allocate subuid/subgid ranges
       ansible.builtin.include_tasks: tasks/subid-ranges.yml
+      vars:
+        subid_users: "{{ omarchy_users if features['users'] | default(false) | bool else [{'name': target_user}] }}"
 
 # Distrobox depends on Podman: the Podman play above also carries the
 # `distrobox` tag, so it always runs first, instead of installing

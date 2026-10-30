@@ -50,7 +50,7 @@ features:
     title: User accounts
     effect: adds the accounts in group_vars/all/users.yml (fish as login shell, wheel or omarchy-users, subuid ranges)
     phases: [system]
-    default: true
+    default: false
     revert: false
 
   - id: omarchy-multiuser
@@ -58,7 +58,7 @@ features:
     title: omarchy-multiuser
     effect: adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin)
     phases: [system]
-    default: true
+    default: false
     revert: false
 
   - id: pam-auth-order
@@ -82,7 +82,7 @@ features:
     title: Shared checkout
     effect: adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase
     phases: [system]
-    default: true
+    default: false
     revert: false
 
   - id: flatpak

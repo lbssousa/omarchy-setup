@@ -1,8 +1,12 @@
 # Several users on one Omarchy machine
 
-Omarchy is provisioned for a single owner. This repository sets the machine
-up for several people instead. This page covers who runs what, how to add
-someone, and what remains shared.
+Omarchy is provisioned for a single owner. This repository can set the
+machine up for several people instead. This page covers who runs what, how
+to add someone, and what remains shared.
+
+All of it is opt-in: the `users`, `omarchy-multiuser` and `shared-checkout`
+features are off by default. Turn them on in `just configure` (or once with
+`just apply users omarchy-multiuser shared-checkout`).
 
 ## The pieces
 

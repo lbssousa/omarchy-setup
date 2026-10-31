@@ -19,24 +19,44 @@
         patterns: "*.conf"
       register: session_env_files
 
-    - name: Find when the Hyprland session started
+    # The user manager runs its environment generators (environment.d) only
+    # at start and on daemon-reload, and it outlives a quick logout/login
+    # (UserStopDelaySec), so the next login would still import the old
+    # environment. Reload it when a file is newer than the manager.
+    - name: Find when the systemd user manager started
       ansible.builtin.shell: >-
-        pid=$(pgrep -x -u "$(id -u)" -o Hyprland) && stat -c %Y "/proc/$pid"
-      register: session_env_start
+        pid=$(pgrep -x -u "$(id -u)" -o systemd) && stat -c %Y "/proc/$pid"
+      register: session_env_manager_start
+      changed_when: false
+      failed_when: false
+
+    - name: Reload the systemd user manager to pick up environment.d
+      ansible.builtin.systemd_service:
+        scope: user
+        daemon_reload: true
+      when:
+        - session_env_manager_start.rc == 0
+        - >-
+          session_env_files.files
+          | selectattr('mtime', 'gt', session_env_manager_start.stdout | float)
+          | list | length > 0
+
+    # Compared by name with what Hyprland actually has, not by file times:
+    # a session started after a file can still lack it (see above).
+    - name: List the variables environment.d defines that Hyprland lacks
+      ansible.builtin.shell: >-
+        pid=$(pgrep -x -u "$(id -u)" -o Hyprland) || exit 0;
+        have=$(tr '\0' '\n' < "/proc/$pid/environ" | cut -d= -f1);
+        /usr/lib/systemd/user-environment-generators/30-systemd-environment-d-generator
+        | cut -d= -f1 | sort -u | grep -vxF "$have" || true
+      register: session_env_missing
       changed_when: false
       failed_when: false
 
     - name: Remind about logging out and back in
-      vars:
-        newer: >-
-          {{ session_env_files.files
-             | selectattr('mtime', 'gt', session_env_start.stdout | float)
-             | map(attribute='path') | map('basename') | sort }}
       ansible.builtin.debug:
         msg: >-
-          {{ newer | join(', ') }} in ~/.config/environment.d changed after
-          this session started, so terminals and apps don't have those
-          variables yet: log out and back in.
-      when:
-        - session_env_start.rc == 0
-        - newer | length > 0
+          {{ session_env_missing.stdout_lines | join(', ') }} (from
+          ~/.config/environment.d) aren't in this session yet, so terminals
+          and apps don't have them: log out and back in.
+      when: session_env_missing.stdout_lines | length > 0

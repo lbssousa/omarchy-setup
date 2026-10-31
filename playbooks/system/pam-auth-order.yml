@@ -54,7 +54,11 @@
     # omarchy-apply-lock decides that from one user's prints, so a second
     # user without any turned it off for everyone; omarchy-multiuser's fork
     # keeps it while ANY user has prints (and its path unit and pacman hook
-    # keep it that way). Ask it, when it is installed.
+    # keep it that way). Ask it, when it is installed; otherwise ask
+    # Omarchy's own helper about the target user. Without either, prints
+    # enrolled from the fingerprint overlay (which leaves PAM alone) never
+    # reach the lock screen: only omarchy-setup-security-fingerprint runs
+    # omarchy-apply-lock.
     - name: Check for omarchy-multiuser's lock screen helper
       ansible.builtin.stat:
         path: /usr/bin/omarchy-mu-apply-lock
@@ -63,5 +67,14 @@
     - name: Keep fingerprint unlock while any user has prints
       ansible.builtin.command: omarchy-mu-apply-lock --quiet
       when: pam_auth_order_mu_apply_lock.stat.exists
+      changed_when: false
+      become: true
+
+    - name: Turn on fingerprint unlock when the target user has prints
+      ansible.builtin.command: /usr/bin/omarchy-apply-lock
+      environment:
+        OMARCHY_INSTALL_USER: "{{ target_user }}"
+        OMARCHY_PATH: /usr/share/omarchy
+      when: not pam_auth_order_mu_apply_lock.stat.exists
       changed_when: false
       become: true

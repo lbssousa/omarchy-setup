@@ -1,0 +1,80 @@
+---
+# Point a stock Omarchy menu entry at another action, in the user's
+# ~/.config/omarchy/extensions/omarchy-menu.jsonc.
+#
+# Vars: menu_override_id (e.g. setup.security.fingerprint),
+#       menu_override_action (the shell command to run).
+#
+# The menu fills in every field a user entry leaves out (label = the id,
+# no icon, no `when`) before merging it over the stock one, so an entry
+# with only an action loses the rest. The entry written here is therefore
+# the whole stock one, with the action replaced and the label, title and
+# description from the catalog of the user's language
+# (~/.config/omarchy/language, English when missing). The menu translates
+# only stock entries, so this one keeps that language until the next run.
+#
+# The menu hot-reloads the file. Its parser drops whole-line comments and
+# tolerates trailing commas, so the entry is a line of its own, ending in a
+# comma, just before the closing brace.
+- name: Create ~/.config/omarchy/extensions
+  ansible.builtin.file:
+    path: "{{ target_home }}/.config/omarchy/extensions"
+    state: directory
+    mode: "0755"
+
+- name: Create omarchy-menu.jsonc from the Omarchy default, if missing
+  ansible.builtin.copy:
+    src: /usr/share/omarchy/config/omarchy/extensions/omarchy-menu.jsonc
+    dest: "{{ target_home }}/.config/omarchy/extensions/omarchy-menu.jsonc"
+    remote_src: true
+    force: false
+    mode: "0644"
+
+# One entry per line in the stock menu.
+- name: "Read the stock {{ menu_override_id }} entry"
+  ansible.builtin.slurp:
+    src: /usr/share/omarchy/default/omarchy/omarchy-menu.jsonc
+  register: menu_override_stock_raw
+
+- name: Read the user's language
+  ansible.builtin.slurp:
+    src: "{{ target_home }}/.config/omarchy/language"
+  register: menu_override_language_raw
+  failed_when: false
+
+- name: Work out the menu's language
+  ansible.builtin.set_fact:
+    menu_override_language: >-
+      {{ (menu_override_language_raw.content | default('') | b64decode | trim) or 'en' }}
+
+- name: Read that language's menu catalog
+  ansible.builtin.slurp:
+    src: "/usr/share/omarchy/default/i18n/{{ menu_override_language }}/menu.json"
+  register: menu_override_catalog_raw
+  failed_when: false
+
+- name: "Build the {{ menu_override_id }} entry"
+  vars:
+    stock_line: >-
+      {{ menu_override_stock_raw.content | b64decode
+         | regex_search('^\s*"' ~ (menu_override_id | regex_escape) ~ '"\s*:\s*(\{.*\})\s*,?\s*$',
+                        '\1', multiline=true) | first }}
+    stock: "{{ stock_line | from_json }}"
+    catalog: >-
+      {{ (menu_override_catalog_raw.content | default('e30=') | b64decode | from_json)[menu_override_id]
+         | default({}) }}
+    translated: "{{ catalog | dict2items | selectattr('key', 'in', ['label', 'title', 'description']) | items2dict }}"
+    # As the menu does for stock entries: the English label stays searchable.
+    search_terms: >-
+      {{ {'searchTerms': [stock.label]}
+         if (translated.label | default(stock.label)) != stock.label else {} }}
+  ansible.builtin.set_fact:
+    menu_override_entry: >-
+      {{ stock | combine(translated, search_terms, {'action': menu_override_action}) }}
+
+- name: "Point the {{ menu_override_id }} menu entry at {{ menu_override_action }}"
+  ansible.builtin.lineinfile:
+    path: "{{ target_home }}/.config/omarchy/extensions/omarchy-menu.jsonc"
+    regexp: '^\s*"{{ menu_override_id | regex_escape }}"\s*:'
+    line: '  "{{ menu_override_id }}": {{ menu_override_entry | to_json(ensure_ascii=false) }},'
+    insertbefore: '^\}\s*$'

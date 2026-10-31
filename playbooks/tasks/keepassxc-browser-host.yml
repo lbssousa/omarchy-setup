@@ -3,8 +3,8 @@
 # (keepassxc_browser_hosts, `host` = {key, value}; playbooks/user/apps/
 # password.yml): with host_on, the manifest in each of the browser's
 # directories and the relay it runs (templates/keepassxc-proxy-relay.py.j2,
-# which talks to the KeePassXC Flatpak's browser socket); without it, both
-# go. The Firefox Flatpak also gets access to that socket.
+# which talks to KeePassXC's browser socket, Flatpak or native); without it,
+# both go. The Firefox Flatpak also gets access to that socket.
 - name: "[{{ host.key }}] KeePassXC-Browser host"
   when: host_on | bool
   block:

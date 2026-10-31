@@ -1,0 +1,42 @@
+---
+# Says when the session needs a new login. Several plays write
+# ~/.config/environment.d/*.conf (the SSH agent's SSH_AUTH_SOCK, omaskpass's
+# SSH_ASKPASS, Flatpak, Nix, ...). systemd --user picks those up on its next
+# reload, but Hyprland and uwsm took their environment at login, and every
+# terminal and app is started from them: until the next login a file newer
+# than the session goes unseen (e.g. an empty SSH_AUTH_SOCK with the agent
+# running). Imported last by user.yml, under every tag.
+- name: Session environment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+
+  tasks:
+    - name: Find the environment.d files
+      ansible.builtin.find:
+        paths: "{{ target_home }}/.config/environment.d"
+        patterns: "*.conf"
+      register: session_env_files
+
+    - name: Find when the Hyprland session started
+      ansible.builtin.shell: >-
+        pid=$(pgrep -x -u "$(id -u)" -o Hyprland) && stat -c %Y "/proc/$pid"
+      register: session_env_start
+      changed_when: false
+      failed_when: false
+
+    - name: Remind about logging out and back in
+      vars:
+        newer: >-
+          {{ session_env_files.files
+             | selectattr('mtime', 'gt', session_env_start.stdout | float)
+             | map(attribute='path') | map('basename') | sort }}
+      ansible.builtin.debug:
+        msg: >-
+          {{ newer | join(', ') }} in ~/.config/environment.d changed after
+          this session started, so terminals and apps don't have those
+          variables yet: log out and back in.
+      when:
+        - session_env_start.rc == 0
+        - newer | length > 0

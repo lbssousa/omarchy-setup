@@ -15,9 +15,9 @@
 #   Chromium           (user/apps/webapps.yml), force-installed through the
 #                      browser's machine policy (WebAppInstallForceList),
 #                      for the union of every user's webapps list — only for
-#                      the engine of the machine's default browser, so a
-#                      browser that merely stays installed (Omarchy's
-#                      Chromium) gets no PWAs.
+#                      the engine chosen in `just configure`, so a browser
+#                      that merely stays installed (Omarchy's Chromium) gets
+#                      no PWAs.
 - name: Apps — web browsers
   hosts: localhost
   connection: local
@@ -25,7 +25,6 @@
   tags: [apps]
 
   vars:
-    browser_default: "{{ apps_catalog.browser[apps.browser.default] }}"
     firefox_flatpak_on: "{{ 'firefox-flatpak' in apps.browser.installed }}"
     firefox_native_on: "{{ 'firefox' in apps.browser.installed }}"
 
@@ -76,4 +75,4 @@
         loop_var: engine
         label: "{{ engine.key }}"
       vars:
-        pwa_policy_on: "{{ browser_default.engine | default('none') == engine.key }}"
+        pwa_policy_on: "{{ webapps_engine == engine.key }}"

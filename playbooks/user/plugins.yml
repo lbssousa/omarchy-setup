@@ -651,7 +651,8 @@
       failed_when: false
 
 # fingerprint-omarchy, per user: install the overlay from the marketplace and
-# enable it; Setup > Security > Fingerprint opens it (omarchy-multiuser).
+# enable it, and point Setup > Security > Fingerprint at it (the stock entry
+# runs Omarchy's terminal script; omarchy-multiuser, now opt-in, did this too).
 - name: fingerprint-omarchy (fingerprint overlay) (user)
   hosts: localhost
   connection: local
@@ -706,8 +707,16 @@
         fingerprint_plugin_changed | bool
         and fingerprint_plugin_enable_result is skipped
 
+    - name: "Open the overlay from Setup > Security > Fingerprint"
+      ansible.builtin.include_tasks: tasks/menu-override.yml
+      vars:
+        menu_override_id: setup.security.fingerprint
+        menu_override_action: "omarchy-shell shell summon {{ fingerprint_plugin_id }} '{}'"
+
 # security-key-omarchy, per user: install the overlay from the marketplace and
-# enable it; Setup > Security > Fido2 opens it (omarchy-multiuser).
+# enable it, and point Setup > Security > Fido2 and Remove > Fido2 at it (the
+# stock entries run Omarchy's terminal scripts; omarchy-multiuser, now opt-in,
+# did this for Setup too).
 - name: security-key-omarchy (security key overlay) (user)
   hosts: localhost
   connection: local
@@ -761,3 +770,19 @@
       when: >-
         security_key_plugin_changed | bool
         and security_key_plugin_enable_result is skipped
+
+    - name: "Open the overlay from Setup > Security > Fido2"
+      ansible.builtin.include_tasks: tasks/menu-override.yml
+      vars:
+        menu_override_id: setup.security.fido2
+        menu_override_action: "omarchy-shell shell summon {{ security_key_plugin_id }} '{}'"
+
+    # The overlay removes keys one by one (each has its own button). The stock
+    # entry's script, which takes pam_u2f out of sudo/polkit, deletes
+    # /etc/fido2 for every user and drops the packages, stays available as
+    # omarchy-remove-security-fido2.
+    - name: "Open the overlay from Remove > Fido2"
+      ansible.builtin.include_tasks: tasks/menu-override.yml
+      vars:
+        menu_override_id: remove.security.fido2
+        menu_override_action: "omarchy-shell shell summon {{ security_key_plugin_id }} '{}'"

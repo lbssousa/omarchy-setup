@@ -44,9 +44,9 @@ just configure   # gum menu: pick apps and features; offers to apply them
   Google Drive, the Yubikey GPG key).
 
 fish is every account's login shell; that isn't a choice. Omarchy's web
-apps (YouTube, WhatsApp, ...) are rebuilt with the default browser's own
-mechanism — Firefox Taskbar Tabs or Brave/Chromium PWAs — and open tiled
-fullscreen.
+apps (YouTube, WhatsApp, ...) are kept native or rebuilt with an installed
+browser — the menu asks, offering Firefox Taskbar Tabs or Brave/Chromium
+PWAs — and either way they open tiled fullscreen.
 
 Your choices are saved in `~/.config/omarchy-setup/features.yml`; anything
 you never chose takes the catalog's default. Each user runs the menu for

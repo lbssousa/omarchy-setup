@@ -80,6 +80,19 @@
               {{ openssh_askpass_pkgrel_suffix }}
             executable: python3
 
+        # Fetch the sources on their own first: ftp.openbsd.org can be slow
+        # and drop the connection mid-download, and makepkg resumes the
+        # .part file on the next try instead of failing the whole build.
+        - name: Download the sources
+          ansible.builtin.command:
+            cmd: "{{ unprivileged_build }} makepkg --verifysource --skippgpcheck --noconfirm"
+            chdir: "{{ openssh_askpass_build_dir }}"
+          register: openssh_askpass_sources
+          until: openssh_askpass_sources.rc == 0
+          retries: 5
+          delay: 10
+          changed_when: false
+
         - name: Build the package (makepkg, with the test suite)
           ansible.builtin.command:
             cmd: "{{ unprivileged_build }} makepkg -f --nodeps --skippgpcheck --noconfirm"

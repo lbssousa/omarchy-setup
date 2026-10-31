@@ -25,6 +25,19 @@ choose_many() { # header, then "label|id" lines on stdin; preselected labels in 
         --selected="$selected" || true
 }
 
+# A feature that needs another one isn't offered once that one has already
+# been answered off (the groups are shown in catalog order). It turns off
+# with it. Requirements in groups not answered yet are left to `menu save`.
+requires_met() { # comma-separated requirement ids (app:... ones are ignored)
+    local req
+    local IFS=,
+    for req in $1; do
+        [[ $req == app:* ]] && continue
+        [[ ${feature_on[$req]:-} == false ]] && return 1
+    done
+    return 0
+}
+
 gum style --border=rounded --padding="0 2" --margin="1 0" \
     "omarchy-setup — what to apply" \
     "Space toggles, Enter confirms. Unchecked apps are uninstalled; ⟲ marks" \
@@ -84,6 +97,34 @@ for category_line in "${categories[@]}"; do
     fi
 done
 
+# --- Web apps --------------------------------------------------------------
+# Omarchy's web apps (the omarchy-launch-webapp launchers) can stay as they
+# are or be rebuilt with one of the installed browsers: Firefox Taskbar Tabs,
+# or Chromium/Brave PWAs. The default browser's own mechanism is preselected
+# until chosen otherwise here.
+browser_ids=${app_installed[browser]:-}
+browser_default_id=${app_default[browser]:-}
+webapps_engine=none
+if [[ -n $browser_ids ]]; then
+    mapfile -t engine_lines < <(menu webapps-engines "$browser_ids")
+    if [[ ${#engine_lines[@]} -gt 1 ]]; then
+        current_engine=$(menu webapps-engine "$browser_default_id" "$browser_ids")
+        engine_options=() selected_engine=""
+        for engine_line in "${engine_lines[@]}"; do
+            IFS=$'\t' read -r engine_id engine_label <<<"$engine_line"
+            engine_options+=("$engine_label|$engine_id")
+            [[ $engine_id == "$current_engine" ]] && selected_engine=$engine_label
+        done
+        picked=$(gum choose --header="Omarchy's web apps — keep them native or rebuild them?" \
+            --label-delimiter='|' --selected="$selected_engine" "${engine_options[@]}") || true
+        if [[ -n $picked ]]; then
+            webapps_engine=${picked##*|}
+        else
+            webapps_engine=$current_engine
+        fi
+    fi
+fi
+
 # --- Features --------------------------------------------------------------
 mapfile -t groups < <(menu groups)
 for group_line in "${groups[@]}"; do
@@ -91,7 +132,11 @@ for group_line in "${groups[@]}"; do
     options=() selected="" rows=()
     mapfile -t feature_lines < <(menu features "$group" "$admin")
     for feature_line in "${feature_lines[@]}"; do
-        IFS=$'\t' read -r id label on effect <<<"$feature_line"
+        IFS=$'\t' read -r id label on effect requires <<<"$feature_line"
+        if ! requires_met "${requires:-}"; then
+            feature_on[$id]=false
+            continue
+        fi
         options+=("$label|$id")
         rows+=("| $label | $effect |")
         [[ $on == 1 ]] && selected+="${selected:+,}$label"
@@ -110,13 +155,16 @@ json=$(
     {
         for id in "${!feature_on[@]}"; do printf 'f\t%s\t%s\n' "$id" "${feature_on[$id]}"; done
         for cat in "${!app_installed[@]}"; do printf 'a\t%s\t%s\t%s\n' "$cat" "${app_installed[$cat]}" "${app_default[$cat]:-}"; done
+        printf 'w\t%s\n' "$webapps_engine"
     } | python3 -c '
 import json, sys
-out = {"features": {}, "apps": {}}
+out = {"features": {}, "apps": {}, "webapps": {}}
 for line in sys.stdin.read().splitlines():
     kind, key, *rest = line.split("\t")
     if kind == "f":
         out["features"][key] = rest[0] == "true"
+    elif kind == "w":
+        out["webapps"]["engine"] = key
     else:
         installed, default = rest[0], rest[1] if len(rest) > 1 else ""
         entry = {"installed": [i for i in installed.split(",") if i]}

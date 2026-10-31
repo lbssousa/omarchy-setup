@@ -99,3 +99,6 @@
 
 - name: Yubikey GPG key and git signing (opt-in)
   ansible.builtin.import_playbook: playbooks/user/yubikey.yml
+
+- name: Session environment (log in again after environment.d changes)
+  ansible.builtin.import_playbook: playbooks/user/session-env.yml

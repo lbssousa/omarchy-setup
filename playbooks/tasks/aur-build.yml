@@ -51,16 +51,25 @@
         cmd: makepkg --nodeps --noconfirm --force --cleanbuild
         chdir: "{{ aur_build_dir }}"
 
+    # --packagelist names what the PKGBUILD *could* produce, including a
+    # -debug package (makepkg.conf's `debug` option) that isn't built when
+    # there are no symbols to split, e.g. for arch=any; keep only the files
+    # actually there, and never the -debug one.
     - name: "[{{ aur_package }}] Locate the built package"
-      ansible.builtin.command:
-        cmd: makepkg --packagelist
+      ansible.builtin.shell: >-
+        makepkg --packagelist | while read -r f; do if [ -f "$f" ]; then echo "$f"; fi; done
+      args:
         chdir: "{{ aur_build_dir }}"
       register: aur_packagelist
       changed_when: false
 
     - name: "[{{ aur_package }}] Install the built package"
       community.general.pacman:
-        name: "{{ aur_packagelist.stdout_lines | select('search', '/' ~ aur_package ~ '-') | list }}"
+        name: >-
+          {{ aur_packagelist.stdout_lines
+             | select('search', '/' ~ aur_package ~ '-')
+             | reject('search', '/' ~ aur_package ~ '-debug-')
+             | list }}
         state: present
       become: true
 

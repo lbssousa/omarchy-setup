@@ -8,9 +8,9 @@ defaults. Typical keys:
 
 | Key | What |
 |---|---|
-| `webapps` | Omarchy's web apps rebuilt with the default browser: Firefox Taskbar Tabs or Brave/Chromium PWAs (`user/apps/webapps.yml`) |
+| `webapps` | Omarchy's web apps, kept native or rebuilt with the browser chosen in `just configure`: Firefox Taskbar Tabs or Brave/Chromium PWAs (`user/apps/webapps.yml`) |
 | `omarchy_plugins` | shell plugins (default: this machine's list) |
-| `omarchy_text_size_px`, `omarchy_monitor_scale`, `omarchy_system_ui_font_pt` | text size and scale |
+| `omarchy_text_size_px`, `omarchy_shell_font_px`, `omarchy_monitor_scale`, `omarchy_system_ui_font_pt` | text size and scale |
 | `password_hypr_keybind`, `bitwarden_floating` | the default password manager's key, Bitwarden's window |
 | `omaraptor_auto_day_theme`, `omaraptor_auto_night_theme` | automatic themes |
 

@@ -1,6 +1,7 @@
 ---
-# Omarchy's web apps, rebuilt with the default browser's own solution
-# (apps: browser). The sites come from this user's webapps list
+# Omarchy's web apps, kept native or rebuilt with the browser chosen in
+# `just configure` (apps: browser; the choice defaults to the default
+# browser's own solution). The sites come from this user's webapps list
 # (users/<name>.yml; fields in group_vars/all/main.yml):
 #
 #   Firefox (either build)  Taskbar Tabs, written by files/
@@ -28,8 +29,10 @@
 
   vars:
     browser_default_id: "{{ apps.browser.default }}"
-    webapps_engine: "{{ apps_catalog.browser[browser_default_id].engine | default('none') }}"
-    firefox_variant: "{{ firefox_variants[browser_default_id] | default({}) }}"
+    firefox_variant_id: >-
+      {{ browser_default_id if browser_default_id in firefox_variants
+         else (firefox_variants.keys() | list | intersect(apps.browser.installed) | first | default('')) }}
+    firefox_variant: "{{ firefox_variants[firefox_variant_id] | default({}) }}"
     webapps_keybinds: "{{ webapps | selectattr('keybind', 'defined') | selectattr('keybind') | list }}"
 
   tasks:
@@ -132,7 +135,7 @@
         - name: Warn that the browser is closed
           ansible.builtin.debug:
             msg: >-
-              SKIPPED the PWAs: open {{ apps_catalog.browser[browser_default_id].label }}
+              SKIPPED the PWAs: open {{ pwa_engine.label }}
               and keep it open while `just user` runs, so it installs them.
           when: pwa_browser_running.rc != 0
 

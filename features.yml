@@ -30,7 +30,10 @@
 #     desktop   desktop-entry id, for categories with a default app
 #     browser   omarchy-default-browser's name for it (browsers)
 #     engine    how Omarchy's web apps are rebuilt when it is the default:
-#               firefox (Taskbar Tabs), brave or chromium (PWAs), none
+#               firefox (Taskbar Tabs), brave or chromium (PWAs), none.
+#               `just configure` asks for the web apps engine separately and
+#               saves it as webapps.engine in the choices file; unchosen, the
+#               default browser's engine applies.
 
 groups:
   accounts: Accounts and login
@@ -372,10 +375,11 @@ features:
   - id: tpm2
     group: security
     title: LUKS auto-unlock (TPM2)
-    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot
+    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, which removes autologin)
     phases: [system]
     default: false
     revert: false
+    requires: [omarchy-multiuser]
 
   - id: gpg-yubikey
     group: security
@@ -404,7 +408,7 @@ features:
 apps:
   - id: browser
     title: Web browsers
-    role: default browser (omarchy-default-browser), and the engine Omarchy's web apps are rebuilt with
+    role: default browser (omarchy-default-browser); the menu also asks whether to keep Omarchy's native web apps or rebuild them with an installed browser
     default: firefox-flatpak
     options:
       - { id: chromium, label: Chromium, source: pacman, package: chromium, stock: true, installed: true, engine: chromium, browser: chromium }
@@ -421,6 +425,7 @@ apps:
       - { id: bitwarden-flatpak, label: Bitwarden, source: flatpak, flatpak: com.bitwarden.desktop, installed: true, note: "copies passwords through the clipboard portal (clipboard-portal feature); without that feature it runs under XWayland" }
       - { id: bitwarden, label: Bitwarden, source: pacman, package: bitwarden }
       - { id: keepassxc-flatpak, label: KeePassXC, source: flatpak, flatpak: org.keepassxc.KeePassXC }
+      - { id: keepassxc, label: KeePassXC, source: pacman, package: keepassxc }
 
   - id: office
     title: Office suites

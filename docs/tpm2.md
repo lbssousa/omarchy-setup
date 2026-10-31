@@ -37,6 +37,9 @@ passphrase until you re-enroll.
 - Physical machine with a TPM 2.0 chip enabled in UEFI/BIOS (Intel PTT, AMD
   fTPM, or discrete TPM).
 - Encrypted root partition using **LUKS2** format.
+- Multi-user mode enabled (`omarchy-multiuser`): `just configure` offers this
+  feature only then, because auto-unlock must not land in an automatically
+  logged-in session.
 - Run after the initial successful boot (and ideally after enabling Secure Boot
   via `just apply secureboot`).
 - Administrator (`wheel`) access with `run0` empowerment.

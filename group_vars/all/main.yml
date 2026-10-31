@@ -94,14 +94,13 @@ firefox_taskbar_tabs_pref_file: omarchy-setup.js
 # page text, the browser chrome follows the GNOME font (see
 # omarchy_gnome_font_sizes). 17px is 13pt at 96dpi, as an integer px
 # because that's what the pref takes; a default, not a forced value.
-# TODO: candidate for a reduction: sized while the monitor scale was 1.0;
-# at the current 1.25 (omarchy_monitor_scale) page text looks larger.
 firefox_font_size_pref_file: omarchy-setup-font.js
 firefox_default_font_size_px: 17
 
-# Omarchy's web apps, rebuilt with the default browser's own solution
-# (playbooks/user/apps/webapps.yml): Firefox Taskbar Tabs, or PWAs for Brave
-# Origin and Chromium. Each user lists theirs in users/<name>.yml:
+# Omarchy's web apps, kept native or rebuilt with the browser chosen in
+# `just configure` (playbooks/user/apps/webapps.yml): Firefox Taskbar Tabs,
+# or PWAs for Brave Origin and Chromium. The choice defaults to the default
+# browser's own solution. Each user lists theirs in users/<name>.yml:
 #
 #   label         what the keybind is called (and Omarchy's launcher Name=,
 #                 unless omarchy_webapp_name says otherwise)
@@ -125,12 +124,14 @@ firefox_taskbar_app_launcher: "{{ target_home }}/.local/bin/omarchy-setup-launch
 # policy directory, the union of every user's webapps list.
 webapps_pwa_engines:
   brave:
+    label: Brave Origin
     policy_dir: /etc/brave/policies/managed
     config_dir: BraveSoftware/Brave-Origin
     shortcut_prefix: brave
     binary: /opt/brave-origin-bin/brave
     containers: true
   chromium:
+    label: Chromium
     policy_dir: /etc/chromium/policies/managed
     config_dir: chromium
     shortcut_prefix: chrome
@@ -241,17 +242,27 @@ bitwarden_firefox_flatpak_nmh_dir: "{{ firefox_app_dir }}/.mozilla/native-messag
 bitwarden_firefox_flatpak_xdg_nmh_dir: "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
 bitwarden_browser_manifest_name: com.8bit.bitwarden.json
 
-# KeePassXC (Flatpak). Its manifest already grants the SSH agent socket
-# (sockets=ssh-auth, SSH_AUTH_SOCK passed through), so as the default it is
-# a client of Omarchy's own agent (omarchy-setup-security-ssh-agent,
-# gcr-ssh-agent). Like Bitwarden, it may own its tray icon's name. Its
-# browser socket lives in $XDG_RUNTIME_DIR/app/<id>, which the relay
+# KeePassXC (Flatpak or native). The Flatpak's manifest already grants the
+# SSH agent socket (sockets=ssh-auth, SSH_AUTH_SOCK passed through), so as
+# the default either build is a client of Omarchy's own agent
+# (omarchy-setup-security-ssh-agent, gcr-ssh-agent). Like Bitwarden, the
+# Flatpak may own its tray icon's name. Its browser socket lives in
+# $XDG_RUNTIME_DIR/app/<id>, which the relay
 # (templates/keepassxc-proxy-relay.py.j2) talks to from inside the Firefox
-# Flatpak. Databases are never touched.
+# Flatpak; the native build uses the same path (it also links the legacy
+# $XDG_RUNTIME_DIR/<id>.BrowserServer to it). Databases are never touched.
 keepassxc_flatpak_id: org.keepassxc.KeePassXC
 keepassxc_flatpak_own_names:
   - org.kde.*
   - org.freedesktop.StatusNotifierItem-2-1
+# Per build: what the keybind and autostart launch, and the autostart icon.
+keepassxc_variants:
+  keepassxc-flatpak:
+    command: "flatpak run {{ keepassxc_flatpak_id }}"
+    icon: "{{ keepassxc_flatpak_id }}"
+  keepassxc:
+    command: keepassxc
+    icon: keepassxc
 keepassxc_autostart_desktop: "{{ target_home }}/.config/autostart/{{ keepassxc_flatpak_id }}.desktop"
 keepassxc_browser_manifest_name: org.keepassxc.keepassxc_browser.json
 keepassxc_firefox_relay_name: keepassxc-proxy-relay.py
@@ -308,8 +319,6 @@ emacs_packages:
 # px. Zed sizes are in logical pixels, so at the 100% monitor scale
 # (omarchy_monitor_scale) this is the previous 20 times the old 1.25 scale,
 # which keeps the same apparent size.
-# TODO: candidate for a reduction: the monitor scale is back to 1.25, so
-# this now looks 25% larger than intended (20 would match it again).
 zed_font_size: 25
 
 # Same family Omarchy sets as the system-wide monospace default (see
@@ -759,23 +768,31 @@ printer_l4160_set_default: true
 # reset — the desktop's default UI font size is set directly instead, via
 # omarchy_gnome_font_sizes below.
 #
-# The monitor scale (omarchy_monitor_scale) already enlarges everything by
-# 1.25, so this stays at 16px — the 20px once used at a 100% scale, divided
-# by 1.25 — to keep the same apparent size. It also sets the terminal font
-# (px * 9/12 = 12pt).
-omarchy_text_size_px: 16
+# The monitor scale is 100%, so text is sized to make up for it: 20px is
+# the previous 16px times the old 1.25 scale, and the top of the 9–20 range
+# omarchy-display-text-size accepts. It also sets the terminal font
+# (px * 9/12 = 15pt).
+omarchy_text_size_px: 20
+
+# The omarchy shell's own font base-size (bar, menus, panels, notifications),
+# px — written to ~/.config/omarchy/shell.toml's [font] base-size after
+# omarchy_text_size_px, so the shell UI can be smaller than the terminals.
+# Every shell type size (and, by default, its spacing and bar height) scales
+# from it; Omarchy's default is 12.
+omarchy_shell_font_px: 18
 
 # Hyprland monitor scale factor (playbooks/{system,user}/desktop.yml) — the
 # compositor-level "screen scale" applied to everything on screen. Fed
 # straight into hl.monitor({ scale = ... }) in
 # ~/.config/hypr/monitors.lua's omarchy_monitor_scale.
 #
-# 1.25 (125%). Caveat: a 1920px-wide screen is then only 1536 logical px,
-# so a half-screen dwindle tile (749px) can be narrower than some apps'
-# ~800px minimum width; Hyprland then squeezes the window's image to fit,
-# which also skews where the mouse lands on its buttons. At 100% the tile
-# is ~950px. omarchy_text_size_px is sized for this scale.
-omarchy_monitor_scale: 1.25
+# 1.0 (100%): at 1.25 a 1920px-wide screen is only 1536 logical px, so a
+# half-screen dwindle tile (749px) is narrower than some apps' ~800px
+# minimum width; Hyprland then squeezes the window's image to fit, which
+# also skews where the mouse lands on its buttons. At 100% the tile is
+# ~950px. omarchy_text_size_px and omarchy_system_ui_font_pt compensate
+# for the smaller scale.
+omarchy_monitor_scale: 1.0
 
 # GDK_SCALE (playbooks/{system,user}/desktop.yml) — the integer factor GTK/Electron read
 # under XWayland, where Hyprland doesn't scale windows
@@ -800,8 +817,6 @@ omarchy_gnome_font_sizes:
 # 15pt that would match the old 1.25 monitor scale (13pt * 1.25, rounded),
 # unlike the shell bar and terminals, which stay compensated. Raised a
 # point from the 12pt Omarchy leaves behind.
-# TODO: candidate for a reduction: sized while the monitor scale was 1.0;
-# at the current 1.25 (omarchy_monitor_scale) it looks larger.
 omarchy_system_ui_font_pt: 13
 
 # Caps Lock via keyd (playbooks/{system,user}/capslock.yml). Key that takes over Compose

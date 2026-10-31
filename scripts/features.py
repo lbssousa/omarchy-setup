@@ -15,6 +15,7 @@ Choices live in $XDG_CONFIG_HOME/omarchy-setup/features.yml:
 
   features: {<id>: true|false, ...}
   apps: {<category>: {installed: [<option id>, ...], default: <option id>}}
+  webapps: {engine: none|firefox|chromium|brave}
 """
 import json
 import os
@@ -92,6 +93,65 @@ def resolve(catalog, choices):
     return features, apps
 
 
+WEBAPPS_ENGINE_LABELS = {
+    "none": "Keep Omarchy's native web apps",
+    "firefox": "Firefox Taskbar Tabs",
+    "chromium": "Chromium PWAs",
+    "brave": "Brave PWAs",
+}
+
+
+def browser_options(catalog):
+    for category in catalog["apps"]:
+        if category["id"] == "browser":
+            return category["options"]
+    return []
+
+
+def browser_engine(catalog, option_id):
+    for option in browser_options(catalog):
+        if option["id"] == option_id:
+            return option.get("engine", "none")
+    return "none"
+
+
+def webapps_engines(catalog, installed_ids):
+    """The engines the installed browsers can rebuild Omarchy's web apps with."""
+    engines = []
+    for option in browser_options(catalog):
+        engine = option.get("engine", "none")
+        if option["id"] in installed_ids and engine != "none" and engine not in engines:
+            engines.append(engine)
+    return engines
+
+
+def pick_webapps_engine(catalog, installed_ids, default_id, choices):
+    """The chosen engine, or the default browser's own when unchosen."""
+    available = webapps_engines(catalog, installed_ids)
+    chosen = (choices.get("webapps") or {}).get("engine")
+    if chosen is not None:
+        return chosen
+    engine = browser_engine(catalog, default_id)
+    return engine if engine in available else "none"
+
+
+def resolve_webapps_engine(catalog, apps, choices):
+    return pick_webapps_engine(
+        catalog, apps["browser"]["installed"], apps["browser"].get("default"), choices
+    )
+
+
+def webapps_engine_errors(catalog, apps, choices):
+    engine = resolve_webapps_engine(catalog, apps, choices)
+    available = ["none"] + webapps_engines(catalog, apps["browser"]["installed"])
+    if engine not in available:
+        return [
+            f"web apps engine {engine} needs one of these browsers installed: "
+            f"{', '.join(e for e in available if e != 'none')}"
+        ]
+    return []
+
+
 def requirement_errors(catalog, features, apps):
     errors = []
     for f in catalog["features"]:
@@ -144,7 +204,7 @@ def cmd_resolve(phase, out):
         choices = dict(choices)
         choices["features"] = {**(choices.get("features") or {}), **{i: True for i in forced if i != "apps"}}
     features, apps = resolve(catalog, choices)
-    errors = requirement_errors(catalog, features, apps)
+    errors = requirement_errors(catalog, features, apps) + webapps_engine_errors(catalog, apps, choices)
     if errors:
         sys.exit("Feature choices don't fit together:\n  " + "\n  ".join(errors) + "\nRun `just configure` to fix them.")
     installed = sorted({i for entry in apps.values() for i in entry["installed"]})
@@ -152,6 +212,7 @@ def cmd_resolve(phase, out):
         "features_resolved": True,
         "features": features,
         "apps": apps,
+        "webapps_engine": resolve_webapps_engine(catalog, apps, choices),
         "apps_installed": installed,
         "apps_packages": package_states(catalog, apps),
         # Each category's options by id, for what the plays need to know
@@ -215,6 +276,8 @@ def cmd_check():
         for o in category["options"]:
             if o["source"] not in ("pacman", "aur", "flatpak", "bundle"):
                 problems.append(f"apps {category['id']}/{o['id']}: unknown source {o['source']}")
+            if "engine" in o and o["engine"] not in WEBAPPS_ENGINE_LABELS:
+                problems.append(f"apps {category['id']}/{o['id']}: unknown web apps engine {o['engine']}")
     tags = play_tags()
     for i in ids:
         if i not in tags:
@@ -224,6 +287,7 @@ def cmd_check():
             problems.append(f"tag {tag} ({', '.join(sorted(where))}) isn't a feature in features.yml")
     features, apps = resolve(catalog, {})
     problems += [f"defaults: {e}" for e in requirement_errors(catalog, features, apps)]
+    problems += [f"defaults: {e}" for e in webapps_engine_errors(catalog, apps, {})]
     if problems:
         sys.exit("features.yml:\n  " + "\n  ".join(problems))
     print("Feature catalog OK.")
@@ -310,7 +374,8 @@ def menu(args):
             if not admin and "user" not in f["phases"]:
                 continue
             mark = " ⟲" if f["revert"] else ""
-            print(f"{f['id']}\t{menu_label(f['title'] + mark)}\t{int(features[f['id']])}\t{f['effect']}")
+            requires = ",".join(f.get("requires", []))
+            print(f"{f['id']}\t{menu_label(f['title'] + mark)}\t{int(features[f['id']])}\t{f['effect']}\t{requires}")
     elif what == "categories":
         for c in catalog["apps"]:
             print(f"{c['id']}\t{c['title']}\t{int('default' in c)}\t{c.get('role', '')}")
@@ -323,15 +388,33 @@ def menu(args):
             )
     elif what == "default":
         print(apps[args[1]].get("default") or "")
+    elif what == "webapps-engines":
+        # The engines the installed browsers (args[1], comma-separated; the
+        # saved selection when omitted) can rebuild Omarchy's web apps with.
+        installed = args[1].split(",") if len(args) > 1 else apps["browser"]["installed"]
+        for engine in ["none"] + webapps_engines(catalog, installed):
+            print(f"{engine}\t{menu_label(WEBAPPS_ENGINE_LABELS[engine])}")
+    elif what == "webapps-engine":
+        # The engine to preselect for a (possibly new) browser selection:
+        # args[1] = default browser id, args[2] = installed ids.
+        if len(args) > 2:
+            print(pick_webapps_engine(catalog, args[2].split(","), args[1], choices))
+        else:
+            print(resolve_webapps_engine(catalog, apps, choices))
     elif what == "save":
-        # stdin: JSON {"features": {...}, "apps": {...}} (only what the menu
-        # asked about); merged into the choices file.
+        # stdin: JSON {"features": {...}, "apps": {...}, "webapps": {...}}
+        # (only what the menu asked about); merged into the choices file.
         new = json.load(sys.stdin)
-        merged = {"features": dict(choices.get("features") or {}), "apps": dict(choices.get("apps") or {})}
+        merged = {
+            "features": dict(choices.get("features") or {}),
+            "apps": dict(choices.get("apps") or {}),
+            "webapps": dict(choices.get("webapps") or {}),
+        }
         merged["features"].update(new.get("features", {}))
         merged["apps"].update(new.get("apps", {}))
+        merged["webapps"].update(new.get("webapps") or {})
         f2, a2 = resolve(catalog, merged)
-        errors = requirement_errors(catalog, f2, a2)
+        errors = requirement_errors(catalog, f2, a2) + webapps_engine_errors(catalog, a2, merged)
         if errors:
             print("\n".join(errors), file=sys.stderr)
             sys.exit(3)
@@ -343,9 +426,14 @@ def menu(args):
         # stdin: same JSON as save; prints what changes against the current
         # resolved selection.
         new = json.load(sys.stdin)
-        merged = {"features": dict(choices.get("features") or {}), "apps": dict(choices.get("apps") or {})}
+        merged = {
+            "features": dict(choices.get("features") or {}),
+            "apps": dict(choices.get("apps") or {}),
+            "webapps": dict(choices.get("webapps") or {}),
+        }
         merged["features"].update(new.get("features", {}))
         merged["apps"].update(new.get("apps", {}))
+        merged["webapps"].update(new.get("webapps") or {})
         f2, a2 = resolve(catalog, merged)
         titles = {f["id"]: f for f in catalog["features"]}
         for fid, on in f2.items():
@@ -361,6 +449,10 @@ def menu(args):
                 print(f"- uninstall: {labels[i]}")
             if a2[c["id"]].get("default") != apps[c["id"]].get("default"):
                 print(f"- {c['title']}, default: {labels.get(a2[c['id']].get('default'), 'none')}")
+        engine_before = resolve_webapps_engine(catalog, apps, choices)
+        engine_after = resolve_webapps_engine(catalog, a2, merged)
+        if engine_after != engine_before:
+            print(f"- web apps: {WEBAPPS_ENGINE_LABELS[engine_after]}")
     else:
         sys.exit(f"unknown menu query: {what}")
 

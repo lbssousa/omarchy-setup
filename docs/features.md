@@ -91,7 +91,7 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | Secure Boot (sbctl) | `secureboot` | adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) | system | off | no |
-| LUKS auto-unlock (TPM2) | `tpm2` | modifies crypttab and the initramfs; adds a TPM2 keyslot | system | off | no |
+| LUKS auto-unlock (TPM2) | `tpm2` | modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, which removes autologin) | system | off | no |
 | Yubikey GPG key | `gpg-yubikey` | adds the card's public key (ultimate trust) and git commit signing | system, user | off | no |
 
 ## Extras (opt-in)
@@ -112,7 +112,7 @@ where the category has one.
 
 ### Web browsers
 
-Default app: default browser (omarchy-default-browser), and the engine Omarchy's web apps are rebuilt with.
+Default app: default browser (omarchy-default-browser); the menu also asks whether to keep Omarchy's native web apps or rebuild them with an installed browser.
 
 | Option | Source | Notes |
 |---|---|---|
@@ -131,6 +131,7 @@ Default app: default password manager (SUPER+SHIFT+SLASH, autostart, SSH agent).
 | Bitwarden ★ (default) | flatpak `com.bitwarden.desktop` | copies passwords through the clipboard portal (clipboard-portal feature); without that feature it runs under XWayland |
 | Bitwarden | pacman `bitwarden` |  |
 | KeePassXC | flatpak `org.keepassxc.KeePassXC` |  |
+| KeePassXC | pacman `keepassxc` |  |
 
 ### Office suites
 

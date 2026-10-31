@@ -62,9 +62,9 @@
 #
 # The Hyprland monitor scale is a compositor-level multiplier applied to
 # everything on screen (~/.config/hypr/monitors.lua's omarchy_monitor_scale,
-# fed into hl.monitor({ scale = ... })). It is set to 125% (1.25); the
-# shell bar + terminal text size below is lowered by the same factor to
-# keep the same apparent size.
+# fed into hl.monitor({ scale = ... })). It is set to 100% (1.0) so that
+# tiled windows get the full logical width of the screen; the text sizes
+# below are raised by the old 1.25 scale to keep the same apparent size.
 #
 # GDK_SCALE (the same file's omarchy_gdk_scale) is the integer factor
 # X11/XWayland GTK apps read, since Hyprland doesn't scale XWayland windows.
@@ -83,8 +83,9 @@
 #
 # `omarchy display text size <px>` separately drives the omarchy shell bar
 # + terminal text size (shell/GTK/terminals in lockstep) — this playbook
-# still calls it for the shell+terminal legs, then overrides its GTK
-# scaling-factor side effect with the direct font-size approach above.
+# still calls it for the terminal leg, then overrides its GTK
+# scaling-factor side effect with the direct font-size approach above, and
+# its shell base-size with omarchy_shell_font_px (a smaller shell UI).
 - name: Screen scale factor + system UI font size
   hosts: localhost
   connection: local
@@ -125,9 +126,23 @@
       register: omarchy_text_size_current
       changed_when: false
 
+    # Judged by the terminal size alone (px * 9/12, rounded as the command
+    # does): the shell's base-size is set on its own just below, so the
+    # "text size" line won't match omarchy_text_size_px.
     - name: "Set the shell + terminal text size to {{ omarchy_text_size_px }}px"
       ansible.builtin.command: "omarchy-display-text-size {{ omarchy_text_size_px }}"
-      when: '("text size: " ~ omarchy_text_size_px ~ " px") not in omarchy_text_size_current.stdout'
+      when: >-
+        ("terminal font: " ~ ((omarchy_text_size_px | int * 9 / 12) + 0.5) | int ~ " pt")
+        not in omarchy_text_size_current.stdout
+
+    # The shell watches this file, so the bar re-flows live.
+    - name: "Set the omarchy shell font size to {{ omarchy_shell_font_px }}px"
+      community.general.ini_file:
+        path: "{{ target_home }}/.config/omarchy/shell.toml"
+        section: font
+        option: base-size
+        value: "{{ omarchy_shell_font_px }}"
+        mode: "0644"
 
     - name: Check whether the GTK text scale factor has an override
       ansible.builtin.command: dconf read /org/gnome/desktop/interface/text-scaling-factor

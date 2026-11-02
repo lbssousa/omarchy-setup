@@ -1,0 +1,264 @@
+#!/bin/bash
+# Managed by omarchy-setup (playbooks/user/apps/pdf.yml).
+#
+# Zathura's keybindings, in pt-BR, in the same searchable menu as Omarchy's
+# Super+K. Zathura has no command that lists its bindings, so the defaults
+# below are a translation of the MOUSE AND KEY BINDINGS section of
+# zathura(1); the user's zathurarc (map/unmap, following include) goes on
+# top: a rebound or unbound key leaves its default row, and each map adds a
+# row with the function it runs.
+#
+# Usage: omarchy-setup-zathura-keybindings [--print|-p] [--pid <pid>] [--config <path>]
+#   --pid     a Zathura process; a Flatpak one reads the Flatpak's zathurarc
+#   --config  the zathurarc to read (default: the native build's, or the
+#             Flatpak's when only that one exists)
+
+print_only=false
+pid=""
+config_file=""
+
+while (($#)); do
+  case "$1" in
+    --print|-p) print_only=true ;;
+    --pid) shift; pid="$1" ;;
+    --config) shift; config_file="$1" ;;
+    *) config_file="$1" ;;
+  esac
+  shift
+done
+
+native_config="${XDG_CONFIG_HOME:-$HOME/.config}/zathura/zathurarc"
+flatpak_config="$HOME/.var/app/org.pwmt.zathura/config/zathura/zathurarc"
+
+if [[ -z $config_file ]]; then
+  if [[ $pid =~ ^[0-9]+$ && -e /proc/$pid/root/.flatpak-info ]]; then
+    config_file="$flatpak_config"
+  elif [[ ! -f $native_config && -f $flatpak_config ]]; then
+    config_file="$flatpak_config"
+  else
+    config_file="$native_config"
+  fi
+fi
+
+[[ -f $config_file ]] || config_file=/dev/null
+
+# mode<TAB>keys (zathurarc notation, space-separated)<TAB>description.
+# Rows in the "mouse" mode are shown as written and never matched.
+defaults() {
+  cat <<'EOF'
+normal	J <PageDown>	Próxima página
+normal	K <PageUp>	Página anterior
+normal	h <Left>	Rolar para a esquerda
+normal	j <Down>	Rolar para baixo
+normal	k <Up>	Rolar para cima
+normal	l <Right>	Rolar para a direita
+normal	<C-t>	Rolar meia página para a esquerda
+normal	<C-d>	Rolar meia página para baixo
+normal	<C-u>	Rolar meia página para cima
+normal	<C-y>	Rolar meia página para a direita
+normal	t	Rolar uma página para a esquerda
+normal	<C-f> <Space>	Rolar uma página para baixo
+normal	<C-b> <S-Space>	Rolar uma página para cima
+normal	y	Rolar uma página para a direita
+normal	gg	Ir para a primeira página
+normal	G	Ir para a última página
+normal	nG	Ir para a página n
+normal	P	Alinhar à página atual
+normal	H	Ir para o topo da página atual
+normal	L	Ir para o fim da página atual
+normal	<C-o>	Voltar na lista de saltos
+normal	<C-i>	Avançar na lista de saltos
+normal	<C-j>	Bissecção para a frente entre os dois últimos saltos
+normal	<C-k>	Bissecção para trás entre os dois últimos saltos
+normal	<C-c> <Esc>	Cancelar
+normal	a	Ajustar à página inteira
+normal	s	Ajustar à largura
+normal	/	Pesquisar texto para a frente
+normal	?	Pesquisar texto para trás
+normal	n	Próximo resultado da pesquisa
+normal	N	Resultado anterior da pesquisa
+normal	o	Abrir documento
+normal	O	Abrir documento a partir da pasta do atual
+normal	f	Seguir link
+normal	F	Mostrar o destino do link
+normal	c	Copiar o destino do link
+normal	:	Digitar um comando
+normal	r	Girar 90 graus
+normal	<C-r>	Recolorir (tons de cinza e cores invertidas)
+normal	R	Recarregar o documento
+normal	<Tab>	Mostrar o índice (modo índice)
+normal	d	Alternar página dupla
+normal	D	Alternar a coluna inicial da página dupla
+normal	<F5>	Modo apresentação
+normal	<F11>	Tela cheia
+normal	<C-m>	Mostrar/ocultar a barra de comandos
+normal	<C-n>	Mostrar/ocultar a barra de status
+normal	<Esc>	Ocultar a barra de notificação
+normal	+ zI	Ampliar
+normal	- zO	Reduzir
+normal	= z0	Tamanho original
+normal	n=	Zoom no tamanho n
+normal	mX	Criar a marca rápida X (letra ou número)
+normal	'X	Ir para a marca rápida X
+normal	q	Sair
+normal	w	Alternar o modo de página única
+fullscreen	J	Próxima página
+fullscreen	K	Página anterior
+fullscreen	<Space>	Rolar uma página para baixo
+fullscreen	<S-Space> <BackSpace>	Rolar uma página para cima
+fullscreen	gg	Ir para a primeira página
+fullscreen	G	Ir para a última página
+fullscreen	nG	Ir para a página n
+fullscreen	<C-c> <Esc>	Cancelar
+fullscreen	<F11>	Voltar ao modo normal
+fullscreen	+ zI	Ampliar
+fullscreen	- zO	Reduzir
+fullscreen	= z0	Tamanho original
+fullscreen	n=	Zoom no tamanho n
+fullscreen	q	Sair
+presentation	<Space>	Próxima página
+presentation	<S-Space> <BackSpace>	Página anterior
+presentation	<C-c> <Esc>	Cancelar
+presentation	<F5>	Voltar ao modo normal
+presentation	q	Sair
+index	k <Up>	Entrada acima
+index	j <Down>	Entrada abaixo
+index	<C-u>	Subir meia tela
+index	<C-d>	Descer meia tela
+index	l <Right> zo	Expandir a entrada
+index	zO	Expandir a entrada e as subentradas
+index	L zR	Expandir todas as entradas
+index	h <Left> zc	Recolher a entrada
+index	zC	Recolher a entrada e as subentradas
+index	H zM	Recolher todas as entradas
+index	<Space> <Return> <C-j>	Abrir a entrada
+index	gg	Ir para a primeira entrada
+index	G	Ir para a última entrada
+index	<Tab> <Esc> <C-[> <C-c>	Ocultar o índice e voltar ao modo normal
+mouse	RODA	Rolar para cima ou para baixo
+mouse	CTRL + RODA	Ampliar ou reduzir
+mouse	ARRASTAR BOTÃO DO MEIO	Mover o documento
+mouse	BOTÃO ESQUERDO	Seguir link
+mouse	ARRASTAR BOTÃO ESQUERDO	Selecionar texto
+mouse	SHIFT + ARRASTAR BOTÃO ESQUERDO	Destacar uma região
+mouse	BOTÃO DIREITO	Menu para copiar/salvar a imagem
+EOF
+}
+
+output_keybindings() {
+  defaults | awk -v config_file="$config_file" '
+BEGIN { FS = "\t" }
+
+# girara reads <C-d> and <c-d> alike; plain keys are case-sensitive.
+function norm(key) { return key ~ /^<.*>$/ ? tolower(key) : key }
+
+function key_text(key,   inner, parts, count, i, text, name) {
+  if (key !~ /^<.+>$/) return key
+  inner = substr(key, 2, length(key) - 2)
+  count = split(inner, parts, "-")
+  # "<C-->" (Ctrl+minus) splits into an empty last part.
+  if (parts[count] == "" && count > 1) { count--; parts[count] = "-" }
+  text = ""
+  for (i = 1; i < count; i++) {
+    name = toupper(parts[i])
+    if (name == "C") name = "CTRL"
+    else if (name == "A" || name == "M") name = "ALT"
+    else if (name == "S") name = "SHIFT"
+    text = text name " + "
+  }
+  name = parts[count]
+  if (tolower(name) in names) name = names[tolower(name)]
+  else if (length(name) > 1) name = toupper(name)
+  return text name
+}
+
+function mode_label(mode) {
+  if (mode == "normal") return ""
+  if (mode in modes) return "[" modes[mode] "] "
+  return "[" toupper(mode) "] "
+}
+
+# Every map/unmap of one zathurarc, and of the files it includes.
+function read_config(path, depth,   line, n, tok, i, mode, key, rest, dir) {
+  if (depth > 8) return
+  dir = path
+  sub(/\/[^\/]*$/, "", dir)
+  while ((getline line < path) > 0) {
+    sub(/^[ \t]+/, "", line)
+    if (line == "" || line ~ /^#/) continue
+    n = split(line, tok, /[ \t]+/)
+    if (tok[1] == "include" && n >= 2) {
+      rest = tok[2]
+      gsub(/^["\x27]|["\x27]$/, "", rest)
+      sub(/^~/, ENVIRON["HOME"], rest)
+      if (rest !~ /^\//) rest = dir "/" rest
+      read_config(rest, depth + 1)
+      continue
+    }
+    if (tok[1] != "map" && tok[1] != "unmap") continue
+    i = 2
+    mode = "normal"
+    if (tok[i] ~ /^\[.+\]$/) { mode = substr(tok[i], 2, length(tok[i]) - 2); i++ }
+    if (i > n) continue
+    key = tok[i]
+    gone[mode SUBSEP norm(key)] = 1
+    if (tok[1] == "unmap") { delete custom[mode SUBSEP norm(key)]; continue }
+    rest = ""
+    for (i = i + 1; i <= n; i++) rest = rest (rest == "" ? "" : " ") tok[i]
+    if (!((mode SUBSEP norm(key)) in custom)) order[++custom_count] = mode SUBSEP key
+    custom[mode SUBSEP norm(key)] = rest
+  }
+  close(path)
+}
+
+function emit(combo, text) { printf "%-32s → %s\n", combo, text }
+
+BEGIN {
+  split("space=ESPAÇO backspace=BACKSPACE return=ENTER esc=ESC escape=ESC tab=TAB pageup=PAGE_UP pagedown=PAGE_DOWN left=SETA_ESQUERDA right=SETA_DIREITA up=SETA_CIMA down=SETA_BAIXO home=HOME end=END delete=DELETE insert=INSERT", pairs, " ")
+  for (i in pairs) {
+    split(pairs[i], kv, "=")
+    names[kv[1]] = kv[2]
+    gsub(/_/, " ", names[kv[1]])
+  }
+  modes["fullscreen"] = "TELA CHEIA"
+  modes["presentation"] = "APRESENTAÇÃO"
+  modes["index"] = "ÍNDICE"
+  modes["mouse"] = "MOUSE"
+  read_config(config_file, 0)
+}
+
+{
+  mode = $1
+  if (mode == "mouse") { emit(mode_label(mode) $2, $3); next }
+  count = split($2, keys, " ")
+  shown = ""
+  for (i = 1; i <= count; i++) {
+    if ((mode SUBSEP norm(keys[i])) in gone) continue
+    shown = shown (shown == "" ? "" : ", ") key_text(keys[i])
+  }
+  if (shown != "") emit(mode_label(mode) shown, $3)
+}
+
+END {
+  for (i = 1; i <= custom_count; i++) {
+    split(order[i], mk, SUBSEP)
+    if (!((mk[1] SUBSEP norm(mk[2])) in custom)) continue
+    emit(mode_label(mk[1]) key_text(mk[2]), "zathurarc: " custom[mk[1] SUBSEP norm(mk[2])])
+  }
+}'
+}
+
+if [[ $print_only == true ]]; then
+  output_keybindings
+  exit 0
+fi
+
+records=$(output_keybindings)
+
+monitor_height=$(hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .height' 2>/dev/null)
+if [[ ! $monitor_height =~ ^[0-9]+$ ]] || ((monitor_height <= 0)); then
+  monitor_height=900
+fi
+
+menu_height=$((monitor_height * 40 / 100))
+printf '%s\n' "$records" | omarchy-menu-select "Atalhos do Zathura" -- --width 800 --height "$menu_height" >/dev/null || true

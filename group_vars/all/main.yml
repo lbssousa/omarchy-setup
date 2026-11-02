@@ -569,6 +569,11 @@ pdf_viewer_zathura_font: "monospace normal {{ omarchy_system_ui_font_pt }}"
 pdf_viewer_zathurarc_paths:
   zathura-flatpak: "{{ target_home }}/.var/app/{{ pdf_viewer_zathura_flatpak_id }}/config/zathura/zathurarc"
   zathura: "{{ target_xdg_config_home }}/zathura/zathurarc"
+# Zathura's keybindings guide (pt-BR), opened by Super+K while Zathura is
+# focused: a dispatcher rebinds Super+K and falls back to Omarchy's
+# keybindings menu for every other window.
+pdf_viewer_zathura_keybindings_guide: "{{ target_home }}/.local/bin/omarchy-setup-zathura-keybindings"
+pdf_viewer_keybindings_dispatcher: "{{ target_home }}/.local/bin/omarchy-setup-keybindings"
 
 # File chooser dialogs (playbooks/{system,user}/file-chooser.yml) — the per-desktop
 # portals.conf that routes the FileChooser interface to Flea's picker

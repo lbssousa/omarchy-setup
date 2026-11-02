@@ -9,6 +9,12 @@
 # paths (`@@ %F @@`) instead of URIs (`@@u %U @@`): through the URI route
 # `xdg-open relative.pdf` reaches the sandbox as a relative path and opens an
 # empty Zathura. The copy goes when the Flatpak does.
+#
+# With either Zathura build, Super+K goes through a dispatcher
+# (files/omarchy-setup-keybindings): while Zathura is focused it opens
+# Zathura's keybindings guide in pt-BR (files/omarchy-setup-zathura-
+# keybindings: zathura(1)'s defaults plus the zathurarc's map/unmap),
+# otherwise Omarchy's keybindings menu as before.
 - name: Apps — PDF viewers (user)
   hosts: localhost
   connection: local
@@ -76,3 +82,47 @@
         loop_var: zathura
         label: "{{ zathura.key }}"
       when: zathura.key in apps.pdf.installed
+
+    - name: Zathura's keybindings guide (Super+K while Zathura is focused)
+      vars:
+        zathura_on: "{{ apps.pdf.installed | intersect(['zathura', 'zathura-flatpak']) | length > 0 }}"
+      block:
+        - name: Create ~/.local/bin
+          ansible.builtin.file:
+            path: "{{ pdf_viewer_keybindings_dispatcher | dirname }}"
+            state: directory
+            mode: "0755"
+          when: zathura_on | bool
+
+        - name: Install the guide and the Super+K dispatcher
+          ansible.builtin.copy:
+            src: "{{ item | basename }}"
+            dest: "{{ item }}"
+            mode: "0755"
+          loop:
+            - "{{ pdf_viewer_zathura_keybindings_guide }}"
+            - "{{ pdf_viewer_keybindings_dispatcher }}"
+          when: zathura_on | bool
+
+        - name: Remove the guide and the Super+K dispatcher
+          ansible.builtin.file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ pdf_viewer_zathura_keybindings_guide }}"
+            - "{{ pdf_viewer_keybindings_dispatcher }}"
+          when: not zathura_on | bool
+
+        # Omarchy's own Super+K (default/hypr/bindings/utilities.lua), same
+        # description, so its keybindings menu still lists it as before.
+        - name: Super+K through the dispatcher
+          ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+          vars:
+            hypr_file: bindings.lua
+            hypr_marker: Super+K by the focused window
+            hypr_block: |
+              o.rebind("SUPER + K", "Keybindings", "{{ pdf_viewer_keybindings_dispatcher }}")
+            hypr_state: "{{ 'present' if zathura_on | bool else 'absent' }}"
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

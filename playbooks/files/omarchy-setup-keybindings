@@ -1,0 +1,18 @@
+#!/bin/bash
+# Managed by omarchy-setup (playbooks/user/apps/pdf.yml).
+#
+# Super+K by the focused window: an app with its own keybindings guide gets
+# that guide, everything else Omarchy's Hyprland keybindings menu.
+
+window=$(hyprctl activewindow -j 2>/dev/null)
+class=$(jq -r '.class // empty' <<<"$window" 2>/dev/null)
+pid=$(jq -r '.pid // empty' <<<"$window" 2>/dev/null)
+
+case "$class" in
+  org.pwmt.zathura)
+    guide="$HOME/.local/bin/omarchy-setup-zathura-keybindings"
+    [[ -x $guide ]] && exec "$guide" --pid "$pid"
+    ;;
+esac
+
+exec omarchy-menu-keybindings "$@"

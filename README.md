@@ -149,8 +149,10 @@ safe.
 Not Ansible, run on their own: `just typesetting` (TeX Live, LilyPond and
 Gregorio on the host — see local-typesetting/README.md), `just ssh-yubikey`
 / `just ssh-yubikey-disable` (the Yubikey's resident SSH keys, prompts for
-the FIDO2 PIN), `just tpm2-enroll` (interactive TPM2 enrollment) and
-`just tpm2-wipe` (re-enroll after firmware or Secure Boot changes). Secure
+the FIDO2 PIN), `just tpm2-enroll` (interactive TPM2 enrollment),
+`just tpm2-wipe` (re-enroll after firmware or Secure Boot changes) and
+`just efi-cleanup` / `just efi-cleanup-apply` (list, then remove, UEFI boot
+entries left over from earlier installs). Secure
 Boot and TPM2 have walkthroughs: [docs/secureboot.md](docs/secureboot.md),
 [docs/tpm2.md](docs/tpm2.md).
 

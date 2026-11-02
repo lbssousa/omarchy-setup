@@ -141,6 +141,15 @@ tpm2-wipe: _ensure-collections
 tpm2-enroll:
     ./scripts/enroll-tpm2.sh
 
+# List the UEFI boot entries left over from earlier installs (partition
+# gone, loader missing, duplicates); changes nothing. Standalone script.
+efi-cleanup:
+    scripts/efi-boot-cleanup.sh
+
+# Remove those entries (asks first; saves the current list to /root).
+efi-cleanup-apply:
+    run0 scripts/efi-boot-cleanup.sh --apply
+
 # Install TeX Live, LilyPond and Gregorio directly on this machine (no
 # containers, no Ansible) — see local-typesetting/README.md. A long
 # network install; not part of `just setup`. Needs sudo.

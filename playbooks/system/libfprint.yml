@@ -59,7 +59,7 @@
       block:
         - name: Install the build dependencies
           community.general.pacman:
-            name: "{{ libfprint_makedepends }}"
+            name: "{{ libfprint_build_depends }}"
             state: present
           become: true
 

@@ -671,24 +671,32 @@ podman_subuid_count: 65536
 # replacing the official libfprint (and Omarchy's libfprint-git).
 libfprint_repo: https://github.com/lbssousa/libfprint.git
 # Pinned to a release tag of the fork's goodix-538d-sigfm-gtls branch.
-# v1.94.10-goodix538d.2 changed the print format: after upgrading from an
-# earlier build, delete and re-enroll the fingerprints (fprintd-delete
-# $USER, then fprintd-enroll -f <finger> for at least 2 fingers).
-libfprint_ref: v1.94.100-goodix538d.1
-# pkgver can't contain hyphens or a leading "v": v1.94.100-goodix538d.1 ->
-# 1.94.100.goodix538d.1. Bump libfprint_pkgrel for packaging-only changes.
+# v1.94.100-goodix538d.2 fixes the TLS hangs, the failed-open cleanup and
+# the cancel desync (no print-format change, so prints enrolled with
+# v1.94.100-goodix538d.1 stay valid). v1.94.10-goodix538d.2 is where the
+# print format changed: after upgrading from an earlier 1.94.10 build,
+# delete and re-enroll the fingerprints (fprintd-delete $USER, then
+# fprintd-enroll -f <finger> for at least 2 fingers).
+libfprint_ref: v1.94.100-goodix538d.2
+# pkgver can't contain hyphens or a leading "v": v1.94.100-goodix538d.2 ->
+# 1.94.100.goodix538d.2. Bump libfprint_pkgrel for packaging-only changes;
+# it restarts at 1 for a new upstream version.
 libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.') }}"
-libfprint_pkgrel: "3"
+libfprint_pkgrel: "1"
 # Above the omarchy repo's libfprint-git (epoch 1), so it never wins a -Syu.
 libfprint_epoch: "2"
 libfprint_build_dir: "{{ target_home }}/src/libfprint-goodix538d-pkg"
 
-# Build-time deps only; the runtime ones are the PKGBUILD's depends=(),
-# which pacman -U resolves from the repos.
-libfprint_makedepends:
+# Installed before makepkg runs: the PKGBUILD's makedepends=(), plus
+# libgusb. libgusb is also in depends=() — pacman -U resolves the rest of
+# it from the repos — but meson needs it to configure the build, and
+# makepkg refuses to start while any depends=() entry is missing.
+libfprint_build_depends:
+  - git
   - glib2-devel
-  - meson
   - gobject-introspection
+  - libgusb
+  - meson
 
 # udev rule disabling USB autosuspend for the fingerprint reader. Kept
 # even though it didn't fix the real bug (see fprintd_desync_* below) —

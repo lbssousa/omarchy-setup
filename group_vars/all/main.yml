@@ -955,7 +955,42 @@ omarchy_plugins:
       - mpv-mpris
       - python
       - socat
+  # Omaplug — manages the installed plugins from the bar: enable/disable,
+  # update, install, remove, bar layout and per-plugin shortcuts. MIT, listed
+  # in the Omarchy plugin marketplace. The manifest declares no defaultSection,
+  # so the section here is what places it. An update applied from its panel
+  # moves a plugin off its `ref`; the next run pins it back. Its dependencies
+  # are what its scripts run, minus util-linux (flock), part of any Arch base
+  # install.
+  - name: Omaplug
+    repo: https://github.com/fross100/omaplug.git
+    id: omaplug
+    ref: v1.7.0
+    section: right
+    packages:
+      - curl
+      - git
+      - jq
+      - python
+  # omacast (repo oma-cast) — a Raycast-style launcher for apps and every
+  # Omarchy menu action, with a calculator and frecency ranking. MIT. A menu
+  # plugin, so no bar section. The repo has no tags yet, hence the pin to a
+  # commit of main. Its only network request is the calculator's exchange
+  # rates (api.frankfurter.dev; "currencyRates": false turns it off). Its
+  # dependencies are what its README lists, minus the ones that come with
+  # Omarchy itself (omarchy-shell, Hyprland) or any Arch base install (bash).
+  - name: omacast
+    repo: https://github.com/typecraft-dev/oma-cast.git
+    id: typecraft.omacast
+    ref: 98bd0bb1cd1adf787afc704ff31f951d3c938708
+    packages:
+      - jq
+      - socat
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
+# omacast's launcher key, bound in ~/.config/hypr/bindings.lua while the entry
+# above is in the list.
+omacast_plugin_id: typecraft.omacast
+omacast_hypr_keybind: "ALT + SPACE"
 # The omarchy shell's settings, where plugins are enabled.
 omarchy_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 # How long a shell restart (playbooks/tasks/restart-shell.yml) waits for a

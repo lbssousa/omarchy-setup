@@ -49,7 +49,7 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Omarchy shell plugins | `plugins` | adds the shell plugins in omarchy_plugins (and their dependencies) | system, user | on | no |
+| Omarchy shell plugins | `plugins` | adds the shell plugins in omarchy_plugins (and their dependencies), and ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua | system, user | on | no |
 | omapin (GnuPG prompt) | `pinentry` | adds omapin and makes it gpg-agent's pinentry | system, user | on | no |
 | omaskpass (SSH prompt) | `ssh-askpass` | adds omaskpass and makes it the SSH key/FIDO2 prompt (SSH_ASKPASS); removes ssh-askpass-omarchy | system, user | on | no |
 | polkit-omarchy | `polkit-agent` | modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin) | system, user | on | no |

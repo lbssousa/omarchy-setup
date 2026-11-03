@@ -272,6 +272,22 @@
         or (item.section | default('') != ''
         and (sections[item.id] | default('')) != item.section)
 
+    # The hotkey `omacast setup hyprland` would bind, in a marked block instead
+    # of its interactive setup. omarchy_plugins can be overridden per user, so
+    # the block follows the list.
+    - name: "{{ 'Bind' if omacast_listed | bool else 'Unbind' }} {{ omacast_hypr_keybind }} (omacast launcher)"
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        omacast_listed: "{{ omacast_plugin_id in (omarchy_plugins | map(attribute='id') | list) }}"
+        hypr_file: bindings.lua
+        hypr_marker: omacast launcher
+        hypr_state: "{{ 'present' if omacast_listed | bool else 'absent' }}"
+        hypr_block: |
+          o.bind("{{ omacast_hypr_keybind }}", "omacast launcher", hl.dsp.global("omacast:toggle"))
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml
+
 # omapin, per user: install the shell plugin from the marketplace (the
 # binary comes from the package the system phase builds), enable it, and
 # point gpg-agent at omapin.

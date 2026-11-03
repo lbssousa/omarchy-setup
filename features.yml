@@ -190,7 +190,7 @@ features:
   - id: plugins
     group: plugins
     title: Omarchy shell plugins
-    effect: adds the shell plugins in omarchy_plugins (and their dependencies)
+    effect: adds the shell plugins in omarchy_plugins (and their dependencies), and ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua
     phases: [system, user]
     default: true
     revert: false

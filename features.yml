@@ -63,7 +63,7 @@ features:
   - id: omarchy-multiuser
     group: accounts
     title: omarchy-multiuser
-    effect: adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin)
+    effect: adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin, sets the greeter scale to 100%)
     phases: [system]
     default: false
     revert: false

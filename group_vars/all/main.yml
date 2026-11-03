@@ -798,6 +798,11 @@ omarchy_shell_font_px: 16
 # for the smaller scale.
 omarchy_monitor_scale: 1.0
 
+# Monitor scale of the SDDM greeter (playbooks/system/sddm.yml). Separate from
+# omarchy_monitor_scale, which users can set for themselves in users/$USER.yml:
+# the login screen is shared by everyone on the machine.
+omarchy_greeter_monitor_scale: 1.0
+
 # GDK_SCALE (playbooks/{system,user}/desktop.yml) — the integer factor GTK/Electron read
 # under XWayland, where Hyprland doesn't scale windows
 # (xwayland.force_zero_scaling). Same rule as `omarchy hyprland monitor

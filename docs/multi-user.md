@@ -92,6 +92,9 @@ login name when GECOS is empty. The last user is preselected. The last row,
 **Outro usuário… / Other user…**, reveals a field for typing any username.
 ↑/↓ switch users, Tab moves between the fields, Enter logs in.
 
+The greeter runs at 100% scale (`omarchy_greeter_monitor_scale`), whatever
+scale each user picks for their own session.
+
 Nobody is logged in automatically. Omarchy keeps the owner logged in for
 good on encrypted installs. `zz-omarchy-multiuser.conf` overrides that, and
 `omarchy-mu-sddm-guard` removes `autologin.conf` whenever Omarchy writes it

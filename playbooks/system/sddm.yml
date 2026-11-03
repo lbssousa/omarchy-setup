@@ -42,3 +42,37 @@
           (~/.config/omarchy-setup/local.yml) and run
           `just users`.
       when: sddm_guard.changed
+
+    # The greeter's compositor starts from Omarchy's /usr/share/sddm/hyprland.lua,
+    # which sets no monitor rule, so Hyprland picks the scale from the panel's
+    # density: 1.5 above 140 PPI, which covers a 14" 1080p laptop. That file
+    # belongs to omarchy-settings, so it is wrapped rather than edited: updates
+    # to its keyboard setup still reach the greeter.
+    - name: Create /etc/sddm
+      ansible.builtin.file:
+        path: /etc/sddm
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: "Set the greeter's monitor scale to {{ omarchy_greeter_monitor_scale }}"
+      ansible.builtin.copy:
+        dest: /etc/sddm/hyprland.lua
+        mode: "0644"
+        content: |
+          -- Managed by omarchy-setup (playbooks/system/sddm.yml).
+          dofile("/usr/share/sddm/hyprland.lua")
+          hl.monitor({ output = "", mode = "preferred", position = "auto", scale = {{ omarchy_greeter_monitor_scale }} })
+      become: true
+
+    # Sorts after Omarchy's 10-wayland.conf, which sets the same key; SDDM reads
+    # /etc/sddm.conf.d in name order and the last value wins.
+    - name: Start the greeter's compositor from that file
+      ansible.builtin.copy:
+        dest: /etc/sddm.conf.d/zz-omarchy-setup-greeter.conf
+        mode: "0644"
+        content: |
+          # Managed by omarchy-setup (playbooks/system/sddm.yml).
+          [Wayland]
+          CompositorCommand=start-hyprland -- --config /etc/sddm/hyprland.lua
+      become: true

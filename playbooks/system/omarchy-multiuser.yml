@@ -11,7 +11,10 @@
 #
 # Deployed like omapin (system/plugins.yml): a release tag whose GPG
 # signature must verify against omarchy_multiuser_signing_keys, built with
-# makepkg into an Arch package and installed with pacman. Then this play
+# makepkg into an Arch package and installed with pacman. The Yubikey's
+# public key is imported first (tasks/yubikey-gpg-key.yml, shared with the
+# gpg-yubikey feature), so the tag can be verified without a separate
+# `just apply gpg-yubikey`. Then this play
 # turns on what the package leaves off:
 #
 #   - the path units that remove a recreated autologin.conf, copy Style >
@@ -39,6 +42,10 @@
         name: nodejs
         state: present
       become: true
+
+    - name: "Import the Yubikey's GPG public key (the signed checkout below needs it in this keyring)"
+      ansible.builtin.import_tasks: tasks/yubikey-gpg-key.yml
+      when: omarchy_multiuser_verify_commit | bool
 
     - name: "Check out the omarchy-multiuser release ({{ omarchy_multiuser_ref }}), verifying its signed tag"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml

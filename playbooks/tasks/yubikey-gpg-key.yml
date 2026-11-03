@@ -1,0 +1,50 @@
+---
+# Imports the connected Yubikey's OpenPGP public key into the caller's
+# keyring and assigns it ultimate trust. Shared by playbooks/user/yubikey.yml
+# (the gpg-yubikey feature) and, as a dependency, by
+# playbooks/system/omarchy-multiuser.yml: its signed release tag needs the key
+# in the administrator's keyring before the checkout can be verified.
+#
+# Imports via `gpg --card-edit fetch`, which reads the URL stored on the
+# card's OpenPGP applet and pulls the public key from there — no hardcoded
+# keyserver or fingerprint. Only the public key ever leaves the card; the
+# private key stays on the Yubikey.
+#
+# `--status-fd 1` is used instead of parsing gpg's normal (translatable,
+# sometimes accented) output — `LC_ALL=C` isn't an option here since it
+# corrupts UTF-8 in an accented cardholder name.
+#
+# Never becomes root: the keyring is personal user data. Leaves
+# yubikey_gpg_card_check (rc != 0 when no card is connected) and
+# yubikey_gpg_signing_key for the caller.
+
+- name: Check for a connected OpenPGP card (Yubikey)
+  ansible.builtin.command: gpg --card-status
+  register: yubikey_gpg_card_check
+  changed_when: false
+  failed_when: false
+
+- name: Import the public key stored on the card (gpg --card-edit fetch)
+  ansible.builtin.shell: |
+    printf 'fetch\nquit\n' | gpg --batch --command-fd 0 --status-fd 1 --card-edit
+  register: yubikey_gpg_fetch
+  changed_when: (yubikey_gpg_fetch.stdout | regex_search('IMPORT_OK [1-9]')) is not none
+  when: yubikey_gpg_card_check.rc == 0
+
+- name: Extract the card's signing key fingerprint
+  ansible.builtin.set_fact:
+    yubikey_gpg_signing_key: "{{ (yubikey_gpg_card_check.stdout | regex_search('Signature key\\s*\\.*:\\s*([0-9A-F ]+)', '\\1') | first) | replace(' ', '') }}"
+  when: yubikey_gpg_card_check.rc == 0
+
+- name: Check the imported key's current ownertrust
+  ansible.builtin.command: "gpg -k --with-colons {{ yubikey_gpg_signing_key }}"
+  register: yubikey_gpg_trust_check
+  changed_when: false
+  when: yubikey_gpg_card_check.rc == 0
+
+- name: Assign ultimate trust to the Yubikey key
+  ansible.builtin.shell: "echo '{{ yubikey_gpg_signing_key }}:6:' | gpg --import-ownertrust"
+  changed_when: true
+  when:
+    - yubikey_gpg_card_check.rc == 0
+    - "'pub:u:' not in yubikey_gpg_trust_check.stdout"

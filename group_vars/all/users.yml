@@ -15,7 +15,8 @@
 #
 # Accounts are created and updated, never removed: remove one with
 # omarchy-mu-user-remove (Setup > Users in the Omarchy menu). New accounts
-# start locked; `just users` asks for their password right after.
+# start locked; `just users` then lets them choose the password at the login
+# screen, or asks for it.
 # Personal settings (rclone account, PWAs, plugins, ...) go in
 # users/<name>.yml.
 #

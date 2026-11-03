@@ -81,9 +81,11 @@ apply +IDS: _ensure-collections
     scripts/run-phase.sh user user.yml --tags "$tags"
 
 # Create or update the accounts in omarchy_users (group_vars/all/users.yml),
-# then set a password for each new (still locked) one and, for accounts with
-# `luks: true`, offer a disk unlock password of their own. One polkit
-# authentication for the whole recipe.
+# then, for each new (still locked) one, let them choose the password at the
+# login screen or set it now; for accounts with `luks: true`, offer a disk
+# unlock password of their own. Falls back to setting it now when the installed
+# omarchy-multiuser or the greeter can't do it. One polkit authentication for
+# the whole recipe.
 users: _ensure-collections
     #!/usr/bin/env bash
     set -euo pipefail
@@ -93,8 +95,11 @@ users: _ensure-collections
         for u in $(getent group omarchy-users wheel | cut -d: -f4 | tr , "\n" | sort -u); do
             [[ -n $u ]] || continue
             if [[ $(run0 passwd -S "$u" | cut -d" " -f2) == L ]]; then
-                echo "New account $u: choose its password."
-                until run0 passwd "$u"; do echo "Try again."; done
+                read -rp "Account $u has no password yet. Let them choose it at the login screen? [Y/n] " answer
+                if [[ $answer == [nN]* ]] || ! run0 omarchy-mu-accounts first-login "$u"; then
+                    echo "Choose the password of $u."
+                    until run0 passwd "$u"; do echo "Try again."; done
+                fi
             fi
         done
         for u in $LUKS_USERS; do

@@ -56,12 +56,14 @@ administrator's password.
    `users/local.example.yml`). If they want, also create
    `users/<name>.yml` (see `users/README.md`).
 2. Run `just users`. This creates the account (home seeded from
-   `/etc/skel`), asks for its password and, with `luks: true`, offers a disk
+   `/etc/skel`), asks whether they choose the password at the login screen
+   (the default) or you set it now and, with `luks: true`, offers a disk
    unlock password of their own.
 3. Run `just publish`. This refreshes `/opt/omarchy-setup` (the committed
    HEAD) and `omarchy-setup-user`.
-4. They log in from the greeter. Omarchy's first-run setup runs as it did
-   for the owner: theme, keyring and user services.
+4. They log in from the greeter, typing their new password twice if they are
+   choosing it there. Omarchy's first-run setup runs as it did for the owner:
+   theme, keyring and user services.
 5. They run `omarchy-setup-user` in a terminal, or use Setup › Omarchy Setup.
    This applies the user phase with their settings. It can be re-run at
    any time and changes nothing that's already in place.
@@ -91,6 +93,13 @@ of users above the password field. Each account appears by full name, or by
 login name when GECOS is empty. The last user is preselected. The last row,
 **Outro usuário… / Other user…**, reveals a field for typing any username.
 ↑/↓ switch users, Tab moves between the fields, Enter logs in.
+
+An account set up to choose its password gets **Nova senha** and **Repita a
+senha** boxes instead, and logs in once both match. Until then anyone at the
+login screen can choose that password, so have the person log in soon, above
+all if they are an administrator. This needs PAM's prompts translated, as they
+are in `pt_BR`; with an English `/etc/locale.conf`, `just users` and
+`omarchy-mu-user-add` ask you for the password instead.
 
 The greeter runs at 100% scale (`omarchy_greeter_monitor_scale`), whatever
 scale each user picks for their own session.

@@ -12,9 +12,10 @@
 #                 the sudo grants that would keep root outside wheel
 #                 (omarchy-mu-accounts drop-grants)
 #
-# New accounts start with a locked password ('!'); `just users` asks for it
-# right after this play. Omarchy's per-user provisioning (theme, keyring,
-# user units) runs at their first login, as it does for the owner.
+# New accounts start with a locked password ('!'); right after this play,
+# `just users` lets them choose it at the login screen, or asks for it now.
+# Omarchy's per-user provisioning (theme, keyring, user units) runs at their
+# first login, as it does for the owner.
 # Accounts missing from the list are left alone.
 #
 # Usage: just users
@@ -116,7 +117,7 @@
       ansible.builtin.debug:
         msg: >-
           New account(s): {{ users_new | join(', ') }}. They start locked;
-          `just users` sets their passwords next.
+          `just users` asks next how their passwords get set.
       vars:
         users_new: "{{ omarchy_users | map(attribute='name') | reject('in', users_existing) | list }}"
       when: users_new | length > 0

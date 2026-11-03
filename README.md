@@ -129,7 +129,7 @@ in `group_vars/all/users.yml` (their full name in your `local.yml`; their
 settings, if any, in `users/<name>.yml`), commit, then:
 
 ```bash
-just users       # creates the account, asks for its password
+just users       # creates the account; they choose the password at their first login
 just publish     # world-readable copy in /opt/omarchy-setup + omarchy-setup-user
 ```
 

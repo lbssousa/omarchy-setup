@@ -775,7 +775,7 @@ omarchy_text_size_px: 20
 # omarchy_text_size_px, so the shell UI can be smaller than the terminals.
 # Every shell type size (and, by default, its spacing and bar height) scales
 # from it; Omarchy's default is 12.
-omarchy_shell_font_px: 18
+omarchy_shell_font_px: 16
 
 # Hyprland monitor scale factor (playbooks/{system,user}/desktop.yml) — the
 # compositor-level "screen scale" applied to everything on screen. Fed

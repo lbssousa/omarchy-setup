@@ -18,7 +18,7 @@ features are off by default. Turn them on in `just configure` (or once with
 | `users/<name>.yml` | That user's personal settings, such as their web apps, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
 | `system.yml` (`just system`) | The machine-wide half of every automation: packages, `/etc`, PAM, SDDM, udev, signed plugin builds and the accounts. Run by an administrator, under `run-empowered.sh`. |
 | `user.yml` (`just user`, `omarchy-setup-user`) | The half that lives in each user's home and session. Run by each user, as themselves, inside their own Hyprland session. Nothing in it becomes root. |
-| [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the greeter, autologin, FIDO2, fingerprint, lock screen PAM and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |
+| [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the greeter, the lock screen and its PAM, autologin, FIDO2, fingerprint and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |
 
 `scripts/run-phase.sh` enforces the split. The system phase is refused to
 anyone outside `wheel`, and the user phase is refused to root and to
@@ -114,6 +114,19 @@ The disk password and the login password are separate prompts. With
 `luks: true` each person can have their own disk password
 (`omarchy-mu-luks-enroll`), but the boot prompt is the same for everyone.
 Keep a LUKS header backup.
+
+## The lock screen
+
+The lock screen is Omarchy's own, with **Trocar de usuário** (F5), **Suspender**
+(F1), **Reiniciar** (F3) and **Desligar** (F4) at the bottom, each only when the
+machine can do it. Reiniciar and Desligar ask first, since they end everyone's
+sessions, and anyone at the keyboard can use them.
+
+**Trocar de usuário** opens the login screen while the session stays locked
+behind it. Coming back to that session through the login screen asks for the
+password once. Each account gets this lock screen at its next login. To go back
+to Omarchy's, run `omarchy plugin disable lbssousa.lock`; it stays off for that
+account.
 
 ## Migrations
 

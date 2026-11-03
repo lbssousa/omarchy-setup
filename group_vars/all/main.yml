@@ -480,8 +480,8 @@ fingerprint_plugin_package: fingerprint-omarchy
 fingerprint_plugin_id: lbssousa.fingerprint
 
 # security-key-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# register a FIDO2 key for sudo and polkit (the user's line of the shared
-# /etc/fido2/fido2, through omarchy-multiuser's pkexec helper) and import
+# register a FIDO2 key for sudo and polkit (in the user's own
+# ~/.config/Yubico/u2f_keys) and import
 # its OpenPGP and resident SSH keys, opened by omarchy-multiuser's Setup >
 # Security > Fido2. Installed like fingerprint-omarchy.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git

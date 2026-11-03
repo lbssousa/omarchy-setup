@@ -496,3 +496,14 @@
         name: "{{ security_key_plugin_package }}"
         state: absent
       become: true
+
+    # The overlay registers keys but leaves PAM alone, so without these lines
+    # sudo and polkit never ask for a key. With no key registered pam_u2f
+    # only falls through to the next module.
+    - name: Make sudo and polkit ask for a registered security key
+      ansible.builtin.include_tasks: tasks/pam-u2f-line.yml
+      loop:
+        - /etc/pam.d/sudo
+        - /etc/pam.d/polkit-1
+      loop_control:
+        loop_var: pam_file

@@ -5,7 +5,8 @@
 #
 # Omarchy's omarchy-setup-security-fingerprint and
 # omarchy-setup-security-fido2 each insert their line at the top of
-# /etc/pam.d/sudo and /etc/pam.d/polkit-1 (`sed -i '1i ...'`), so the stack
+# /etc/pam.d/sudo and /etc/pam.d/polkit-1 (`sed -i '1i ...'`; the security-key
+# play in system/plugins.yml adds a missing pam_u2f line in order), so the stack
 # ends up with whichever script ran last first. Both modules are
 # `sufficient`, and PAM tries them one after the other: with the key first,
 # pam_u2f blocks until it is touched and the reader is never offered, with

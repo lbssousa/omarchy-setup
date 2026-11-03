@@ -1,0 +1,54 @@
+---
+# Adds the pam_u2f line to one PAM stack (pam_file) of the security-key play
+# in system/plugins.yml. An existing pam_u2f line is left as it is, options
+# included.
+#
+# With no authfile= each user's keys stay in their own
+# ~/.config/Yubico/u2f_keys, which is also where the overlay saves them when
+# the line names no other file. openasuser opens it as that user, not as root.
+#
+# The line goes right after pam_fprintd, the order pam-auth-order pins, and
+# so also after the clamshell gate, which skips only the next module. Without
+# pam_fprintd it goes before the first auth line.
+- name: "Look for {{ pam_file }}"
+  ansible.builtin.stat:
+    path: "{{ pam_file }}"
+  register: pam_u2f_file_stat
+
+# Omarchy 4.5 ships polkit-1 only in /usr/lib/pam.d; see
+# tasks/pam-auth-order-file.yml.
+- name: "Seed {{ pam_file }} from the vendor copy in /usr/lib/pam.d"
+  ansible.builtin.copy:
+    src: "/usr/lib/pam.d/{{ pam_file | basename }}"
+    dest: "{{ pam_file }}"
+    remote_src: true
+    force: false
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  when: not pam_u2f_file_stat.stat.exists
+
+- name: "Read {{ pam_file }}"
+  ansible.builtin.slurp:
+    src: "{{ pam_file }}"
+  register: pam_u2f_raw
+
+- name: "Work out what {{ pam_file }} already has"
+  ansible.builtin.set_fact:
+    pam_u2f_auth_lines: >-
+      {{ (pam_u2f_raw.content | b64decode).splitlines()
+         | select('match', '^\s*auth\s') | list }}
+
+- name: "Add pam_u2f to {{ pam_file }}"
+  ansible.builtin.lineinfile:
+    path: "{{ pam_file }}"
+    line: "auth      sufficient pam_u2f.so cue openasuser"
+    insertafter: "{{ '^\\s*auth\\s.*pam_fprintd\\.so' if pam_u2f_has_fprintd else omit }}"
+    insertbefore: "{{ omit if pam_u2f_has_fprintd else '^\\s*auth\\s' }}"
+    firstmatch: true
+    backup: true
+  vars:
+    pam_u2f_has_fprintd: "{{ pam_u2f_auth_lines | select('search', 'pam_fprintd\\.so') | list | length > 0 }}"
+  become: true
+  when: pam_u2f_auth_lines | select('search', 'pam_u2f\.so') | list | length == 0

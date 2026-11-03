@@ -242,7 +242,7 @@ features:
   - id: security-key
     group: plugins
     title: security-key-omarchy (security key overlay)
-    effect: adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; removes the security-key-omarchy package
+    effect: adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks; removes the security-key-omarchy package
     phases: [system, user]
     default: true
     revert: false

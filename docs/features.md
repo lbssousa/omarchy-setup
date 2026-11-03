@@ -131,7 +131,7 @@ Default app: default password manager (SUPER+SHIFT+SLASH, autostart, SSH agent).
 | Bitwarden ★ (default) | flatpak `com.bitwarden.desktop` | copies passwords through the clipboard portal (clipboard-portal feature); without that feature it runs under XWayland |
 | Bitwarden | pacman `bitwarden` |  |
 | KeePassXC | flatpak `org.keepassxc.KeePassXC` |  |
-| KeePassXC | pacman `keepassxc` |  |
+| KeePassXC | pacman `keepassxc` | 2.8.0 or later |
 
 ### Office suites
 

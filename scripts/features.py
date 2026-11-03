@@ -189,6 +189,8 @@ def package_states(catalog, apps):
                 "names": as_list(o.get("package") or o.get("flatpak") or o.get("bundle")),
                 "state": "present" if wanted or (prev and prev["state"] == "present") else "absent",
                 "keep": bool(o.get("keep")) or bool(prev and prev["keep"]),
+                "min_version": o.get("min_version") or (prev["min_version"] if prev else ""),
+                "min_version_url": o.get("min_version_url") or (prev["min_version_url"] if prev else ""),
             }
     return list(states.values())
 
@@ -276,6 +278,10 @@ def cmd_check():
         for o in category["options"]:
             if o["source"] not in ("pacman", "aur", "flatpak", "bundle"):
                 problems.append(f"apps {category['id']}/{o['id']}: unknown source {o['source']}")
+            if "min_version" in o and (o["source"] != "pacman" or len(as_list(o.get("package"))) != 1):
+                problems.append(f"apps {category['id']}/{o['id']}: min_version needs source pacman and one package")
+            if "min_version_url" in o and "min_version" not in o:
+                problems.append(f"apps {category['id']}/{o['id']}: min_version_url without min_version")
             if "engine" in o and o["engine"] not in WEBAPPS_ENGINE_LABELS:
                 problems.append(f"apps {category['id']}/{o['id']}: unknown web apps engine {o['engine']}")
     tags = play_tags()
@@ -342,6 +348,8 @@ def cmd_doc():
                 notes.append("stock")
             if o.get("keep"):
                 notes.append("kept")
+            if o.get("min_version"):
+                notes.append(f"{o['min_version']} or later")
             if o.get("note"):
                 notes.append(o["note"])
             out.append(f"| {o['label']}{star}{default} | {o['source']} {name} | {'; '.join(notes)} |")

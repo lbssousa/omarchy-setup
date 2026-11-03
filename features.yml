@@ -27,6 +27,10 @@
 #   the default.
 #     source    pacman | aur | flatpak (Flathub, system-wide) | bundle
 #               (a release's .flatpak, see the artcraft option)
+#     min_version      pacman, one package: the oldest version accepted, upgraded
+#                      to when older (tasks/app-package-min-version.yml)
+#     min_version_url  the signed package to install while the configured repos
+#                      (Omarchy's mirror can lag behind Arch) don't have it yet
 #     desktop   desktop-entry id, for categories with a default app
 #     browser   omarchy-default-browser's name for it (browsers)
 #     engine    how Omarchy's web apps are rebuilt when it is the default:
@@ -425,7 +429,7 @@ apps:
       - { id: bitwarden-flatpak, label: Bitwarden, source: flatpak, flatpak: com.bitwarden.desktop, installed: true, note: "copies passwords through the clipboard portal (clipboard-portal feature); without that feature it runs under XWayland" }
       - { id: bitwarden, label: Bitwarden, source: pacman, package: bitwarden }
       - { id: keepassxc-flatpak, label: KeePassXC, source: flatpak, flatpak: org.keepassxc.KeePassXC }
-      - { id: keepassxc, label: KeePassXC, source: pacman, package: keepassxc }
+      - { id: keepassxc, label: KeePassXC, source: pacman, package: keepassxc, min_version: "2.8.0", min_version_url: "https://archive.archlinux.org/packages/k/keepassxc/keepassxc-2.8.0-3-x86_64.pkg.tar.zst" }
 
   - id: office
     title: Office suites

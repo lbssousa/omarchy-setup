@@ -1,0 +1,97 @@
+---
+# A pacman option with min_version (features.yml): `state: present` alone keeps
+# whatever version is installed and takes whatever the sync database offers,
+# and Omarchy's stable mirror is a snapshot that can lag behind Arch. So: leave
+# a new enough install alone; otherwise upgrade from the configured repos if
+# they have it, or install min_version_url if they don't, and fail if neither
+# gets there. The sync database isn't refreshed here: `pacman -Sy` without -u
+# would leave the system partially upgraded.
+#
+# A package from min_version_url is newer than the repos' copy, which
+# `pacman -Syu` leaves in place (it only warns) until the mirror catches up.
+- name: "Read the installed version of {{ pkg.names | first }}"
+  ansible.builtin.command:
+    argv: [pacman, -Q, "{{ pkg.names | first }}"]
+  register: app_min_installed
+  changed_when: false
+  failed_when: false
+
+- name: "Compare it with {{ pkg.min_version }}"
+  ansible.builtin.command:
+    argv: [vercmp, "{{ app_min_installed.stdout.split() | last }}", "{{ pkg.min_version }}"]
+  register: app_min_installed_cmp
+  changed_when: false
+  when: app_min_installed.rc == 0
+
+- name: "Read the version the configured repos offer for {{ pkg.names | first }}"
+  # -dd keeps uninstalled dependencies out of the list, so it's this package's
+  # line alone.
+  ansible.builtin.command:
+    argv: [pacman, -Sddp, --print-format, "%v", "{{ pkg.names | first }}"]
+  register: app_min_repo
+  changed_when: false
+  failed_when: false
+
+- name: "Compare that with {{ pkg.min_version }}"
+  ansible.builtin.command:
+    argv: [vercmp, "{{ app_min_repo.stdout | trim }}", "{{ pkg.min_version }}"]
+  register: app_min_repo_cmp
+  changed_when: false
+  when: app_min_repo.rc == 0 and app_min_repo.stdout | trim != ''
+
+- name: Work out where the version comes from
+  ansible.builtin.set_fact:
+    app_min_installed_ok: "{{ app_min_installed.rc == 0 and (app_min_installed_cmp.stdout | default('-1') | int) >= 0 }}"
+    app_min_repo_ok: "{{ (app_min_repo_cmp.stdout | default('-1') | int) >= 0 }}"
+
+- name: "Fail when nothing offers {{ pkg.names | first }} {{ pkg.min_version }}"
+  ansible.builtin.fail:
+    msg: >-
+      {{ pkg.names | first }} must be {{ pkg.min_version }} or later, but the
+      configured repos offer {{ app_min_repo.stdout | trim | default('nothing', true) }}
+      and the option has no min_version_url in features.yml. Update the system
+      (`omarchy-update`) and run this again, or add one.
+  when:
+    - not app_min_installed_ok | bool
+    - not app_min_repo_ok | bool
+    - pkg.min_version_url | default('') == ''
+
+- name: "Install {{ pkg.names | first }} {{ pkg.min_version }} or later from the configured repos"
+  community.general.pacman:
+    name: "{{ pkg.names | first }}"
+    state: latest
+  become: true
+  when:
+    - not app_min_installed_ok | bool
+    - app_min_repo_ok | bool
+
+- name: "Install {{ pkg.names | first }} from {{ pkg.min_version_url | default('') }} (the repos offer {{ app_min_repo.stdout | trim }})"
+  # A remote package goes through SigLevel (Required, on Omarchy), so pacman
+  # checks its .sig against the keyring.
+  community.general.pacman:
+    name: "{{ pkg.min_version_url }}"
+    state: present
+  become: true
+  when:
+    - not app_min_installed_ok | bool
+    - not app_min_repo_ok | bool
+
+- name: "Read the installed version of {{ pkg.names | first }} again"
+  ansible.builtin.command:
+    argv: [pacman, -Q, "{{ pkg.names | first }}"]
+  register: app_min_final
+  changed_when: false
+
+- name: "Compare it with {{ pkg.min_version }} again"
+  ansible.builtin.command:
+    argv: [vercmp, "{{ app_min_final.stdout.split() | last }}", "{{ pkg.min_version }}"]
+  register: app_min_final_cmp
+  changed_when: false
+
+- name: "Assert {{ pkg.names | first }} is {{ pkg.min_version }} or later"
+  ansible.builtin.assert:
+    that: app_min_final_cmp.stdout | int >= 0
+    fail_msg: >-
+      {{ app_min_final.stdout }} is installed, older than the
+      {{ pkg.min_version }} features.yml asks for. Check min_version_url.
+    quiet: true

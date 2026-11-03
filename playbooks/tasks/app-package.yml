@@ -1,7 +1,14 @@
 ---
 # One entry of apps_packages (scripts/features.py): `pkg` = {source, names,
-# state, keep}. Installs it or removes it; a kept one is only ever
-# installed. Runs in the system phase.
+# state, keep, min_version, min_version_url}. Installs it or removes it; a kept
+# one is only ever installed. Runs in the system phase.
+- name: "Minimum version: {{ pkg.names | join(', ') }}"
+  ansible.builtin.include_tasks: app-package-min-version.yml
+  when:
+    - pkg.source == 'pacman'
+    - pkg.state == 'present'
+    - pkg.min_version | default('') != ''
+
 - name: "{{ pkg.state | capitalize }}: {{ pkg.names | join(', ') }} ({{ pkg.source }})"
   community.general.pacman:
     name: "{{ pkg.names }}"

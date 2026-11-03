@@ -12,8 +12,9 @@
 #                 the sudo grants that would keep root outside wheel
 #                 (omarchy-mu-accounts drop-grants)
 #
-# New accounts start with a locked password ('!'); right after this play,
-# `just users` lets them choose it at the login screen, or asks for it now.
+# With more than one account in the list, root's password is locked before any
+# is created. New accounts start with a locked password ('!'); right after this
+# play, `just users` lets them choose it at the login screen, or asks for it now.
 # Omarchy's per-user provisioning (theme, keyring, user units) runs at their
 # first login, as it does for the owner.
 # Accounts missing from the list are left alone.
@@ -59,6 +60,18 @@
     - name: Remember which accounts existed before this run
       ansible.builtin.set_fact:
         users_existing: "{{ ansible_facts.getent_passwd.keys() | list }}"
+
+    # First, as omarchy-mu-user-add does, so a stop part way leaves more
+    # protection, not less. `just users` runs only this play, without the
+    # omarchy-mu-accounts root-sync of the system phase, and on a machine down
+    # to one account root has that account's password. Not through that command:
+    # on a first run this play comes before omarchy-multiuser is installed.
+    - name: Lock root's password when several people use this machine
+      ansible.builtin.user:
+        name: root
+        password_lock: true
+      when: omarchy_users | length > 1
+      become: true
 
     - name: Create or update each account
       ansible.builtin.user:

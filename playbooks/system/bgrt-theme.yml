@@ -219,14 +219,19 @@
         dest: "{{ bgrt_plymouth_theme_dir }}/omarchy-bgrt.script"
         mode: "0644"
       become: true
+      register: bgrt_plymouth_script
 
     - name: Check the current default Plymouth theme
       ansible.builtin.command: plymouth-set-default-theme
       register: bgrt_current_plymouth_theme
       changed_when: false
 
+    # plymouthd starts in the initramfs and keeps running the copy of the
+    # script it found there, so a changed script needs a rebuild too.
     - name: Set omarchy-bgrt as the default Plymouth theme and rebuild the initramfs
-      when: bgrt_current_plymouth_theme.stdout | trim != bgrt_plymouth_theme_name
+      when: >-
+        bgrt_current_plymouth_theme.stdout | trim != bgrt_plymouth_theme_name
+        or bgrt_plymouth_script is changed
       become: true
       block:
         - name: "plymouth-set-default-theme {{ bgrt_plymouth_theme_name }}"

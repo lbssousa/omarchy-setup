@@ -12,8 +12,13 @@ logo.sprite.SetOpacity(1);
 # Use these to adjust the progress bar timing
 global.fake_progress_limit = 0.7;  # Target percentage for fake progress (0.0 to 1.0)
 global.fake_progress_duration = 15.0;  # Duration in seconds to reach limit
+# Seconds to wait for a password prompt before showing the bar anyway. Long
+# enough that a failed TPM2 unlock goes straight to the prompt, with no flash
+# of the bar first.
+global.progress_reveal_delay = 2.0;
 
 # Progress bar animation variables
+global.progress_revealed = 0;  # Track if the no-password reveal below has run
 global.animation_frame = 0;
 global.fake_progress = 0.0;
 global.real_progress = 0.0;
@@ -24,6 +29,18 @@ global.max_progress = 0.0;  # Track the maximum progress reached to prevent back
 
 fun refresh_callback() {
   global.animation_frame++;
+
+  # An automatic unlock (TPM2, FIDO2) never asks for a password, so
+  # display_normal_callback below never gets to show the bar.
+  if (global.progress_revealed == 0 && global.password_shown == 0 && global.animation_frame / 50.0 > global.progress_reveal_delay) {
+    global.progress_revealed = 1;
+
+    mode = Plymouth.GetMode();
+    if (mode == "boot" || mode == "resume") {
+      show_progress_bar();
+      start_fake_progress();
+    }
+  }
 
   # Animate fake progress to limit over time with easing
   if (global.fake_progress_active == 1) {

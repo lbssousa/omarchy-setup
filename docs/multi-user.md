@@ -84,7 +84,8 @@ except the logout. Neither takes away your own rights.
 Root's password is the owner's on a fresh Omarchy, which would let anyone who
 learns it reach root outside `wheel`. With several accounts it is locked
 (`omarchy-mu-accounts root-sync`, run by the system phase and by the add and
-remove commands); administrators use `sudo`.
+remove commands; `just users` locks it before creating anyone); administrators
+use `sudo`.
 
 ## The login screen
 

@@ -324,7 +324,7 @@ features:
     group: locale
     title: Folders in Portuguese
     effect: modifies the personal folders (Documents → Documentos, Pictures → Imagens, ...)
-    phases: [system, user]
+    phases: [user]
     default: true
     revert: false
 

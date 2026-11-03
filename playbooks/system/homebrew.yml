@@ -40,12 +40,6 @@
           homebrew_owner in group_vars/all/main.yml.
         quiet: true
 
-    - name: Install Homebrew's runtime dependencies via pacman
-      community.general.pacman:
-        name: "{{ homebrew_runtime_deps }}"
-        state: present
-      become: true
-
     - name: Check whether brew is already installed
       ansible.builtin.stat:
         path: "{{ homebrew_bin }}"

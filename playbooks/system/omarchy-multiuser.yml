@@ -34,14 +34,9 @@
   tags: [omarchy-multiuser]
 
   tasks:
-    - name: Install build dependencies
+    - name: Install nodejs (the build needs it; the rest ships with Omarchy 4.5)
       community.general.pacman:
-        name:
-          - base-devel
-          - git
-          - gnupg
-          - nodejs
-          - fakeroot
+        name: nodejs
         state: present
       become: true
 

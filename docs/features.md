@@ -74,7 +74,7 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | pt-BR language | `ptbr-locale` | modifies Omarchy's language (omarchy-language pt-BR) and /etc/locale.conf | system, user | on | no |
-| Folders in Portuguese | `ptbr-xdg-user-dirs` | modifies the personal folders (Documents → Documentos, Pictures → Imagens, ...) | system, user | on | no |
+| Folders in Portuguese | `ptbr-xdg-user-dirs` | modifies the personal folders (Documents → Documentos, Pictures → Imagens, ...) | user | on | no |
 | Browsers in Portuguese | `ptbr-browsers` | modifies Firefox's RequestedLocale and the Chromium family's page language | system, user | on | no |
 | man pages in Portuguese | `ptbr-man-pages` | adds man-pages-pt_br | system | on | no |
 | OCR in Portuguese | `ptbr-ocr` | adds tesseract-data-por; modifies OMARCHY_OCR_LANGS | system, user | on | no |

@@ -61,12 +61,6 @@
       when: not bgrt_image_stat.stat.exists
 
   tasks:
-    - name: Ensure ImageMagick is installed
-      community.general.pacman:
-        name: "{{ bgrt_imagemagick_package }}"
-        state: present
-      become: true
-
     - name: Read the firmware logo's Y offset (keeps the boot transition seamless)
       ansible.builtin.command: "cat {{ bgrt_sysfs_yoffset }}"
       register: bgrt_yoffset_read

@@ -54,8 +54,7 @@ their own user phase; the system phase follows the administrator's.
 
 ## Prerequisites
 
-- An Omarchy desktop (or any Arch Linux with pacman, `locale-gen`,
-  systemd and `xdg-user-dirs`).
+- An Omarchy 4.5 desktop: the plays rely on its packages and commands.
 - `run0` (part of systemd, so already there on Arch) and, for the system
   phase, a user in the `wheel` group. Other users need not be: their part is
   the user phase only.

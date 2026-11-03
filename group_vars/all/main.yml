@@ -520,8 +520,6 @@ openssh_askpass_packaging_repo: https://gitlab.archlinux.org/archlinux/packaging
 openssh_askpass_build_dir: "{{ target_home }}/.cache/omarchy-setup/openssh"
 openssh_askpass_pkgrel_suffix: ".1"
 openssh_askpass_makedepends:
-  - base-devel
-  - git
   - krb5
   - libedit
   - libfido2
@@ -594,7 +592,6 @@ file_chooser_portals_defaults:
 ptbr_locale: pt_BR.UTF-8
 # Omarchy's language code (omarchy-language list).
 ptbr_omarchy_language: pt-BR
-ptbr_locale_gen_line: "pt_BR.UTF-8 UTF-8"
 ptbr_language_fallback: "pt_BR:pt:en"
 
 # Each folder below is a personal XDG folder this play takes care of in
@@ -653,10 +650,6 @@ homebrew_prefix: /home/linuxbrew/.linuxbrew
 homebrew_owner: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='name') | first }}"
 homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
 homebrew_symlink: /usr/local/bin/brew
-homebrew_runtime_deps:
-  - base-devel
-  - curl
-  - git
 # bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
 homebrew_bbrew_package: bbrew
 # homebrew_env_file is deployed to ~/.config/environment.d so every
@@ -693,7 +686,6 @@ libfprint_build_dir: "{{ target_home }}/src/libfprint-goodix538d-pkg"
 # Build-time deps only; the runtime ones are the PKGBUILD's depends=(),
 # which pacman -U resolves from the repos.
 libfprint_makedepends:
-  - git
   - glib2-devel
   - meson
   - gobject-introspection
@@ -735,7 +727,6 @@ tpm2_crypttab_path: /etc/crypttab
 bgrt_sysfs_dir: /sys/firmware/acpi/bgrt
 bgrt_sysfs_image: "{{ bgrt_sysfs_dir }}/image"
 bgrt_sysfs_yoffset: "{{ bgrt_sysfs_dir }}/yoffset"
-bgrt_imagemagick_package: imagemagick
 bgrt_omarchy_theme_name: bgrt
 bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
 # Where the system phase builds the Omarchy theme for every user to copy.
@@ -835,7 +826,7 @@ keyd_config_dest: /etc/keyd/default.conf
 # hyprsunset only supports fixed HH:MM profile times, so a daily timer
 # recomputes them.
 nightlight_solar_night_temperature: 4000
-nightlight_solar_geoip_url: "http://ip-api.com/json/"
+nightlight_solar_geoip_url: https://geo.omarchy.org/
 nightlight_solar_oncalendar: "*-*-* 00:05:00"
 
 # svg2tikz, with the native Inkscape (apps: graphics,

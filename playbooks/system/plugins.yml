@@ -18,7 +18,9 @@
 # to be in the keyring of the administrator running this (`just apply
 # gpg-yubikey`). Installing or linking and enabling the plugins in each
 # user's shell, and their per-user configuration, happen in
-# user/plugins.yml, which explains the plugin list.
+# user/plugins.yml, which explains the plugin list. What the builds and the
+# signature checks need (base-devel, git, gnupg, pinentry) ships with
+# Omarchy 4.5; only Rust is added here.
 #
 # Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent /
 # clipboard-portal / fingerprint / security-key)
@@ -114,16 +116,6 @@
       PATH: "{{ omapin_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
-    - name: Install build/runtime dependencies (gnupg, stock pinentry for the fallback)
-      community.general.pacman:
-        name:
-          - base-devel
-          - git
-          - gnupg
-          - pinentry
-        state: present
-      become: true
-
     - name: Check whether Rust (cargo) is already installed
       ansible.builtin.stat:
         path: "{{ omapin_cargo_bin_dir }}/cargo"
@@ -218,15 +210,6 @@
       PATH: "{{ omaskpass_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
-    - name: Install build dependencies
-      community.general.pacman:
-        name:
-          - base-devel
-          - git
-          - gnupg
-        state: present
-      become: true
-
     - name: Check whether Rust (cargo) is already installed
       ansible.builtin.stat:
         path: "{{ omaskpass_cargo_bin_dir }}/cargo"
@@ -327,14 +310,6 @@
   tags: [polkit-agent]
 
   tasks:
-    - name: Install git and gnupg (the signature check needs both)
-      community.general.pacman:
-        name:
-          - git
-          - gnupg
-        state: present
-      become: true
-
     - name: "Check out the polkit-omarchy release ({{ polkit_agent_ref }}), verifying its signed tag"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
       vars:
@@ -379,15 +354,6 @@
       PATH: "{{ omapin_cargo_bin_dir }}:{{ target_path }}"
 
   tasks:
-    - name: Install build dependencies
-      community.general.pacman:
-        name:
-          - base-devel
-          - git
-          - gnupg
-        state: present
-      become: true
-
     - name: Check whether Rust (cargo) is already installed
       ansible.builtin.stat:
         path: "{{ omapin_cargo_bin_dir }}/cargo"

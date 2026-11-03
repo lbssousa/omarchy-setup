@@ -20,13 +20,12 @@ if [[ -f "$WEATHER_LOC" ]]; then
 fi
 
 if [[ -z "$lat" || -z "$lon" ]]; then
-  # {{ nightlight_solar_geoip_url }}'s free tier only serves plain HTTP; the
-  # response is just coarse (city-level) geolocation, fine for sunrise/sunset
-  # math. Only used as a fallback when `omarchy weather location --set`
-  # hasn't been run.
+  # The service Omarchy's own weather location detects with. The response is
+  # just coarse (city-level) geolocation, fine for sunrise/sunset math. Only
+  # used as a fallback when `omarchy weather location --set` hasn't been run.
   geo=$(curl -fsS --max-time 5 "{{ nightlight_solar_geoip_url }}" || true)
-  lat=$(jq -r '.lat // empty' <<<"$geo" 2>/dev/null || true)
-  lon=$(jq -r '.lon // empty' <<<"$geo" 2>/dev/null || true)
+  lat=$(jq -r '.latitude // empty' <<<"$geo" 2>/dev/null || true)
+  lon=$(jq -r '.longitude // empty' <<<"$geo" 2>/dev/null || true)
 fi
 
 if [[ -z "$lat" || -z "$lon" ]]; then

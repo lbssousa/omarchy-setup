@@ -48,16 +48,16 @@
     - name: pt_BR.UTF-8 locale (locale.gen + system LANG/LANGUAGE)
       become: true
       block:
-        - name: Ensure pt_BR.UTF-8 UTF-8 is enabled in /etc/locale.gen
-          ansible.builtin.lineinfile:
-            path: /etc/locale.gen
-            regexp: '^#?\s*{{ ptbr_locale_gen_line | regex_escape }}\s*$'
-            line: "{{ ptbr_locale_gen_line }}"
-          register: locale_gen_conf
+        - name: Read the generated locales
+          ansible.builtin.command: locale -a
+          register: ptbr_locales_generated
+          changed_when: false
 
-        - name: Generate locales (locale-gen)
-          ansible.builtin.command: locale-gen
-          when: locale_gen_conf.changed
+        # Omarchy's helper enables the locale.gen line and adds this locale
+        # alone; locale-gen deletes the archive and rebuilds every locale.
+        - name: "Generate {{ ptbr_locale }} (omarchy-locale-generate {{ ptbr_omarchy_language }})"
+          ansible.builtin.command: omarchy-locale-generate {{ ptbr_omarchy_language }}
+          when: ptbr_locale | regex_replace('UTF-8$', 'utf8') not in ptbr_locales_generated.stdout_lines
 
         - name: "Set LANG={{ ptbr_locale }} in /etc/locale.conf"
           ansible.builtin.lineinfile:
@@ -80,13 +80,6 @@
               reboot) for Hyprland and already-open apps to pick up the
               new language.
       tags: [ptbr-locale]
-
-    - name: xdg-user-dirs (for the per-user folder renames)
-      community.general.pacman:
-        name: xdg-user-dirs
-        state: present
-      become: true
-      tags: [ptbr-xdg-user-dirs]
 
     - name: Firefox locale (RequestedLocale — no separate language pack needed on Flathub's build)
       block:

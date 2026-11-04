@@ -63,6 +63,30 @@ has_tpm2_token() { # needs root; true when the header has a TPM2 token
     jq -e '[.tokens[] | select(.type == "systemd-tpm2")] | length > 0' >/dev/null
 }
 
+# Takes omarchy-multiuser's block out of the menu file, and the comma its sync
+# added to the entry before it, which would now come right before the closing
+# brace.
+remove_menu_block() {
+  python3 -I - "$1" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path, encoding="utf-8") as f:
+    text = f.read()
+text = re.sub(r"^[ \t]*// >>> omarchy-multiuser.*?^[ \t]*// <<< omarchy-multiuser[^\n]*\n", "", text, flags=re.M | re.S)
+lines = text.split("\n")
+closing = max(i for i, line in enumerate(lines) if line.strip() == "}")
+for i in range(closing - 1, -1, -1):
+    line = lines[i].strip()
+    if line and not line.startswith("//"):
+        lines[i] = re.sub(r",(\s*)$", r"\1", lines[i])
+        break
+with open(path, "w", encoding="utf-8") as f:
+    f.write("\n".join(lines))
+PY
+}
+
 pending_fido2() { [[ -e $own_keys ]]; }
 pending_accounts() { [[ -n $(other_accounts) ]]; }
 pending_package() { pacman -Q omarchy-multiuser >/dev/null 2>&1; }
@@ -140,14 +164,7 @@ if pending_package; then
   (( ${#record_units[@]} == 0 )) || sudo systemctl disable --now "${record_units[@]}" || true
   sudo systemctl disable --now "omarchy-mu-migrate-record@$me.path" 2>/dev/null || true
   # The menu block names commands the package takes away.
-  if [[ -f $menu ]]; then
-    tmp=$(mktemp)
-    awk '/^ *\/\/ >>> omarchy-multiuser/ { skip = 1; next }
-         /^ *\/\/ <<< omarchy-multiuser/ { skip = 0; next }
-         !skip' "$menu" >"$tmp"
-    cat "$tmp" >"$menu"
-    rm -f -- "$tmp"
-  fi
+  [[ ! -f $menu ]] || remove_menu_block "$menu"
   sudo pacman -R --noconfirm omarchy-multiuser
   sudo groupdel omarchy-users 2>/dev/null || true
   sudo rm -rf -- /opt/omarchy-setup /etc/omarchy-multiuser /var/lib/omarchy-multiuser

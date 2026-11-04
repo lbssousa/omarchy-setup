@@ -5,6 +5,11 @@
 # but one without authfile= is pointed at that file: earlier runs left keys in
 # ~/.config/Yubico/u2f_keys, which that play has already moved.
 #
+# A key alone never authenticates: pinverification=1 and userpresence=1 make
+# pam_u2f ask for its PIN and a touch, whatever the options on each registered
+# credential. A key without a PIN is refused, and the stack goes on to the next
+# module.
+#
 # The line goes right after pam_fprintd, the order pam-auth-order pins, and
 # so also after the clamshell gate, which skips only the next module. Without
 # pam_fprintd it goes before the first auth line.
@@ -41,7 +46,7 @@
 - name: "Add pam_u2f to {{ pam_file }}"
   ansible.builtin.lineinfile:
     path: "{{ pam_file }}"
-    line: "auth      sufficient pam_u2f.so cue authfile={{ security_key_plugin_authfile }}"
+    line: "auth      sufficient pam_u2f.so cue authfile={{ security_key_plugin_authfile }} pinverification=1 userpresence=1"
     insertafter: "{{ '^\\s*auth\\s.*pam_fprintd\\.so' if pam_u2f_has_fprintd else omit }}"
     insertbefore: "{{ omit if pam_u2f_has_fprintd else '^\\s*auth\\s' }}"
     firstmatch: true
@@ -66,4 +71,22 @@
     regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!authfile=).)*)$'
     replace: '\1 authfile={{ security_key_plugin_authfile }}'
     backup: true
+  become: true
+
+- name: "Drop any other {{ item }} setting from pam_u2f in {{ pam_file }}"
+  ansible.builtin.replace:
+    path: "{{ pam_file }}"
+    regexp: '^(\s*auth\s.*pam_u2f\.so.*?)[ \t]+{{ item }}=(?!1(?:\s|$))\S*(.*)$'
+    replace: '\1\2'
+    backup: true
+  loop: [pinverification, userpresence]
+  become: true
+
+- name: "Require {{ item }} from pam_u2f in {{ pam_file }}"
+  ansible.builtin.replace:
+    path: "{{ pam_file }}"
+    regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!{{ item }}).)*)$'
+    replace: '\1 {{ item }}=1'
+    backup: true
+  loop: [pinverification, userpresence]
   become: true

@@ -21,10 +21,9 @@
 # Panic sequence if a bad config locks up the keyboard:
 # backspace+esc+enter (kills keyd).
 #
-# keyd is machine-wide and applies to every user's keyboard, but Compose
-# lives in each user's ~/.config/hypr/input.lua: user/capslock.yml moves it
-# off Caps Lock, and every user needs it (`just user`), or keyd swallows
-# their Compose key.
+# keyd is machine-wide, but Compose lives in ~/.config/hypr/input.lua:
+# user/capslock.yml moves it off Caps Lock, which you need (`just user`), or
+# keyd swallows your Compose key.
 #
 # Usage: just apply capslock
 - name: Caps Lock via keyd (tap=Esc / hold=Ctrl / Shift+CapsLock=CapsLock)

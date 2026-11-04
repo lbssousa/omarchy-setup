@@ -1,8 +1,7 @@
 ---
-# System phase: everything that needs root or is shared by every user —
-# packages, /etc, PAM, SDDM, udev, system services, signed plugin builds,
-# user accounts. Run by an administrator (wheel), under run-empowered.sh,
-# after each change and after adding a user.
+# System phase: everything that needs root — packages, /etc, PAM, udev,
+# system services, signed plugin builds. Run by the machine's owner (wheel),
+# under run-empowered.sh, after each change.
 #
 # Which plays run is the feature selection (features.yml + the choices from
 # `just configure`): scripts/run-phase.sh passes it and the matching --tags.
@@ -15,17 +14,8 @@
 - name: "Preflight: the selection came through scripts/run-phase.sh"
   ansible.builtin.import_playbook: playbooks/system/preflight.yml
 
-- name: Fish, every account's login shell (always; before the accounts, which check it in /etc/shells)
+- name: Fish, the owner's login shell (always)
   ansible.builtin.import_playbook: playbooks/system/fish.yml
-
-- name: "Accounts (omarchy_users): fish, wheel or omarchy-users, subuid ranges"
-  ansible.builtin.import_playbook: playbooks/system/users.yml
-
-- name: "omarchy-multiuser: forks of Omarchy's single-owner tools"
-  ansible.builtin.import_playbook: playbooks/system/omarchy-multiuser.yml
-
-- name: The multi-user login screen, no autologin (feature omarchy-multiuser)
-  ansible.builtin.import_playbook: playbooks/system/sddm.yml
 
 - name: polkitd's authentication cache
   ansible.builtin.import_playbook: playbooks/system/polkit.yml
@@ -78,7 +68,7 @@
 - name: openssh rebuilt with askpass touch notifications
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml
 
-- name: "Yubikey GPG key, before the plugins: their signed release tags need it in the administrator's keyring (opt-in)"
+- name: "Yubikey GPG key, before the plugins: their signed release tags need it in your keyring (opt-in)"
   ansible.builtin.import_playbook: playbooks/user/yubikey.yml
 
 - name: Omarchy shell plugins, omapin, omaskpass, polkit-omarchy, fingerprint and security key overlays
@@ -95,9 +85,3 @@
 
 - name: Secure Boot (opt-in)
   ansible.builtin.import_playbook: playbooks/system/secureboot.yml
-
-- name: LUKS auto-unlock with TPM2 (opt-in)
-  ansible.builtin.import_playbook: playbooks/system/tpm2.yml
-
-- name: /opt/omarchy-setup and omarchy-setup-user
-  ansible.builtin.import_playbook: playbooks/system/shared-checkout.yml

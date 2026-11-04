@@ -1,5 +1,5 @@
 ---
-# Third-party Omarchy shell plugins, system phase (an administrator, once):
+# Third-party Omarchy shell plugins, system phase:
 #
 #   plugins       runtime dependencies of the omarchy_plugins list
 #   pinentry      omapin: signed release tag verified, built, pacman -U
@@ -10,14 +10,14 @@
 #                 verified, built, pacman -U; its config.toml
 #   fingerprint   fingerprint-omarchy: its runtime dependencies (the
 #                 overlay itself comes from the marketplace, per user)
-#   security-key  security-key-omarchy: likewise
+#   security-key  security-key-omarchy: signed release tag verified, built,
+#                 pacman -U; your keys in /etc/fido2/fido2; the PAM lines
 #
 # omapin and omaskpass are listed in the Omarchy plugin marketplace too:
-# their packages are built here for the binaries, while each user's shell
-# gets the plugin from the marketplace. The release signing key only needs
-# to be in the keyring of the administrator running this (`just apply
-# gpg-yubikey`). Installing or linking and enabling the plugins in each
-# user's shell, and their per-user configuration, happen in
+# their packages are built here for the binaries, while your shell gets the
+# plugin from the marketplace. The release signing key needs to be in your
+# keyring (`just apply gpg-yubikey`). Installing or linking and enabling the
+# plugins in your shell, and their configuration, happen in
 # user/plugins.yml, which explains the plugin list. What the builds and the
 # signature checks need (base-devel, git, gnupg, pinentry) ships with
 # Omarchy 4.5; only Rust is added here.
@@ -445,20 +445,16 @@
         mode: "0644"
       become: true
 
-# fingerprint-omarchy and security-key-omarchy — the overlays that manage a
-# user's own fingerprints (fprintd) and FIDO2 security key (pam_u2f, plus
-# the key's OpenPGP and resident SSH keys)
-# (https://github.com/lbssousa/fingerprint-omarchy,
-# https://github.com/lbssousa/security-key-omarchy). Both are QML plus a
-# Python helper, and both are listed in the Omarchy plugin marketplace:
-# each user's phase installs them from there (user/plugins.yml), so this
-# phase only installs what their helpers run (the depends of their
-# PKGBUILDs) and removes the Arch package earlier runs built from the
-# signed tag, which nothing needs any more (it only added the
-# omarchy-fingerprint / omarchy-security-key launchers; the Setup >
-# Security menu of omarchy-multiuser summons the overlays itself).
+# fingerprint-omarchy — the overlay that manages your fingerprints (fprintd)
+# (https://github.com/lbssousa/fingerprint-omarchy). It is QML plus a Python
+# helper listed in the Omarchy plugin marketplace: the user phase installs it
+# from there (user/plugins.yml), so this phase only installs what the helper
+# runs (the depends of its PKGBUILD) and removes the Arch package earlier runs
+# built from the signed tag, which nothing needs any more (it only added the
+# omarchy-fingerprint launcher; user/plugins.yml points the menu at the
+# overlay).
 #
-# Usage: just apply fingerprint / just apply security-key
+# Usage: just apply fingerprint
 - name: fingerprint-omarchy (fingerprint overlay)
   hosts: localhost
   connection: local
@@ -478,6 +474,16 @@
         state: absent
       become: true
 
+# security-key-omarchy — the overlay that manages your FIDO2 keys (pam_u2f, plus
+# their OpenPGP and resident SSH keys)
+# (https://github.com/lbssousa/security-key-omarchy). Omarchy's FIDO2 setup
+# keeps keys in the root-owned /etc/fido2/fido2 and registers just one, so the
+# package carries a helper, run through pkexec, that writes the caller's line
+# there. Deployed like omapin (above): a release tag whose GPG signature must
+# verify, built with makepkg and installed with pacman; user/plugins.yml links
+# its plugin into the shell.
+#
+# Usage: just apply security-key
 - name: security-key-omarchy (security key overlay)
   hosts: localhost
   connection: local
@@ -485,16 +491,90 @@
   tags: [security-key]
 
   tasks:
-    - name: Install what the overlay's helper runs
+    - name: Install what the package needs to build and run
       community.general.pacman:
         name: "{{ security_key_plugin_runtime_packages }}"
         state: present
       become: true
 
-    - name: "Remove the package earlier runs built ({{ security_key_plugin_package }})"
-      community.general.pacman:
-        name: "{{ security_key_plugin_package }}"
-        state: absent
+    - name: "Import the Yubikey's GPG public key (the signed checkout below needs it in this keyring)"
+      ansible.builtin.import_tasks: tasks/yubikey-gpg-key.yml
+      when: security_key_plugin_verify_commit | bool
+
+    - name: "Check out the security-key-omarchy release ({{ security_key_plugin_ref }}), verifying its signed tag"
+      ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
+      vars:
+        signed_checkout_name: security-key-omarchy
+        signed_checkout_repo: "{{ security_key_plugin_repo }}"
+        signed_checkout_ref: "{{ security_key_plugin_ref }}"
+        signed_checkout_dest: "{{ security_key_plugin_checkout_dir }}"
+        signed_checkout_verify: "{{ security_key_plugin_verify_commit }}"
+        signed_checkout_keys: "{{ security_key_plugin_signing_keys }}"
+
+    - name: Keep the checkout's result under this play's name
+      ansible.builtin.set_fact:
+        security_key_plugin_git_result: "{{ signed_checkout_result }}"
+
+    - name: Check whether the package is installed
+      ansible.builtin.command: "pacman -Q {{ security_key_plugin_package }}"
+      register: security_key_plugin_installed
+      changed_when: false
+      failed_when: false
+
+    # Compared with what is installed rather than relying on the checkout
+    # having changed: after a failed install the checkout is already at the
+    # tag, and the next run would otherwise leave the old package in place.
+    - name: Read the release's package version
+      ansible.builtin.shell: |
+        set -o pipefail
+        makepkg --printsrcinfo | awk '$1 == "pkgver" { v = $3 } $1 == "pkgrel" { r = $3 } END { print v "-" r }'
+      args:
+        chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
+        executable: /bin/bash
+      register: security_key_plugin_release_version
+      changed_when: false
+
+    - name: Build and install the package
+      when: >-
+        security_key_plugin_git_result.changed
+        or security_key_plugin_installed.rc != 0
+        or (security_key_plugin_installed.stdout.split() | last) != security_key_plugin_release_version.stdout
+      block:
+        - name: Build the package (makepkg, runs the tests in check())
+          ansible.builtin.command:
+            cmd: "{{ unprivileged_build }} makepkg -f --cleanbuild --nodeps --noconfirm"
+            chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
+          changed_when: true
+
+        - name: Locate the built package
+          ansible.builtin.command:
+            cmd: makepkg --packagelist
+            chdir: "{{ security_key_plugin_checkout_dir }}/packaging"
+          register: security_key_plugin_packagelist
+          changed_when: false
+
+        - name: Install the package
+          community.general.pacman:
+            name: "{{ security_key_plugin_packagelist.stdout_lines | first }}"
+            state: present
+          become: true
+
+    # Before PAM stops reading the old file, so the key keeps working. The
+    # file stays: scripts/leave-multiuser.sh removes it once the key is tested.
+    - name: Look for keys registered in your own list by earlier runs
+      ansible.builtin.command: "awk -F: -v u={{ target_user | quote }} '$1 == u' {{ (target_xdg_config_home ~ '/Yubico/u2f_keys') | quote }}"
+      register: security_key_plugin_own_keys
+      changed_when: false
+      failed_when: false
+
+    - name: "Move them to {{ security_key_plugin_authfile }}"
+      ansible.builtin.command:
+        argv: ["{{ security_key_plugin_authfile_helper }}", add]
+        stdin: "{{ security_key_plugin_own_keys.stdout }}"
+      environment:
+        SECURITY_KEY_AUTHFILE_USER: "{{ target_user }}"
+      when: security_key_plugin_own_keys.stdout | length > 0
+      changed_when: true
       become: true
 
     # The overlay registers keys but leaves PAM alone, so without these lines

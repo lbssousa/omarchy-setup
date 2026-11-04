@@ -44,7 +44,7 @@
 #
 # - bash: a block in ~/.bashrc, after Omarchy's rc (so after starship's
 #   PROMPT_COMMAND). Below the rc's non-interactive `return`, so scripts
-#   never run the hook. fish is everyone's login shell; this is for a
+#   never run the hook. fish is the login shell; this is for a
 #   `bash` opened by hand.
 # - fish: fish's per-user vendor_conf.d (~/.local/share/fish), next to
 #   playbooks/user/fish.yml's port of Omarchy's setup, so ~/.config/fish stays

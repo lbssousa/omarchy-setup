@@ -1,31 +1,23 @@
 ---
-# Rootless Podman needs a subuid/subgid range per user. useradd allocates one
-# for accounts it creates (SUB_UID_* in /etc/login.defs), so this only fills
-# in accounts that predate that or were created without it: each gets the
-# next free range after every existing one, never a fixed start that could
-# overlap another user's (the old 100000 default did, for a second user).
+# Rootless Podman needs a subuid/subgid range. useradd allocates one for
+# accounts it creates (SUB_UID_* in /etc/login.defs), so this only fills in an
+# account that predates that or was created without it: it gets the next free
+# range after every existing one, never a fixed start that could overlap
+# another account's.
 #
-# Only accounts that exist: omarchy_users may list people who were never
-# created. With the users feature off, the Podman play passes only the
-# caller (subid_users).
-#
-# Expects subid_users (default: omarchy_users); runs as root.
-- name: Read the existing accounts
-  ansible.builtin.getent:
-    database: passwd
-
-- name: Give every user a subuid/subgid range that overlaps nobody's
+# Runs as root.
+- name: Give you a subuid/subgid range that overlaps nobody's
   ansible.builtin.shell: |
     set -euo pipefail
     changed=0
     for kind in uid gid; do
       file=/etc/sub$kind
       touch "$file"
-      grep -q "^{{ item.name }}:" "$file" && continue
+      grep -q "^{{ target_user }}:" "$file" && continue
       start=$(awk -F: -v min={{ podman_subuid_start }} '
         { end = $2 + $3; if (end > max) max = end }
         END { print (max > min ? max : min) }' "$file")
-      usermod --add-sub${kind}s "$start-$((start + {{ podman_subuid_count }} - 1))" "{{ item.name }}"
+      usermod --add-sub${kind}s "$start-$((start + {{ podman_subuid_count }} - 1))" "{{ target_user }}"
       changed=1
     done
     echo "changed=$changed"
@@ -33,7 +25,4 @@
     executable: /bin/bash
   register: subid_ranges_result
   changed_when: "'changed=1' in subid_ranges_result.stdout"
-  loop: "{{ subid_users | default(omarchy_users) | selectattr('name', 'in', ansible_facts.getent_passwd) | list }}"
-  loop_control:
-    label: "{{ item.name }}"
   become: true

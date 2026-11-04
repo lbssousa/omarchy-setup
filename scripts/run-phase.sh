@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Runs a playbook in one of the two phases, with the caller's own settings.
 #
-#   system  needs root for its tasks: refused unless you're an administrator
-#           (wheel), then run under run-empowered.sh (one polkit
+#   system  needs root for its tasks: refused unless you're in wheel, then run under run-empowered.sh (one polkit
 #           authentication up front).
 #   user    runs as you, never under run0: refused as root or from an
 #           empowered process. Needs your graphical session for most plays.
@@ -32,7 +31,7 @@ local_vars=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy-setup/local.yml
 
 # The feature and app selection (features.yml + the choices from `just
 # configure`), as extra vars, and the --tags that go with it — unless the
-# caller picked its own tags (e.g. `just users`).
+# caller picked its own tags.
 selection=${XDG_CACHE_HOME:-$HOME/.cache}/omarchy-setup/selection-$phase.json
 tags=$(python3 scripts/features.py resolve "$phase" "$selection")
 extra+=(-e "@$selection")
@@ -45,7 +44,7 @@ $caller_tags || extra+=(--tags "$tags")
 case $phase in
     system)
         if ! id -nG | tr ' ' '\n' | grep -qx wheel; then
-            echo "The system phase is for administrators (wheel). Ask one to run \`just system\`; your part is \`just user\`." >&2
+            echo "The system phase needs wheel; \`just user\` doesn't." >&2
             exit 1
         fi
         exec ./run-empowered.sh ansible-playbook "$playbook" "${extra[@]}" "$@"

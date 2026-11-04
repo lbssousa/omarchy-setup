@@ -122,7 +122,7 @@
       changed_when: true
 
     # Machine-wide copy of the Omarchy theme; user/bgrt-theme.yml installs
-    # it into each user's ~/.config/omarchy/themes.
+    # it into ~/.config/omarchy/themes.
     - name: Create the shared Omarchy theme directory
       ansible.builtin.file:
         path: "{{ bgrt_shared_theme_dir }}"

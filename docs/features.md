@@ -5,18 +5,15 @@
 What each automation does to a stock Omarchy 4.5, and whether it is on
 until you choose otherwise with `just configure`. **Revert**: turning it
 off undoes it on the next run; otherwise turning it off only stops
-managing it. fish as every account's login shell isn't a feature: it is
+managing it. fish as the login shell isn't a feature: it is
 always applied.
 
 ## Accounts and login
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| User accounts | `users` | adds the accounts in group_vars/all/users.yml (fish as login shell, wheel or omarchy-users, subuid ranges) | system | off | no |
-| omarchy-multiuser | `omarchy-multiuser` | adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin, sets the greeter scale to 100%) | system | off | no |
 | PAM order | `pam-auth-order` | modifies the sudo and polkit PAM stacks (fingerprint, then FIDO2/U2F, then password) | system | on | no |
 | polkit authentication cache | `polkit` | modifies polkitd's ExpirationSeconds | system | on | no |
-| Shared checkout | `shared-checkout` | adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase | system | off | no |
 
 ## Base
 
@@ -55,7 +52,7 @@ always applied.
 | polkit-omarchy | `polkit-agent` | modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin) | system, user | on | no |
 | xdg-desktop-portal-omarchy (clipboard portal) | `clipboard-portal` | adds the RemoteDesktop/Clipboard portals (clipboard only, after a shell dialog), so the Bitwarden Flatpak copies natively on Wayland; off, it runs under XWayland | system, user | on | no |
 | fingerprint-omarchy (fingerprint overlay) | `fingerprint` | adds an overlay from the Omarchy plugin marketplace to enroll, test and delete your fingerprints (fprintd), opened from Setup › Security; removes the fingerprint-omarchy package | system, user | on | no |
-| security-key-omarchy (security key overlay) | `security-key` | adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks; removes the security-key-omarchy package | system, user | on | no |
+| security-key-omarchy (security key overlay) | `security-key` | adds the security-key-omarchy package, an overlay to register your FIDO2 keys for sudo/polkit in /etc/fido2/fido2 and import their OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks | system, user | on | no |
 | openssh with askpass touch notifications | `openssh-askpass` | modifies the openssh package (rebuilt with a patch) | system | on | no |
 
 ## Development
@@ -91,7 +88,6 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | Secure Boot (sbctl) | `secureboot` | adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) | system | off | no |
-| LUKS auto-unlock (TPM2) | `tpm2` | modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, which removes autologin) | system | off | no |
 | Yubikey GPG key | `gpg-yubikey` | adds the card's public key (ultimate trust) and git commit signing | system, user | off | no |
 
 ## Extras (opt-in)

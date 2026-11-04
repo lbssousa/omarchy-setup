@@ -7,7 +7,7 @@
 # Rust is installed the way Omarchy's own `omarchy-install-dev-env rust`
 # does it, split in two: clang (for bindgen) is a package, installed by
 # system/gregorio-lsp.yml; the official rustup script then runs
-# non-interactively for each user (tasks/rustup-user.yml) and puts
+# non-interactively (tasks/rustup-user.yml) and puts
 # cargo/rustc in ~/.cargo/bin. That directory
 # is prepended to PATH explicitly on every cargo task below, rather than
 # relying on the inherited PATH (fixed when the run starts, so it won't

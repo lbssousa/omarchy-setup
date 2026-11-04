@@ -53,10 +53,10 @@
 #
 # Must run inside the graphical session — the shell is the IPC target.
 #
-# This is the user phase: each user installs (or links) and enables the
-# plugins in their own shell. The plugin dependencies and the signed
-# packages are installed by system/plugins.yml (an administrator); the
-# fingerprint kept per user (tasks/plugin-code-stamp.yml) tells this phase
+# This is the user phase: it installs (or links) and enables the plugins in
+# your shell. The plugin dependencies and the signed packages are installed by
+# system/plugins.yml; the fingerprint kept here
+# (tasks/plugin-code-stamp.yml) tells this phase
 # when a packaged binary or plugin changed and needs a shell restart.
 #
 # Usage: just apply plugins
@@ -668,7 +668,7 @@
 
 # fingerprint-omarchy, per user: install the overlay from the marketplace and
 # enable it, and point Setup > Security > Fingerprint at it (the stock entry
-# runs Omarchy's terminal script; omarchy-multiuser, now opt-in, did this too).
+# runs Omarchy's terminal script).
 - name: fingerprint-omarchy (fingerprint overlay) (user)
   hosts: localhost
   connection: local
@@ -729,10 +729,9 @@
         menu_override_id: setup.security.fingerprint
         menu_override_action: "omarchy-shell shell summon {{ fingerprint_plugin_id }} '{}'"
 
-# security-key-omarchy, per user: install the overlay from the marketplace and
-# enable it, and point Setup > Security > Fido2 and Remove > Fido2 at it (the
-# stock entries run Omarchy's terminal scripts; omarchy-multiuser, now opt-in,
-# did this for Setup too).
+# security-key-omarchy, per user: link the packaged overlay, enable it, and
+# point Setup > Security > Fido2 and Remove > Fido2 at it (the stock entries run
+# Omarchy's terminal scripts).
 - name: security-key-omarchy (security key overlay) (user)
   hosts: localhost
   connection: local
@@ -740,16 +739,40 @@
   tags: [security-key]
 
   tasks:
-    - name: "Install security-key-omarchy from the Omarchy plugin marketplace, at {{ security_key_plugin_ref }}"
-      ansible.builtin.include_tasks: tasks/marketplace-plugin.yml
+    - name: Check whether the installed plugin code changed for this user
+      ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
       vars:
-        marketplace_plugin_id: "{{ security_key_plugin_id }}"
-        marketplace_plugin_repo: "{{ security_key_plugin_repo }}"
-        marketplace_plugin_ref: "{{ security_key_plugin_ref }}"
+        plugin_stamp_id: "{{ security_key_plugin_id }}"
+        plugin_stamp_paths: ["{{ security_key_plugin_dir }}"]
+
+    - name: Look at the plugin directory
+      ansible.builtin.stat:
+        path: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}"
+      register: security_key_plugin_stat
+
+    - name: Remove the marketplace clone earlier runs left
+      ansible.builtin.file:
+        path: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}"
+        state: absent
+      when: security_key_plugin_stat.stat.isdir | default(false) and not (security_key_plugin_stat.stat.islnk | default(false))
+
+    - name: Create ~/.config/omarchy/plugins
+      ansible.builtin.file:
+        path: "{{ omarchy_plugins_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Link the shell plugin
+      ansible.builtin.file:
+        src: "{{ security_key_plugin_dir }}"
+        dest: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}"
+        state: link
+        force: true
+      register: security_key_plugin_link_result
 
     - name: Keep the result under this play's name
       ansible.builtin.set_fact:
-        security_key_plugin_changed: "{{ marketplace_plugin_changed }}"
+        security_key_plugin_changed: "{{ plugin_stamp_result is changed or security_key_plugin_link_result is changed }}"
 
     - name: Read the shell config
       ansible.builtin.slurp:
@@ -795,7 +818,7 @@
 
     # The overlay removes keys one by one (each has its own button). The stock
     # entry's script, which takes pam_u2f out of sudo/polkit, deletes
-    # /etc/fido2 for every user and drops the packages, stays available as
+    # /etc/fido2 and drops the packages, stays available as
     # omarchy-remove-security-fido2.
     - name: "Open the overlay from Remove > Fido2"
       ansible.builtin.include_tasks: tasks/menu-override.yml

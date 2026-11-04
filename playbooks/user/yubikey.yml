@@ -5,13 +5,13 @@
 #
 # Runs in both phases: system.yml imports it before plugins.yml, whose
 # signed release tags (omapin, omaskpass, polkit-omarchy, ...) need
-# the key in the administrator's keyring; the user phase's run is then a
-# no-op for them, and the import for everyone else. No task here becomes
-# root, so in the system phase it still touches only the caller's keyring.
+# the key in your keyring; the user phase's run is then a no-op. No task here
+# becomes root, so in the system phase it still touches only the caller's
+# keyring.
 #
 # The import and trust tasks live in tasks/yubikey-gpg-key.yml, shared with
-# system/omarchy-multiuser.yml: its signed release tag needs the key before
-# it can be checked out.
+# the security-key play in system/plugins.yml: its signed release tag needs the
+# key before it can be checked out.
 #
 # Never uses `become: true` for GPG or git tasks — the keyring and
 # ~/.gitconfig are personal user data. gnupg itself ships with Omarchy.

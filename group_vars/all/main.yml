@@ -100,7 +100,7 @@ firefox_default_font_size_px: 17
 # Omarchy's web apps, kept native or rebuilt with the browser chosen in
 # `just configure` (playbooks/user/apps/webapps.yml): Firefox Taskbar Tabs,
 # or PWAs for Brave Origin and Chromium. The choice defaults to the default
-# browser's own solution. Each user lists theirs in users/<name>.yml:
+# browser's own solution. List yours in users/<name>.yml:
 #
 #   label         what the keybind is called (and Omarchy's launcher Name=,
 #                 unless omarchy_webapp_name says otherwise)
@@ -121,7 +121,7 @@ webapps_desktop_dir: "{{ target_home }}/.local/share/applications"
 webapps_backup_dir: "{{ target_home }}/.local/share/omarchy-setup/webapps-omarchy"
 firefox_taskbar_app_launcher: "{{ target_home }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
 # PWAs force-installed through each Chromium-family browser's machine
-# policy directory, the union of every user's webapps list.
+# policy directory, the union of the webapps lists in users/.
 webapps_pwa_engines:
   brave:
     label: Brave Origin
@@ -467,7 +467,7 @@ clipboard_portal_interfaces:
   - org.freedesktop.impl.portal.Clipboard
 
 # fingerprint-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# enroll, test and delete fingerprints (fprintd), opened by omarchy-multiuser's
+# enroll, test and delete fingerprints (fprintd), opened from Omarchy's
 # Setup > Security > Fingerprint. Installed per user from the Omarchy plugin
 # marketplace, pinned to the release tag it approved; bump the ref (to a
 # release the marketplace has verified) to deploy a new one. The system
@@ -480,39 +480,21 @@ fingerprint_plugin_package: fingerprint-omarchy
 fingerprint_plugin_id: lbssousa.fingerprint
 
 # security-key-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# register a FIDO2 key for sudo and polkit (in the user's own
-# ~/.config/Yubico/u2f_keys) and import
-# its OpenPGP and resident SSH keys, opened by omarchy-multiuser's Setup >
-# Security > Fido2. Installed like fingerprint-omarchy.
+# register FIDO2 keys for sudo and polkit in Omarchy's /etc/fido2/fido2 and
+# import their OpenPGP and resident SSH keys, opened from Setup > Security >
+# Fido2. Built as an Arch package from a signed release tag, for the helper
+# that writes that root-owned file; bump the ref to deploy a new release.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
-security_key_plugin_ref: v0.3.0
-security_key_plugin_runtime_packages: [python, libfido2, pam-u2f, gnupg, openssh]
+security_key_plugin_ref: v0.4.0
+security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
+security_key_plugin_verify_commit: true
+security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"
+security_key_plugin_runtime_packages: [python, libfido2, pam-u2f, gnupg, openssh, nodejs]
 security_key_plugin_package: security-key-omarchy
 security_key_plugin_id: lbssousa.security-key
-
-# Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
-# of this repository every user runs `omarchy-setup-user` from.
-shared_checkout_dir: /opt/omarchy-setup
-
-# omarchy-multiuser (playbooks/system/omarchy-multiuser.yml) — the forks of
-# Omarchy's single-owner tools: the multi-user SDDM greeter (full names +
-# optional username field), no autologin, per-user FIDO2 and fingerprints,
-# migrations for non-admins, administrator rights given and taken. Built as an Arch package from a signed release
-# tag of https://github.com/lbssousa/omarchy-multiuser; bump the ref to
-# deploy a new release. omarchy_multiuser_repo may also be a local checkout
-# (with the tag in it) before the repository is published.
-omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.9.0
-omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
-omarchy_multiuser_verify_commit: true
-omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"
-omarchy_multiuser_package: omarchy-multiuser
-# System units the package ships but leaves for this play to enable.
-omarchy_multiuser_path_units:
-  - omarchy-mu-sddm-guard.path
-  - omarchy-mu-sddm-sync.path
-  - omarchy-mu-apply-lock.path
-omarchy_multiuser_theme: omarchy-multiuser
+security_key_plugin_dir: /usr/share/security-key-omarchy/plugin
+security_key_plugin_authfile: /etc/fido2/fido2
+security_key_plugin_authfile_helper: /usr/bin/omarchy-security-key-authfile
 
 # openssh with askpass touch notifications (playbooks/system/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
@@ -645,9 +627,8 @@ ptbr_ocr_langs: "por+eng"
 homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
 homebrew_install_script_path: "{{ target_home }}/.cache/omarchy-setup/homebrew-install.sh"
 homebrew_prefix: /home/linuxbrew/.linuxbrew
-# The one user who owns the prefix and installs formulae (Homebrew doesn't
-# share a prefix between users); the first administrator by default.
-homebrew_owner: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='name') | first }}"
+# Who owns the prefix and installs formulae: whoever runs the play.
+homebrew_owner: "{{ target_user }}"
 homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
 homebrew_symlink: /usr/local/bin/brew
 # bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
@@ -657,7 +638,7 @@ homebrew_bbrew_package: bbrew
 # header comment in playbooks/{system,user}/homebrew.yml.
 homebrew_env_file: 42-homebrew.conf
 
-# Every account's login shell (playbooks/system/{fish,users}.yml): fish is
+# The login shell (playbooks/{system,user}/fish.yml): fish is
 # mandatory, not a feature you can switch off.
 fish_login_shell: /usr/bin/fish
 
@@ -711,22 +692,6 @@ secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 
-# LUKS TPM2 auto-unlock (playbooks/system/tpm2.yml — not part of
-# `just setup`, run explicitly).
-# Enrolls the TPM2 chip as an authentication factor for the LUKS volume via
-# systemd-cryptenroll, so the system unlocks automatically at early boot as
-# long as integrity measurements match.
-# PCRs to seal against (0=firmware, 2=option ROMs, 7=Secure Boot state).
-tpm2_pcrs: "0+2+7"
-# LUKS device path (leave empty for automatic detection of the root LUKS partition).
-tpm2_luks_device: ""
-# Whether to wipe any existing TPM2 slot before enrolling (useful after firmware/Secure Boot changes).
-tpm2_wipe: false
-# mkinitcpio drop-in path for TPM2 driver modules and sd-encrypt hook configuration.
-tpm2_mkinitcpio_conf: /etc/mkinitcpio.conf.d/zz-tpm2.conf
-# crypttab path for initramfs unlock configuration.
-tpm2_crypttab_path: /etc/crypttab
-
 # BGRT-derived boot theme (playbooks/{system,user}/bgrt-theme.yml — not part of
 # `just setup`, run explicitly). Builds an Omarchy desktop theme and a
 # standalone Plymouth theme, both derived from this machine's own UEFI
@@ -737,7 +702,7 @@ bgrt_sysfs_image: "{{ bgrt_sysfs_dir }}/image"
 bgrt_sysfs_yoffset: "{{ bgrt_sysfs_dir }}/yoffset"
 bgrt_omarchy_theme_name: bgrt
 bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
-# Where the system phase builds the Omarchy theme for every user to copy.
+# Where the system phase builds the Omarchy theme for the user phase to copy.
 bgrt_shared_theme_dir: "/usr/local/share/omarchy-setup/themes/{{ bgrt_omarchy_theme_name }}"
 bgrt_plymouth_theme_name: omarchy-bgrt
 bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
@@ -797,11 +762,6 @@ omarchy_shell_font_px: 16
 # ~950px. omarchy_text_size_px and omarchy_system_ui_font_pt compensate
 # for the smaller scale.
 omarchy_monitor_scale: 1.0
-
-# Monitor scale of the SDDM greeter (playbooks/system/sddm.yml). Separate from
-# omarchy_monitor_scale, which users can set for themselves in users/$USER.yml:
-# the login screen is shared by everyone on the machine.
-omarchy_greeter_monitor_scale: 1.0
 
 # GDK_SCALE (playbooks/{system,user}/desktop.yml) — the integer factor GTK/Electron read
 # under XWayland, where Hyprland doesn't scale windows

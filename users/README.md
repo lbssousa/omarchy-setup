@@ -14,9 +14,7 @@ defaults. Typical keys:
 | `password_hypr_keybind`, `bitwarden_floating` | the default password manager's key, Bitwarden's window |
 | `omaraptor_auto_day_theme`, `omaraptor_auto_night_theme` | automatic themes |
 
-Accounts themselves (login, admin, shell) are declared in
-`group_vars/all/users.yml`. Personal data stays out of the repository, in
+Personal data stays out of the repository, in
 `~/.config/omarchy-setup/local.yml`, loaded after this file: git identity
 (`git_user_name`, `git_user_email`), the rclone account
-(`rclone_gdrive_email`) and, for the administrator, the accounts' full names
-(`omarchy_user_full_names`). Template: `local.example.yml`.
+(`rclone_gdrive_email`). Template: `local.example.yml`.

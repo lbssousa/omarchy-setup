@@ -52,22 +52,6 @@ groups:
   extras: Extras (opt-in)
 
 features:
-  - id: users
-    group: accounts
-    title: User accounts
-    effect: adds the accounts in group_vars/all/users.yml (fish as login shell, wheel or omarchy-users, subuid ranges)
-    phases: [system]
-    default: false
-    revert: false
-
-  - id: omarchy-multiuser
-    group: accounts
-    title: omarchy-multiuser
-    effect: adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin, sets the greeter scale to 100%)
-    phases: [system]
-    default: false
-    revert: false
-
   - id: pam-auth-order
     group: accounts
     title: PAM order
@@ -82,14 +66,6 @@ features:
     effect: modifies polkitd's ExpirationSeconds
     phases: [system]
     default: true
-    revert: false
-
-  - id: shared-checkout
-    group: accounts
-    title: Shared checkout
-    effect: adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase
-    phases: [system]
-    default: false
     revert: false
 
   - id: flatpak
@@ -242,7 +218,7 @@ features:
   - id: security-key
     group: plugins
     title: security-key-omarchy (security key overlay)
-    effect: adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks; removes the security-key-omarchy package
+    effect: adds the security-key-omarchy package, an overlay to register your FIDO2 keys for sudo/polkit in /etc/fido2/fido2 and import their OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks
     phases: [system, user]
     default: true
     revert: false
@@ -375,15 +351,6 @@ features:
     phases: [system]
     default: false
     revert: false
-
-  - id: tpm2
-    group: security
-    title: LUKS auto-unlock (TPM2)
-    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, which removes autologin)
-    phases: [system]
-    default: false
-    revert: false
-    requires: [omarchy-multiuser]
 
   - id: gpg-yubikey
     group: security

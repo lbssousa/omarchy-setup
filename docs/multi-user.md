@@ -97,8 +97,9 @@ behind. Administrators can change anyone's.
 
 The password typed at the disk prompt says who is there: that person's
 desktop opens, once, without a second prompt. With a single account on an
-encrypted disk, it is logged in, as on stock Omarchy. Anything unsure, a TPM2
-unlock among them, shows the login screen.
+encrypted disk, it is logged in, as on stock Omarchy, unless the disk has a
+token (TPM2, FIDO2, clevis). Anything unsure, a TPM2 unlock among them, shows
+the login screen.
 
 The greeter (`omarchy-multiuser` SDDM theme) is Omarchy's own, with a password
 box alone: it finds the account by the password. There is no list of users

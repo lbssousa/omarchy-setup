@@ -379,7 +379,7 @@ features:
   - id: tpm2
     group: security
     title: LUKS auto-unlock (TPM2)
-    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser and two or more accounts, so the unlock lands on the login screen)
+    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, so the unlock lands on the login screen)
     phases: [system]
     default: false
     revert: false

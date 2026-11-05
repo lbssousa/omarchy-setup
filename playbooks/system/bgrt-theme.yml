@@ -6,12 +6,12 @@
 #
 # Most PCs show their own UEFI boot logo (the ACPI BGRT table,
 # /sys/firmware/acpi/bgrt/*) before any bootloader or OS code runs. By
-# default, Omarchy's Plymouth splash and Hyprlock look nothing like
-# that firmware logo, so the screen visibly changes right after the
-# firmware hands off. This playbook builds two themes from the
-# machine's own BGRT logo instead of a bundled image, so the same
-# picture stays on screen from firmware through Plymouth to the
-# Hyprlock lock screen:
+# default, Omarchy's Plymouth splash, SDDM greeter and Hyprlock look
+# nothing like that firmware logo, so the screen visibly changes right
+# after the firmware hands off. This playbook builds three themes from
+# the machine's own BGRT logo instead of a bundled image, so the same
+# picture stays on screen from firmware through Plymouth and the SDDM
+# login screen to the Hyprlock lock screen:
 #   - an Omarchy desktop theme (~/.config/omarchy/themes/bgrt),
 #     selectable from Style > Theme, whose unlock.png (and Style >
 #     Unlock menu preview) both come from the BGRT logo;
@@ -24,7 +24,15 @@
 #     own yoffset so the logo doesn't jump when Plymouth takes over. A
 #     small Omarchy wordmark is pinned below the password field, since
 #     the main logo slot is now the firmware logo instead of the
-#     Omarchy wordmark.
+#     Omarchy wordmark;
+#   - a standalone SDDM greeter theme (omarchy-bgrt) with the Plymouth
+#     theme's layout — logo at the firmware's yoffset, password field
+#     40px below, wordmark 30px below that — so the login screen picks
+#     up where the disk prompt left off. Outside Omarchy's own "omarchy"
+#     SDDM theme for the same reason as above (omarchy-plymouth-set
+#     rewrites it), and selected by an sddm.conf.d drop-in that sorts
+#     after Omarchy's (bgrt_sddm_conf_path), so it outlives upgrades with
+#     no hook. omarchy-multiuser's greeter, if installed, still wins.
 #
 # Every omarchy-settings upgrade resets the default Plymouth theme to
 # "omarchy" (its etc-overrides rewrite plymouthd.conf), so a pacman hook
@@ -45,7 +53,7 @@
 # state — no password field, which the real script only shows once
 # unlocking starts). It's a good approximation, not a pixel-identical
 # capture of the real screen at its actual resolution.
-- name: BGRT-derived boot theme (Omarchy desktop theme + standalone Plymouth theme)
+- name: BGRT-derived boot theme (Omarchy desktop theme + standalone Plymouth and SDDM themes)
   hosts: localhost
   connection: local
   gather_facts: false
@@ -106,15 +114,16 @@
       register: bgrt_wordmark_size
       changed_when: false
 
-    - name: Read the stock entry field's height (same value omarchy-bgrt.script uses to place the wordmark)
-      ansible.builtin.command: "identify -format '%h' {{ bgrt_plymouth_stock_dir }}/entry.png"
+    - name: Read the stock entry field's size (same values omarchy-bgrt.script uses to place the field and wordmark)
+      ansible.builtin.command: "identify -format '%w %h' {{ bgrt_plymouth_stock_dir }}/entry.png"
       register: bgrt_entry_height_read
       changed_when: false
 
     - name: Set the wordmark/entry dimensions used for layout
       ansible.builtin.set_fact:
         bgrt_wordmark_width_actual: "{{ bgrt_wordmark_size.stdout.split()[0] | int }}"
-        bgrt_entry_height: "{{ bgrt_entry_height_read.stdout | trim | int }}"
+        bgrt_entry_width: "{{ bgrt_entry_height_read.stdout.split()[0] | int }}"
+        bgrt_entry_height: "{{ bgrt_entry_height_read.stdout.split()[1] | int }}"
 
     - name: Render the Style > Unlock menu preview (logo + wordmark on black, matching the script's idle-boot layout)
       ansible.builtin.command: >-
@@ -273,6 +282,87 @@
       ansible.builtin.template:
         src: omarchy-bgrt-plymouth.hook.j2
         dest: "{{ bgrt_pacman_hook_path }}"
+        mode: "0644"
+      become: true
+
+    # SDDM greeter: same layout as the Plymouth script, so the screen the
+    # disk prompt left is the one the login password goes into. Its white
+    # field, lock and bullet are the Plymouth theme's own, copied over.
+    - name: Create the SDDM theme directory
+      ansible.builtin.file:
+        path: "{{ bgrt_sddm_theme_dir }}"
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Install the SDDM theme's QML and metadata
+      ansible.builtin.copy:
+        src: "omarchy-bgrt-sddm/{{ item }}"
+        dest: "{{ bgrt_sddm_theme_dir }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - Main.qml
+        - metadata.desktop
+      become: true
+
+    - name: Install the SDDM theme config (this machine's yoffset)
+      ansible.builtin.template:
+        src: omarchy-bgrt-sddm-theme.conf.j2
+        dest: "{{ bgrt_sddm_theme_dir }}/theme.conf"
+        mode: "0644"
+      become: true
+
+    - name: Copy the logo, wordmark and white field assets from the Plymouth theme
+      ansible.builtin.copy:
+        src: "{{ bgrt_plymouth_theme_dir }}/{{ item }}"
+        dest: "{{ bgrt_sddm_theme_dir }}/{{ item }}"
+        remote_src: true
+        mode: "0644"
+      loop:
+        - logo.png
+        - wordmark.png
+        - entry.png
+        - lock.png
+        - bullet.png
+      become: true
+
+    - name: Build the failed-login variants (field, lock and bullets in the theme's red)
+      ansible.builtin.command: >-
+        magick {{ bgrt_plymouth_stock_dir }}/{{ item }}.png -channel RGB
+        +level-colors "{{ bgrt_sddm_failed_color }}","{{ bgrt_sddm_failed_color }}"
+        {{ bgrt_sddm_theme_dir }}/{{ item }}-failed.png
+      loop:
+        - entry
+        - lock
+        - bullet
+      become: true
+      changed_when: true
+
+    # The Plymouth preview shows the idle boot (no field); this one shows
+    # the field and lock as the greeter does, at omarchy-bgrt.script's
+    # offsets on the same 1920x1080 canvas.
+    - name: Render the SDDM theme preview
+      vars:
+        _entry_x: "{{ ((bgrt_preview_width - bgrt_entry_width | int) / 2) | int }}"
+        _entry_y: "{{ bgrt_yoffset | int + bgrt_logo_height | int + bgrt_entry_gap_above }}"
+        _lock_h: "{{ (bgrt_entry_height | int * 0.8) | round | int }}"
+        _lock_w: "{{ (bgrt_entry_height | int * 0.8 * 84 / 96) | round | int }}"
+      ansible.builtin.command: >-
+        magick {{ bgrt_build.path }}/preview-unlock.png
+        {{ bgrt_sddm_theme_dir }}/entry.png
+        -geometry +{{ _entry_x }}+{{ _entry_y }} -composite
+        ( {{ bgrt_sddm_theme_dir }}/lock.png -resize {{ _lock_w }}x{{ _lock_h }}! )
+        -geometry +{{ _entry_x | int - _lock_w | int - 15 }}+{{ _entry_y | int + ((bgrt_entry_height | int - _lock_h | int) / 2) | int }} -composite
+        {{ bgrt_sddm_theme_dir }}/preview.png
+      become: true
+      changed_when: true
+
+    # Takes effect at the next login screen; sddm is never restarted from
+    # under the open session.
+    - name: Select the SDDM theme
+      ansible.builtin.template:
+        src: omarchy-bgrt-sddm.conf.j2
+        dest: "{{ bgrt_sddm_conf_path }}"
         mode: "0644"
       become: true
 

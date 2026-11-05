@@ -96,7 +96,7 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | Homebrew | `homebrew` | adds Homebrew for Linux (/home/linuxbrew) and bbrew | system, user | off | no |
-| BGRT boot theme | `bgrt-theme` | adds an Omarchy theme and a Plymouth theme from the firmware logo | system, user | off | no |
+| BGRT boot theme | `bgrt-theme` | adds Omarchy, Plymouth and SDDM themes from the firmware logo | system, user | off | no |
 | Google Drive (rclone) | `rclone-gdrive` | adds rclone mounts of Google Drive (systemd --user) | system, user | off | no |
 
 ## Apps

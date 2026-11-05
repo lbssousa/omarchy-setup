@@ -371,7 +371,7 @@ features:
   - id: bgrt-theme
     group: extras
     title: BGRT boot theme
-    effect: adds an Omarchy theme and a Plymouth theme from the firmware logo
+    effect: adds Omarchy, Plymouth and SDDM themes from the firmware logo
     phases: [system, user]
     default: false
     revert: false

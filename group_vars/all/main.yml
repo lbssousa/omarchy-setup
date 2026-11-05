@@ -295,6 +295,30 @@ keepassxc_browser_hosts:
     relay: true
     template: keepassxc-browser-chromium.json.j2
 
+# Omafox (playbooks/{system,user}/omafox.yml): Firefox follows the Omarchy
+# theme. The script is upstream's, at the commit tagged v1.1.0.
+omafox_extension_id: "@omafox"
+omafox_extension_url: https://addons.mozilla.org/firefox/downloads/latest/omafox/latest.xpi
+omafox_script_url: https://raw.githubusercontent.com/cover/omafox/155186c119256c451cb3d0410bcf5856ae4b89df/omarchy/omafox
+omafox_script_sha256: 86c682daf818e0403f78534c4db65d25117fabb712d734ffc6b89005deaf189c
+omafox_command: "{{ target_home }}/.local/bin/omafox"
+omafox_hook: "{{ target_home }}/.config/omarchy/hooks/theme-set.d/omafox"
+omafox_state_dir: "{{ target_home }}/.local/state/omafox"
+omafox_native_host_name: org.omarchy.omafox
+omafox_host_name: omafox-native-host.py
+omafox_flatpak_state_grant: "~/.local/state/omafox:ro"
+# Native messaging hosts per Firefox build, as keepassxc_browser_hosts.
+omafox_hosts:
+  firefox-flatpak:
+    dirs:
+      - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
+      - "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
+    path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ omafox_host_name }}"
+  firefox:
+    dirs:
+      - "{{ target_home }}/.mozilla/native-messaging-hosts"
+    path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ omafox_host_name }}"
+
 # Emacs (apps: editor, playbooks/user/apps/emacs.yml): omarchy-emacs from
 # Omarchy's own repo (what omarchy-install-editor-emacs installs, with
 # emacs-wayland), plus AUCTeX, yasnippet and lsp-mode.
@@ -480,15 +504,21 @@ fingerprint_plugin_package: fingerprint-omarchy
 fingerprint_plugin_id: lbssousa.fingerprint
 
 # security-key-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# register a FIDO2 key for sudo and polkit (in the user's own
-# ~/.config/Yubico/u2f_keys) and import
-# its OpenPGP and resident SSH keys, opened by omarchy-multiuser's Setup >
-# Security > Fido2. Installed like fingerprint-omarchy.
+# register FIDO2 keys for sudo and polkit in Omarchy's /etc/fido2/fido2 and
+# import their OpenPGP and resident SSH keys, opened from Setup > Security >
+# Fido2. Built as an Arch package from a signed release tag, for the helper
+# that writes that root-owned file; bump the ref to deploy a new release.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
-security_key_plugin_ref: v0.3.0
-security_key_plugin_runtime_packages: [python, libfido2, pam-u2f, gnupg, openssh]
+security_key_plugin_ref: v0.5.0
+security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
+security_key_plugin_verify_commit: true
+security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"
+security_key_plugin_runtime_packages: [python, libfido2, pam-u2f, gnupg, openssh, nodejs]
 security_key_plugin_package: security-key-omarchy
 security_key_plugin_id: lbssousa.security-key
+security_key_plugin_dir: /usr/share/security-key-omarchy/plugin
+security_key_plugin_authfile: /etc/fido2/fido2
+security_key_plugin_authfile_helper: /usr/bin/omarchy-security-key-authfile
 
 # Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
 # of this repository every user runs `omarchy-setup-user` from.
@@ -685,8 +715,10 @@ libfprint_ref: v1.94.100-goodix538d.2
 libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.') }}"
 libfprint_pkgrel: "1"
 # Above the omarchy repo's libfprint-git (epoch 1), so it never wins a -Syu.
+# A channel switch's -Syyuu ignores that; the hook below covers it.
 libfprint_epoch: "2"
 libfprint_build_dir: "{{ target_home }}/src/libfprint-goodix538d-pkg"
+libfprint_refresh_hook_dir: "{{ target_home }}/.config/omarchy/hooks/pre-refresh-pacman.d"
 
 # Installed before makepkg runs: the PKGBUILD's makedepends=(), plus
 # libgusb. libgusb is also in depends=() — pacman -U resolves the rest of
@@ -726,6 +758,11 @@ bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarch
 bgrt_shared_theme_dir: "/usr/local/share/omarchy-setup/themes/{{ bgrt_omarchy_theme_name }}"
 bgrt_plymouth_theme_name: omarchy-bgrt
 bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
+# pacman hook that puts the theme back after an omarchy-settings upgrade
+# resets plymouthd.conf to Theme=omarchy (its etc-overrides), and the
+# script it runs.
+bgrt_pacman_hook_path: /etc/pacman.d/hooks/95-omarchy-bgrt-plymouth.hook
+bgrt_plymouth_restore_bin: /usr/local/bin/omarchy-bgrt-plymouth-restore
 # The stock "omarchy" Plymouth theme template Omarchy itself ships —
 # read-only source for the assets that just need recoloring.
 bgrt_plymouth_stock_dir: /usr/share/omarchy/default/plymouth
@@ -739,6 +776,16 @@ bgrt_entry_gap_below: 30
 # own preview-unlock.png uses.
 bgrt_preview_width: 1920
 bgrt_preview_height: 1080
+# Standalone SDDM greeter theme built alongside it, laid out like
+# omarchy-bgrt.script, and the sddm.conf.d drop-in that selects it.
+bgrt_sddm_theme_name: omarchy-bgrt
+bgrt_sddm_theme_dir: "/usr/share/sddm/themes/{{ bgrt_sddm_theme_name }}"
+bgrt_sddm_conf_path: /etc/sddm.conf.d/zz-omarchy-setup-bgrt.conf
+# Where earlier versions put it, before it sorted after omarchy-multiuser's.
+bgrt_sddm_old_conf_path: /etc/sddm.conf.d/zz-omarchy-bgrt.conf
+# Password field, lock and bullets after a failed login: the theme's red
+# (playbooks/files/bgrt-colors.toml).
+bgrt_sddm_failed_color: "#ff5555"
 
 # Hyprland scrolling-layout column resize step (playbooks/{system,user}/desktop.yml).
 hypr_scrolling_colresize_step: 0.1
@@ -795,6 +842,13 @@ omarchy_greeter_monitor_scale: 1.0
 # omarchy_monitor_scale. Written to ~/.config/hypr/monitors.lua's
 # omarchy_gdk_scale.
 omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
+
+# The SDDM greeter's own Hyprland config (playbooks/system/desktop.yml),
+# which runs Omarchy's and pins the scale to omarchy_monitor_scale, and the
+# sddm.conf.d drop-in that selects it (sorts after Omarchy's 10-wayland.conf).
+sddm_greeter_stock_hyprland_config: /usr/share/sddm/hyprland.lua
+sddm_greeter_hyprland_config: /usr/local/share/omarchy-setup/sddm/hyprland.lua
+sddm_greeter_conf_path: /etc/sddm.conf.d/20-omarchy-setup-greeter-scale.conf
 
 # GTK/GNOME UI font sizes (playbooks/{system,user}/desktop.yml): GNOME's own defaults
 # (the gsettings-desktop-schemas defaults, as of GNOME 48+), applied
@@ -977,9 +1031,10 @@ omarchy_plugins:
       - socat
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
 # omacast's launcher key, bound in ~/.config/hypr/bindings.lua while the entry
-# above is in the list.
+# above is in the list. Not ALT + SPACE, omacast's own default: Omarchy binds
+# that to dictation, and Hyprland would fire both.
 omacast_plugin_id: typecraft.omacast
-omacast_hypr_keybind: "ALT + SPACE"
+omacast_hypr_keybind: "SHIFT + ALT + SPACE"
 # The omarchy shell's settings, where plugins are enabled.
 omarchy_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 # How long a shell restart (playbooks/tasks/restart-shell.yml) waits for a

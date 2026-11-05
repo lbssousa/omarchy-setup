@@ -1,0 +1,13 @@
+# Managed by playbooks/system/bgrt-theme.yml.
+# omarchy-settings' install scriptlet resets the default Plymouth theme to
+# "omarchy" (etc-overrides/plymouth-plymouthd.conf); restore ours afterwards.
+[Trigger]
+Type = Package
+Operation = Install
+Operation = Upgrade
+Target = omarchy-settings
+
+[Action]
+Description = Restoring the {{ bgrt_plymouth_theme_name }} Plymouth theme...
+When = PostTransaction
+Exec = {{ bgrt_plymouth_restore_bin }}

@@ -23,6 +23,11 @@
 # swaps it for the official package (it provides libfprint); bump
 # libfprint_ref and rerun to move to a newer fork release.
 #
+# Epoch 2 doesn't survive a channel switch, whose `pacman -Syyuu` takes the
+# repo's version even when it's lower. A pre-refresh-pacman hook
+# (files/pacman-ignore-libfprint.sh) adds IgnorePkg to the pacman.conf that
+# switch has just rewritten. IgnorePkg doesn't get in the way of `pacman -U`.
+#
 # The driver's SIGFM matcher is self-contained C since
 # v1.94.10-goodix538d.2 (earlier builds vendored and statically linked
 # an OpenCV subset through cmake), so the build needs nothing beyond
@@ -96,6 +101,18 @@
           notify:
             - reload udev rules
             - restart fprintd
+
+    - name: Create ~/.config/omarchy/hooks/pre-refresh-pacman.d
+      ansible.builtin.file:
+        path: "{{ libfprint_refresh_hook_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the hook that keeps this package through a channel switch
+      ansible.builtin.copy:
+        src: pacman-ignore-libfprint.sh
+        dest: "{{ libfprint_refresh_hook_dir }}/ignore-libfprint"
+        mode: "0755"
 
     - name: Host configuration (privileged)
       become: true

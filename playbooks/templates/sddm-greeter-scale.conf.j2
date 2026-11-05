@@ -1,0 +1,8 @@
+# Managed by playbooks/system/desktop.yml (feature text-size).
+#
+# SDDM reads /etc/sddm.conf.d in name order and the last value wins: this
+# sorts after Omarchy's 10-wayland.conf, whose compositor reads
+# {{ sddm_greeter_stock_hyprland_config }} directly. The config below runs
+# that same file, then sets the monitor scale.
+[Wayland]
+CompositorCommand=start-hyprland -- --config {{ sddm_greeter_hyprland_config }}

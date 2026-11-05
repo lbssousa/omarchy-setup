@@ -82,6 +82,9 @@
 - name: Omaraptor day/night switching
   ansible.builtin.import_playbook: playbooks/user/omaraptor-theme-auto.yml
 
+- name: "Omafox: Firefox follows the Omarchy theme"
+  ansible.builtin.import_playbook: playbooks/user/omafox.yml
+
 - name: "Starship extras: Nix badge, ahead/behind"
   ansible.builtin.import_playbook: playbooks/user/starship.yml
 

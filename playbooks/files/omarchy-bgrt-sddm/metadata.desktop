@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=Omarchy BGRT
+Description=Login screen matching the omarchy-bgrt Plymouth theme: firmware logo, password field and Omarchy wordmark on black, with omarchy-multiuser's password-only login for several people.
+Author=omarchy-setup
+Type=sddm-theme
+Version=1.1
+MainScript=Main.qml
+ConfigFile=theme.conf
+Screenshot=preview.png
+QtVersion=6

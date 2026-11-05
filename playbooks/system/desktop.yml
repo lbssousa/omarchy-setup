@@ -37,7 +37,7 @@
             state: directory
             mode: "0755"
 
-        - name: "Install the greeter's Hyprland config (scale {{ omarchy_monitor_scale }})"
+        - name: "Install the greeter's Hyprland config (scale {{ omarchy_greeter_monitor_scale }})"
           ansible.builtin.template:
             src: sddm-greeter-hyprland.lua.j2
             dest: "{{ sddm_greeter_hyprland_config }}"

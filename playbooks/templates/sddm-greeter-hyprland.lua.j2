@@ -3,7 +3,8 @@
 -- The SDDM greeter's Hyprland config: Omarchy's own, run as is, plus a
 -- monitor rule pinning the scale. Omarchy's has none, so Hyprland picks a
 -- scale from the panel's DPI and the login screen comes up larger than the
--- desktop, which runs at omarchy_monitor_scale.
+-- desktop. omarchy_greeter_monitor_scale, not each
+-- user's omarchy_monitor_scale: everyone shares the login screen.
 dofile("{{ sddm_greeter_stock_hyprland_config }}")
 
-hl.monitor({ output = "", mode = "preferred", position = "auto", scale = {{ omarchy_monitor_scale }} })
+hl.monitor({ output = "", mode = "preferred", position = "auto", scale = {{ omarchy_greeter_monitor_scale }} })

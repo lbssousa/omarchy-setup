@@ -105,7 +105,7 @@ The greeter (`omarchy-multiuser` SDDM theme) is Omarchy's own, with a password
 box alone: it finds the account by the password. There is no list of users
 and no username field.
 
-The greeter runs at 100% scale (`omarchy_greeter_monitor_scale`), whatever
+The greeter runs at 100% scale (`omarchy_greeter_monitor_scale`, feature `text-size`), whatever
 scale each user picks for their own session.
 
 Omarchy's own `autologin.conf` is removed whenever Omarchy writes it back

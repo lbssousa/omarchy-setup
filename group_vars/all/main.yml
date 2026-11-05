@@ -665,8 +665,10 @@ libfprint_ref: v1.94.100-goodix538d.2
 libfprint_pkgver: "{{ libfprint_ref | regex_replace('^v', '') | replace('-', '.') }}"
 libfprint_pkgrel: "1"
 # Above the omarchy repo's libfprint-git (epoch 1), so it never wins a -Syu.
+# A channel switch's -Syyuu ignores that; the hook below covers it.
 libfprint_epoch: "2"
 libfprint_build_dir: "{{ target_home }}/src/libfprint-goodix538d-pkg"
+libfprint_refresh_hook_dir: "{{ target_home }}/.config/omarchy/hooks/pre-refresh-pacman.d"
 
 # Installed before makepkg runs: the PKGBUILD's makedepends=(), plus
 # libgusb. libgusb is also in depends=() — pacman -U resolves the rest of

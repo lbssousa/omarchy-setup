@@ -80,7 +80,7 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Goodix 538d fingerprint reader | `libfprint` | modifies libfprint (goodix538d fork); adds a desync watchdog | system | on | no |
+| Goodix 538d fingerprint reader | `libfprint` | modifies libfprint (goodix538d fork); adds a desync watchdog and a pacman hook that pins the fork | system | on | no |
 | EPSON L4160 printer | `printer` | adds the driverless L4160 queue as the default printer | system, user | on | no |
 
 ## Boot and security (opt-in)

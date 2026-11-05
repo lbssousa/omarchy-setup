@@ -331,7 +331,7 @@ features:
   - id: libfprint
     group: hardware
     title: Goodix 538d fingerprint reader
-    effect: modifies libfprint (goodix538d fork); adds a desync watchdog
+    effect: modifies libfprint (goodix538d fork); adds a desync watchdog and a pacman hook that pins the fork
     phases: [system]
     default: true
     revert: false

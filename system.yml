@@ -24,7 +24,7 @@
 - name: "omarchy-multiuser: forks of Omarchy's single-owner tools"
   ansible.builtin.import_playbook: playbooks/system/omarchy-multiuser.yml
 
-- name: The multi-user login screen, no autologin (feature omarchy-multiuser)
+- name: The multi-user login screen (feature omarchy-multiuser)
   ansible.builtin.import_playbook: playbooks/system/sddm.yml
 
 - name: polkitd's authentication cache

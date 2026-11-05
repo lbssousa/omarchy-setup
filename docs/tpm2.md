@@ -38,8 +38,10 @@ passphrase until you re-enroll.
   fTPM, or discrete TPM).
 - Encrypted root partition using **LUKS2** format.
 - Multi-user mode enabled (`omarchy-multiuser`): `just configure` offers this
-  feature only then, because auto-unlock must not land in an automatically
-  logged-in session.
+  feature only then, because auto-unlock must not land in a logged-in session.
+  A TPM2 unlock types no password, so nothing says whose desktop to open:
+  omarchy-multiuser shows the login screen whenever the disk has a token, even
+  with a single account (since 0.10.1).
 - Run after the initial successful boot (and ideally after enabling Secure Boot
   via `just apply secureboot`).
 - Administrator (`wheel`) access with `run0` empowerment.

@@ -63,7 +63,7 @@ features:
   - id: omarchy-multiuser
     group: accounts
     title: omarchy-multiuser
-    effect: adds forks of Omarchy's single-owner tools (multi-user greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (removes autologin, sets the greeter scale to 100%)
+    effect: adds forks of Omarchy's single-owner tools (a LUKS key per person that picks them at boot, a password-only greeter, per-user FIDO2/fingerprint, migrations); modifies SDDM (autologin only for whoever unlocked the disk, greeter scale 100%) and the initramfs
     phases: [system]
     default: false
     revert: false
@@ -379,7 +379,7 @@ features:
   - id: tpm2
     group: security
     title: LUKS auto-unlock (TPM2)
-    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, which removes autologin)
+    effect: modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, so the unlock lands on the login screen)
     phases: [system]
     default: false
     revert: false

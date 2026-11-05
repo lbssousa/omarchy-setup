@@ -81,34 +81,31 @@ apply +IDS: _ensure-collections
     scripts/run-phase.sh user user.yml --tags "$tags"
 
 # Create or update the accounts in omarchy_users (group_vars/all/users.yml),
-# then, for each new (still locked) one, let them choose the password at the
-# login screen or set it now; for accounts with `luks: true`, offer a disk
-# unlock password of their own. Falls back to setting it now when the installed
-# omarchy-multiuser or the greeter can't do it. One polkit authentication for
-# the whole recipe.
+# then offer to set the password of each account that needs one: a new (still
+# locked) account and, on an encrypted disk, one whose password doesn't open it
+# yet. omarchy-mu-user-password asks for their password and yours. Each person's
+# password is also their own disk key and picks them at the disk prompt and the
+# login screen, so it has to be nobody else's; they can change it later from
+# Update › Password › User.
 users: _ensure-collections
     #!/usr/bin/env bash
     set -euo pipefail
     scripts/run-phase.sh system system.yml --tags always,users
-    luks=$(python3 -c 'import yaml; print(" ".join(u["name"] for u in yaml.safe_load(open("group_vars/all/users.yml"))["omarchy_users"] if u.get("luks")))')
-    ./run-empowered.sh env LUKS_USERS="$luks" bash -c '
-        for u in $(getent group omarchy-users wheel | cut -d: -f4 | tr , "\n" | sort -u); do
-            [[ -n $u ]] || continue
-            if [[ $(run0 passwd -S "$u" | cut -d" " -f2) == L ]]; then
-                read -rp "Account $u has no password yet. Let them choose it at the login screen? [Y/n] " answer
-                if [[ $answer == [nN]* ]] || ! run0 omarchy-mu-accounts first-login "$u"; then
-                    echo "Choose the password of $u."
-                    until run0 passwd "$u"; do echo "Try again."; done
-                fi
-            fi
-        done
-        for u in $LUKS_USERS; do
-            if ! run0 grep -qs "^$u " /etc/omarchy-multiuser/luks-slots; then
-                read -rp "Add a disk unlock password for $u now? [y/N] " answer
-                [[ $answer == [yYsS]* ]] && run0 omarchy-mu-luks-enroll "$u"
-            fi
-        done
-        true'
+    encrypted=false
+    [[ $(lsblk -no TYPE "$(findmnt -no SOURCE / | sed 's/\[.*//')" 2>/dev/null | head -1) == crypt ]] && encrypted=true
+    for u in $(getent group omarchy-users wheel | cut -d: -f4 | tr , "\n" | sort -u); do
+        [[ -n $u ]] || continue
+        if [[ $(sudo passwd -S "$u" | cut -d" " -f2) == L ]]; then
+            echo "Account $u has no password yet."
+        elif $encrypted && ! sudo awk -v u="$u" '$4 == u { found = 1 } END { exit !found }' /etc/omarchy-multiuser/slots 2>/dev/null; then
+            echo "The password of $u doesn't open the disk yet."
+        else
+            continue
+        fi
+        read -rp "Set it now? [Y/n] " answer
+        [[ $answer == [nN]* ]] && continue
+        omarchy-mu-user-password "$u" || echo "Skipped: run omarchy-mu-user-password $u later."
+    done
 
 # Publish the committed HEAD to /opt/omarchy-setup and install
 # omarchy-setup-user, which every user runs for their own phase.

@@ -1,8 +1,8 @@
 ---
 # The machine's accounts, from omarchy_users (group_vars/all/users.yml):
 # created when missing (home seeded from /etc/skel, which also marks every
-# Omarchy migration done), with their full name in GECOS — what the
-# multi-user greeter lists, from omarchy_user_full_names in the untracked
+# Omarchy migration done), with their full name in GECOS, from
+# omarchy_user_full_names in the untracked
 # local.yml — fish as their login shell, and their groups:
 #
 #   admin: true   wheel (sudo, the system phase)
@@ -14,7 +14,8 @@
 #
 # With more than one account in the list, root's password is locked before any
 # is created. New accounts start with a locked password ('!'); right after this
-# play, `just users` lets them choose it at the login screen, or asks for it now.
+# play, `just users` asks for it (omarchy-mu-user-password), which also makes it
+# their key to an encrypted disk.
 # Omarchy's per-user provisioning (theme, keyring, user units) runs at their
 # first login, as it does for the owner.
 # Accounts missing from the list are left alone.
@@ -130,7 +131,7 @@
       ansible.builtin.debug:
         msg: >-
           New account(s): {{ users_new | join(', ') }}. They start locked;
-          `just users` asks next how their passwords get set.
+          `just users` asks for their passwords next.
       vars:
         users_new: "{{ omarchy_users | map(attribute='name') | reject('in', users_existing) | list }}"
       when: users_new | length > 0

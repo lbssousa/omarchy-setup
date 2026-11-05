@@ -12,13 +12,13 @@ features are off by default. Turn them on in `just configure` (or once with
 
 | Piece | What it does |
 |---|---|
-| `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, an `admin` flag, extra groups and `luks`. Everyone logs into fish. |
+| `group_vars/all/users.yml` | Lists the accounts (`omarchy_users`). Each one has a login name, an `admin` flag and extra groups. Everyone logs into fish. |
 | `~/.config/omarchy-setup/local.yml` | Untracked personal data: git identity, the rclone account and (administrator) the accounts' full names. Template: `users/local.example.yml`. |
 | `~/.config/omarchy-setup/features.yml` | That user's choices from `just configure`: which apps and features apply. The user phase follows each user's own; the system phase follows the administrator's. |
 | `users/<name>.yml` | That user's personal settings, such as their web apps, plugins and text size. Loaded as extra vars, so they override `group_vars` for that person only. |
 | `system.yml` (`just system`) | The machine-wide half of every automation: packages, `/etc`, PAM, SDDM, udev, signed plugin builds and the accounts. Run by an administrator, under `run-empowered.sh`. |
 | `user.yml` (`just user`, `omarchy-setup-user`) | The half that lives in each user's home and session. Run by each user, as themselves, inside their own Hyprland session. Nothing in it becomes root. |
-| [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the greeter, the lock screen and its PAM, autologin, FIDO2, fingerprint and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |
+| [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser) | Forks of the Omarchy tools that assumed one owner: the disk prompt, the greeter, the lock screen and its PAM, autologin, passwords, FIDO2, fingerprint and migrations. Installed from a signed tag by `system/omarchy-multiuser.yml`. |
 
 `scripts/run-phase.sh` enforces the split. The system phase is refused to
 anyone outside `wheel`, and the user phase is refused to root and to
@@ -50,19 +50,20 @@ administrator's password.
 
 ## Adding a person
 
-1. Add them to `group_vars/all/users.yml` and commit. Their full name,
-   which the greeter lists, goes in `omarchy_user_full_names` in the
+1. Add them to `group_vars/all/users.yml` and commit. Their full name goes
+   in `omarchy_user_full_names` in the
    administrator's untracked `~/.config/omarchy-setup/local.yml` (see
    `users/local.example.yml`). If they want, also create
    `users/<name>.yml` (see `users/README.md`).
 2. Run `just users`. This creates the account (home seeded from
-   `/etc/skel`), asks whether they choose the password at the login screen
-   (the default) or you set it now and, with `luks: true`, offers a disk
-   unlock password of their own.
+   `/etc/skel`) and asks for its password and yours
+   (`omarchy-mu-user-password`). It has at least 6 characters, is nobody
+   else's, and on an encrypted disk is also their own key to it. They can
+   change it later from Update › Password › User.
 3. Run `just publish`. This refreshes `/opt/omarchy-setup` (the committed
    HEAD) and `omarchy-setup-user`.
-4. They log in from the greeter, typing their new password twice if they are
-   choosing it there. Omarchy's first-run setup runs as it did for the owner:
+4. They type their password at the disk prompt, or on the login screen.
+   Omarchy's first-run setup runs as it did for the owner:
    theme, keyring and user services.
 5. They run `omarchy-setup-user` in a terminal, or use Setup › Omarchy Setup.
    This applies the user phase with their settings. It can be re-run at
@@ -70,7 +71,7 @@ administrator's password.
 
 `omarchy-mu-user-add` (Setup › Users › Add User) does steps 1–2 by hand,
 outside Ansible. `omarchy-mu-user-remove` removes an account along with its
-FIDO2 line, prints, disk keyslot and the sudo grants that would outlive it
+FIDO2 line, prints, disk key and the sudo grants that would outlive it
 (the installer's by name, passwordless sudo's by UID). Removing someone from
 `users.yml` does **not** delete their account.
 
@@ -87,33 +88,29 @@ learns it reach root outside `wheel`. With several accounts it is locked
 remove commands; `just users` locks it before creating anyone); administrators
 use `sudo`.
 
-## The login screen
+## The disk prompt and the login screen
 
-The greeter (`omarchy-multiuser` SDDM theme) is Omarchy's own, with a list
-of users above the password field. Each account appears by full name, or by
-login name when GECOS is empty. The last user is preselected. The last row,
-**Outro usuário… / Other user…**, reveals a field for typing any username.
-↑/↓ switch users, Tab moves between the fields, Enter logs in.
+Each person's password is also their own LUKS key slot, recorded in
+`/etc/omarchy-multiuser/slots`. Change it with `omarchy-mu-user-password`
+(Update › Password › User), never `passwd`, which would leave the disk key
+behind. Administrators can change anyone's.
 
-An account set up to choose its password gets **Nova senha** and **Repita a
-senha** boxes instead, and logs in once both match. Until then anyone at the
-login screen can choose that password, so have the person log in soon, above
-all if they are an administrator. This needs PAM's prompts translated, as they
-are in `pt_BR`; with an English `/etc/locale.conf`, `just users` and
-`omarchy-mu-user-add` ask you for the password instead.
+The password typed at the disk prompt says who is there: that person's
+desktop opens, once, without a second prompt. With a single account on an
+encrypted disk, it is logged in, as on stock Omarchy, unless the disk has a
+token (TPM2, FIDO2, clevis). Anything unsure, a TPM2 unlock among them, shows
+the login screen.
+
+The greeter (`omarchy-multiuser` SDDM theme) is Omarchy's own, with a password
+box alone: it finds the account by the password. There is no list of users
+and no username field.
 
 The greeter runs at 100% scale (`omarchy_greeter_monitor_scale`), whatever
 scale each user picks for their own session.
 
-Nobody is logged in automatically. Omarchy keeps the owner logged in for
-good on encrypted installs. `zz-omarchy-multiuser.conf` overrides that, and
-`omarchy-mu-sddm-guard` removes `autologin.conf` whenever Omarchy writes it
-back.
-
-The disk password and the login password are separate prompts. With
-`luks: true` each person can have their own disk password
-(`omarchy-mu-luks-enroll`), but the boot prompt is the same for everyone.
-Keep a LUKS header backup.
+Omarchy's own `autologin.conf` is removed whenever Omarchy writes it back
+(`omarchy-mu-sddm-guard`); the package writes its own, for one start, for
+whoever unlocked the disk. Keep a LUKS header backup.
 
 ## The lock screen
 
@@ -164,6 +161,7 @@ notified only when one actually fails (log:
 ## Undoing it
 
 `pacman -R omarchy-multiuser` brings Omarchy's greeter back, and the
-upstream commands keep working as before. Autologin stays off until you turn
-it back on. Accounts stay until removed with `omarchy-mu-user-remove` or
+upstream commands keep working as before. Each person's disk key stays on
+the disk, and `/etc/omarchy-multiuser/slots` says whose is whose. Autologin
+stays off until you turn it back on. Accounts stay until removed with `omarchy-mu-user-remove` or
 `userdel`.

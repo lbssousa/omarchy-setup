@@ -14,9 +14,9 @@ It can also set the machine up for **several users**, opt-in: the
 default, so a stock single-owner Omarchy keeps its autologin and its own
 tools) create the accounts, replace the Omarchy tools that assumed a single
 owner with [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser)
-— a login screen listing everyone by full name, nobody logged in
-automatically — and publish a copy every user can run their own phase
-from. See [docs/multi-user.md](docs/multi-user.md) for the model.
+— each person's password is their own disk key, and the one typed at the
+disk prompt or on the login screen says whose desktop opens — and publish a
+copy every user can run their own phase from. See [docs/multi-user.md](docs/multi-user.md) for the model.
 
 ## Choosing what to apply
 
@@ -129,7 +129,7 @@ in `group_vars/all/users.yml` (their full name in your `local.yml`; their
 settings, if any, in `users/<name>.yml`), commit, then:
 
 ```bash
-just users       # creates the account; they choose the password at their first login
+just users       # creates the account and asks for its password, also its disk key
 just publish     # world-readable copy in /opt/omarchy-setup + omarchy-setup-user
 ```
 

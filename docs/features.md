@@ -37,6 +37,7 @@ always applied.
 | Column resize keys (scrolling layout) | `hypr-scrolling-resize` | adds SUPER+[ and SUPER+] to ~/.config/hypr/bindings.lua | user | on | yes |
 | Screen scale + text size | `text-size` | modifies the monitor scale (100%), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | user | on | no |
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
+| Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock via keyd | `capslock` | adds keyd (tap Esc, hold Ctrl, Shift+Caps Lock = Caps Lock); modifies Compose (Menu key instead of Shift+Caps Lock) | system, user | on | yes |
 | Omadwaita themes | `omadwaita-themes` | adds three Adwaita-based Omarchy themes | user | on | no |
 | Omaraptor themes | `omaraptor-themes` | adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only) | user | on | no |

@@ -295,6 +295,30 @@ keepassxc_browser_hosts:
     relay: true
     template: keepassxc-browser-chromium.json.j2
 
+# Omafox (playbooks/{system,user}/omafox.yml): Firefox follows the Omarchy
+# theme. The script is upstream's, at the commit tagged v1.1.0.
+omafox_extension_id: "@omafox"
+omafox_extension_url: https://addons.mozilla.org/firefox/downloads/latest/omafox/latest.xpi
+omafox_script_url: https://raw.githubusercontent.com/cover/omafox/155186c119256c451cb3d0410bcf5856ae4b89df/omarchy/omafox
+omafox_script_sha256: 86c682daf818e0403f78534c4db65d25117fabb712d734ffc6b89005deaf189c
+omafox_command: "{{ target_home }}/.local/bin/omafox"
+omafox_hook: "{{ target_home }}/.config/omarchy/hooks/theme-set.d/omafox"
+omafox_state_dir: "{{ target_home }}/.local/state/omafox"
+omafox_native_host_name: org.omarchy.omafox
+omafox_host_name: omafox-native-host.py
+omafox_flatpak_state_grant: "~/.local/state/omafox:ro"
+# Native messaging hosts per Firefox build, as keepassxc_browser_hosts.
+omafox_hosts:
+  firefox-flatpak:
+    dirs:
+      - "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
+      - "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
+    path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ omafox_host_name }}"
+  firefox:
+    dirs:
+      - "{{ target_home }}/.mozilla/native-messaging-hosts"
+    path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ omafox_host_name }}"
+
 # Emacs (apps: editor, playbooks/user/apps/emacs.yml): omarchy-emacs from
 # Omarchy's own repo (what omarchy-install-editor-emacs installs, with
 # emacs-wayland), plus AUCTeX, yasnippet and lsp-mode.

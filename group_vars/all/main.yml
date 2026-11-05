@@ -754,7 +754,9 @@ bgrt_preview_height: 1080
 # omarchy-bgrt.script, and the sddm.conf.d drop-in that selects it.
 bgrt_sddm_theme_name: omarchy-bgrt
 bgrt_sddm_theme_dir: "/usr/share/sddm/themes/{{ bgrt_sddm_theme_name }}"
-bgrt_sddm_conf_path: /etc/sddm.conf.d/zz-omarchy-bgrt.conf
+bgrt_sddm_conf_path: /etc/sddm.conf.d/zz-omarchy-setup-bgrt.conf
+# Where earlier versions put it, before it sorted after omarchy-multiuser's.
+bgrt_sddm_old_conf_path: /etc/sddm.conf.d/zz-omarchy-bgrt.conf
 # Password field, lock and bullets after a failed login: the theme's red
 # (playbooks/files/bgrt-colors.toml).
 bgrt_sddm_failed_color: "#ff5555"

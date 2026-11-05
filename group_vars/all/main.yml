@@ -750,6 +750,14 @@ bgrt_entry_gap_below: 30
 # own preview-unlock.png uses.
 bgrt_preview_width: 1920
 bgrt_preview_height: 1080
+# Standalone SDDM greeter theme built alongside it, laid out like
+# omarchy-bgrt.script, and the sddm.conf.d drop-in that selects it.
+bgrt_sddm_theme_name: omarchy-bgrt
+bgrt_sddm_theme_dir: "/usr/share/sddm/themes/{{ bgrt_sddm_theme_name }}"
+bgrt_sddm_conf_path: /etc/sddm.conf.d/zz-omarchy-bgrt.conf
+# Password field, lock and bullets after a failed login: the theme's red
+# (playbooks/files/bgrt-colors.toml).
+bgrt_sddm_failed_color: "#ff5555"
 
 # Hyprland scrolling-layout column resize step (playbooks/{system,user}/desktop.yml).
 hypr_scrolling_colresize_step: 0.1

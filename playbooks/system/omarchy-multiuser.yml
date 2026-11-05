@@ -24,7 +24,9 @@
 #     tells non-admins' migrations what an admin has already run;
 #   - omarchy-mu-login.service for every user (systemctl --global): the
 #     menu entries, the update icon (administrators only) and the
-#     fingerprint invitation at each login;
+#     fingerprint invitation at each login; it brings along (Also=, since
+#     0.11.0) omarchy-mu-menu-sync.path, which rewrites the menu entries in
+#     the Omarchy language when it changes;
 #   - root's password locked while there are several accounts
 #     (omarchy-mu-accounts root-sync);
 #

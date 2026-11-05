@@ -66,7 +66,7 @@ user: _ensure-collections
 # Apply only the given features now (ids from features.yml, or `apps` for
 # every app category), in both phases (the system half needs an
 # administrator), even those switched off in your choices. E.g.
-# `just apply capslock printer`, `just apply apps`, `just apply tpm2`.
+# `just apply capslock printer`, `just apply apps`.
 apply +IDS: _ensure-collections
     #!/usr/bin/env bash
     set -euo pipefail
@@ -133,15 +133,6 @@ check: _ensure-collections
 # Regenerate docs/features.md from features.yml.
 docs:
     python3 scripts/features.py doc > docs/features.md
-
-# Re-enroll TPM2: wipes the existing TPM2 keyslot before enrolling (after
-# UEFI/BIOS firmware updates or Secure Boot key changes).
-tpm2-wipe: _ensure-collections
-    OMARCHY_SETUP_ENABLE=tpm2 scripts/run-phase.sh system system.yml --tags always,tpm2 -e tpm2_wipe=true
-
-# Interactive CLI TPM2 enrollment script (standalone, prompts directly in terminal).
-tpm2-enroll:
-    ./scripts/enroll-tpm2.sh
 
 # List the UEFI boot entries left over from earlier installs (partition
 # gone, loader missing, duplicates); changes nothing. Standalone script.

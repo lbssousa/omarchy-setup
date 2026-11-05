@@ -28,10 +28,6 @@
 #   - Plymouth ("splash" on the cmdline) is incompatible with Secure
 #     Boot in this setup — this playbook warns if found, but doesn't
 #     remove it.
-#   - If this machine uses LUKS with TPM2 auto-unlock (PCR 7 = Secure
-#     Boot state), enabling Secure Boot for the first time changes PCR7
-#     and breaks auto-unlock until the TPM2 enrollment is redone — the
-#     password fallback keeps working in the meantime.
 - name: Secure Boot (Limine + sbctl)
   hosts: localhost
   connection: local
@@ -176,9 +172,4 @@
               Keys enrolled into firmware. Next: reboot, enter the
               BIOS/UEFI and ENABLE Secure Boot, save and reboot again.
               Then check with `sbctl status` (should show "Secure Boot:
-              enabled") and `bootctl status`. If this machine uses LUKS
-              with TPM2 auto-unlock, PCR7 changed — run `just tpm2-wipe`
-              (or `run0 systemd-cryptenroll --wipe-slot=tpm2 <dev> && run0
-              systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=0+2+7 <dev>`)
-              again to restore it (see docs/tpm2.md; the password
-              still works as a fallback in the meantime).
+              enabled") and `bootctl status`.

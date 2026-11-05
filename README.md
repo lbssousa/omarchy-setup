@@ -40,7 +40,7 @@ just configure   # gum menu: pick apps and features; offers to apply them
   included (after a confirmation).
 - **Features**, by group: accounts and login, desktop tweaks, Omarchy shell
   plugins, development tools, Portuguese (Brazil), hardware, and opt-in
-  ones (Secure Boot, TPM2 auto-unlock, Homebrew, the BGRT boot theme,
+  ones (Secure Boot, Homebrew, the BGRT boot theme,
   Google Drive, the Yubikey GPG key).
 
 fish is every account's login shell; that isn't a choice. Omarchy's web
@@ -148,12 +148,10 @@ safe.
 Not Ansible, run on their own: `just typesetting` (TeX Live, LilyPond and
 Gregorio on the host — see local-typesetting/README.md), `just ssh-yubikey`
 / `just ssh-yubikey-disable` (the Yubikey's resident SSH keys, prompts for
-the FIDO2 PIN), `just tpm2-enroll` (interactive TPM2 enrollment),
-`just tpm2-wipe` (re-enroll after firmware or Secure Boot changes) and
+the FIDO2 PIN) and
 `just efi-cleanup` / `just efi-cleanup-apply` (list, then remove, UEFI boot
 entries left over from earlier installs). Secure
-Boot and TPM2 have walkthroughs: [docs/secureboot.md](docs/secureboot.md),
-[docs/tpm2.md](docs/tpm2.md).
+Boot has a walkthrough: [docs/secureboot.md](docs/secureboot.md).
 
 ## Structure
 
@@ -176,7 +174,7 @@ Boot and TPM2 have walkthroughs: [docs/secureboot.md](docs/secureboot.md),
 | `group_vars/all/users.yml` | The machine's accounts (`omarchy_users`); full names live in the untracked `local.yml` |
 | `group_vars/all/target.yml` | `target_user`/`target_home`: the account a run configures |
 | `users/<name>.yml` | Each user's own settings (see `users/README.md`), e.g. their web apps |
-| `docs/` | The feature catalog, the multi-user model, Secure Boot and TPM2 walkthroughs |
+| `docs/` | The feature catalog, the multi-user model, the Secure Boot walkthrough |
 | `local-typesetting/` | TeX Live + LilyPond + Gregorio on the host (`just typesetting`) |
 | `requirements.yml` | Required Ansible collections |
 | `Justfile` | `just configure`, `setup`, `system`, `user`, `apply`, `check`, ... |

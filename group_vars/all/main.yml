@@ -978,9 +978,10 @@ omarchy_plugins:
       - socat
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
 # omacast's launcher key, bound in ~/.config/hypr/bindings.lua while the entry
-# above is in the list.
+# above is in the list. Not ALT + SPACE, omacast's own default: Omarchy binds
+# that to dictation, and Hyprland would fire both.
 omacast_plugin_id: typecraft.omacast
-omacast_hypr_keybind: "ALT + SPACE"
+omacast_hypr_keybind: "SHIFT + ALT + SPACE"
 # The omarchy shell's settings, where plugins are enabled.
 omarchy_shell_json: "{{ target_home }}/.config/omarchy/shell.json"
 # How long a shell restart (playbooks/tasks/restart-shell.yml) waits for a

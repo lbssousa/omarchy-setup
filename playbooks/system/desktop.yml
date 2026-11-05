@@ -1,0 +1,50 @@
+---
+# Machine-wide half of the desktop tuning (playbooks/user/desktop.yml has
+# the per-user half):
+#
+#   Login screen scale        tags: desktop, text-size
+#
+# Usage: just apply text-size
+
+# The SDDM greeter runs its own Hyprland, as the sddm user, from
+# omarchy-settings' /usr/share/sddm/hyprland.lua. That file sets no monitor
+# rule, so Hyprland picks a scale from the panel's DPI and the login screen
+# is larger than the desktop, which user/desktop.yml puts at
+# omarchy_monitor_scale (100%).
+#
+# The package's file isn't edited (every omarchy-settings upgrade would put
+# it back). A config of our own runs it with dofile() and adds the monitor
+# rule, and an sddm.conf.d drop-in that sorts after Omarchy's
+# 10-wayland.conf points the compositor at it — so upstream changes to the
+# greeter config still apply, with no pacman hook.
+#
+# Takes effect at the next login screen; sddm is never restarted from under
+# the open session. Turning the feature off only stops managing it (revert:
+# false in features.yml); delete the two files to go back.
+- name: Login screen (SDDM greeter) scale
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [text-size]
+
+  tasks:
+    - name: Login screen scale
+      become: true
+      block:
+        - name: Create {{ sddm_greeter_hyprland_config | dirname }}
+          ansible.builtin.file:
+            path: "{{ sddm_greeter_hyprland_config | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: "Install the greeter's Hyprland config (scale {{ omarchy_monitor_scale }})"
+          ansible.builtin.template:
+            src: sddm-greeter-hyprland.lua.j2
+            dest: "{{ sddm_greeter_hyprland_config }}"
+            mode: "0644"
+
+        - name: Point SDDM's compositor at it
+          ansible.builtin.template:
+            src: sddm-greeter-scale.conf.j2
+            dest: "{{ sddm_greeter_conf_path }}"
+            mode: "0644"

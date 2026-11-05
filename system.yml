@@ -65,6 +65,9 @@
 - name: EPSON L4160 queue
   ansible.builtin.import_playbook: playbooks/system/printer.yml
 
+- name: Login screen scale
+  ansible.builtin.import_playbook: playbooks/system/desktop.yml
+
 - name: Caps Lock via keyd
   ansible.builtin.import_playbook: playbooks/system/capslock.yml
 

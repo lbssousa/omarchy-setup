@@ -1,0 +1,26 @@
+#!/bin/bash
+# Managed by playbooks/system/bgrt-theme.yml.
+#
+# Run by {{ bgrt_pacman_hook_path }} after omarchy-settings is installed or
+# upgraded: its install scriptlet applies Omarchy's etc-overrides, one of
+# which rewrites /etc/plymouth/plymouthd.conf with Theme=omarchy. Puts
+# {{ bgrt_plymouth_theme_name }} back as the default and rebuilds the boot
+# image, since plymouthd reads its theme from the initramfs.
+set -euo pipefail
+
+theme={{ bgrt_plymouth_theme_name }}
+
+# Theme removed by hand: nothing to restore.
+[[ -f {{ bgrt_plymouth_theme_dir }}/$theme.plymouth ]] || exit 0
+
+current=$(plymouth-set-default-theme)
+[[ $current == "$theme" ]] && exit 0
+
+echo "Plymouth default theme was reset to $current; restoring $theme"
+plymouth-set-default-theme "$theme"
+
+if command -v limine-mkinitcpio >/dev/null 2>&1; then
+  limine-mkinitcpio
+else
+  mkinitcpio -P
+fi

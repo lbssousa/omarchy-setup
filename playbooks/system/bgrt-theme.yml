@@ -26,6 +26,11 @@
 #     the main logo slot is now the firmware logo instead of the
 #     Omarchy wordmark.
 #
+# Every omarchy-settings upgrade resets the default Plymouth theme to
+# "omarchy" (its etc-overrides rewrite plymouthd.conf), so a pacman hook
+# (bgrt_pacman_hook_path) restores omarchy-bgrt and rebuilds the boot
+# image right after.
+#
 # Both are rebuilt from /sys/firmware/acpi/bgrt/* on every run —
 # nothing here is a bundled binary asset, since the BGRT logo, its
 # size and its yoffset are specific to each machine's firmware.
@@ -246,6 +251,30 @@
               mkinitcpio -P
             fi
           changed_when: true
+
+    # omarchy-settings' install scriptlet rewrites plymouthd.conf from
+    # its etc-overrides (Theme=omarchy) on every upgrade; this hook puts
+    # the theme back right after, in the same pacman run.
+    - name: Install the script that restores the Plymouth theme
+      ansible.builtin.template:
+        src: omarchy-bgrt-plymouth-restore.sh.j2
+        dest: "{{ bgrt_plymouth_restore_bin }}"
+        mode: "0755"
+      become: true
+
+    - name: Create /etc/pacman.d/hooks
+      ansible.builtin.file:
+        path: "{{ bgrt_pacman_hook_path | dirname }}"
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Install the pacman hook that restores it after an omarchy-settings upgrade
+      ansible.builtin.template:
+        src: omarchy-bgrt-plymouth.hook.j2
+        dest: "{{ bgrt_pacman_hook_path }}"
+        mode: "0644"
+      become: true
 
     - name: Clean up the scratch build directory
       ansible.builtin.file:

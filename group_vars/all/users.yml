@@ -8,19 +8,17 @@
 #              account out of wheel along with its sudo grants (or by hand:
 #              omarchy-mu-user-admin <name> off)
 #   groups     extra groups, on top of omarchy-users / wheel
-#   luks       true: `just users` offers to add a disk unlock password for
-#              them (omarchy-mu-luks-enroll); the disk prompt is shared
 #
 # Every account logs into fish (fish_login_shell, playbooks/system/fish.yml).
 #
 # Accounts are created and updated, never removed: remove one with
 # omarchy-mu-user-remove (Setup > Users in the Omarchy menu). New accounts
-# start locked; `just users` then lets them choose the password at the login
-# screen, or asks for it.
+# start locked; `just users` then asks for their password, which on an
+# encrypted disk is also their own key to it.
 # Personal settings (rclone account, PWAs, plugins, ...) go in
 # users/<name>.yml.
 #
-# Full names (GECOS, what the login screen lists) are kept out of the
+# Full names (GECOS, shown in Setup > Users and the switch-user menu) are kept out of the
 # repository: set omarchy_user_full_names in the administrator's
 # ~/.config/omarchy-setup/local.yml (see users/local.example.yml). An
 # account without one keeps whatever GECOS it already has.

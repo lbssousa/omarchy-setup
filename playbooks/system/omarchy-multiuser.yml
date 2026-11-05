@@ -1,11 +1,11 @@
 ---
 # omarchy-multiuser (https://github.com/lbssousa/omarchy-multiuser): forks of
 # the Omarchy tools that assume one owner, under their own omarchy-mu-*
-# names — the SDDM greeter listing every user by full name with an optional
-# username field, no autologin, per-user FIDO2 keys and fingerprints with the
+# names — each person's password as their own LUKS key slot, which picks
+# whose desktop opens after the disk prompt, a login screen that finds the
+# account by its password, per-user FIDO2 keys and fingerprints with the
 # lock screen's fingerprint PAM kept while anyone has prints, migrations for
-# users outside wheel, account, administrator-rights and LUKS keyslot
-# helpers, and menu entries pointing at all of that. For users outside wheel
+# users outside wheel, account, password and administrator-rights helpers, and menu entries pointing at all of that. For users outside wheel
 # it also takes the update icon off their bar and has polkit refuse them the
 # browsers' theme color policy without a password dialog.
 #
@@ -17,7 +17,8 @@
 # `just apply gpg-yubikey`. Then this play
 # turns on what the package leaves off:
 #
-#   - the path units that remove a recreated autologin.conf, copy Style >
+#   - the path units that remove a recreated autologin.conf (the package
+#     writes its own, for whoever unlocked the disk), copy Style >
 #     Unlock's colors to the greeter and recompute the lock screen's PAM;
 #   - omarchy-mu-migrate-record@<admin>.path for every administrator, which
 #     tells non-admins' migrations what an admin has already run;

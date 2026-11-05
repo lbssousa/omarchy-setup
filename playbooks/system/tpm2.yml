@@ -41,6 +41,25 @@
       default: ""
 
   pre_tasks:
+    # omarchy-multiuser logs the only account on an encrypted disk in
+    # automatically, so with one person a TPM2 unlock would start the machine
+    # into an open desktop. With more, an unlock without a typed password can't
+    # say whose desktop to open, and the login screen shows.
+    - name: Count the people who can log in
+      ansible.builtin.shell: >-
+        getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 && $7 !~ /(nologin|false)$/' | wc -l
+      register: tpm2_people
+      changed_when: false
+
+    - name: Refuse with fewer than two people (the only one is logged in automatically)
+      ansible.builtin.fail:
+        msg: >-
+          Only {{ tpm2_people.stdout }} account can log in. omarchy-multiuser logs
+          the only account on an encrypted disk in automatically, so a TPM2
+          unlock would start this machine into an open desktop. Add a second
+          person first (`just users`).
+      when: tpm2_people.stdout | int < 2
+
     - name: Check whether TPM2 device exists (/dev/tpmrm0)
       ansible.builtin.stat:
         path: /dev/tpmrm0

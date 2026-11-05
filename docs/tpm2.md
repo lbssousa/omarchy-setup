@@ -37,9 +37,14 @@ passphrase until you re-enroll.
 - Physical machine with a TPM 2.0 chip enabled in UEFI/BIOS (Intel PTT, AMD
   fTPM, or discrete TPM).
 - Encrypted root partition using **LUKS2** format.
-- Multi-user mode enabled (`omarchy-multiuser`): `just configure` offers this
-  feature only then, because auto-unlock must not land in an automatically
-  logged-in session.
+- Multi-user mode enabled (`omarchy-multiuser`) with two or more accounts:
+  `just configure` offers this feature only with `omarchy-multiuser`, and the
+  play refuses with a single account. omarchy-multiuser logs the only account
+  on an encrypted disk in automatically, and auto-unlock must not land in a
+  logged-in session. With several, a TPM2 unlock types no password, so nothing
+  says whose desktop to open and the login screen shows. Removing people down
+  to one later brings the automatic login back: wipe the TPM2 slot first
+  (`just tpm2-wipe`).
 - Run after the initial successful boot (and ideally after enabling Secure Boot
   via `just apply secureboot`).
 - Administrator (`wheel`) access with `run0` empowerment.

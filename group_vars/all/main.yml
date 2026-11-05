@@ -732,6 +732,11 @@ bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarch
 bgrt_shared_theme_dir: "/usr/local/share/omarchy-setup/themes/{{ bgrt_omarchy_theme_name }}"
 bgrt_plymouth_theme_name: omarchy-bgrt
 bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
+# pacman hook that puts the theme back after an omarchy-settings upgrade
+# resets plymouthd.conf to Theme=omarchy (its etc-overrides), and the
+# script it runs.
+bgrt_pacman_hook_path: /etc/pacman.d/hooks/95-omarchy-bgrt-plymouth.hook
+bgrt_plymouth_restore_bin: /usr/local/bin/omarchy-bgrt-plymouth-restore
 # The stock "omarchy" Plymouth theme template Omarchy itself ships —
 # read-only source for the assets that just need recoloring.
 bgrt_plymouth_stock_dir: /usr/share/omarchy/default/plymouth

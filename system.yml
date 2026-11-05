@@ -96,8 +96,5 @@
 - name: Secure Boot (opt-in)
   ansible.builtin.import_playbook: playbooks/system/secureboot.yml
 
-- name: LUKS auto-unlock with TPM2 (opt-in)
-  ansible.builtin.import_playbook: playbooks/system/tpm2.yml
-
 - name: /opt/omarchy-setup and omarchy-setup-user
   ansible.builtin.import_playbook: playbooks/system/shared-checkout.yml

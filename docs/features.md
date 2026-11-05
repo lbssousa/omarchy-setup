@@ -91,7 +91,6 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | Secure Boot (sbctl) | `secureboot` | adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) | system | off | no |
-| LUKS auto-unlock (TPM2) | `tpm2` | modifies crypttab and the initramfs; adds a TPM2 keyslot (needs omarchy-multiuser, so the unlock lands on the login screen) | system | off | no |
 | Yubikey GPG key | `gpg-yubikey` | adds the card's public key (ultimate trust) and git commit signing | system, user | off | no |
 
 ## Extras (opt-in)

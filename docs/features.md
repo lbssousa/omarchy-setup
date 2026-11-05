@@ -37,6 +37,7 @@ always applied.
 | Column resize keys (scrolling layout) | `hypr-scrolling-resize` | adds SUPER+[ and SUPER+] to ~/.config/hypr/bindings.lua | user | on | yes |
 | Screen scale + text size | `text-size` | modifies the monitor scale (100%), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | user | on | no |
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
+| Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock via keyd | `capslock` | adds keyd (tap Esc, hold Ctrl, Shift+Caps Lock = Caps Lock); modifies Compose (Menu key instead of Shift+Caps Lock) | system, user | on | yes |
 | Omadwaita themes | `omadwaita-themes` | adds three Adwaita-based Omarchy themes | user | on | no |
 | Omaraptor themes | `omaraptor-themes` | adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only) | user | on | no |
@@ -46,7 +47,7 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Omarchy shell plugins | `plugins` | adds the shell plugins in omarchy_plugins (and their dependencies), and ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua | system, user | on | no |
+| Omarchy shell plugins | `plugins` | adds the shell plugins in omarchy_plugins (and their dependencies), and SHIFT+ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua | system, user | on | no |
 | omapin (GnuPG prompt) | `pinentry` | adds omapin and makes it gpg-agent's pinentry | system, user | on | no |
 | omaskpass (SSH prompt) | `ssh-askpass` | adds omaskpass and makes it the SSH key/FIDO2 prompt (SSH_ASKPASS); removes ssh-askpass-omarchy | system, user | on | no |
 | polkit-omarchy | `polkit-agent` | modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin) | system, user | on | no |

@@ -1,0 +1,50 @@
+---
+# The Omafox add-on in one Firefox build's policies.json
+# (playbooks/system/omafox.yml): normal_installed, so Firefox installs it from
+# AMO at its next start and keeps it updated, and it can still be disabled.
+# Every other policy stays as it is. Taking the entry out doesn't uninstall the
+# add-on: Firefox leaves it in the profile.
+#
+#   omafox_policies_dir   holds policies.json
+- name: "Create {{ omafox_policies_dir }}"
+  ansible.builtin.file:
+    path: "{{ omafox_policies_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+  when: feature_on | bool
+
+- name: "Look for {{ omafox_policies_dir }}/policies.json"
+  ansible.builtin.stat:
+    path: "{{ omafox_policies_dir }}/policies.json"
+  register: omafox_policies_stat
+
+- name: "{{ 'Add' if feature_on | bool else 'Remove' }} the Omafox add-on in policies.json"
+  ansible.builtin.copy:
+    content: >-
+      {{
+        {'policies': omafox_other_policies
+          | combine({'ExtensionSettings': omafox_settings} if omafox_settings else {})}
+        | to_nice_json
+      }}
+    dest: "{{ omafox_policies_dir }}/policies.json"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+  vars:
+    omafox_policies: >-
+      {{ (lookup('file', omafox_policies_dir ~ '/policies.json') | from_json).policies | default({})
+         if omafox_policies_stat.stat.exists else {} }}
+    omafox_other_policies: >-
+      {{ omafox_policies | dict2items | rejectattr('key', 'eq', 'ExtensionSettings') | items2dict }}
+    omafox_other_settings: >-
+      {{ omafox_policies.ExtensionSettings | default({}) | dict2items
+         | rejectattr('key', 'eq', omafox_extension_id) | items2dict }}
+    omafox_settings: >-
+      {{ omafox_other_settings | combine({omafox_extension_id: {
+           'installation_mode': 'normal_installed',
+           'install_url': omafox_extension_url}} if feature_on | bool else {}) }}
+  when: feature_on | bool or omafox_policies_stat.stat.exists

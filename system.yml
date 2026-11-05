@@ -50,6 +50,9 @@
 - name: "Portuguese (Brazil): locale, folders, browsers, man pages, OCR (after the apps: the Firefox step looks for it)"
   ansible.builtin.import_playbook: playbooks/system/ptbr.yml
 
+- name: "Omafox: the add-on in Firefox's policies (after the apps: it looks for the builds)"
+  ansible.builtin.import_playbook: playbooks/system/omafox.yml
+
 - name: Podman, Distrobox
   ansible.builtin.import_playbook: playbooks/system/containers.yml
 

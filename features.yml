@@ -134,6 +134,14 @@ features:
     default: true
     revert: true
 
+  - id: omafox
+    group: desktop
+    title: Firefox follows the Omarchy theme
+    effect: adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted
+    phases: [system, user]
+    default: true
+    revert: true
+
   - id: capslock
     group: desktop
     title: Caps Lock via keyd
@@ -170,7 +178,7 @@ features:
   - id: plugins
     group: plugins
     title: Omarchy shell plugins
-    effect: adds the shell plugins in omarchy_plugins (and their dependencies), and ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua
+    effect: adds the shell plugins in omarchy_plugins (and their dependencies), and SHIFT+ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua
     phases: [system, user]
     default: true
     revert: false

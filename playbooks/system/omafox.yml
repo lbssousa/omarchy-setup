@@ -1,0 +1,35 @@
+---
+# Omafox, system phase: the add-on in the policies of each installed Firefox
+# build. The rest is per user: playbooks/user/omafox.yml.
+#
+# Usage: just apply omafox
+- name: Omafox add-on policy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omafox]
+
+  vars:
+    feature_on: "{{ features['omafox'] | default(true) }}"
+    firefox_flatpak_on: "{{ 'firefox-flatpak' in apps.browser.installed }}"
+    firefox_native_on: "{{ 'firefox' in apps.browser.installed }}"
+
+  tasks:
+    - name: Look up the arch/branch of the installed Firefox Flatpak
+      ansible.builtin.command: "flatpak info --show-ref {{ firefox_flatpak_id }}"
+      register: firefox_flatpak_ref
+      changed_when: false
+      when: firefox_flatpak_on | bool
+
+    - name: Omafox in the Firefox Flatpak's policies
+      ansible.builtin.include_tasks: tasks/omafox-policy.yml
+      vars:
+        omafox_policies_dir: >-
+          {{ firefox_systemconfig_dir }}/{{ firefox_flatpak_ref.stdout_lines[0].split('/')[2] }}/{{ firefox_flatpak_ref.stdout_lines[0].split('/')[3] }}/policies
+      when: firefox_flatpak_on | bool
+
+    - name: Omafox in the native Firefox's policies
+      ansible.builtin.include_tasks: tasks/omafox-policy.yml
+      vars:
+        omafox_policies_dir: "{{ firefox_native_dir }}/distribution"
+      when: firefox_native_on | bool

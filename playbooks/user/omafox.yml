@@ -1,0 +1,87 @@
+---
+# Omafox (https://github.com/cover/omafox): Firefox's interface follows the
+# current Omarchy theme, live. The pieces, and how they differ from upstream's
+# package, which doesn't suit the Flatpak and is no longer in the AUR:
+#
+#   add-on       from AMO, through the policies (system/omafox.yml)
+#   omafox sync  upstream's script, pinned by commit and checksum: turns
+#                colors.toml into ~/.local/state/omafox/theme.json, filling in
+#                what a partial palette leaves out. Only `sync` is used: its
+#                `setup` expects the package's files in /usr
+#   theme-set    runs `omafox sync` on every theme change
+#   host         files/omafox/omafox-native-host.py instead of upstream's C
+#                one, with its manifest where each build looks for it
+#                (omafox_hosts). Runs on the Python in Firefox's runtime
+#
+# Firefox has to be restarted to pick up the add-on and the Flatpak override.
+# Turning the feature off removes all of this but the add-on, which stays in
+# the profile with the last theme: remove it in about:addons.
+#
+# Usage: just apply omafox
+- name: Omafox
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omafox]
+
+  vars:
+    feature_on: "{{ features['omafox'] | default(true) }}"
+    omafox_on: "{{ feature_on | bool and apps.browser.installed | intersect(omafox_hosts.keys() | list) | length > 0 }}"
+
+  tasks:
+    - name: Omafox's script, hook and theme state
+      when: omafox_on | bool
+      block:
+        - name: Create ~/.local/bin
+          ansible.builtin.file:
+            path: "{{ omafox_command | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Download upstream's omafox script
+          ansible.builtin.get_url:
+            url: "{{ omafox_script_url }}"
+            dest: "{{ omafox_command }}"
+            checksum: "sha256:{{ omafox_script_sha256 }}"
+            mode: "0755"
+
+        - name: Create ~/.config/omarchy/hooks/theme-set.d
+          ansible.builtin.file:
+            path: "{{ omafox_hook | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Install the theme-set hook
+          ansible.builtin.copy:
+            content: |
+              #!/bin/bash
+              # Managed by omarchy-setup (playbooks/user/omafox.yml).
+              exec {{ omafox_command | quote }} sync
+            dest: "{{ omafox_hook }}"
+            mode: "0755"
+
+        # Before the Flatpak override: a directory that doesn't exist yet
+        # wouldn't be exposed to the sandbox.
+        - name: Write the current theme's state
+          ansible.builtin.command:
+            argv: ["{{ omafox_command }}", sync]
+          changed_when: false
+
+    - name: Native messaging hosts
+      ansible.builtin.include_tasks: tasks/omafox-host.yml
+      loop: "{{ omafox_hosts | dict2items }}"
+      loop_control:
+        loop_var: host
+        label: "{{ host.key }}"
+      vars:
+        host_on: "{{ feature_on | bool and host.key in apps.browser.installed }}"
+
+    - name: Remove the script, the hook and the theme state
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ omafox_command }}"
+        - "{{ omafox_hook }}"
+        - "{{ omafox_state_dir }}"
+      when: not omafox_on | bool

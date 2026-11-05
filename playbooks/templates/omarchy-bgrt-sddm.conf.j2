@@ -1,0 +1,10 @@
+# Managed by playbooks/system/bgrt-theme.yml.
+#
+# SDDM reads /etc/sddm.conf.d in name order and the last value wins: this
+# sorts after Omarchy's 10-theme.conf, 99-omarchy-login.conf and
+# autologin.conf, which all say Current=omarchy, and after omarchy-multiuser's
+# zz-omarchy-multiuser.conf, which says Current=omarchy-multiuser. This theme
+# carries that greeter's login logic (password search, power keys), so it can
+# take its place.
+[Theme]
+Current={{ bgrt_sddm_theme_name }}

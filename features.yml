@@ -145,8 +145,8 @@ features:
   - id: text-size
     group: desktop
     title: Screen scale + text size
-    effect: modifies the monitor scale (100%), GDK_SCALE, the shell/terminal text size and the GNOME font sizes
-    phases: [user]
+    effect: modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes
+    phases: [system, user]
     default: true
     revert: false
 
@@ -155,6 +155,14 @@ features:
     title: Night light at sunset/sunrise
     effect: adds a timer that follows the real sunset/sunrise with hyprsunset
     phases: [user]
+    default: true
+    revert: true
+
+  - id: omafox
+    group: desktop
+    title: Firefox follows the Omarchy theme
+    effect: adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted
+    phases: [system, user]
     default: true
     revert: true
 
@@ -194,7 +202,7 @@ features:
   - id: plugins
     group: plugins
     title: Omarchy shell plugins
-    effect: adds the shell plugins in omarchy_plugins (and their dependencies), and ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua
+    effect: adds the shell plugins in omarchy_plugins (and their dependencies), and SHIFT+ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua
     phases: [system, user]
     default: true
     revert: false
@@ -242,7 +250,7 @@ features:
   - id: security-key
     group: plugins
     title: security-key-omarchy (security key overlay)
-    effect: adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks; removes the security-key-omarchy package
+    effect: adds the security-key-omarchy package, an overlay to register your FIDO2 keys for sudo/polkit in /etc/fido2/fido2 and import their OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks, asking for the PIN and a touch of the key
     phases: [system, user]
     default: true
     revert: false
@@ -355,7 +363,7 @@ features:
   - id: libfprint
     group: hardware
     title: Goodix 538d fingerprint reader
-    effect: modifies libfprint (goodix538d fork); adds a desync watchdog
+    effect: modifies libfprint (goodix538d fork); adds a desync watchdog and a pacman hook that pins the fork
     phases: [system]
     default: true
     revert: false
@@ -388,7 +396,7 @@ features:
   - id: bgrt-theme
     group: extras
     title: BGRT boot theme
-    effect: adds an Omarchy theme and a Plymouth theme from the firmware logo
+    effect: adds Omarchy, Plymouth and SDDM themes from the firmware logo
     phases: [system, user]
     default: false
     revert: false

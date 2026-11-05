@@ -38,8 +38,9 @@ always applied.
 |---|---|---|---|---|---|
 | Flea file dialogs | `file-chooser` | modifies the FileChooser portal (Flea) and the Qt platform theme (qt6ct); adds qt5ct/qt6ct | system, user | on | yes |
 | Column resize keys (scrolling layout) | `hypr-scrolling-resize` | adds SUPER+[ and SUPER+] to ~/.config/hypr/bindings.lua | user | on | yes |
-| Screen scale + text size | `text-size` | modifies the monitor scale (100%), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | user | on | no |
+| Screen scale + text size | `text-size` | modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | system, user | on | no |
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
+| Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock via keyd | `capslock` | adds keyd (tap Esc, hold Ctrl, Shift+Caps Lock = Caps Lock); modifies Compose (Menu key instead of Shift+Caps Lock) | system, user | on | yes |
 | Omadwaita themes | `omadwaita-themes` | adds three Adwaita-based Omarchy themes | user | on | no |
 | Omaraptor themes | `omaraptor-themes` | adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only) | user | on | no |
@@ -49,13 +50,13 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Omarchy shell plugins | `plugins` | adds the shell plugins in omarchy_plugins (and their dependencies), and ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua | system, user | on | no |
+| Omarchy shell plugins | `plugins` | adds the shell plugins in omarchy_plugins (and their dependencies), and SHIFT+ALT+SPACE for the omacast launcher to ~/.config/hypr/bindings.lua | system, user | on | no |
 | omapin (GnuPG prompt) | `pinentry` | adds omapin and makes it gpg-agent's pinentry | system, user | on | no |
 | omaskpass (SSH prompt) | `ssh-askpass` | adds omaskpass and makes it the SSH key/FIDO2 prompt (SSH_ASKPASS); removes ssh-askpass-omarchy | system, user | on | no |
 | polkit-omarchy | `polkit-agent` | modifies the polkit agent (replaces Omarchy's omarchy.polkit plugin) | system, user | on | no |
 | xdg-desktop-portal-omarchy (clipboard portal) | `clipboard-portal` | adds the RemoteDesktop/Clipboard portals (clipboard only, after a shell dialog), so the Bitwarden Flatpak copies natively on Wayland; off, it runs under XWayland | system, user | on | no |
 | fingerprint-omarchy (fingerprint overlay) | `fingerprint` | adds an overlay from the Omarchy plugin marketplace to enroll, test and delete your fingerprints (fprintd), opened from Setup › Security; removes the fingerprint-omarchy package | system, user | on | no |
-| security-key-omarchy (security key overlay) | `security-key` | adds an overlay from the Omarchy plugin marketplace to register your FIDO2 key for sudo/polkit and import its OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks; removes the security-key-omarchy package | system, user | on | no |
+| security-key-omarchy (security key overlay) | `security-key` | adds the security-key-omarchy package, an overlay to register your FIDO2 keys for sudo/polkit in /etc/fido2/fido2 and import their OpenPGP and SSH keys, opened from Setup › Security; adds pam_u2f to the sudo and polkit PAM stacks, asking for the PIN and a touch of the key | system, user | on | no |
 | openssh with askpass touch notifications | `openssh-askpass` | modifies the openssh package (rebuilt with a patch) | system | on | no |
 
 ## Development
@@ -83,7 +84,7 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Goodix 538d fingerprint reader | `libfprint` | modifies libfprint (goodix538d fork); adds a desync watchdog | system | on | no |
+| Goodix 538d fingerprint reader | `libfprint` | modifies libfprint (goodix538d fork); adds a desync watchdog and a pacman hook that pins the fork | system | on | no |
 | EPSON L4160 printer | `printer` | adds the driverless L4160 queue as the default printer | system, user | on | no |
 
 ## Boot and security (opt-in)
@@ -98,7 +99,7 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | Homebrew | `homebrew` | adds Homebrew for Linux (/home/linuxbrew) and bbrew | system, user | off | no |
-| BGRT boot theme | `bgrt-theme` | adds an Omarchy theme and a Plymouth theme from the firmware logo | system, user | off | no |
+| BGRT boot theme | `bgrt-theme` | adds Omarchy, Plymouth and SDDM themes from the firmware logo | system, user | off | no |
 | Google Drive (rclone) | `rclone-gdrive` | adds rclone mounts of Google Drive (systemd --user) | system, user | off | no |
 
 ## Apps

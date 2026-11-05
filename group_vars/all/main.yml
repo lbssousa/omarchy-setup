@@ -810,6 +810,13 @@ omarchy_monitor_scale: 1.0
 # omarchy_gdk_scale.
 omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 
+# The SDDM greeter's own Hyprland config (playbooks/system/desktop.yml),
+# which runs Omarchy's and pins the scale to omarchy_monitor_scale, and the
+# sddm.conf.d drop-in that selects it (sorts after Omarchy's 10-wayland.conf).
+sddm_greeter_stock_hyprland_config: /usr/share/sddm/hyprland.lua
+sddm_greeter_hyprland_config: /usr/local/share/omarchy-setup/sddm/hyprland.lua
+sddm_greeter_conf_path: /etc/sddm.conf.d/20-omarchy-setup-greeter-scale.conf
+
 # GTK/GNOME UI font sizes (playbooks/{system,user}/desktop.yml): GNOME's own defaults
 # (the gsettings-desktop-schemas defaults, as of GNOME 48+), applied
 # directly to each key while keeping the font family already configured

@@ -121,8 +121,8 @@ features:
   - id: text-size
     group: desktop
     title: Screen scale + text size
-    effect: modifies the monitor scale (100%), GDK_SCALE, the shell/terminal text size and the GNOME font sizes
-    phases: [user]
+    effect: modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes
+    phases: [system, user]
     default: true
     revert: false
 

@@ -2,7 +2,7 @@
 # Per-user Omarchy/Hyprland desktop tuning, in this order:
 #
 #   Scrolling column resize   tags: desktop, hypr-scrolling-resize
-#   Screen scale + text size  tags: desktop, text-size
+#   Screen scale + text size  tags: desktop, text-size (the login screen's is in system/desktop.yml)
 #   Night light (solar)       tags: desktop, nightlight-solar
 #
 # hyprsunset and jq (night light) ship with Omarchy.

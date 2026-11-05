@@ -31,8 +31,10 @@
 #     up where the disk prompt left off. Outside Omarchy's own "omarchy"
 #     SDDM theme for the same reason as above (omarchy-plymouth-set
 #     rewrites it), and selected by an sddm.conf.d drop-in that sorts
-#     after Omarchy's (bgrt_sddm_conf_path), so it outlives upgrades with
-#     no hook. omarchy-multiuser's greeter, if installed, still wins.
+#     after Omarchy's and omarchy-multiuser's (bgrt_sddm_conf_path), so
+#     it outlives upgrades with no hook. Its login logic is
+#     omarchy-multiuser's (a password alone, tried for each account;
+#     power keys), so it replaces that package's greeter too.
 #
 # Every omarchy-settings upgrade resets the default Plymouth theme to
 # "omarchy" (its etc-overrides rewrite plymouthd.conf), so a pacman hook
@@ -303,6 +305,9 @@
       loop:
         - Main.qml
         - metadata.desktop
+        - Password.js
+        - Power.js
+        - Strings.js
       become: true
 
     - name: Install the SDDM theme config (this machine's yoffset)
@@ -364,6 +369,13 @@
         src: omarchy-bgrt-sddm.conf.j2
         dest: "{{ bgrt_sddm_conf_path }}"
         mode: "0644"
+      become: true
+
+    # It sorted before zz-omarchy-multiuser.conf, so it would be overridden.
+    - name: Remove the SDDM theme selection from its old place
+      ansible.builtin.file:
+        path: "{{ bgrt_sddm_old_conf_path }}"
+        state: absent
       become: true
 
     - name: Clean up the scratch build directory

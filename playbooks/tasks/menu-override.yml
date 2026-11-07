@@ -3,7 +3,11 @@
 # ~/.config/omarchy/extensions/omarchy-menu.jsonc.
 #
 # Vars: menu_override_id (e.g. setup.security.fingerprint),
-#       menu_override_action (the shell command to run).
+#       menu_override_action (the shell command to run),
+#       menu_override_label_catalog_dir and menu_override_label_key
+#       (optional: take the label from the plugin's own i18n catalog,
+#       <dir>/<language>.json then <dir>/en.json, for entries the Omarchy
+#       catalog leaves untranslated, such as "Fido2").
 #
 # The menu fills in every field a user entry leaves out (label = the id,
 # no icon, no `when`) before merging it over the stock one, so an entry
@@ -53,6 +57,33 @@
   register: menu_override_catalog_raw
   failed_when: false
 
+- name: Read the plugin's catalogs for the label
+  ansible.builtin.slurp:
+    src: "{{ menu_override_label_catalog_dir }}/{{ item }}.json"
+  loop: "{{ [menu_override_language, 'en'] | unique }}"
+  register: menu_override_label_catalogs
+  failed_when: false
+  when: menu_override_label_key is defined
+
+# Facts outlive the include: start from none for every entry.
+- name: Forget the labels found for another entry
+  ansible.builtin.set_fact:
+    menu_override_plugin_labels: []
+
+# Indexed, not selectattr/map: the key has a dot ("securityKey.title"),
+# which those filters would read as a nested path.
+- name: Pick the plugin's labels, menu language first
+  ansible.builtin.set_fact:
+    menu_override_plugin_labels: "{{ menu_override_plugin_labels + [catalog[menu_override_label_key]] }}"
+  vars:
+    catalog: "{{ item.content | b64decode | from_json }}"
+  loop: "{{ menu_override_label_catalogs.results | default([]) | selectattr('content', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when:
+    - menu_override_label_key is defined
+    - menu_override_label_key in catalog
+
 - name: "Build the {{ menu_override_id }} entry"
   vars:
     stock_line: >-
@@ -63,11 +94,18 @@
     catalog: >-
       {{ (menu_override_catalog_raw.content | default('e30=') | b64decode | from_json)[menu_override_id]
          | default({}) }}
-    translated: "{{ catalog | dict2items | selectattr('key', 'in', ['label', 'title', 'description']) | items2dict }}"
-    # As the menu does for stock entries: the English label stays searchable.
-    search_terms: >-
-      {{ {'searchTerms': [stock.label]}
-         if (translated.label | default(stock.label)) != stock.label else {} }}
+    # The plugin's label in the menu's language, else in English, else none.
+    plugin_labels: "{{ menu_override_plugin_labels }}"
+    english_plugin_label: >-
+      {{ plugin_labels | last if plugin_labels | length > 0 else stock.label }}
+    translated: >-
+      {{ catalog | dict2items | selectattr('key', 'in', ['label', 'title', 'description']) | items2dict
+         | combine({'label': plugin_labels | first} if plugin_labels | length > 0 else {}) }}
+    label: "{{ translated.label | default(stock.label) }}"
+    # As the menu does for stock entries: the English labels stay searchable
+    # (the stock one, "Fido2", and the plugin's).
+    search: "{{ [stock.label, english_plugin_label] | unique | reject('equalto', label) | list }}"
+    search_terms: "{{ {'searchTerms': search} if search | length > 0 else {} }}"
   ansible.builtin.set_fact:
     menu_override_entry: >-
       {{ stock | combine(translated, search_terms, {'action': menu_override_action}) }}

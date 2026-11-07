@@ -792,6 +792,10 @@
       vars:
         menu_override_id: setup.security.fido2
         menu_override_action: "omarchy-shell shell summon {{ security_key_plugin_id }} '{}'"
+        # The Omarchy catalog keeps "Fido2" in every language; the plugin's
+        # own title ("Security key", "Chave de segurança"…) is translated.
+        menu_override_label_catalog_dir: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}/i18n"
+        menu_override_label_key: securityKey.title
 
     # The overlay removes keys one by one (each has its own button). The stock
     # entry's script, which takes pam_u2f out of sudo/polkit, deletes
@@ -802,3 +806,7 @@
       vars:
         menu_override_id: remove.security.fido2
         menu_override_action: "omarchy-shell shell summon {{ security_key_plugin_id }} '{}'"
+        # The Omarchy catalog keeps "Fido2" in every language; the plugin's
+        # own title ("Security key", "Chave de segurança"…) is translated.
+        menu_override_label_catalog_dir: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}/i18n"
+        menu_override_label_key: securityKey.title

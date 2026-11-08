@@ -73,7 +73,9 @@
     backup: true
   become: true
 
-- name: "Drop any other {{ item }} setting from pam_u2f in {{ pam_file }}"
+# Task names are rendered before the loop, so they name both options: the
+# output shows each pass's option as its item.
+- name: "Drop any other pinverification or userpresence setting from pam_u2f in {{ pam_file }}"
   ansible.builtin.replace:
     path: "{{ pam_file }}"
     regexp: '^(\s*auth\s.*pam_u2f\.so.*?)[ \t]+{{ item }}=(?!1(?:\s|$))\S*(.*)$'
@@ -82,7 +84,7 @@
   loop: [pinverification, userpresence]
   become: true
 
-- name: "Require {{ item }} from pam_u2f in {{ pam_file }}"
+- name: "Require pinverification=1 and userpresence=1 from pam_u2f in {{ pam_file }}"
   ansible.builtin.replace:
     path: "{{ pam_file }}"
     regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!{{ item }}).)*)$'

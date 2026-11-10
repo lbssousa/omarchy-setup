@@ -31,6 +31,7 @@
   ansible.builtin.set_fact:
     pwa_app_id: "{{ pwa_existing_exec.stdout | regex_replace('.*--app-id=([a-p]+).*', '\\1') }}"
   when:
+    - pwa_engine.binary in pwa_existing_exec.stdout
     - "'--app-id=' in pwa_existing_exec.stdout"
     - >-
       (webapp.container is defined and pwa_engine.containers | bool
@@ -116,7 +117,8 @@
             {{ pwa_engine.binary }} --profile-directory={{ webapps_pwa_profile_directory }} --app-id={{ pwa_app_id }}{{
             (' --container=' ~ webapp.container) if (webapp.container is defined and pwa_engine.containers | bool) else '' }}
       when: >-
-        ('--app-id=' ~ pwa_app_id) not in pwa_existing_exec.stdout
+        pwa_engine.binary not in pwa_existing_exec.stdout
+        or ('--app-id=' ~ pwa_app_id) not in pwa_existing_exec.stdout
         or (webapp.container is defined and pwa_engine.containers | bool
             and ('--container=' ~ webapp.container) not in pwa_existing_exec.stdout)
       changed_when: true

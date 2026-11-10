@@ -29,7 +29,7 @@
 - name: "Apps: every option installed or removed as chosen"
   ansible.builtin.import_playbook: playbooks/system/apps/packages.yml
 
-- name: "Apps: web browsers (Firefox defaults, PWA policy)"
+- name: "Apps: web browsers (Firefox defaults, Chromium/Chrome/Brave policies)"
   ansible.builtin.import_playbook: playbooks/system/apps/browser.yml
 
 - name: "Apps: password managers (Flatpak overrides, polkit action)"

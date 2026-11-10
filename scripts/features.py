@@ -15,7 +15,7 @@ Choices live in $XDG_CONFIG_HOME/omarchy-setup/features.yml:
 
   features: {<id>: true|false, ...}
   apps: {<category>: {installed: [<option id>, ...], default: <option id>}}
-  webapps: {engine: none|firefox|chromium|brave}
+  webapps: {engine: none|firefox|chrome|chromium|brave}
 """
 import json
 import os
@@ -96,6 +96,7 @@ def resolve(catalog, choices):
 WEBAPPS_ENGINE_LABELS = {
     "none": "Keep Omarchy's native web apps",
     "firefox": "Firefox Taskbar Tabs",
+    "chrome": "Google Chrome PWAs",
     "chromium": "Chromium PWAs",
     "brave": "Brave PWAs",
 }

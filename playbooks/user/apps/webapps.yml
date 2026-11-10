@@ -10,8 +10,8 @@
 #                           Firefox has to be closed: it keeps the registry
 #                           in memory. While it is open this part is skipped
 #                           with a warning.
-#   Brave Origin, Chromium  PWAs force-installed by the browser's machine
-#                           policy (system/apps/browser.yml), each launcher
+#   Google Chrome,          PWAs force-installed by the browser's machine
+#   Brave Origin, Chromium  policy (system/apps/browser.yml), each launcher
 #                           pointed at its container (Brave). The browser
 #                           has to be open: it installs them live. While it
 #                           is closed this part is skipped with a warning.
@@ -120,7 +120,7 @@
               run `just user` again.
           when: webapps_firefox_result.rc == 3
 
-    - name: PWAs (Brave Origin, Chromium)
+    - name: PWAs (Google Chrome, Brave Origin, Chromium)
       when: webapps_engine in webapps_pwa_engines and webapps | length > 0
       vars:
         pwa_engine: "{{ webapps_pwa_engines[webapps_engine] }}"

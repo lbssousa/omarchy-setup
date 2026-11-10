@@ -11,9 +11,16 @@
 #                      Omarchy's policies.json (if missing), Taskbar Tabs on
 #                      and a larger default page font.
 #   Firefox (native)   the same policies and prefs in /usr/lib/firefox.
-#   Brave Origin,      the PWAs that rebuild Omarchy's web apps
-#   Chromium           (user/apps/webapps.yml), force-installed through the
-#                      browser's machine policy (WebAppInstallForceList),
+#   Google Chrome,     the system-wide steps of Omarchy's
+#   Brave Origin       omarchy-install-browser (and omarchy-remove-browser
+#                      when uninstalled): the managed policy directory with
+#                      Omarchy's omarchy.json (DefaultBrowserSettingEnabled:
+#                      false, and the directory omarchy-theme-set-browser
+#                      looks for before writing color.json) and, for Brave
+#                      Origin, the /opt/WidevineCdm/chromium link.
+#   Google Chrome,     the PWAs that rebuild Omarchy's web apps
+#   Brave Origin,      (user/apps/webapps.yml), force-installed through the
+#   Chromium           browser's machine policy (WebAppInstallForceList),
 #                      for the union of the webapps lists in users/ — only for
 #                      the engine chosen in `just configure`, so a browser
 #                      that merely stays installed (Omarchy's Chromium) gets
@@ -27,6 +34,7 @@
   vars:
     firefox_flatpak_on: "{{ 'firefox-flatpak' in apps.browser.installed }}"
     firefox_native_on: "{{ 'firefox' in apps.browser.installed }}"
+    brave_origin_on: "{{ 'brave-origin' in apps.browser.installed }}"
 
   tasks:
     - name: Firefox (Flatpak)
@@ -67,6 +75,73 @@
         firefox_defaults_dir: "{{ firefox_native_dir }}"
         firefox_policies_dir: "{{ firefox_native_dir }}/distribution"
       when: firefox_native_on | bool
+
+    - name: Create the managed policy directory for each installed Chromium-family browser
+      ansible.builtin.file:
+        path: "{{ item.value.policy_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop: "{{ chromium_browsers | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      become: true
+      when: item.key in apps.browser.installed
+
+    - name: Deploy Omarchy's default Chromium policy (omarchy.json) for each installed browser
+      ansible.builtin.copy:
+        src: "{{ chromium_omarchy_policy_src }}"
+        dest: "{{ item.value.policy_dir }}/omarchy.json"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0644"
+      loop: "{{ chromium_browsers | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      become: true
+      when: item.key in apps.browser.installed
+
+    - name: Remove Omarchy's managed policy files for uninstalled Chromium-family browsers
+      ansible.builtin.file:
+        path: "{{ item.0.value.policy_dir }}/{{ item.1 }}"
+        state: absent
+      loop: "{{ (chromium_browsers | dict2items) | product(['omarchy.json', 'color.json']) | list }}"
+      loop_control:
+        label: "{{ item.0.key }} ({{ item.1 }})"
+      become: true
+      when: item.0.key not in apps.browser.installed
+
+    - name: Check whether Chromium's WidevineCdm is present for Brave Origin
+      ansible.builtin.stat:
+        path: "{{ chromium_widevine_src }}"
+      register: chromium_widevine_stat
+      when: brave_origin_on | bool
+
+    - name: Check whether Brave Origin already has a WidevineCdm entry
+      ansible.builtin.stat:
+        path: "{{ chromium_browsers['brave-origin'].widevine_dest }}"
+      register: brave_widevine_dest_stat
+      when: brave_origin_on | bool
+
+    - name: Link Chromium's WidevineCdm into Brave Origin
+      ansible.builtin.file:
+        src: "{{ chromium_widevine_src }}"
+        dest: "{{ chromium_browsers['brave-origin'].widevine_dest }}"
+        state: link
+      become: true
+      when:
+        - brave_origin_on | bool
+        - chromium_widevine_stat.stat.exists
+        - not brave_widevine_dest_stat.stat.exists or (brave_widevine_dest_stat.stat.islnk | default(false))
+
+    - name: Remove the WidevineCdm link when Brave Origin isn't installed
+      ansible.builtin.file:
+        path: "{{ chromium_browsers['brave-origin'].widevine_dest }}"
+        state: absent
+      become: true
+      when: not brave_origin_on | bool
 
     - name: PWA machine policy, per Chromium-family engine
       ansible.builtin.include_tasks: tasks/webapps-pwa-policy.yml

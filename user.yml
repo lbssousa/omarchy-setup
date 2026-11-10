@@ -24,7 +24,7 @@
 - name: Flatpak apps in the session (XDG_DATA_DIRS, Bazaar's D-Bus mask)
   ansible.builtin.import_playbook: playbooks/user/flatpak.yml
 
-- name: "Apps: the default browser (and the Firefox Flatpak shim)"
+- name: "Apps: web browsers (flags, theme, Firefox Flatpak shim, default browser)"
   ansible.builtin.import_playbook: playbooks/user/apps/browser.yml
 
 - name: "Apps: Omarchy's web apps rebuilt with the default browser"

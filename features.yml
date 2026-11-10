@@ -34,7 +34,7 @@
 #     desktop   desktop-entry id, for categories with a default app
 #     browser   omarchy-default-browser's name for it (browsers)
 #     engine    how Omarchy's web apps are rebuilt when it is the default:
-#               firefox (Taskbar Tabs), brave or chromium (PWAs), none.
+#               firefox (Taskbar Tabs), chrome, brave or chromium (PWAs), none.
 #               `just configure` asks for the web apps engine separately and
 #               saves it as webapps.engine in the choices file; unchosen, the
 #               default browser's engine applies.
@@ -388,11 +388,12 @@ apps:
   - id: browser
     title: Web browsers
     role: default browser (omarchy-default-browser); the menu also asks whether to keep Omarchy's native web apps or rebuild them with an installed browser
-    default: firefox-flatpak
+    default: google-chrome
     options:
       - { id: chromium, label: Chromium, source: pacman, package: chromium, stock: true, installed: true, engine: chromium, browser: chromium }
+      - { id: google-chrome, label: Google Chrome, source: aur, package: google-chrome, installed: true, engine: chrome, browser: chrome, desktop: google-chrome.desktop }
       - { id: firefox, label: Firefox, source: pacman, package: firefox, engine: firefox, browser: firefox }
-      - { id: firefox-flatpak, label: Firefox, source: flatpak, flatpak: org.mozilla.firefox, installed: true, engine: firefox, browser: firefox }
+      - { id: firefox-flatpak, label: Firefox, source: flatpak, flatpak: org.mozilla.firefox, engine: firefox, browser: firefox }
       - { id: brave-origin, label: Brave Origin, source: aur, package: brave-origin-bin, engine: brave, browser: brave-origin }
       - { id: brave-flatpak, label: Brave, source: flatpak, flatpak: com.brave.Browser, engine: none, desktop: com.brave.Browser.desktop, note: "Omarchy's web apps stay as they are: PWA install through machine policy is unverified inside its sandbox" }
 

@@ -1,7 +1,21 @@
 ---
-# Web browsers, per user (apps: browser): the default browser, and for the
-# Firefox Flatpak the hidden firefox.desktop shim Omarchy's browser helpers
-# need. Omarchy's web apps follow in apps/webapps.yml.
+# Web browsers, per user (apps: browser): the per-user half of Omarchy's
+# omarchy-install-browser (and omarchy-remove-browser) for Google Chrome and
+# Brave Origin, the hidden firefox.desktop shim for the Firefox Flatpak, and
+# the default browser. Omarchy's web apps follow in apps/webapps.yml.
+#
+# For Google Chrome and Brave Origin, the package and its managed policy
+# directory (/etc/opt/chrome/policies/managed, /etc/brave/policies/managed)
+# come from the system phase (system/apps/packages.yml and
+# system/apps/browser.yml). Because the binary is already on PATH by the time
+# omarchy-default-browser runs below, it doesn't invoke
+# omarchy-install-browser itself (nor could its sudo calls prompt under
+# Ansible), so the remaining per-user steps of omarchy-install-browser run
+# here: seeding ~/.config/chrome-flags.conf (or brave-origin-flags.conf) from
+# Omarchy's chromium-flags.conf, running Omarchy's Chromium extension and
+# video-decode helpers when a flags file is newly created, and applying the
+# active Omarchy theme color via omarchy-theme-set-browser. When a browser is
+# uninstalled, its flags file is removed (matching omarchy-remove-browser).
 #
 # omarchy-default-browser, omarchy-cmd-default-browser and
 # omarchy-launch-browser only know the native id firefox.desktop and run
@@ -22,8 +36,58 @@
   vars:
     browser_default: "{{ apps_catalog.browser[apps.browser.default] }}"
     firefox_shim_on: "{{ 'firefox-flatpak' in apps.browser.installed and 'firefox' not in apps.browser.installed }}"
+    installed_chromium_browsers: >-
+      {{ chromium_browsers | dict2items
+         | selectattr('key', 'in', apps.browser.installed) | list }}
 
   tasks:
+    - name: "Seed ~/.config/{{ item.value.flags_file }} from Omarchy's chromium-flags.conf"
+      ansible.builtin.copy:
+        src: "{{ chromium_flags_src }}"
+        dest: "{{ target_home }}/.config/{{ item.value.flags_file }}"
+        remote_src: true
+        force: false
+        mode: "0644"
+      loop: "{{ chromium_browsers | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when: item.key in apps.browser.installed
+      register: chromium_flags_seeded
+
+    - name: "Remove ~/.config/{{ item.value.flags_file }} when {{ item.value.label }} isn't installed"
+      ansible.builtin.file:
+        path: "{{ target_home }}/.config/{{ item.value.flags_file }}"
+        state: absent
+      loop: "{{ chromium_browsers | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when: item.key not in apps.browser.installed
+
+    - name: Set up Omarchy's Chromium extensions and video decode flags
+      ansible.builtin.command: "{{ item }}"
+      loop:
+        - omarchy-install-chromium-copy-url
+        - omarchy-install-chromium-ytdlp
+        - omarchy-install-video-decode
+      when: chromium_flags_seeded is changed
+      failed_when: false
+
+    - name: Check whether each installed Chromium-family browser has Omarchy's theme policy
+      ansible.builtin.stat:
+        path: "{{ item.value.policy_dir }}/color.json"
+      loop: "{{ installed_chromium_browsers }}"
+      loop_control:
+        label: "{{ item.key }}"
+      register: chromium_theme_policy_stats
+
+    - name: Apply the current Omarchy theme to the installed Chromium-family browsers (omarchy-theme-set-browser)
+      ansible.builtin.command: omarchy-theme-set-browser
+      when: installed_chromium_browsers | length > 0
+      changed_when: >-
+        chromium_theme_policy_stats.results
+        | selectattr('stat.exists', 'equalto', false) | list | length > 0
+      failed_when: false
+
     - name: Create ~/.local/share/applications
       ansible.builtin.file:
         path: "{{ webapps_desktop_dir }}"

@@ -114,8 +114,9 @@ Default app: default browser (omarchy-default-browser); the menu also asks wheth
 | Option | Source | Notes |
 |---|---|---|
 | Chromium ★ | pacman `chromium` | stock |
+| Google Chrome ★ (default) | aur `google-chrome` |  |
 | Firefox | pacman `firefox` |  |
-| Firefox ★ (default) | flatpak `org.mozilla.firefox` |  |
+| Firefox | flatpak `org.mozilla.firefox` |  |
 | Brave Origin | aur `brave-origin-bin` |  |
 | Brave | flatpak `com.brave.Browser` | Omarchy's web apps stay as they are: PWA install through machine policy is unverified inside its sandbox |
 

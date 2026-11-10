@@ -100,8 +100,8 @@ done
 # --- Web apps --------------------------------------------------------------
 # Omarchy's web apps (the omarchy-launch-webapp launchers) can stay as they
 # are or be rebuilt with one of the installed browsers: Firefox Taskbar Tabs,
-# or Chromium/Brave PWAs. The default browser's own mechanism is preselected
-# until chosen otherwise here.
+# or Chrome/Chromium/Brave PWAs. The default browser's own mechanism is
+# preselected until chosen otherwise here.
 browser_ids=${app_installed[browser]:-}
 browser_default_id=${app_default[browser]:-}
 webapps_engine=none

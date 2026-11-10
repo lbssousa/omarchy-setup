@@ -28,12 +28,12 @@ just configure   # gum menu: pick apps and features; offers to apply them
 - **Apps**, by category (web browsers, password managers, office suites,
   graphics, PDF viewers, video, notes, editors, file managers), each with
   its installation alternatives — native, AUR, Flathub or a release bundle
-  (e.g. Firefox native or Flatpak, Brave Origin or Brave Flatpak; ONLYOFFICE,
-  LibreOffice or the ArtCraft suite through its launcher). Several can be
-  installed side by side; where a category has a default app (browser,
-  password manager, PDF viewer, file manager) the menu asks for it. Apps
-  are declarative: one left unchecked is uninstalled, Omarchy's own
-  included (after a confirmation).
+  (e.g. Google Chrome, Firefox native or Flatpak, Brave Origin or Brave
+  Flatpak; ONLYOFFICE, LibreOffice or the ArtCraft suite through its
+  launcher). Several can be installed side by side; where a category has a
+  default app (browser, password manager, PDF viewer, file manager) the menu
+  asks for it. Apps are declarative: one left unchecked is uninstalled,
+  Omarchy's own included (after a confirmation).
 - **Features**, by group: accounts and login, desktop tweaks, Omarchy shell
   plugins, development tools, Portuguese (Brazil), hardware, and opt-in
   ones (Secure Boot, Homebrew, the BGRT boot theme,
@@ -41,7 +41,7 @@ just configure   # gum menu: pick apps and features; offers to apply them
 
 fish is your login shell; that isn't a choice. Omarchy's web
 apps (YouTube, WhatsApp, ...) are kept native or rebuilt with an installed
-browser — the menu asks, offering Firefox Taskbar Tabs or Brave/Chromium
+browser — the menu asks, offering Firefox Taskbar Tabs or Chrome/Brave/Chromium
 PWAs — and either way they open tiled fullscreen.
 
 Your choices are saved in `~/.config/omarchy-setup/features.yml`; anything

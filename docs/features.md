@@ -13,7 +13,7 @@ always applied.
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
 | User accounts | `users` | adds the accounts in group_vars/all/users.yml (fish as login shell, wheel, omarchy-users or omarchy-child, subuid ranges) | system | off | no |
-| omarchy-multiuser | `omarchy-multiuser` | adds forks of Omarchy's single-owner tools (a LUKS key per person that picks them at boot, a password-only greeter, per-user FIDO2/fingerprint, migrations, child accounts and blocked apps); modifies SDDM (autologin only for whoever unlocked the disk, greeter scale 100%) and the initramfs | system | off | no |
+| omarchy-multiuser | `omarchy-multiuser` | adds forks of Omarchy's single-owner tools (a LUKS key per person that picks them at boot, a password-only greeter, per-user FIDO2/fingerprint, migrations, child accounts and blocked apps); modifies SDDM (autologin only for whoever unlocked the disk, greeter scale 100%) and the initramfs | system, user | off | no |
 | PAM order | `pam-auth-order` | modifies the sudo and polkit PAM stacks (fingerprint, then FIDO2/U2F, then password) | system | on | no |
 | polkit authentication cache | `polkit` | modifies polkitd's ExpirationSeconds | system | on | no |
 | Shared checkout | `shared-checkout` | adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase | system | off | no |

@@ -1,0 +1,28 @@
+---
+# omarchy-multiuser, per user: keep the multi-user entries in the Omarchy menu
+# (~/.config/omarchy/extensions/omarchy-menu.jsonc) and refresh the live menu.
+#
+# Usage: just apply omarchy-multiuser
+- name: omarchy-multiuser (multi-user menu sync) (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omarchy-multiuser]
+
+  tasks:
+    - name: Check whether omarchy-mu-menu-sync is installed
+      ansible.builtin.command: which omarchy-mu-menu-sync
+      register: omarchy_mu_menu_sync_bin
+      changed_when: false
+      failed_when: false
+
+    - name: Sync multi-user entries into Omarchy menu extensions
+      ansible.builtin.command: omarchy-mu-menu-sync
+      when: omarchy_mu_menu_sync_bin.rc == 0
+      changed_when: false
+
+    - name: Refresh the live Omarchy menu
+      ansible.builtin.command: omarchy menu refresh
+      when: omarchy_mu_menu_sync_bin.rc == 0
+      changed_when: false
+      failed_when: false

@@ -64,7 +64,7 @@ features:
     group: accounts
     title: omarchy-multiuser
     effect: adds forks of Omarchy's single-owner tools (a LUKS key per person that picks them at boot, a password-only greeter, per-user FIDO2/fingerprint, migrations, child accounts and blocked apps); modifies SDDM (autologin only for whoever unlocked the disk, greeter scale 100%) and the initramfs
-    phases: [system]
+    phases: [system, user]
     default: false
     revert: false
 

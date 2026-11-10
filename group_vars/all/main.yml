@@ -833,6 +833,17 @@ bgrt_sddm_failed_color: "#ff5555"
 # Hyprland scrolling-layout column resize step (playbooks/{system,user}/desktop.yml).
 hypr_scrolling_colresize_step: 0.1
 
+# Hyprland workspace switch animation (playbooks/user/desktop.yml). Omarchy
+# ships the animation off, so switching workspaces snaps; this re-enables
+# it scrolling vertically (slidevert). Style: slide, slidevert, slidefade,
+# slidefadevert or fade. Speed counts deciseconds (100ms each). The bezier
+# is one of the curves Omarchy's default looknfeel.lua defines
+# (easeOutQuint, easeInOutCubic, linear, almostLinear, quick) — it loads
+# before the user's looknfeel.lua, so the names are in scope there.
+hypr_workspace_anim_style: slidevert
+hypr_workspace_anim_speed: 5
+hypr_workspace_anim_bezier: easeOutQuint
+
 # EPSON L4160 printer (playbooks/{system,user}/printer.yml) — driverless CUPS queue.
 printer_l4160_name: L4160
 printer_l4160_location: "Wi-Fi"

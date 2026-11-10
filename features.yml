@@ -142,6 +142,14 @@ features:
     default: true
     revert: true
 
+  - id: hypr-vertical-workspaces
+    group: desktop
+    title: Vertical workspace switch animation
+    effect: modifies ~/.config/hypr/looknfeel.lua (switching workspaces scrolls vertically, slidevert, instead of snapping)
+    phases: [user]
+    default: true
+    revert: true
+
   - id: text-size
     group: desktop
     title: Screen scale + text size

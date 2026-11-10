@@ -67,7 +67,7 @@
 - name: The L4160 as this user's default printer
   ansible.builtin.import_playbook: playbooks/user/printer.yml
 
-- name: Column resize keys, scale and text size, night light at sunset
+- name: Column resize keys, vertical workspace switching, scale and text size, night light at sunset
   ansible.builtin.import_playbook: playbooks/user/desktop.yml
 
 - name: Compose off Caps Lock (for keyd)

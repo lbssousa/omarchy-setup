@@ -2,12 +2,13 @@
 # Per-user Omarchy/Hyprland desktop tuning, in this order:
 #
 #   Scrolling column resize   tags: desktop, hypr-scrolling-resize
+#   Vertical workspaces       tags: desktop, hypr-vertical-workspaces
 #   Screen scale + text size  tags: desktop, text-size (the login screen's is in system/desktop.yml)
 #   Night light (solar)       tags: desktop, nightlight-solar
 #
 # hyprsunset and jq (night light) ship with Omarchy.
 #
-# Usage: just apply hypr-scrolling-resize | just apply text-size | just apply nightlight-solar
+# Usage: just apply hypr-scrolling-resize | just apply hypr-vertical-workspaces | just apply text-size | just apply nightlight-solar
 
 # Hyprland's "scrolling" layout has its own resize dispatcher,
 # hl.dsp.layout("colresize <±fraction>") — the generic window-resize
@@ -53,6 +54,49 @@
           -- keyboard (xkb layout "br"; code:34 is the ´ key, not "]").
           o.bind("SUPER + code:35", "Shrink column (scrolling)", hl.dsp.layout("colresize -{{ hypr_scrolling_colresize_step }}"))
           o.bind("SUPER + code:51", "Grow column (scrolling)", hl.dsp.layout("colresize +{{ hypr_scrolling_colresize_step }}"))
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml
+
+# Vertical workspace switching: Omarchy ships the workspaces animation off
+# (default/hypr/looknfeel.lua sets leaf = "workspaces", enabled = false), so
+# switching workspaces snaps in place. Hyprland's workspaces animation
+# supports slide, slidevert, fade, slidefade and slidefadevert styles
+# (https://wiki.hypr.land/Configuring/Core/Animations/); this re-enables it
+# as slidevert, so the switch scrolls vertically — up when moving to a
+# higher-numbered workspace, down for a lower one (workspacesIn/Out
+# inherit from the workspaces leaf, so one declaration covers both).
+#
+# The curve comes from the set Omarchy's default looknfeel.lua already
+# defines (easeOutQuint, easeInOutCubic, linear, almostLinear, quick —
+# it loads before the user's looknfeel.lua, so the names are in scope),
+# and the speed counts deciseconds (100ms each): hypr_workspace_anim_speed.
+#
+# Written to ~/.config/hypr/looknfeel.lua via a marked block, so it
+# coexists with any other customization already there; turning the feature
+# off removes the block and restores Omarchy's stock snap.
+- name: Vertical workspace switch animation (slidevert)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [hypr-vertical-workspaces]
+
+  vars:
+    feature_on: "{{ features['hypr-vertical-workspaces'] | default(true) }}"
+
+  tasks:
+    - name: "{{ 'Enable' if feature_on | bool else 'Disable' }} the vertical workspace switch animation ({{ hypr_workspace_anim_style }})"
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        hypr_file: looknfeel.lua
+        hypr_marker: playbooks/user/desktop.yml — vertical workspace animation
+        hypr_state: "{{ 'present' if feature_on | bool else 'absent' }}"
+        hypr_block: |
+          -- Omarchy ships the workspace switch animation off; re-enable
+          -- it scrolling vertically (styles: slide, slidevert, fade,
+          -- slidefade, slidefadevert; curves as in Omarchy's default
+          -- looknfeel.lua; speed in deciseconds, 100ms each).
+          hl.animation({ leaf = "workspaces", enabled = true, speed = {{ hypr_workspace_anim_speed }}, bezier = "{{ hypr_workspace_anim_bezier }}", style = "{{ hypr_workspace_anim_style }}" })
 
   handlers:
     - ansible.builtin.import_tasks: tasks/handlers-user.yml

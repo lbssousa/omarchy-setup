@@ -38,6 +38,7 @@ always applied.
 |---|---|---|---|---|---|
 | Flea file dialogs | `file-chooser` | modifies the FileChooser portal (Flea) and the Qt platform theme (qt6ct); adds qt5ct/qt6ct | system, user | on | yes |
 | Column resize keys (scrolling layout) | `hypr-scrolling-resize` | adds SUPER+[ and SUPER+] to ~/.config/hypr/bindings.lua | user | on | yes |
+| Vertical workspace switch animation | `hypr-vertical-workspaces` | modifies ~/.config/hypr/looknfeel.lua (switching workspaces scrolls vertically, slidevert, instead of snapping) | user | on | yes |
 | Screen scale + text size | `text-size` | modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | system, user | on | no |
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
 | Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |

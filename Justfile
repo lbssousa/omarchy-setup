@@ -80,17 +80,27 @@ apply +IDS: _ensure-collections
     fi
     scripts/run-phase.sh user user.yml --tags "$tags"
 
-# Create or update the accounts in omarchy_users (group_vars/all/users.yml),
-# then offer to set the password of each account that needs one: a new (still
-# locked) account and, on an encrypted disk, one whose password doesn't open it
-# yet. omarchy-mu-user-password asks for their password and yours. Each person's
-# password is also their own disk key and picks them at the disk prompt and the
-# login screen, so it has to be nobody else's; they can change it later from
-# Setup › Users › Change Password.
-users: _ensure-collections
+# Update the accounts in omarchy_users (group_vars/all/users.yml) that exist on
+# this machine, or create specific accounts: `just users` updates existing
+# accounts without creating new ones automatically; `just users <name>...`
+# creates or updates the named accounts from omarchy_users (or `--all` to
+# create all). Then offers to set the password of each account that needs one: a
+# new (still locked) account and, on an encrypted disk, one whose password
+# doesn't open it yet. omarchy-mu-user-password asks for their password and
+# yours. Each person's password is also their own disk key and picks them at the
+# disk prompt and the login screen, so it has to be nobody else's; they can
+# change it later from Setup › Users › Change Password.
+users *NAMES: _ensure-collections
     #!/usr/bin/env bash
     set -euo pipefail
-    scripts/run-phase.sh system system.yml --tags always,users
+    extra_args=()
+    if [[ "${1:-}" == "--all" ]]; then
+        extra_args=(-e "users_create_all=true")
+    elif [[ $# -gt 0 ]]; then
+        json=$(printf '%s\n' "$@" | jq -R . | jq -s -c .)
+        extra_args=(-e "users_filter=$json")
+    fi
+    scripts/run-phase.sh system system.yml --tags always,users "${extra_args[@]}"
     encrypted=false
     [[ $(lsblk -no TYPE "$(findmnt -no SOURCE / | sed 's/\[.*//')" 2>/dev/null | head -1) == crypt ]] && encrypted=true
     for u in $(getent group omarchy-users wheel | cut -d: -f4 | tr , "\n" | sort -u); do

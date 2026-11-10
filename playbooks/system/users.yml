@@ -1,9 +1,9 @@
 ---
 # The machine's accounts, from omarchy_users (group_vars/all/users.yml):
-# created when missing (home seeded from /etc/skel, which also marks every
-# Omarchy migration done), with their full name in GECOS, from
-# omarchy_user_full_names in the untracked
-# local.yml — fish as their login shell, and their groups:
+# existing accounts are updated (with their full name in GECOS, from
+# omarchy_user_full_names in the untracked local.yml — fish as their login shell,
+# and their groups). Uncreated accounts are left alone unless explicitly requested
+# (users_filter, users_create_all: true; `just users <name>...`).
 #
 #   admin: true   wheel (sudo, the system phase)
 #   admin: false  omarchy-users (their own FIDO2 key and fingerprints, through
@@ -14,14 +14,14 @@
 #   child: true   omarchy-users and omarchy-child (no extra groups; default
 #                 blocked apps and adult-unlock fallback on the lock screen)
 #
-# New accounts start with a locked password ('!'); right after this play,
-# `just users` asks for it (omarchy-mu-user-password), which also makes it
+# Newly created accounts start with a locked password ('!'); right after this play,
+# `just users <name>` asks for it (omarchy-mu-user-password), which also makes it
 # their key to an encrypted disk.
 # Omarchy's per-user provisioning (theme, keyring, user units) runs at their
 # first login, as it does for the owner.
 # Accounts missing from the list are left alone.
 #
-# Usage: just users
+# Usage: just users [name...]
 - name: User accounts (omarchy_users)
   hosts: localhost
   connection: local
@@ -69,6 +69,38 @@
       ansible.builtin.set_fact:
         users_existing: "{{ ansible_facts.getent_passwd.keys() | list }}"
 
+    - name: Validate users_filter if provided
+      ansible.builtin.assert:
+        that:
+          - item in (omarchy_users | map(attribute='name'))
+        fail_msg: "User '{{ item }}' is not defined in omarchy_users (group_vars/all/users.yml)."
+      loop: "{{ users_filter | default([]) }}"
+
+    - name: Determine accounts to manage
+      ansible.builtin.set_fact:
+        managed_users: >-
+          {{
+            omarchy_users | selectattr('name', 'in', users_filter) | list
+            if users_filter is defined and users_filter | length > 0
+            else (
+              omarchy_users
+              if users_create_all | default(false)
+              else omarchy_users | selectattr('name', 'in', users_existing) | list
+            )
+          }}
+
+    - name: Report uncreated accounts
+      ansible.builtin.debug:
+        msg: >-
+          Account(s) declared in omarchy_users but not created on this system:
+          {{ uncreated_users | join(', ') }}.
+          Run `just users <name>` to create them.
+      vars:
+        uncreated_users: "{{ omarchy_users | map(attribute='name') | reject('in', users_existing) | list }}"
+      when:
+        - uncreated_users | length > 0
+        - users_filter is not defined or users_filter | length == 0
+
     - name: Create or update each account
       ansible.builtin.user:
         name: "{{ item.name }}"
@@ -79,7 +111,7 @@
         create_home: true
         password: "!"
         update_password: on_create
-      loop: "{{ omarchy_users }}"
+      loop: "{{ managed_users }}"
       loop_control:
         label: "{{ item.name }}"
       become: true
@@ -105,7 +137,7 @@
           omarchy-mu-accounts sync-migration-watchers
           echo removed
         fi
-      loop: "{{ omarchy_users | rejectattr('admin', 'defined') | list + omarchy_users | selectattr('admin', 'defined') | rejectattr('admin') | list }}"
+      loop: "{{ managed_users | rejectattr('admin', 'defined') | list + managed_users | selectattr('admin', 'defined') | rejectattr('admin') | list }}"
       loop_control:
         label: "{{ item.name }}"
       when: item.name != target_user
@@ -118,7 +150,7 @@
         if id -nG {{ item.name | quote }} | tr ' ' '\n' | grep -qx omarchy-child; then
           gpasswd -d {{ item.name | quote }} omarchy-child >/dev/null && echo removed
         fi
-      loop: "{{ omarchy_users | rejectattr('child', 'defined') | list + omarchy_users | selectattr('child', 'defined') | rejectattr('child') | list }}"
+      loop: "{{ managed_users | rejectattr('child', 'defined') | list + managed_users | selectattr('child', 'defined') | rejectattr('child') | list }}"
       loop_control:
         label: "{{ item.name }}"
       register: users_child_removal
@@ -137,7 +169,7 @@
         fi
       args:
         executable: /bin/bash
-      loop: "{{ omarchy_users | selectattr('child', 'defined') | selectattr('child') | list }}"
+      loop: "{{ managed_users | selectattr('child', 'defined') | selectattr('child') | list }}"
       loop_control:
         label: "{{ item.name }}"
       register: users_child_apps
@@ -149,7 +181,7 @@
         if id -nG {{ item.name | quote }} | tr ' ' '\n' | grep -qx omarchy-users; then
           gpasswd -d {{ item.name | quote }} omarchy-users >/dev/null && echo removed
         fi
-      loop: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | list }}"
+      loop: "{{ managed_users | selectattr('admin', 'defined') | selectattr('admin') | list }}"
       loop_control:
         label: "{{ item.name }}"
       register: users_group_removal
@@ -158,6 +190,8 @@
 
     - name: Give every user a subuid/subgid range
       ansible.builtin.include_tasks: tasks/subid-ranges.yml
+      vars:
+        subid_users: "{{ managed_users }}"
 
     - name: Say which new accounts still need a password
       ansible.builtin.debug:
@@ -165,5 +199,5 @@
           New account(s): {{ users_new | join(', ') }}. They start locked;
           `just users` asks for their passwords next.
       vars:
-        users_new: "{{ omarchy_users | map(attribute='name') | reject('in', users_existing) | list }}"
+        users_new: "{{ managed_users | map(attribute='name') | reject('in', users_existing) | list }}"
       when: users_new | length > 0

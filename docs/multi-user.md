@@ -65,11 +65,12 @@ administrator's password.
    administrator's untracked `~/.config/omarchy-setup/local.yml` (see
    `users/local.example.yml`). If they want, also create
    `users/<name>.yml` (see `users/README.md`).
-2. Run `just users`. This creates the account (home seeded from
+2. Run `just users <name>`. This creates the account (home seeded from
    `/etc/skel`) and asks for its password and yours
    (`omarchy-mu-user-password`). It has at least 6 characters, is nobody
    else's, and on an encrypted disk is also their own key to it. They can
-   change it later from Setup › Users › Change Password.
+   change it later from Setup › Users › Change Password. (Running `just users`
+   without arguments updates existing accounts without creating new ones.)
 3. Run `just publish`. This refreshes `/opt/omarchy-setup` (the committed
    HEAD) and `omarchy-setup-user`.
 4. They type their password at the disk prompt, or on the login screen.

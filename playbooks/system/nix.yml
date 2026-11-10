@@ -40,7 +40,7 @@
 # is in /usr/bin and works right away).
 #
 # Here (system phase): the subvolume, the package, nix.conf and the daemon.
-# The session environment and nix-direnv are in user/nix.yml.
+# Each user's session environment and nix-direnv are in user/nix.yml.
 #
 # Usage: just apply nix
 - name: Nix (multi-user, store on its own btrfs subvolume)

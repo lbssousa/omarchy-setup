@@ -3,9 +3,10 @@
 #
 #   playbooks/user/    never becomes root, installs no packages (pacman, or
 #                      Omarchy's omarchy-pkg-*/omarchy-install-* helpers,
-#                      which sudo inside)
+#                      which sudo inside), so a user outside wheel can run it
 #   playbooks/system/  never talks to a user session (systemctl --user,
-#                      the Omarchy shell, Hyprland), which run0 can't reach
+#                      the Omarchy shell, Hyprland), which an administrator's
+#                      run can only reach for their own account
 #
 # Comments are ignored. omarchy-install-chromium-* and
 # omarchy-install-video-decode only touch the caller's home, so they're

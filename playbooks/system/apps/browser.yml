@@ -21,7 +21,7 @@
 #   Google Chrome,     the PWAs that rebuild Omarchy's web apps
 #   Brave Origin,      (user/apps/webapps.yml), force-installed through the
 #   Chromium           browser's machine policy (WebAppInstallForceList),
-#                      for the union of the webapps lists in users/ — only for
+#                      for the union of every user's webapps list — only for
 #                      the engine chosen in `just configure`, so a browser
 #                      that merely stays installed (Omarchy's Chromium) gets
 #                      no PWAs.

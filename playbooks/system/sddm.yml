@@ -1,0 +1,62 @@
+---
+# The login screen for several users: omarchy-multiuser's greeter, a password
+# box that finds the account by its password. Omarchy logs its single owner in
+# automatically — for good on encrypted installs — through
+# /etc/sddm.conf.d/autologin.conf, which omarchy-provision-owner and
+# omarchy-upgrade-to-quattro write. omarchy-mu-sddm-guard (run here, and by a
+# path unit and a pacman hook whenever Omarchy writes the file back) removes it,
+# and checks that the effective theme is the multi-user one and that nothing
+# else still names an autologin user. The package logs in, once, only whoever's
+# password unlocked the disk at this boot, or the only account on an encrypted
+# disk.
+#
+# sddm is never restarted from here (it would end every open session): the
+# greeter takes over at the next login screen.
+#
+# Usage: just apply omarchy-multiuser (this is part of that feature)
+- name: SDDM — multi-user greeter, autologin only for whoever unlocked the disk
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omarchy-multiuser]
+
+  tasks:
+    - name: Expect the multi-user greeter theme (system/omarchy-multiuser.yml)
+      ansible.builtin.stat:
+        path: "/usr/share/sddm/themes/{{ omarchy_multiuser_theme }}/Main.qml"
+      register: sddm_theme
+      failed_when: not sddm_theme.stat.exists
+
+    # The guard also reports a theme other than omarchy-multiuser's. The BGRT
+    # greeter (system/bgrt-theme.yml) carries the same login logic and replaces
+    # it on purpose, so that report alone is not a failure.
+    - name: Remove autologin and check what SDDM will show
+      ansible.builtin.command: omarchy-mu-sddm-guard
+      register: sddm_guard
+      changed_when: "'Removed' in sddm_guard.stdout"
+      failed_when: >-
+        sddm_guard.rc != 0 and
+        (sddm_guard.stderr_lines
+         | reject('equalto', "SDDM theme is '" ~ bgrt_sddm_theme_name ~ "', not " ~ omarchy_multiuser_theme ~ ".")
+         | list | length > 0)
+      become: true
+
+    - name: Note when the greeter takes over
+      ansible.builtin.debug:
+        msg: >-
+          SDDM now shows the multi-user greeter, which finds the account by
+          its password; it takes over at the next login screen (log out or
+          reboot). Each person needs a password of their own: run
+          `just users`.
+      when: sddm_guard.changed
+
+    # The greeter's monitor scale used to be set here; feature text-size
+    # (system/desktop.yml) does it now, from a drop-in this one outranked.
+    - name: Remove the greeter scale files this play used to write
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/sddm.conf.d/zz-omarchy-setup-greeter.conf
+        - /etc/sddm/hyprland.lua
+      become: true

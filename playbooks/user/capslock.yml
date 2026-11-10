@@ -3,7 +3,7 @@
 # omarchy:shift_caps_compose) to capslock_compose_key in
 # ~/.config/hypr/input.lua, so the machine-wide keyd remap
 # (system/capslock.yml, which explains it) can produce a real Caps Lock.
-# Turning the feature off removes the block (and,
+# Every user needs this; turning the feature off removes the block (and,
 # in the system phase, keyd). The layout-switch option Omarchy adds for
 # non-Latin layouts (grp:alts_toggle) is kept.
 #

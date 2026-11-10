@@ -2,15 +2,15 @@
 # The PWA force-install policy of one Chromium-family engine
 # (webapps_pwa_engines, `engine` = {key, value}; playbooks/system/apps/
 # browser.yml). With pwa_policy_on, the engine's managed policy directory
-# gets a WebAppInstallForceList with the webapps in users/*.yml
-# (plus the caller's own list), each opening in its own window with a
+# gets a WebAppInstallForceList with every user's webapps (users/*.yml,
+# plus the caller's own list), each opening in its own window with a
 # desktop shortcut, which user/apps/webapps.yml turns into the launcher
 # Omarchy's web app had. The browser picks the file up live. Without it,
 # the file goes (the PWAs it installed are uninstalled by the browser).
 - name: "[{{ engine.key }}] PWA policy"
   when: pwa_policy_on | bool
   block:
-    - name: "[{{ engine.key }}] Find the settings in users/"
+    - name: "[{{ engine.key }}] Find every user's settings"
       ansible.builtin.find:
         paths: "{{ playbook_dir }}/../../../users"
         patterns: "*.yml"
@@ -21,7 +21,7 @@
       ansible.builtin.set_fact:
         webapps_all: "{{ webapps }}"
 
-    - name: "[{{ engine.key }}] Add their web apps"
+    - name: "[{{ engine.key }}] Add every user's web apps"
       ansible.builtin.set_fact:
         webapps_all: >-
           {{ webapps_all

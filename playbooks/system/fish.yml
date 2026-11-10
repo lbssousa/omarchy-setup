@@ -1,7 +1,8 @@
 ---
-# Fish shell, system phase: fish as your login shell and a warning about the
-# omarchy-fish package. Not a feature: it always runs (fish_login_shell).
-# starship and fzf.fish's dependencies (fzf, fd, bat)
+# Fish shell, system phase: fish as a valid login shell and a warning
+# about the omarchy-fish package. Not a feature: it always runs, because
+# every account logs into fish (fish_login_shell, applied by
+# system/users.yml). starship and fzf.fish's dependencies (fzf, fd, bat)
 # already ship with Omarchy. The port itself (and the warnings when
 # Omarchy's bash setup moves away from it) is installed per user by
 # user/fish.yml, which explains it.
@@ -22,12 +23,6 @@
       ansible.builtin.lineinfile:
         path: /etc/shells
         line: "{{ fish_login_shell }}"
-      become: true
-
-    - name: Make fish your login shell
-      ansible.builtin.user:
-        name: "{{ target_user }}"
-        shell: "{{ fish_login_shell }}"
       become: true
 
     # The omarchy-fish package is another port of the same defaults: its

@@ -1,5 +1,5 @@
 ---
-# Third-party Omarchy shell plugins, system phase:
+# Third-party Omarchy shell plugins, system phase (an administrator, once):
 #
 #   plugins       runtime dependencies of the omarchy_plugins list
 #   pinentry      omapin: release tag checked out, built, pacman -U
@@ -11,16 +11,17 @@
 #   fingerprint   fingerprint-omarchy: its runtime dependencies (the
 #                 overlay itself comes from the marketplace, per user)
 #   security-key  security-key-omarchy: release tag checked out, built,
-#                 pacman -U; your keys in /etc/fido2/fido2; the PAM lines
+#                 pacman -U, for the helper that writes /etc/fido2/fido2;
+#                 your keys in /etc/fido2/fido2; the PAM lines
 #
 # omapin, omaskpass and security-key-omarchy are listed in the Omarchy plugin
 # marketplace too: their packages are built here for the binaries/helpers,
-# while your shell gets the plugin from the marketplace. Tag GPG signature
-# verification is off by default so a fresh install doesn't require the
-# Yubikey's OpenPGP key in your keyring up front (it can be imported later
-# through the security-key-omarchy overlay in Setup > Security, or opt-in
-# with `just apply gpg-yubikey`). Installing or linking and enabling the
-# plugins in your shell, and their configuration, happen in
+# while each user's shell gets the plugin from the marketplace. Tag GPG
+# signature verification is off by default so a fresh install doesn't require
+# the Yubikey's OpenPGP key in the administrator's keyring up front (it can be
+# imported later through the security-key-omarchy overlay in Setup > Security,
+# or opt-in with `just apply gpg-yubikey`). Installing or linking and enabling
+# the plugins in each user's shell, and their per-user configuration, happen in
 # user/plugins.yml, which explains the plugin list. What the builds need
 # (base-devel, git) ships with Omarchy 4.5; only Rust is added here.
 #
@@ -442,14 +443,18 @@
         mode: "0644"
       become: true
 
-# fingerprint-omarchy — the overlay that manages your fingerprints (fprintd)
-# (https://github.com/lbssousa/fingerprint-omarchy). It is QML plus a Python
-# helper listed in the Omarchy plugin marketplace: the user phase installs it
-# from there (user/plugins.yml), so this phase only installs what the helper
-# runs (the depends of its PKGBUILD) and removes the Arch package earlier runs
-# built from the signed tag, which nothing needs any more (it only added the
-# omarchy-fingerprint launcher; user/plugins.yml points the menu at the
-# overlay).
+# fingerprint-omarchy — the overlay that manages a user's own fingerprints
+# (fprintd) (https://github.com/lbssousa/fingerprint-omarchy). It is QML plus
+# a Python helper listed in the Omarchy plugin marketplace: each user's phase
+# installs it from there (user/plugins.yml), so this phase only installs what
+# the helper runs (the depends of its PKGBUILD) and removes the Arch package
+# earlier runs built from the signed tag, which nothing needs any more (it
+# only added the omarchy-fingerprint launcher).
+#
+# security-key-omarchy is built as a package below even here: since 0.4.0 the
+# overlay saves keys only through the package's omarchy-security-key-authfile,
+# not omarchy-multiuser's omarchy-mu-fido2-authfile. Both write only the
+# caller's line of /etc/fido2/fido2.
 #
 # Usage: just apply fingerprint
 - name: fingerprint-omarchy (fingerprint overlay)

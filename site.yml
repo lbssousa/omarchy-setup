@@ -1,6 +1,7 @@
 ---
-# Every automation: the system phase, then the user phase. What `just setup`
-# runs (system.yml and user.yml say what each one does).
+# Every automation: the system phase, then the user phase for whoever runs
+# it. What `just setup` runs for an administrator setting up their own
+# account; other users run only `just user` (system.yml says who does what).
 #
 # Usage: ./run-empowered.sh ansible-playbook site.yml   (just setup)
 - name: System phase

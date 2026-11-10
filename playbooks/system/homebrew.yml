@@ -17,8 +17,9 @@
 # Not imported by site.yml: Homebrew is only needed by whatever you
 # `brew install` yourself, so it is not part of `just setup` — run it explicitly with `just apply homebrew`.
 #
-# The prefix belongs to homebrew_owner. user/homebrew.yml puts its binaries on
-# your PATH.
+# One owner per machine (homebrew_owner, an administrator): the prefix is
+# theirs and only they `brew install`. user/homebrew.yml puts its binaries
+# on every user's PATH (they can run them, not change them).
 #
 # Usage: just apply homebrew
 - name: Homebrew

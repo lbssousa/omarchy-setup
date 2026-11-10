@@ -52,6 +52,22 @@ groups:
   extras: Extras (opt-in)
 
 features:
+  - id: users
+    group: accounts
+    title: User accounts
+    effect: adds the accounts in group_vars/all/users.yml (fish as login shell, wheel, omarchy-users or omarchy-child, subuid ranges)
+    phases: [system]
+    default: false
+    revert: false
+
+  - id: omarchy-multiuser
+    group: accounts
+    title: omarchy-multiuser
+    effect: adds forks of Omarchy's single-owner tools (a LUKS key per person that picks them at boot, a password-only greeter, per-user FIDO2/fingerprint, migrations, child accounts and blocked apps); modifies SDDM (autologin only for whoever unlocked the disk, greeter scale 100%) and the initramfs
+    phases: [system]
+    default: false
+    revert: false
+
   - id: pam-auth-order
     group: accounts
     title: PAM order
@@ -66,6 +82,14 @@ features:
     effect: modifies polkitd's ExpirationSeconds
     phases: [system]
     default: true
+    revert: false
+
+  - id: shared-checkout
+    group: accounts
+    title: Shared checkout
+    effect: adds /opt/omarchy-setup and omarchy-setup-user, so every user can run their own phase
+    phases: [system]
+    default: false
     revert: false
 
   - id: flatpak
@@ -359,6 +383,7 @@ features:
     phases: [system]
     default: false
     revert: false
+
 
   - id: gpg-yubikey
     group: security

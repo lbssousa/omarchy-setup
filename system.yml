@@ -1,7 +1,8 @@
 ---
-# System phase: everything that needs root — packages, /etc, PAM, udev,
-# system services, signed plugin builds. Run by the machine's owner (wheel),
-# under run-empowered.sh, after each change.
+# System phase: everything that needs root or is shared by every user —
+# packages, /etc, PAM, SDDM, udev, system services, signed plugin builds,
+# user accounts. Run by an administrator (wheel), under run-empowered.sh,
+# after each change and after adding a user.
 #
 # Which plays run is the feature selection (features.yml + the choices from
 # `just configure`): scripts/run-phase.sh passes it and the matching --tags.
@@ -14,8 +15,17 @@
 - name: "Preflight: the selection came through scripts/run-phase.sh"
   ansible.builtin.import_playbook: playbooks/system/preflight.yml
 
-- name: Fish, the owner's login shell (always)
+- name: Fish, every account's login shell (always; before the accounts, which check it in /etc/shells)
   ansible.builtin.import_playbook: playbooks/system/fish.yml
+
+- name: "Accounts (omarchy_users): fish, wheel or omarchy-users, subuid ranges"
+  ansible.builtin.import_playbook: playbooks/system/users.yml
+
+- name: "omarchy-multiuser: forks of Omarchy's single-owner tools"
+  ansible.builtin.import_playbook: playbooks/system/omarchy-multiuser.yml
+
+- name: The multi-user login screen (feature omarchy-multiuser)
+  ansible.builtin.import_playbook: playbooks/system/sddm.yml
 
 - name: polkitd's authentication cache
   ansible.builtin.import_playbook: playbooks/system/polkit.yml
@@ -91,3 +101,6 @@
 
 - name: Secure Boot (opt-in)
   ansible.builtin.import_playbook: playbooks/system/secureboot.yml
+
+- name: /opt/omarchy-setup and omarchy-setup-user
+  ansible.builtin.import_playbook: playbooks/system/shared-checkout.yml

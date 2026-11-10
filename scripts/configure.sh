@@ -6,8 +6,8 @@
 # and `just user` apply. Starts from your current choices (or the catalog's
 # defaults), shows what would change and offers to apply it right away.
 #
-# With wheel you choose every feature; without it, only those with a user
-# phase.
+# Administrators choose every feature; other users only those with a user
+# phase (the rest is the machine's, chosen by an administrator).
 set -euo pipefail
 
 cd "$(dirname "$(readlink -f "$0")")/.."

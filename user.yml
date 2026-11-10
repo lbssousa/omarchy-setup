@@ -1,21 +1,22 @@
 ---
 # User phase: everything that lives in the user's home or session —
-# ~/.config, systemctl --user, gsettings, the live omarchy-shell. Run inside
-# the graphical session, as yourself (never under run0): no task here
-# becomes root. What it needs installed comes from system.yml, run first.
+# ~/.config, systemctl --user, gsettings, the live omarchy-shell. Run by
+# each user, inside their own graphical session, as themselves (never under
+# run0): no task here becomes root. What it needs installed comes from
+# system.yml, run by an administrator first.
 #
 # Which plays run is the feature selection (features.yml + this user's
 # choices from `just configure`): scripts/run-phase.sh passes it and the
 # matching --tags. Each play is tagged with its feature id; the app plays
-# (tag apps) and the always-tagged ones run every time. Your settings come
-# from users/<user>.yml and ~/.config/omarchy-setup/local.yml.
+# (tag apps) and the always-tagged ones run every time. Per-user settings
+# come from users/<user>.yml and ~/.config/omarchy-setup/local.yml.
 #
 # Usage: just user
 
 - name: "Preflight: as the user, in the graphical session, with the selection"
   ansible.builtin.import_playbook: playbooks/user/preflight.yml
 
-- name: Fish as the login shell, with Omarchy's Starship prompt (always)
+- name: Fish, every account's login shell, with Omarchy's Starship prompt (always)
   ansible.builtin.import_playbook: playbooks/user/fish.yml
 
 - name: git identity (from the untracked local.yml)

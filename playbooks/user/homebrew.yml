@@ -1,7 +1,8 @@
 ---
 # Homebrew, per user: its bin/sbin on the session's PATH (environment.d),
 # once the prefix exists. Homebrew itself is installed by
-# system/homebrew.yml.
+# system/homebrew.yml, owned by homebrew_owner; other users can run what it
+# installed but not install formulae.
 #
 # Usage: just apply homebrew
 - name: Homebrew (session PATH)

@@ -12,7 +12,7 @@
 # breaking `just setup` for every other playbook over something as
 # routine as the L4160 being off.
 #
-# The queue and the system default are machine-wide; your own
+# The queue and the system default are machine-wide; each user's own
 # default (~/.cups/lpoptions) is set by user/printer.yml.
 - name: EPSON L4160 printer (driverless)
   hosts: localhost

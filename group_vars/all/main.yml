@@ -135,7 +135,7 @@ chromium_browsers:
 # Omarchy's web apps, kept native or rebuilt with the browser chosen in
 # `just configure` (playbooks/user/apps/webapps.yml): Firefox Taskbar Tabs,
 # or PWAs for Google Chrome, Brave Origin and Chromium. The choice defaults
-# to the default browser's own solution. List yours in users/<name>.yml:
+# to the default browser's own solution. Each user lists theirs in users/<name>.yml:
 #
 #   label         what the keybind is called (and Omarchy's launcher Name=,
 #                 unless omarchy_webapp_name says otherwise)
@@ -156,7 +156,7 @@ webapps_desktop_dir: "{{ target_home }}/.local/share/applications"
 webapps_backup_dir: "{{ target_home }}/.local/share/omarchy-setup/webapps-omarchy"
 firefox_taskbar_app_launcher: "{{ target_home }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
 # PWAs force-installed through each Chromium-family browser's machine
-# policy directory, the union of the webapps lists in users/.
+# policy directory, the union of every user's webapps list.
 webapps_pwa_engines:
   chrome:
     label: Google Chrome
@@ -530,7 +530,7 @@ clipboard_portal_interfaces:
   - org.freedesktop.impl.portal.Clipboard
 
 # fingerprint-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
-# enroll, test and delete fingerprints (fprintd), opened from Omarchy's
+# enroll, test and delete fingerprints (fprintd), opened by omarchy-multiuser's
 # Setup > Security > Fingerprint. Installed per user from the Omarchy plugin
 # marketplace, pinned to the release tag it approved; bump the ref (to a
 # release the marketplace has verified) to deploy a new one. The system
@@ -559,6 +559,32 @@ security_key_plugin_package: security-key-omarchy
 security_key_plugin_id: lbssousa.security-key
 security_key_plugin_authfile: /etc/fido2/fido2
 security_key_plugin_authfile_helper: /usr/bin/omarchy-security-key-authfile
+
+# Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
+# of this repository every user runs `omarchy-setup-user` from.
+shared_checkout_dir: /opt/omarchy-setup
+
+# omarchy-multiuser (playbooks/system/omarchy-multiuser.yml) — the forks of
+# Omarchy's single-owner tools: each person's password also their own LUKS key
+# slot, which picks them at the disk prompt and on a login screen that asks for
+# the password alone, per-user FIDO2 and fingerprints, migrations for
+# non-admins, administrator rights given and taken, child accounts and per-user
+# blocked apps. Built as an Arch package from a release tag of
+# https://github.com/lbssousa/omarchy-multiuser; bump the ref to deploy a new
+# release. omarchy_multiuser_repo may also be a local checkout (with the tag in
+# it) before the repository is published.
+omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
+omarchy_multiuser_ref: v0.12.0
+omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
+omarchy_multiuser_verify_commit: false
+omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"
+omarchy_multiuser_package: omarchy-multiuser
+# System units the package ships but leaves for this play to enable.
+omarchy_multiuser_path_units:
+  - omarchy-mu-sddm-guard.path
+  - omarchy-mu-sddm-sync.path
+  - omarchy-mu-apply-lock.path
+omarchy_multiuser_theme: omarchy-multiuser
 
 # openssh with askpass touch notifications (playbooks/system/openssh-askpass.yml)
 # — Arch's openssh rebuilt with files/openssh/askpass-notify.patch.
@@ -692,8 +718,9 @@ ptbr_ocr_langs: "por+eng"
 homebrew_install_url: https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh
 homebrew_install_script_path: "{{ target_home }}/.cache/omarchy-setup/homebrew-install.sh"
 homebrew_prefix: /home/linuxbrew/.linuxbrew
-# Who owns the prefix and installs formulae: whoever runs the play.
-homebrew_owner: "{{ target_user }}"
+# The one user who owns the prefix and installs formulae (Homebrew doesn't
+# share a prefix between users); the first administrator by default.
+homebrew_owner: "{{ omarchy_users | selectattr('admin', 'defined') | selectattr('admin') | map(attribute='name') | first }}"
 homebrew_bin: "{{ homebrew_prefix }}/bin/brew"
 homebrew_symlink: /usr/local/bin/brew
 # bbrew — TUI for managing Homebrew and Flatpak packages (bold-brew).
@@ -703,7 +730,7 @@ homebrew_bbrew_package: bbrew
 # header comment in playbooks/{system,user}/homebrew.yml.
 homebrew_env_file: 42-homebrew.conf
 
-# The login shell (playbooks/{system,user}/fish.yml): fish is
+# Every account's login shell (playbooks/system/{fish,users}.yml): fish is
 # mandatory, not a feature you can switch off.
 fish_login_shell: /usr/bin/fish
 
@@ -769,7 +796,7 @@ bgrt_sysfs_image: "{{ bgrt_sysfs_dir }}/image"
 bgrt_sysfs_yoffset: "{{ bgrt_sysfs_dir }}/yoffset"
 bgrt_omarchy_theme_name: bgrt
 bgrt_omarchy_theme_dir: "{{ target_home }}/.config/omarchy/themes/{{ bgrt_omarchy_theme_name }}"
-# Where the system phase builds the Omarchy theme for the user phase to copy.
+# Where the system phase builds the Omarchy theme for every user to copy.
 bgrt_shared_theme_dir: "/usr/local/share/omarchy-setup/themes/{{ bgrt_omarchy_theme_name }}"
 bgrt_plymouth_theme_name: omarchy-bgrt
 bgrt_plymouth_theme_dir: "/usr/share/plymouth/themes/{{ bgrt_plymouth_theme_name }}"
@@ -853,8 +880,14 @@ omarchy_monitor_scale: 1.0
 # omarchy_gdk_scale.
 omarchy_gdk_scale: "{{ omarchy_monitor_scale | float | round | int }}"
 
+# Monitor scale of the SDDM greeter (playbooks/system/desktop.yml, feature
+# text-size). Separate from omarchy_monitor_scale, which users can set for
+# themselves in users/$USER.yml: the login screen is shared by everyone on the
+# machine.
+omarchy_greeter_monitor_scale: 1.0
+
 # The SDDM greeter's own Hyprland config (playbooks/system/desktop.yml),
-# which runs Omarchy's and pins the scale to omarchy_monitor_scale, and the
+# which runs Omarchy's and pins the scale to omarchy_greeter_monitor_scale, and the
 # sddm.conf.d drop-in that selects it (sorts after Omarchy's 10-wayland.conf).
 sddm_greeter_stock_hyprland_config: /usr/share/sddm/hyprland.lua
 sddm_greeter_hyprland_config: /usr/local/share/omarchy-setup/sddm/hyprland.lua

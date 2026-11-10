@@ -5,14 +5,18 @@ Ansible automation for setting up a freshly installed
 to apply.
 
 Each automation is split into a **system phase** (packages, `/etc`, PAM,
-signed plugin builds — needs `wheel`) and a **user phase** (your `~/.config`,
-session services and shell plugins — run as yourself, in your own session).
+the login screen, signed plugin builds — run by an administrator) and a
+**user phase** (your `~/.config`, session services and shell plugins — run
+as yourself, in your own session).
 
-It follows Omarchy's single-owner model: one account, logged in automatically
-behind the disk password. Support for several users is paused; its code is on
-the [`multiuser`](https://github.com/lbssousa/omarchy-setup/tree/multiuser)
-branch. To take a machine set up that way back to this model, run
-`just leave-multiuser`.
+It can also set the machine up for **several users**, opt-in: the
+`users`, `omarchy-multiuser` and `shared-checkout` features (all off by
+default, so a stock single-owner Omarchy keeps its autologin and its own
+tools) create the accounts, replace the Omarchy tools that assumed a single
+owner with [omarchy-multiuser](https://github.com/lbssousa/omarchy-multiuser)
+— each person's password is their own disk key, and the one typed at the
+disk prompt or on the login screen says whose desktop opens — and publish a
+copy every user can run their own phase from. See [docs/multi-user.md](docs/multi-user.md) for the model.
 
 ## Choosing what to apply
 
@@ -39,19 +43,21 @@ just configure   # gum menu: pick apps and features; offers to apply them
   ones (Secure Boot, Homebrew, the BGRT boot theme,
   Google Drive, the Yubikey GPG key).
 
-fish is your login shell; that isn't a choice. Omarchy's web
+fish is every account's login shell; that isn't a choice. Omarchy's web
 apps (YouTube, WhatsApp, ...) are kept native or rebuilt with an installed
 browser — the menu asks, offering Firefox Taskbar Tabs or Chrome/Brave/Chromium
 PWAs — and either way they open tiled fullscreen.
 
 Your choices are saved in `~/.config/omarchy-setup/features.yml`; anything
-you never chose takes the catalog's default.
+you never chose takes the catalog's default. Each user runs the menu for
+their own user phase; the system phase follows the administrator's.
 
 ## Prerequisites
 
 - An Omarchy 4.5 desktop: the plays rely on its packages and commands.
 - `run0` (part of systemd, so already there on Arch) and, for the system
-  phase, a user in the `wheel` group.
+  phase, a user in the `wheel` group. Other users need not be: their part is
+  the user phase only.
 - The libfprint playbook builds with `makepkg` on the host (no container);
   it replaces the official `libfprint`/`libfprint-git` via `pacman -U`.
 - The Secure Boot playbook only covers Limine + limine-entry-tool.
@@ -93,7 +99,7 @@ fail fast instead of waiting.
 
 ## Usage
 
-On your own account:
+As an administrator, on your own account:
 
 ```bash
 git clone https://github.com/lbssousa/omarchy-setup.git
@@ -112,10 +118,27 @@ just apply capslock nix   # only these features now (even if switched off)
 just apply apps           # only the apps
 ```
 
-Personal data stays out of the repository: your git identity and the Google
-account for rclone go in
+Personal data stays out of the repository: your git identity, the Google
+account for rclone and (administrator) the accounts' full names go in
 `~/.config/omarchy-setup/local.yml` (template:
 [users/local.example.yml](users/local.example.yml)).
+
+Adding someone (turn on the multi-user features first, in `just
+configure`: `users`, `omarchy-multiuser`, `shared-checkout`): declare them
+in `group_vars/all/users.yml` (their full name in your `local.yml`; their
+settings, if any, in `users/<name>.yml`), commit, then:
+
+```bash
+just users       # creates the account and asks for its password, also its disk key
+just publish     # world-readable copy in /opt/omarchy-setup + omarchy-setup-user
+```
+
+They log in from the greeter (Omarchy's first-run setup runs as for the
+owner) and apply their part, from a terminal in their session:
+
+```bash
+omarchy-setup-user          # same as `just user`, from the shared copy
+```
 
 `just check` syntax-checks everything, the boundary between the phases, the
 catalog against the plays' tags and that docs/features.md is current
@@ -148,9 +171,10 @@ Boot has a walkthrough: [docs/secureboot.md](docs/secureboot.md).
 | `playbooks/tasks/` | Shared tasks: app install/removal (`app-package.yml`, `aur-build.yml`, `artcraft-launcher.yml`), Hyprland blocks (`hypr-user-block.yml`), Flatpak overrides, signed-tag checkouts, web apps, handlers |
 | `playbooks/files/`, `playbooks/templates/` | Static files and Jinja2 templates |
 | `group_vars/all/main.yml` | Variables for every automation (machine defaults) |
+| `group_vars/all/users.yml` | The machine's accounts (`omarchy_users`); full names live in the untracked `local.yml` |
 | `group_vars/all/target.yml` | `target_user`/`target_home`: the account a run configures |
-| `users/<name>.yml` | Your settings (see `users/README.md`), e.g. your web apps |
-| `docs/` | The feature catalog and the Secure Boot walkthrough |
+| `users/<name>.yml` | Each user's own settings (see `users/README.md`), e.g. their web apps |
+| `docs/` | The feature catalog, the multi-user model, the Secure Boot walkthrough |
 | `local-typesetting/` | TeX Live + LilyPond + Gregorio on the host (`just typesetting`) |
 | `requirements.yml` | Required Ansible collections |
 | `Justfile` | `just configure`, `setup`, `system`, `user`, `apply`, `check`, ... |

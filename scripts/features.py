@@ -310,7 +310,7 @@ def cmd_doc():
         "What each automation does to a stock Omarchy 4.5, and whether it is on",
         "until you choose otherwise with `just configure`. **Revert**: turning it",
         "off undoes it on the next run; otherwise turning it off only stops",
-        "managing it. fish as the login shell isn't a feature: it is",
+        "managing it. fish as every account's login shell isn't a feature: it is",
         "always applied.",
         "",
     ]

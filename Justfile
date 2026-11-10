@@ -3,8 +3,9 @@ set shell := ["bash", "-uc"]
 # Two phases (see system.yml and user.yml), both run through
 # scripts/run-phase.sh: the system phase under `run0 --empower` (see
 # run-empowered.sh: one polkit authentication up front, then every
-# `become: true` task's run0 inside passes without prompting again); the user
-# phase as plain ansible-playbook, in your session. Both apply the features and apps chosen with
+# `become: true` task's run0 inside passes without prompting again), for
+# administrators only; the user phase as plain ansible-playbook, for every
+# user in their own session. Both apply the features and apps chosen with
 # `just configure` (catalog: features.yml, docs/features.md).
 
 default:
@@ -37,8 +38,9 @@ _ensure-gum:
 configure: _ensure-gum _ensure-collections
     scripts/configure.sh
 
-# Every automation: the system phase (authenticate once, in the polkit dialog
-# that appears at the start), then your user phase. Asks for your choices first if you never
+# Every automation for your own account: the system phase (needs an
+# administrator; authenticate once, in the polkit dialog that appears at the
+# start), then your user phase. Asks for your choices first if you never
 # made any.
 setup: _ensure-collections
     #!/usr/bin/env bash
@@ -49,19 +51,22 @@ setup: _ensure-collections
         just system user
     fi
 
-# The system phase: packages, /etc, PAM, signed plugin builds. Needs wheel.
+# The system phase: packages, /etc, PAM, SDDM, signed plugin builds, user
+# accounts. Administrators (wheel) only; rerun after adding a user.
 system: _ensure-collections
     scripts/run-phase.sh system system.yml
 
 # Your user phase: your ~/.config, session services and shell plugins, with
 # your settings from users/$USER.yml. Run it as yourself, in your graphical
-# session.
+# session; other users run only this (`omarchy-setup-user` from any
+# account, once an administrator has published the shared checkout).
 user: _ensure-collections
     scripts/run-phase.sh user user.yml
 
 # Apply only the given features now (ids from features.yml, or `apps` for
-# every app category), in both phases, even those switched off in your
-# choices. E.g. `just apply capslock printer`, `just apply apps`.
+# every app category), in both phases (the system half needs an
+# administrator), even those switched off in your choices. E.g.
+# `just apply capslock printer`, `just apply apps`.
 apply +IDS: _ensure-collections
     #!/usr/bin/env bash
     set -euo pipefail
@@ -71,9 +76,41 @@ apply +IDS: _ensure-collections
     if id -nG | tr ' ' '\n' | grep -qx wheel; then
         scripts/run-phase.sh system system.yml --tags "$tags"
     else
-        echo "Skipping the system half (it needs wheel)."
+        echo "Skipping the system half (administrators only)."
     fi
     scripts/run-phase.sh user user.yml --tags "$tags"
+
+# Create or update the accounts in omarchy_users (group_vars/all/users.yml),
+# then offer to set the password of each account that needs one: a new (still
+# locked) account and, on an encrypted disk, one whose password doesn't open it
+# yet. omarchy-mu-user-password asks for their password and yours. Each person's
+# password is also their own disk key and picks them at the disk prompt and the
+# login screen, so it has to be nobody else's; they can change it later from
+# Setup › Users › Change Password.
+users: _ensure-collections
+    #!/usr/bin/env bash
+    set -euo pipefail
+    scripts/run-phase.sh system system.yml --tags always,users
+    encrypted=false
+    [[ $(lsblk -no TYPE "$(findmnt -no SOURCE / | sed 's/\[.*//')" 2>/dev/null | head -1) == crypt ]] && encrypted=true
+    for u in $(getent group omarchy-users wheel | cut -d: -f4 | tr , "\n" | sort -u); do
+        [[ -n $u ]] || continue
+        if [[ $(sudo passwd -S "$u" | cut -d" " -f2) == L ]]; then
+            echo "Account $u has no password yet."
+        elif $encrypted && ! sudo awk -v u="$u" '$4 == u { found = 1 } END { exit !found }' /etc/omarchy-multiuser/slots 2>/dev/null; then
+            echo "The password of $u doesn't open the disk yet."
+        else
+            continue
+        fi
+        read -rp "Set it now? [Y/n] " answer
+        [[ $answer == [nN]* ]] && continue
+        omarchy-mu-user-password "$u" || echo "Skipped: run omarchy-mu-user-password $u later."
+    done
+
+# Publish the committed HEAD to /opt/omarchy-setup and install
+# omarchy-setup-user, which every user runs for their own phase.
+publish: _ensure-collections
+    scripts/run-phase.sh system system.yml --tags always,shared-checkout
 
 # Syntax-check every entry point, the system/user phase boundary, the
 # feature catalog against the plays' tags, and docs/features.md.
@@ -127,8 +164,3 @@ ssh-yubikey:
 # Undo the GitHub SSH drop-in — for migrating to an ssh-agent.
 ssh-yubikey-disable:
     scripts/ssh-yubikey.sh disable
-
-# Take a machine set up for several users back to Omarchy's single-owner
-# defaults, one confirmed stage at a time (see scripts/leave-multiuser.sh).
-leave-multiuser:
-    scripts/leave-multiuser.sh

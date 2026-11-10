@@ -53,10 +53,10 @@
 #
 # Must run inside the graphical session — the shell is the IPC target.
 #
-# This is the user phase: it installs (or links) and enables the plugins in
-# your shell. The plugin dependencies and the signed packages are installed by
-# system/plugins.yml; the fingerprint kept here
-# (tasks/plugin-code-stamp.yml) tells this phase
+# This is the user phase: each user installs (or links) and enables the
+# plugins in their own shell. The plugin dependencies and the signed
+# packages are installed by system/plugins.yml (an administrator); the
+# fingerprint kept per user (tasks/plugin-code-stamp.yml) tells this phase
 # when a packaged binary or plugin changed and needs a shell restart.
 #
 # Usage: just apply plugins
@@ -668,7 +668,7 @@
 
 # fingerprint-omarchy, per user: install the overlay from the marketplace and
 # enable it, and point Setup > Security > Fingerprint at it (the stock entry
-# runs Omarchy's terminal script).
+# runs Omarchy's terminal script; omarchy-multiuser, now opt-in, did this too).
 - name: fingerprint-omarchy (fingerprint overlay) (user)
   hosts: localhost
   connection: local
@@ -732,7 +732,8 @@
 # security-key-omarchy, per user: install the overlay from the marketplace (the
 # pkexec helper comes from the package the system phase builds), enable it, and
 # point Setup > Security > Fido2 and Remove > Fido2 at it (the stock entries run
-# Omarchy's terminal scripts).
+# Omarchy's terminal scripts; omarchy-multiuser, now opt-in, did this for Setup
+# too).
 - name: security-key-omarchy (security key overlay) (user)
   hosts: localhost
   connection: local
@@ -809,7 +810,7 @@
 
     # The overlay removes keys one by one (each has its own button). The stock
     # entry's script, which takes pam_u2f out of sudo/polkit, deletes
-    # /etc/fido2 and drops the packages, stays available as
+    # /etc/fido2 for every user and drops the packages, stays available as
     # omarchy-remove-security-fido2.
     - name: "Open the overlay from Remove > Fido2"
       ansible.builtin.include_tasks: tasks/menu-override.yml

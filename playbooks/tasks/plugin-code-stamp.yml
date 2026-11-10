@@ -1,8 +1,8 @@
 ---
-# Whether a packaged shell plugin's code changed since you last loaded it. The
-# system phase installs the code, maybe long before, so its "changed" can't
-# reach the user phase; this fingerprints the installed files and keeps the
-# fingerprint in
+# Whether a packaged shell plugin's code changed since this user last loaded
+# it. The system phase installs the code (an administrator, maybe long
+# before), so its "changed" can't reach the user phase; this fingerprints the
+# installed files and keeps the fingerprint per user, in
 # ~/.local/state/omarchy-setup/plugins/<id>.sum. plugin_stamp_result is
 # changed when the code differs from the last run (or on the first one).
 #

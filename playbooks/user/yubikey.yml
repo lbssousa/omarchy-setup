@@ -6,10 +6,11 @@
 # OpenPGP key interactively).
 #
 # Runs in both phases so `just apply gpg-yubikey` (or opting in alongside
-# `*_verify_commit: true` for the plugin checkouts) has the key in place
-# before system/plugins.yml; the user phase's run is then a no-op. No task
-# here becomes root, so in the system phase it still touches only the
-# caller's keyring.
+# `*_verify_commit: true` for the plugin checkouts) has the key in the
+# administrator's keyring before system/plugins.yml; the user phase's run is
+# then a no-op for them, and the import for everyone else. No task here
+# becomes root, so in the system phase it still touches only the caller's
+# keyring.
 #
 # Never uses `become: true` for GPG or git tasks — the keyring and
 # ~/.gitconfig are personal user data. gnupg itself ships with Omarchy.

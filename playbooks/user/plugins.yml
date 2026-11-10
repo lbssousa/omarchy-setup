@@ -468,6 +468,42 @@
         dest: "{{ omaskpass_environment_conf }}"
         mode: "0644"
 
+    - name: Create ~/.config/uwsm/env.d
+      ansible.builtin.file:
+        path: "{{ omaskpass_uwsm_env | dirname }}"
+        state: directory
+        mode: "0755"
+
+    - name: "Configure SSH to use omaskpass in UWSM ({{ omaskpass_uwsm_env }})"
+      ansible.builtin.copy:
+        content: |
+          export SSH_ASKPASS={{ omaskpass_program }}
+          export SSH_ASKPASS_REQUIRE=prefer
+        dest: "{{ omaskpass_uwsm_env }}"
+        mode: "0644"
+
+    - name: "Configure SSH to use omaskpass in Hyprland"
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        hypr_file: hyprland.lua
+        hypr_marker: playbooks/user/plugins.yml — ssh-askpass
+        hypr_state: present
+        hypr_block: |
+          hl.env("SSH_ASKPASS", "{{ omaskpass_program }}")
+          hl.env("SSH_ASKPASS_REQUIRE", "prefer")
+
+    - name: "Configure SSH_ASKPASS in ~/.bashrc"
+      ansible.builtin.blockinfile:
+        path: "{{ target_home }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK (playbooks/user/plugins.yml — ssh-askpass)"
+        block: |
+          export SSH_ASKPASS="{{ omaskpass_program }}"
+          export SSH_ASKPASS_REQUIRE="prefer"
+        state: present
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml
+
 # polkit-omarchy, per user: link the plugin and enable it, which disables
 # Omarchy's built-in omarchy.polkit agent, then check that the swap took.
 - name: polkit-omarchy (polkit agent with security key touch prompt) (user)

@@ -1,9 +1,8 @@
 ---
 # Imports the connected Yubikey's OpenPGP public key into the caller's
-# keyring and assigns it ultimate trust. Shared by playbooks/user/yubikey.yml
-# (the gpg-yubikey feature) and, as a dependency, by
-# the security-key play in playbooks/system/plugins.yml: its signed release tag
-# needs the key in your keyring before the checkout can be verified.
+# keyring and assigns it ultimate trust (playbooks/user/yubikey.yml, the
+# opt-in gpg-yubikey feature; the security-key-omarchy overlay can also
+# import it interactively from Setup > Security).
 #
 # Imports via `gpg --card-edit fetch`, which reads the URL stored on the
 # card's OpenPGP applet and pulls the public key from there — no hardcoded

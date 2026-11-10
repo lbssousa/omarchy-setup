@@ -1,17 +1,15 @@
 ---
 # Yubikey GPG public key — imports it, assigns ultimate trust, and
 # configures git to sign commits/tags with it. Opt-in: depends on the
-# physical token being connected (`just apply gpg-yubikey`).
+# physical token being connected (`just apply gpg-yubikey`; the
+# security-key-omarchy overlay in Setup > Security also imports the
+# OpenPGP key interactively).
 #
-# Runs in both phases: system.yml imports it before plugins.yml, whose
-# signed release tags (omapin, omaskpass, polkit-omarchy, ...) need
-# the key in your keyring; the user phase's run is then a no-op. No task here
-# becomes root, so in the system phase it still touches only the caller's
-# keyring.
-#
-# The import and trust tasks live in tasks/yubikey-gpg-key.yml, shared with
-# the security-key play in system/plugins.yml: its signed release tag needs the
-# key before it can be checked out.
+# Runs in both phases so `just apply gpg-yubikey` (or opting in alongside
+# `*_verify_commit: true` for the plugin checkouts) has the key in place
+# before system/plugins.yml; the user phase's run is then a no-op. No task
+# here becomes root, so in the system phase it still touches only the
+# caller's keyring.
 #
 # Never uses `become: true` for GPG or git tasks — the keyring and
 # ~/.gitconfig are personal user data. gnupg itself ships with Omarchy.

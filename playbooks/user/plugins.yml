@@ -4,10 +4,10 @@
 # alone). omapin, omaskpass, fingerprint-omarchy and security-key-omarchy
 # come from the Omarchy plugin marketplace, where they are listed: `omarchy
 # plugin add`, pinned to the release tag the marketplace approved
-# (tasks/marketplace-plugin.yml); the binaries of the first two still come
-# from the packages the system phase builds from the signed tags.
-# polkit-omarchy and xdg-desktop-portal-omarchy, not listed, are linked
-# from their packaged copy in /usr/share:
+# (tasks/marketplace-plugin.yml); the binaries/helpers of omapin, omaskpass
+# and security-key-omarchy come from the packages the system phase builds
+# from the same tags. polkit-omarchy and xdg-desktop-portal-omarchy, not
+# listed, are linked from their packaged copy in /usr/share:
 #
 #   plugins       omarchy_plugins list, via `omarchy plugin add`
 #   pinentry      omapin  (lbssousa.omapin)
@@ -729,7 +729,8 @@
         menu_override_id: setup.security.fingerprint
         menu_override_action: "omarchy-shell shell summon {{ fingerprint_plugin_id }} '{}'"
 
-# security-key-omarchy, per user: link the packaged overlay, enable it, and
+# security-key-omarchy, per user: install the overlay from the marketplace (the
+# pkexec helper comes from the package the system phase builds), enable it, and
 # point Setup > Security > Fido2 and Remove > Fido2 at it (the stock entries run
 # Omarchy's terminal scripts).
 - name: security-key-omarchy (security key overlay) (user)
@@ -739,40 +740,26 @@
   tags: [security-key]
 
   tasks:
-    - name: Check whether the installed plugin code changed for this user
+    - name: Check whether the installed plugin helper changed for this user
       ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
       vars:
         plugin_stamp_id: "{{ security_key_plugin_id }}"
-        plugin_stamp_paths: ["{{ security_key_plugin_dir }}"]
+        plugin_stamp_paths: ["{{ security_key_plugin_authfile_helper }}"]
 
-    - name: Look at the plugin directory
-      ansible.builtin.stat:
-        path: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}"
-      register: security_key_plugin_stat
+    - name: Keep the result under the name the tasks below use
+      ansible.builtin.set_fact:
+        security_key_plugin_package_result: "{{ plugin_stamp_result }}"
 
-    - name: Remove the marketplace clone earlier runs left
-      ansible.builtin.file:
-        path: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}"
-        state: absent
-      when: security_key_plugin_stat.stat.isdir | default(false) and not (security_key_plugin_stat.stat.islnk | default(false))
-
-    - name: Create ~/.config/omarchy/plugins
-      ansible.builtin.file:
-        path: "{{ omarchy_plugins_dir }}"
-        state: directory
-        mode: "0755"
-
-    - name: Link the shell plugin
-      ansible.builtin.file:
-        src: "{{ security_key_plugin_dir }}"
-        dest: "{{ omarchy_plugins_dir }}/{{ security_key_plugin_id }}"
-        state: link
-        force: true
-      register: security_key_plugin_link_result
+    - name: "Install security-key-omarchy from the Omarchy plugin marketplace, at {{ security_key_plugin_ref }}"
+      ansible.builtin.include_tasks: tasks/marketplace-plugin.yml
+      vars:
+        marketplace_plugin_id: "{{ security_key_plugin_id }}"
+        marketplace_plugin_repo: "{{ security_key_plugin_repo }}"
+        marketplace_plugin_ref: "{{ security_key_plugin_ref }}"
 
     - name: Keep the result under this play's name
       ansible.builtin.set_fact:
-        security_key_plugin_changed: "{{ plugin_stamp_result is changed or security_key_plugin_link_result is changed }}"
+        security_key_plugin_changed: "{{ marketplace_plugin_changed | bool or security_key_plugin_package_result is changed }}"
 
     - name: Read the shell config
       ansible.builtin.slurp:

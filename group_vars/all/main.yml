@@ -441,19 +441,16 @@ unprivileged_build: setpriv --inh-caps=-all --ambient-caps=-all --
 # omarchy-shell dialog. Built as an Arch package from the repo's own
 # packaging/PKGBUILD with rustup's cargo, for the binary; the shell plugin is
 # installed per user from the Omarchy plugin marketplace, pinned to the same
-# tag (the commit the marketplace approved).
+# release tag (the commit the marketplace approved).
 omapin_repo: https://github.com/lbssousa/omapin.git
-# A release tag, never a branch. main only holds GitHub-signed squash
-# merges, while releases are tags signed with the Yubikey's key (see the
-# "Releases" section of the omapin README). Bump this to deploy
-# a new release.
+# Pinned to a release tag, never a branch. Bump this to deploy a new release.
 omapin_ref: v0.4.1
 omapin_checkout_dir: "{{ target_home }}/src/omapin"
-# Refuse to build unless the tag's GPG signature verifies (git verify-tag)
-# and was made by one of these keys (primary key fingerprints). Currently
-# only the Yubikey's OpenPGP key, the same one yubikey.yml imports and
-# git signs with.
-omapin_verify_commit: true
+# Tag GPG signature verification (git verify-tag) is off by default so a
+# default install doesn't require the Yubikey's OpenPGP key in your keyring
+# up front (it can be imported later through the security-key-omarchy
+# overlay, or opt-in with `just apply gpg-yubikey`).
+omapin_verify_commit: false
 omapin_signing_keys:
   - BAC0B1B569777A733E37447FB10712C404063D38
 omapin_package: omapin
@@ -464,18 +461,15 @@ omapin_program: /usr/bin/omapin
 omapin_plugin_id: lbssousa.omapin
 omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # omaskpass (playbooks/{system,user}/plugins.yml) — SSH prompts in the
-# polkit-style omarchy-shell dialog. Built as an Arch package from a signed
-# release tag of the repo's own packaging/PKGBUILD with rustup's cargo, like
-# omapin (the binary; the plugin from the marketplace, at the same tag); bump
-# the ref to deploy a new release. It was called
-# ssh-askpass-omarchy until 0.2.0; the plays migrate an install of the old
-# name (omaskpass_legacy_*).
+# polkit-style omarchy-shell dialog. Built as an Arch package from a release
+# tag of the repo's own packaging/PKGBUILD with rustup's cargo, like omapin
+# (the binary; the plugin from the marketplace, at the same tag); bump the ref
+# to deploy a new release. It was called ssh-askpass-omarchy until 0.2.0; the
+# plays migrate an install of the old name (omaskpass_legacy_*).
 omaskpass_repo: https://github.com/lbssousa/omaskpass.git
 omaskpass_ref: v0.4.1
 omaskpass_checkout_dir: "{{ target_home }}/src/omaskpass"
-# Refuse to build unless the tag's GPG signature verifies and was made by
-# one of these keys (same as omapin's).
-omaskpass_verify_commit: true
+omaskpass_verify_commit: false
 omaskpass_signing_keys: "{{ omapin_signing_keys }}"
 omaskpass_package: omaskpass
 omaskpass_cargo_bin_dir: "{{ target_home }}/.cargo/bin"
@@ -492,15 +486,12 @@ omaskpass_legacy_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omas
 
 # polkit-omarchy (playbooks/{system,user}/plugins.yml) — Omarchy's polkit agent
 # plus a security key (pam_u2f) touch prompt; replaces omarchy.polkit.
-# Installed from a signed release tag of
-# https://github.com/lbssousa/polkit-omarchy; bump the ref to deploy a new
-# release.
+# Installed from a release tag of https://github.com/lbssousa/polkit-omarchy;
+# bump the ref to deploy a new release.
 polkit_agent_repo: https://github.com/lbssousa/polkit-omarchy.git
 polkit_agent_ref: v0.2.2
 polkit_agent_checkout_dir: "{{ target_home }}/src/polkit-omarchy"
-# Refuse to install unless the tag's GPG signature verifies and was made by
-# one of these keys (same as omapin's).
-polkit_agent_verify_commit: true
+polkit_agent_verify_commit: false
 polkit_agent_signing_keys: "{{ omapin_signing_keys }}"
 polkit_agent_plugin_dir: /usr/share/polkit-omarchy/plugin
 polkit_agent_plugin_id: lbssousa.polkit
@@ -514,13 +505,13 @@ polkit_agent_replaces_id: omarchy.polkit
 # xdg-desktop-portal-omarchy (playbooks/{system,user}/plugins.yml) — the
 # RemoteDesktop and Clipboard portals, for the clipboard only, so that
 # sandboxed apps (the Bitwarden Flatpak) can copy natively on Wayland, as
-# on GNOME, after a shell dialog. Built as an Arch package from a signed
-# release tag; bump the ref to deploy a new release. The repo may also be a
-# local checkout (with the tag in it) before it is published.
+# on GNOME, after a shell dialog. Built as an Arch package from a release
+# tag; bump the ref to deploy a new release. The repo may also be a local
+# checkout (with the tag in it) before it is published.
 clipboard_portal_repo: https://github.com/lbssousa/xdg-desktop-portal-omarchy.git
 clipboard_portal_ref: v0.1.0
 clipboard_portal_checkout_dir: "{{ target_home }}/src/xdg-desktop-portal-omarchy"
-clipboard_portal_verify_commit: true
+clipboard_portal_verify_commit: false
 clipboard_portal_signing_keys: "{{ omapin_signing_keys }}"
 clipboard_portal_package: xdg-desktop-portal-omarchy
 clipboard_portal_program: /usr/lib/xdg-desktop-portal-omarchy
@@ -554,17 +545,18 @@ fingerprint_plugin_id: lbssousa.fingerprint
 # security-key-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
 # register FIDO2 keys for sudo and polkit in Omarchy's /etc/fido2/fido2 and
 # import their OpenPGP and resident SSH keys, opened from Setup > Security >
-# Fido2. Built as an Arch package from a signed release tag, for the helper
-# that writes that root-owned file; bump the ref to deploy a new release.
+# Fido2. Built as an Arch package from a release tag, for the helper that
+# writes that root-owned file, while the shell plugin is installed per user
+# from the Omarchy plugin marketplace at the same tag; bump the ref to deploy
+# a new release.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
 security_key_plugin_ref: v0.7.3
 security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
-security_key_plugin_verify_commit: true
+security_key_plugin_verify_commit: false
 security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"
 security_key_plugin_runtime_packages: [python, libfido2, pam-u2f, gnupg, openssh, nodejs]
 security_key_plugin_package: security-key-omarchy
 security_key_plugin_id: lbssousa.security-key
-security_key_plugin_dir: /usr/share/security-key-omarchy/plugin
 security_key_plugin_authfile: /etc/fido2/fido2
 security_key_plugin_authfile_helper: /usr/bin/omarchy-security-key-authfile
 

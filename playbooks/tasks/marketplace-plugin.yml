@@ -3,9 +3,8 @@
 # `omarchy plugin add` clones it into ~/.config/omarchy/plugins/<id>, as
 # the Omarchy plugin marketplace installs it, and the clone is then pinned
 # to the release tag the marketplace approved (it clones the mutable
-# upstream HEAD otherwise). The tag's signature isn't checked here: this is
-# the user phase, and the system phase is the one that checks release keys;
-# the pinned ref is the record of what was reviewed.
+# upstream HEAD otherwise). The tag's GPG signature isn't checked: the
+# pinned ref is the record of the release the marketplace reviewed.
 #
 # The link an older run made to the packaged copy in /usr/share (same id)
 # is taken out first, or add would refuse the id as already installed.

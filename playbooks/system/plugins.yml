@@ -2,25 +2,27 @@
 # Third-party Omarchy shell plugins, system phase:
 #
 #   plugins       runtime dependencies of the omarchy_plugins list
-#   pinentry      omapin: signed release tag verified, built, pacman -U
-#   ssh-askpass   omaskpass: signed release tag verified, built, pacman -U
-#   polkit-agent  polkit-omarchy: signed release tag verified, copied to
+#   pinentry      omapin: release tag checked out, built, pacman -U
+#   ssh-askpass   omaskpass: release tag checked out, built, pacman -U
+#   polkit-agent  polkit-omarchy: release tag checked out, copied to
 #                 /usr/share
-#   clipboard-portal  xdg-desktop-portal-omarchy: signed release tag
-#                 verified, built, pacman -U; its config.toml
+#   clipboard-portal  xdg-desktop-portal-omarchy: release tag
+#                 checked out, built, pacman -U; its config.toml
 #   fingerprint   fingerprint-omarchy: its runtime dependencies (the
 #                 overlay itself comes from the marketplace, per user)
-#   security-key  security-key-omarchy: signed release tag verified, built,
+#   security-key  security-key-omarchy: release tag checked out, built,
 #                 pacman -U; your keys in /etc/fido2/fido2; the PAM lines
 #
-# omapin and omaskpass are listed in the Omarchy plugin marketplace too:
-# their packages are built here for the binaries, while your shell gets the
-# plugin from the marketplace. The release signing key needs to be in your
-# keyring (`just apply gpg-yubikey`). Installing or linking and enabling the
+# omapin, omaskpass and security-key-omarchy are listed in the Omarchy plugin
+# marketplace too: their packages are built here for the binaries/helpers,
+# while your shell gets the plugin from the marketplace. Tag GPG signature
+# verification is off by default so a fresh install doesn't require the
+# Yubikey's OpenPGP key in your keyring up front (it can be imported later
+# through the security-key-omarchy overlay in Setup > Security, or opt-in
+# with `just apply gpg-yubikey`). Installing or linking and enabling the
 # plugins in your shell, and their configuration, happen in
-# user/plugins.yml, which explains the plugin list. What the builds and the
-# signature checks need (base-devel, git, gnupg, pinentry) ships with
-# Omarchy 4.5; only Rust is added here.
+# user/plugins.yml, which explains the plugin list. What the builds need
+# (base-devel, git) ships with Omarchy 4.5; only Rust is added here.
 #
 # Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent /
 # clipboard-portal / fingerprint / security-key)
@@ -83,15 +85,10 @@
 # the playbook from inside the graphical session).
 #
 # The package is built, and installed as root, from whatever the checkout
-# holds. So the playbook checks out a release tag (omapin_ref),
-# never main, and requires that tag's GPG signature to verify and to come
-# from one of omapin_signing_keys:
-# - verify_commit makes the git module run `git verify-tag` for an
-#   annotated tag.
-# - gpg_allowlist pins the signer.
-# The releases are signed with the Yubikey's OpenPGP key, which
-# playbooks/user/yubikey.yml imports (`just apply gpg-yubikey`). main itself only
-# holds squash merges signed by GitHub's key, so it isn't deployable.
+# holds. So the playbook checks out a pinned release tag (omapin_ref),
+# never main (tag GPG signature verification is optional, off by default so
+# a fresh setup doesn't require the Yubikey's OpenPGP key before
+# security-key-omarchy is installed).
 #
 # The plugin is a keepLoaded service, and those survive the shell's plugin
 # hot-reload. So after the package changes, the shell is restarted to load
@@ -125,7 +122,7 @@
       ansible.builtin.command: omarchy-install-dev-env rust
       when: not omapin_cargo_stat.stat.exists
 
-    - name: "Check out the omapin release ({{ omapin_ref }}), verifying its signed tag"
+    - name: "Check out the omapin release ({{ omapin_ref }})"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
       vars:
         signed_checkout_name: omapin
@@ -219,7 +216,7 @@
       ansible.builtin.command: omarchy-install-dev-env rust
       when: not omaskpass_cargo_stat.stat.exists
 
-    - name: "Check out the omaskpass release ({{ omaskpass_ref }}), verifying its signed tag"
+    - name: "Check out the omaskpass release ({{ omaskpass_ref }})"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
       vars:
         signed_checkout_name: omaskpass
@@ -310,7 +307,7 @@
   tags: [polkit-agent]
 
   tasks:
-    - name: "Check out the polkit-omarchy release ({{ polkit_agent_ref }}), verifying its signed tag"
+    - name: "Check out the polkit-omarchy release ({{ polkit_agent_ref }})"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
       vars:
         signed_checkout_name: polkit-omarchy
@@ -363,7 +360,7 @@
       ansible.builtin.command: omarchy-install-dev-env rust
       when: not clipboard_portal_cargo_stat.stat.exists
 
-    - name: "Check out the xdg-desktop-portal-omarchy release ({{ clipboard_portal_ref }}), verifying its signed tag"
+    - name: "Check out the xdg-desktop-portal-omarchy release ({{ clipboard_portal_ref }})"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
       vars:
         signed_checkout_name: xdg-desktop-portal-omarchy
@@ -479,9 +476,9 @@
 # (https://github.com/lbssousa/security-key-omarchy). Omarchy's FIDO2 setup
 # keeps keys in the root-owned /etc/fido2/fido2 and registers just one, so the
 # package carries a helper, run through pkexec, that writes the caller's line
-# there. Deployed like omapin (above): a release tag whose GPG signature must
-# verify, built with makepkg and installed with pacman; user/plugins.yml links
-# its plugin into the shell.
+# there. Deployed like omapin (above): a release tag built with makepkg and
+# installed with pacman for the helper, while user/plugins.yml installs the
+# shell plugin from the Omarchy plugin marketplace at the same tag.
 #
 # Usage: just apply security-key
 - name: security-key-omarchy (security key overlay)
@@ -497,11 +494,7 @@
         state: present
       become: true
 
-    - name: "Import the Yubikey's GPG public key (the signed checkout below needs it in this keyring)"
-      ansible.builtin.import_tasks: tasks/yubikey-gpg-key.yml
-      when: security_key_plugin_verify_commit | bool
-
-    - name: "Check out the security-key-omarchy release ({{ security_key_plugin_ref }}), verifying its signed tag"
+    - name: "Check out the security-key-omarchy release ({{ security_key_plugin_ref }})"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml
       vars:
         signed_checkout_name: security-key-omarchy

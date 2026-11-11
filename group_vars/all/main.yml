@@ -467,7 +467,7 @@ omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # to deploy a new release. It was called ssh-askpass-omarchy until 0.2.0; the
 # plays migrate an install of the old name (omaskpass_legacy_*).
 omaskpass_repo: https://github.com/lbssousa/omaskpass.git
-omaskpass_ref: v0.4.1
+omaskpass_ref: v0.4.3
 omaskpass_checkout_dir: "{{ target_home }}/src/omaskpass"
 omaskpass_verify_commit: false
 omaskpass_signing_keys: "{{ omapin_signing_keys }}"

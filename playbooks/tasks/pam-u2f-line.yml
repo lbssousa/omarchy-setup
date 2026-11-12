@@ -5,10 +5,12 @@
 # but one without authfile= is pointed at that file: earlier runs left keys in
 # ~/.config/Yubico/u2f_keys, which that play has already moved.
 #
-# A key alone never authenticates: pinverification=1 and userpresence=1 make
-# pam_u2f ask for its PIN and a touch, whatever the options on each registered
-# credential. A key without a PIN is refused, and the stack goes on to the next
-# module.
+# A new line asks for the key's PIN and a touch (pinverification=1
+# userpresence=1), whatever the options on each registered credential: a key
+# without a PIN is refused, and the stack goes on to the next module. After
+# that the PIN is the overlay's switch (security-key-omarchy 0.8.0,
+# omarchy-security-key-pam): pinverification= is left as it is, so a run
+# doesn't undo the choice. A touch is always required.
 #
 # The line goes right after pam_fprintd, the order pam-auth-order pins, and
 # so also after the clamshell gate, which skips only the next module. Without
@@ -73,22 +75,18 @@
     backup: true
   become: true
 
-# Task names are rendered before the loop, so they name both options: the
-# output shows each pass's option as its item.
-- name: "Drop any other pinverification or userpresence setting from pam_u2f in {{ pam_file }}"
+- name: "Drop any other userpresence setting from pam_u2f in {{ pam_file }}"
   ansible.builtin.replace:
     path: "{{ pam_file }}"
-    regexp: '^(\s*auth\s.*pam_u2f\.so.*?)[ \t]+{{ item }}=(?!1(?:\s|$))\S*(.*)$'
+    regexp: '^(\s*auth\s.*pam_u2f\.so.*?)[ \t]+userpresence=(?!1(?:\s|$))\S*(.*)$'
     replace: '\1\2'
     backup: true
-  loop: [pinverification, userpresence]
   become: true
 
-- name: "Require pinverification=1 and userpresence=1 from pam_u2f in {{ pam_file }}"
+- name: "Require userpresence=1 from pam_u2f in {{ pam_file }}"
   ansible.builtin.replace:
     path: "{{ pam_file }}"
-    regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!{{ item }}).)*)$'
-    replace: '\1 {{ item }}=1'
+    regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!userpresence).)*)$'
+    replace: '\1 userpresence=1'
     backup: true
-  loop: [pinverification, userpresence]
   become: true

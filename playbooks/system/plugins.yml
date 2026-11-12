@@ -575,9 +575,10 @@
       changed_when: true
       become: true
 
-    # The overlay registers keys but leaves PAM alone, so without these lines
-    # sudo and polkit never ask for a key. With no key registered pam_u2f
-    # only falls through to the next module.
+    # The overlay registers keys and, since 0.8.0, sets whether these lines
+    # ask for the PIN, but never adds them: without them sudo and polkit never
+    # ask for a key. With no key registered pam_u2f only falls through to the
+    # next module.
     - name: Make sudo and polkit ask for a registered security key
       ansible.builtin.include_tasks: tasks/pam-u2f-line.yml
       loop:

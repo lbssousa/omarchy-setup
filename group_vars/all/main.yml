@@ -551,7 +551,7 @@ fingerprint_plugin_id: lbssousa.fingerprint
 # from the Omarchy plugin marketplace at the same tag; bump the ref to deploy
 # a new release.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
-security_key_plugin_ref: v0.7.3
+security_key_plugin_ref: v0.8.0
 security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
 security_key_plugin_verify_commit: false
 security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"
@@ -560,6 +560,9 @@ security_key_plugin_package: security-key-omarchy
 security_key_plugin_id: lbssousa.security-key
 security_key_plugin_authfile: /etc/fido2/fido2
 security_key_plugin_authfile_helper: /usr/bin/omarchy-security-key-authfile
+# Since 0.8.0: sets whether sudo and polkit ask for the key's PIN along with
+# the touch (pinverification= on their pam_u2f lines), from the overlay.
+security_key_plugin_pam_helper: /usr/bin/omarchy-security-key-pam
 
 # Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
 # of this repository every user runs `omarchy-setup-user` from.

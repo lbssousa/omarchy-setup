@@ -1084,6 +1084,38 @@ omarchy_plugins:
     packages:
       - jq
       - socat
+  # Printers (repo omarchy-printers) — CUPS printer settings, queue and jobs
+  # in a panel and a bar popup, plus a shared print dialog. MIT, listed in the
+  # Omarchy plugin marketplace. No tags yet: pinned to the commit the
+  # marketplace validated. Admin actions go through cups-pk-helper and the
+  # shell's polkit agent. Its "System integration" toggles (a
+  # system-config-printer launcher in ~/.local/bin, the print portal, Files)
+  # are opt-in from its popup, never run on install; choose "Restore
+  # defaults" there before removing it. Dependencies as its README lists.
+  - name: Printers
+    repo: https://github.com/segersb/omarchy-printers.git
+    id: segersb.omarchy-printers
+    ref: 14fef62b08bc4bf25afaf1239f90897dfb345b28
+    section: right
+    packages:
+      - cups
+      - cups-pk-helper
+      - python-dbus
+      - python-gobject
+      - python-pycups
+  # Agents (repo agents-omarchy) — our clone of Omarchy's built-in
+  # omarchy.agents bar panel (AI agents' usage, limits and pace). MIT. Its
+  # manifest declares clonedFrom omarchy.agents, so enabling it makes the
+  # shell disable the built-in (PluginRegistry.setEnabled): one Agents icon,
+  # in the built-in's section. No tags yet: pinned to a commit of main.
+  # Collectors are Python stdlib only.
+  - name: Agents
+    repo: https://github.com/lbssousa/agents-omarchy.git
+    id: lbssousa.agents
+    ref: 5758af97e4615fe1677120fb1a5b29e15240ec59
+    section: right
+    packages:
+      - python
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
 # omacast's launcher key, bound in ~/.config/hypr/bindings.lua while the entry
 # above is in the list. Not ALT + SPACE, omacast's own default: Omarchy binds

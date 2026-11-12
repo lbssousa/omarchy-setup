@@ -43,9 +43,16 @@ always applied.
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
 | Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock via keyd | `capslock` | adds keyd (tap Esc, hold Ctrl, Shift+Caps Lock = Caps Lock); modifies Compose (Menu key instead of Shift+Caps Lock) | system, user | on | yes |
+
+## Themes
+
+| Feature | Tag | Effect | Phases | Default | Revert |
+|---|---|---|---|---|---|
 | Omadwaita themes | `omadwaita-themes` | adds three Adwaita-based Omarchy themes | user | on | no |
 | Omaraptor themes | `omaraptor-themes` | adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only) | user | on | no |
 | Omaraptor day/night switching | `omaraptor-theme-auto` | adds a timer switching the Omaraptor theme at sunrise/sunset | user | on | yes |
+| Osaka Jade theme | `osaka-jade-theme` | adds the Osaka Jade theme (git, omacom/omarchy-osaka-jade-theme), over Omarchy's bundled copy | user | off | no |
+| Piedmont Gold theme | `piedmont-gold-theme` | adds the Piedmont Gold theme (git, wesleygrimes/omarchy-piedmont-gold-theme) | user | off | no |
 
 ## Omarchy shell plugins and prompts
 

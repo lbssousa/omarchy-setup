@@ -1,0 +1,422 @@
+---
+# Omarchy themes, one feature each (group "themes" in features.yml), so
+# `just configure` offers them as options and `just apply <id>` installs
+# just one:
+#
+#   omadwaita-themes     Omadwaita, Omadwaita Light, Omadwaita Dark (built here)
+#   omaraptor-themes     Omaraptor, Omaraptor Light, Omaraptor Dark (built here)
+#   osaka-jade-theme     Osaka Jade (git, extra_themes)
+#   piedmont-gold-theme  Piedmont Gold (git, extra_themes)
+#
+# Installing never switches the current theme; apply one with
+# `omarchy-theme-set <name>` (or Style > Theme). Turning a feature off
+# leaves its themes in place.
+
+# Omadwaita — three personal Omarchy themes that keep the Adwaita look and
+# take their terminal (TUI) colors from Adwaita's nine accent colors
+# (blue, teal, green, yellow, orange, red, pink, purple, slate):
+#
+#   Omadwaita        TUI dark, GTK light
+#   Omadwaita Light  everything light
+#   Omadwaita Dark   everything dark
+#
+# Omarchy never recolors GTK: omarchy-theme-set-gnome only switches
+# between `Adwaita` and `Adwaita-dark` from colors.toml's `mode`, so GTK
+# and libadwaita apps keep their stock Adwaita palette under any theme
+# (community `gtk.css` files are not consumed). Two colors.toml palettes,
+# derived from libadwaita 1.9's own stylesheet, cover the three themes:
+#
+#   files/omadwaita/dark/colors.toml   Omadwaita, Omadwaita Dark
+#   files/omadwaita/light/colors.toml  Omadwaita Light
+#
+# "Omadwaita" is the only one that needs more than a palette: its
+# theme-set hook (files/omadwaita/omadwaita-light-apps.sh) flips GTK back
+# to light after Omarchy has set it dark from `mode = "dark"`.
+#
+# Chromium-family browsers (Chromium, Brave, Brave Origin, Chrome, Edge)
+# take one seed color from Omarchy, the theme's chromium.theme (by default
+# rendered from the background color), and derive their whole palette from
+# it: the frame's tone AND the accent's hue (focus rings, selection, ...).
+# A neutral background like Adwaita's white or #1d1d20 has no hue of its
+# own, so the browser picks an arbitrary one (a teal accent on white). Each
+# theme therefore ships its own chromium.theme (Omarchy doesn't overwrite a
+# theme's own file): a near-neutral seed tinted just enough to give the
+# accent Adwaita blue's hue (~214°) without tinting the frame. Measured in
+# Brave Origin, the accent renders as #4f77af on the light seed and #4e78af
+# on the dark one (Chromium's tonal palette caps its chroma, so it can't
+# reach #3584e4 itself; a full-chroma blue seed would match the hue too but
+# turn the whole frame blue). Seeds by hue, HSL: light 224°/94%, dark
+# 218°/12%.
+#
+# All three share one wallpaper set, committed under
+# files/omadwaita/backgrounds/ (devotional paintings and wallpapers,
+# migrated from the former Sacred Heart theme) and copied into each
+# theme's backgrounds/.
+#
+# A theme without backgrounds/ makes every omarchy-theme-set complain
+# ("No background was found"), so each one also gets a generated fallback
+# wallpaper that needs no committed files: the Omarchy logo
+# (/usr/share/omarchy/logo.svg, recolored) centered on a radial gradient
+# in the theme's palette, rendered here with ImageMagick. It takes part in
+# Omarchy's wallpaper rotation like the others.
+#
+# All three use the Adwaita icon theme (icons.theme), instead of Omarchy's
+# default Yaru-blue.
+#
+# Installs the themes only; apply one with `omarchy-theme-set "Omadwaita"`
+# (or pick it in the theme menu).
+- name: Omadwaita Omarchy themes
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omadwaita-themes]
+
+  vars:
+    omadwaita_themes_dir: "{{ target_home }}/.config/omarchy/themes"
+    omadwaita_hooks_dir: "{{ target_home }}/.config/omarchy/hooks/theme-set.d"
+    omadwaita_logo: /usr/share/omarchy/logo.svg
+    omadwaita_icon_theme: Adwaita
+    # wallpaper: radial gradient from the center color to the edge color;
+    # logo: the Adwaita blue the logo is filled with (the accent on dark,
+    # libadwaita's deeper light-mode form of it on light, for contrast).
+    # browser: chromium.theme's seed color, "R,G,B" — see the header.
+    # Omadwaita has a dark palette but light GUI apps: light seed.
+    omadwaita_browser_light: "229,235,250"
+    omadwaita_browser_dark: "29,31,35"
+    omadwaita_themes:
+      - { dir: omadwaita, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4", browser: "{{ omadwaita_browser_light }}" }
+      - { dir: omadwaita-light, palette: light, wallpaper: "#ffffff-#dfebfb", logo: "#0461be", browser: "{{ omadwaita_browser_light }}" }
+      - { dir: omadwaita-dark, palette: dark, wallpaper: "#22344b-#1d1d20", logo: "#3584e4", browser: "{{ omadwaita_browser_dark }}" }
+
+  tasks:
+    # `magick` would otherwise hand SVGs to Inkscape when it's installed
+    # (slow, noisy); the wallpaper task below asks for librsvg explicitly.
+    - name: Check that ImageMagick can render SVG with librsvg
+      ansible.builtin.command: magick -list format
+      register: omadwaita_magick_formats
+      changed_when: false
+      failed_when: "'RSVG' not in omadwaita_magick_formats.stdout"
+
+    - name: Look for the Omarchy logo and the Adwaita icon theme
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ omadwaita_logo }}"
+        - "/usr/share/icons/{{ omadwaita_icon_theme }}"
+      register: omadwaita_assets
+
+    - name: Fail if either is missing
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: "{{ item.item }} not found"
+        quiet: true
+      loop: "{{ omadwaita_assets.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Create the theme directories
+      ansible.builtin.file:
+        path: "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds"
+        state: directory
+        mode: "0755"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Install the palettes
+      ansible.builtin.copy:
+        src: "omadwaita/{{ item.palette }}/colors.toml"
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/colors.toml"
+        mode: "0644"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.palette }})"
+
+    - name: Install the shared wallpaper set
+      ansible.builtin.copy:
+        src: omadwaita/backgrounds/
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds/"
+        mode: "0644"
+        directory_mode: "0755"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Use the Adwaita icon theme
+      ansible.builtin.copy:
+        content: "{{ omadwaita_icon_theme }}\n"
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/icons.theme"
+        mode: "0644"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Set the browser seed color (Adwaita blue accent, neutral frame)
+      ansible.builtin.copy:
+        content: "{{ item.browser }}\n"
+        dest: "{{ omadwaita_themes_dir }}/{{ item.dir }}/chromium.theme"
+        mode: "0644"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.browser }})"
+
+    - name: Render the fallback wallpapers (Omarchy logo on a gradient)
+      ansible.builtin.command:
+        argv:
+          - magick
+          - -size
+          - 2560x1440
+          - "radial-gradient:{{ item.wallpaper }}"
+          # A little noise hides the banding of a low-contrast gradient;
+          # it's applied before the logo is composited, so the logo's
+          # edges stay clean.
+          - -attenuate
+          - "0.06"
+          - +noise
+          - Gaussian
+          - "("
+          - -background
+          - none
+          - "rsvg:{{ omadwaita_logo }}"
+          - -resize
+          - 900x
+          - -fill
+          - "{{ item.logo }}"
+          - -colorize
+          - "100"
+          - ")"
+          - -gravity
+          - center
+          - -composite
+          - -quality
+          - "95"
+          - "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds/omarchy-logo.jpg"
+        creates: "{{ omadwaita_themes_dir }}/{{ item.dir }}/backgrounds/omarchy-logo.jpg"
+      loop: "{{ omadwaita_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Create ~/.config/omarchy/hooks/theme-set.d
+      ansible.builtin.file:
+        path: "{{ omadwaita_hooks_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the theme-set hook that keeps GTK light under Omadwaita
+      ansible.builtin.copy:
+        src: omadwaita/omadwaita-light-apps.sh
+        dest: "{{ omadwaita_hooks_dir }}/omadwaita-light-apps"
+        mode: "0755"
+
+    - name: Say how to apply them
+      ansible.builtin.debug:
+        msg: >-
+          Installed. Apply one with omarchy-theme-set "Omadwaita" (or
+          "Omadwaita Light" / "Omadwaita Dark").
+
+# Omaraptor — three personal Omarchy themes modeled on Omadwaita
+# (the Omadwaita play above), with the classic GNOME color palette
+# (developer.gnome.org/hig/reference/palette.html: Blue, Green, Yellow,
+# Orange, Red, Purple, Light, Dark; five tiers each) and Project Bluefin's
+# default wallpapers instead of Adwaita's accent colors and the devotional
+# paintings:
+#
+#   Omaraptor        TUI dark, GTK light  (default)
+#   Omaraptor Light  everything light
+#   Omaraptor Dark   everything dark
+#
+# As with Omadwaita, Omarchy never recolors GTK: it only switches between
+# `Adwaita` and `Adwaita-dark` from colors.toml's `mode`, so GTK/libadwaita
+# apps keep the stock Adwaita look. Two colors.toml palettes cover the three
+# themes:
+#
+#   files/omaraptor/dark/colors.toml   Omaraptor, Omaraptor Dark
+#   files/omaraptor/light/colors.toml  Omaraptor Light
+#
+# The Hyprland active window border is slate too (hyprland_active_border =
+# rgba(6f8396ee) in colors.toml, #6f8396 being libadwaita's slate), matching
+# the GTK accent instead of the blue `accent`.
+#
+# The shell's polkit dialogs (polkit-omarchy, omaskpass,
+# omapin) take their border from the Hyprland border above and
+# their lock-icon accent from shell.polkit.toml, a [polkit] section override
+# that sets it to the same slate.
+#
+# Surfaces are the palette's Dark 4/Dark 3 (dark) and Light 1-4 (light); the
+# accent is Blue 3 (#3584e4); normal/bright colors are tier 3/tier 1 (dark)
+# or tier 5/tier 3 (light), lifted in OKLab lightness only as far as needed
+# for 4.5:1 on the background. Terminals have a cyan slot the GNOME palette
+# lacks: it is the OKLab midpoint of Blue and Green.
+#
+# Neither GTK's scheme nor its accent comes from a palette, so a theme-set
+# hook (files/omaraptor/omaraptor-light-apps.sh) handles both: it sets the
+# libadwaita accent to slate (Bluefin's default gray, instead of GNOME blue)
+# for all three themes -- via gsettings and a ~/.config/gtk-4.0/gtk.css
+# override, since xdg-desktop-portal-gtk does not pass accent-color on to
+# libadwaita -- and for "Omaraptor" also flips GTK back to light
+# after Omarchy has set it dark from `mode = "dark"`. Flatpak sandboxes don't
+# see ~/.config/gtk-{3,4}.0, so a user-wide Flatpak override exposes them
+# read-only; without it Bazaar, Firefox, ... keep the stock blue accent.
+#
+# Wallpapers are Bluefin's default set (projectbluefin/artwork,
+# wallpapers/01-bluefin .. 12-bluefin, Apache-2.0), each in a day and a night
+# variant, converted from JXL/SVG to 2560x1440 JPEG:
+#
+#   files/omaraptor/backgrounds/day/    Omaraptor Light (+ Omaraptor)
+#   files/omaraptor/backgrounds/night/  Omaraptor Dark  (+ Omaraptor)
+#
+# Omaraptor gets both sets since it mixes a dark TUI with light apps.
+#
+# The default wallpaper of each theme is the one that sorts first, which is
+# what Omarchy picks when the previous background isn't one of the theme's:
+# 00-bluefin-day.jpg (Bluefin's 08, renamed) for Omaraptor and Omaraptor
+# Light, 00-bluefin-night.jpg (its night variant) for Omaraptor Dark. For
+# Omaraptor, which has both sets, the day one sorts first.
+#
+# Chromium-family browsers take their whole palette from the theme's
+# chromium.theme seed; the GNOME Blue 3 accent has the same hue (~214°) as
+# Adwaita blue, so Omadwaita's near-neutral seeds are reused (see the header
+# of the Omadwaita play above): light 229,235,250, dark 29,31,35.
+#
+# All three use the Adwaita icon theme (icons.theme).
+#
+# Installs the themes only; apply one with `omarchy-theme-set "Omaraptor"`
+# (or pick it in the theme menu).
+- name: Omaraptor Omarchy themes
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [omaraptor-themes]
+
+  vars:
+    omaraptor_themes_dir: "{{ target_home }}/.config/omarchy/themes"
+    omaraptor_hooks_dir: "{{ target_home }}/.config/omarchy/hooks/theme-set.d"
+    omaraptor_icon_theme: Adwaita
+    omaraptor_browser_light: "229,235,250"
+    omaraptor_browser_dark: "29,31,35"
+    # backgrounds: which variants of files/omaraptor/backgrounds/ to install.
+    omaraptor_themes:
+      - { dir: omaraptor, palette: dark, backgrounds: [day, night], browser: "{{ omaraptor_browser_light }}" }
+      - { dir: omaraptor-light, palette: light, backgrounds: [day], browser: "{{ omaraptor_browser_light }}" }
+      - { dir: omaraptor-dark, palette: dark, backgrounds: [night], browser: "{{ omaraptor_browser_dark }}" }
+
+  tasks:
+    - name: Look for the Adwaita icon theme
+      ansible.builtin.stat:
+        path: "/usr/share/icons/{{ omaraptor_icon_theme }}"
+      register: omaraptor_icons
+
+    - name: Fail if it is missing
+      ansible.builtin.assert:
+        that: omaraptor_icons.stat.exists
+        fail_msg: "/usr/share/icons/{{ omaraptor_icon_theme }} not found"
+        quiet: true
+
+    - name: Create the theme directories
+      ansible.builtin.file:
+        path: "{{ omaraptor_themes_dir }}/{{ item.dir }}/backgrounds"
+        state: directory
+        mode: "0755"
+      loop: "{{ omaraptor_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Install the palettes
+      ansible.builtin.copy:
+        src: "omaraptor/{{ item.palette }}/colors.toml"
+        dest: "{{ omaraptor_themes_dir }}/{{ item.dir }}/colors.toml"
+        mode: "0644"
+      loop: "{{ omaraptor_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.palette }})"
+
+    - name: Install the slate accent for the polkit/askpass/pinentry dialogs
+      ansible.builtin.copy:
+        src: "omaraptor/{{ item.palette }}/shell.polkit.toml"
+        dest: "{{ omaraptor_themes_dir }}/{{ item.dir }}/shell.polkit.toml"
+        mode: "0644"
+      loop: "{{ omaraptor_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.palette }})"
+
+    - name: Install the Bluefin wallpapers
+      ansible.builtin.copy:
+        src: "omaraptor/backgrounds/{{ item.1 }}/"
+        dest: "{{ omaraptor_themes_dir }}/{{ item.0.dir }}/backgrounds/"
+        mode: "0644"
+        directory_mode: "0755"
+      loop: "{{ omaraptor_themes | subelements('backgrounds') }}"
+      loop_control:
+        label: "{{ item.0.dir }} ({{ item.1 }})"
+
+    - name: Use the Adwaita icon theme
+      ansible.builtin.copy:
+        content: "{{ omaraptor_icon_theme }}\n"
+        dest: "{{ omaraptor_themes_dir }}/{{ item.dir }}/icons.theme"
+        mode: "0644"
+      loop: "{{ omaraptor_themes }}"
+      loop_control:
+        label: "{{ item.dir }}"
+
+    - name: Set the browser seed color (blue accent, neutral frame)
+      ansible.builtin.copy:
+        content: "{{ item.browser }}\n"
+        dest: "{{ omaraptor_themes_dir }}/{{ item.dir }}/chromium.theme"
+        mode: "0644"
+      loop: "{{ omaraptor_themes }}"
+      loop_control:
+        label: "{{ item.dir }} ({{ item.browser }})"
+
+    - name: Create ~/.config/omarchy/hooks/theme-set.d
+      ansible.builtin.file:
+        path: "{{ omaraptor_hooks_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Install the theme-set hook (slate GTK accent, light GTK under Omaraptor)
+      ansible.builtin.copy:
+        src: omaraptor/omaraptor-light-apps.sh
+        dest: "{{ omaraptor_hooks_dir }}/omaraptor-light-apps"
+        mode: "0755"
+
+    - name: Let Flatpak apps read the GTK CSS override (slate accent)
+      community.general.ini_file:
+        path: "{{ target_home }}/.local/share/flatpak/overrides/global"
+        section: Context
+        option: filesystems
+        value: "xdg-config/gtk-3.0:ro;xdg-config/gtk-4.0:ro;"
+        mode: "0644"
+        no_extra_spaces: true
+        create: true
+
+    - name: Say how to apply them
+      ansible.builtin.debug:
+        msg: >-
+          Installed. Apply one with omarchy-theme-set "Omaraptor" (or
+          "Omaraptor Light" / "Omaraptor Dark").
+
+# External themes (extra_themes in group_vars): each is cloned into
+# ~/.config/omarchy/themes/<name>, at its pinned commit. Same result as
+# `omarchy-theme-install <repo>`, minus the omarchy-theme-set at its end.
+# The play carries every external theme's feature tag; the loop installs
+# only those whose feature is on.
+- name: External Omarchy themes (git)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [osaka-jade-theme, piedmont-gold-theme]
+
+  vars:
+    extra_themes_dir: "{{ target_home }}/.config/omarchy/themes"
+
+  tasks:
+    - name: Clone the themes
+      ansible.builtin.git:
+        repo: "{{ item.repo }}"
+        dest: "{{ extra_themes_dir }}/{{ item.name }}"
+        version: "{{ item.ref }}"
+        depth: 1
+        force: true
+      loop: "{{ extra_themes | selectattr('feature', 'in', features | dict2items | selectattr('value') | map(attribute='key') | list) | list }}"
+      loop_control:
+        label: "{{ item.name }} ({{ item.ref[:12] }})"

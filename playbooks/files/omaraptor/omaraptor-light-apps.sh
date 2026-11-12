@@ -13,7 +13,7 @@
 #
 # The Chromium-family browsers need nothing here: their tint comes from the
 # theme's chromium.theme, which the theme ships with a light seed (see
-# playbooks/user/omaraptor-themes.yml).
+# playbooks/user/extra-themes.yml).
 
 # The whole family also uses Bluefin's default GTK4/libadwaita accent, slate
 # (the gray one), instead of GNOME's stock blue. Omarchy never touches
@@ -31,7 +31,7 @@
 # file defines that as well as the classic @theme_selected_bg_color.
 #
 # Flatpak apps (Bazaar, Firefox, ...) can't see either file unless the sandbox
-# is given the directories: playbooks/user/omaraptor-themes.yml sets a
+# is given the directories: playbooks/user/extra-themes.yml sets a
 # user-wide `--filesystem=xdg-config/gtk-{3,4}.0:ro` override for that.
 
 # gsettings needs a user DBus session (absent e.g. during ISO installs).

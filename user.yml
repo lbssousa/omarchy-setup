@@ -73,11 +73,8 @@
 - name: Compose off Caps Lock (for keyd)
   ansible.builtin.import_playbook: playbooks/user/capslock.yml
 
-- name: Omadwaita themes
-  ansible.builtin.import_playbook: playbooks/user/omadwaita-themes.yml
-
-- name: Omaraptor themes
-  ansible.builtin.import_playbook: playbooks/user/omaraptor-themes.yml
+- name: "Themes: Omadwaita, Omaraptor, Osaka Jade, Piedmont Gold"
+  ansible.builtin.import_playbook: playbooks/user/extra-themes.yml
 
 - name: Omaraptor day/night switching
   ansible.builtin.import_playbook: playbooks/user/omaraptor-theme-auto.yml

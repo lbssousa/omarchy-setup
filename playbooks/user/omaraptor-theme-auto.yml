@@ -11,7 +11,7 @@
 # until the next sunrise/sunset, and nothing is touched while a theme outside
 # the day/night pair is applied.
 #
-# Pair with playbooks/user/omaraptor-themes.yml, which installs the themes.
+# Pair with playbooks/user/extra-themes.yml, which installs the themes.
 - name: Omaraptor day/night theme switching (systemd --user timer)
   hosts: localhost
   connection: local

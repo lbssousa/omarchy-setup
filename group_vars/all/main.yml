@@ -1122,6 +1122,23 @@ rclone_gdrive_instances:
     cache_slug: google-drive-shared-with-me
     extra_flags: "--drive-shared-with-me"
 
+# External themes (playbooks/user/extra-themes.yml), cloned into
+# ~/.config/omarchy/themes/<name> like `omarchy-theme-install` does, but
+# without applying them. `feature` is the features.yml id that installs it
+# (and a tag of the git play there); `name` is the directory (and the name
+# omarchy-theme-set takes); `ref` pins a commit (bump by hand). Osaka Jade
+# left Omarchy's bundled themes for its own repo; installed here it takes
+# precedence over the bundled copy while that still ships.
+extra_themes:
+  - feature: osaka-jade-theme
+    name: osaka-jade
+    repo: https://github.com/omacom/omarchy-osaka-jade-theme.git
+    ref: bc18781cdd0102f86cbc3e82c6bd6d420c8025b9
+  - feature: piedmont-gold-theme
+    name: piedmont-gold
+    repo: https://github.com/wesleygrimes/omarchy-piedmont-gold-theme.git
+    ref: 749c66322de701ac061c5c40683e81acde9f85ad
+
 # Omaraptor day/night theme switching (playbooks/user/omaraptor-theme-auto.yml).
 # Themes applied after sunrise / after sunset (names as omarchy-theme-set
 # takes them). Sunrise/sunset come from hyprsunset.conf (see

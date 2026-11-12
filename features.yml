@@ -44,6 +44,7 @@ groups:
   base: Base
   shell: Shell and prompt
   desktop: Desktop
+  themes: Themes
   plugins: Omarchy shell plugins and prompts
   dev: Development
   locale: Portuguese (Brazil)
@@ -183,7 +184,7 @@ features:
     revert: true
 
   - id: omadwaita-themes
-    group: desktop
+    group: themes
     title: Omadwaita themes
     effect: adds three Adwaita-based Omarchy themes
     phases: [user]
@@ -191,7 +192,7 @@ features:
     revert: false
 
   - id: omaraptor-themes
-    group: desktop
+    group: themes
     title: Omaraptor themes
     effect: adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only)
     phases: [user]
@@ -199,13 +200,29 @@ features:
     revert: false
 
   - id: omaraptor-theme-auto
-    group: desktop
+    group: themes
     title: Omaraptor day/night switching
     effect: adds a timer switching the Omaraptor theme at sunrise/sunset
     phases: [user]
     default: true
     revert: true
     requires: [omaraptor-themes]
+
+  - id: osaka-jade-theme
+    group: themes
+    title: Osaka Jade theme
+    effect: adds the Osaka Jade theme (git, omacom/omarchy-osaka-jade-theme), over Omarchy's bundled copy
+    phases: [user]
+    default: false
+    revert: false
+
+  - id: piedmont-gold-theme
+    group: themes
+    title: Piedmont Gold theme
+    effect: adds the Piedmont Gold theme (git, wesleygrimes/omarchy-piedmont-gold-theme)
+    phases: [user]
+    default: false
+    revert: false
 
   - id: plugins
     group: plugins

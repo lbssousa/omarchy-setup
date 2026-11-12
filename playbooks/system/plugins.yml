@@ -464,11 +464,25 @@
   tags: [fingerprint]
 
   tasks:
-    - name: Install what the overlay's helper runs
+    # Probed with `pacman -T` rather than installed by name: a package that
+    # only provides one of them (fprintd-matched-finger provides fprintd and
+    # conflicts with it) satisfies it, where the pacman module would try to
+    # install the real fprintd over it.
+    - name: "Check which of them pacman is missing ({{ fingerprint_plugin_runtime_packages | join(', ') }})"
+      ansible.builtin.command:
+        argv: [pacman, -T, "{{ item }}"]
+      loop: "{{ fingerprint_plugin_runtime_packages }}"
+      register: fingerprint_dep_probe
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install what the overlay's helper runs (the missing ones)
       community.general.pacman:
-        name: "{{ fingerprint_plugin_runtime_packages }}"
+        name: "{{ fingerprint_dep_probe.results | rejectattr('rc', 'eq', 0) | map(attribute='item') | list }}"
         state: present
       become: true
+      when: fingerprint_dep_probe.results | selectattr('rc', 'ne', 0) | list | length > 0
 
     - name: "Remove the package earlier runs built ({{ fingerprint_plugin_package }})"
       community.general.pacman:
@@ -493,11 +507,23 @@
   tags: [security-key]
 
   tasks:
-    - name: Install what the package needs to build and run
+    # Probed with `pacman -T` like the fingerprint overlay's: a provider of
+    # one of them (another openssh build, say) satisfies it.
+    - name: "Check which of them pacman is missing ({{ security_key_plugin_runtime_packages | join(', ') }})"
+      ansible.builtin.command:
+        argv: [pacman, -T, "{{ item }}"]
+      loop: "{{ security_key_plugin_runtime_packages }}"
+      register: security_key_dep_probe
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install what the package needs to build and run (the missing ones)
       community.general.pacman:
-        name: "{{ security_key_plugin_runtime_packages }}"
+        name: "{{ security_key_dep_probe.results | rejectattr('rc', 'eq', 0) | map(attribute='item') | list }}"
         state: present
       become: true
+      when: security_key_dep_probe.results | selectattr('rc', 'ne', 0) | list | length > 0
 
     - name: "Check out the security-key-omarchy release ({{ security_key_plugin_ref }})"
       ansible.builtin.include_tasks: tasks/signed-git-checkout.yml

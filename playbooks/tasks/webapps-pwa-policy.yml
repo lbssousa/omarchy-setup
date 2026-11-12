@@ -31,10 +31,16 @@
         label: "{{ item.path | basename }}"
 
     # Only the sites that are PWAs: the browser would install any other as a
-    # mere shortcut.
-    - name: "[{{ engine.key }}] One entry per url, PWAs only"
+    # mere shortcut. Each from its pwa_install_url when it has one (url
+    # redirects), else from url.
+    - name: "[{{ engine.key }}] One install url per PWA"
       ansible.builtin.set_fact:
-        webapps_all: "{{ webapps_all | selectattr('pwa', 'defined') | selectattr('pwa') | unique(attribute='url') | list }}"
+        webapps_install_urls: >-
+          {%- set urls = [] -%}
+          {%- for app in webapps_all if app.pwa | default(false) -%}
+          {%- set _ = urls.append(app.pwa_install_url | default(app.url)) -%}
+          {%- endfor -%}
+          {{ urls | unique | list }}
 
     - name: "[{{ engine.key }}] Create {{ engine.value.policy_dir }}"
       ansible.builtin.file:
@@ -52,7 +58,7 @@
         group: root
         mode: "0644"
         content: >-
-          {{ {'WebAppInstallForceList': webapps_all | map(attribute='url') | map('community.general.dict_kv', 'url')
+          {{ {'WebAppInstallForceList': webapps_install_urls | map('community.general.dict_kv', 'url')
               | map('combine', {'default_launch_container': 'window', 'create_desktop_shortcut': true})
               | list}
              | to_nice_json(indent=2) }}

@@ -6,20 +6,24 @@
 # or Chrome/Brave/Chromium PWAs), each in its own container where supported
 # (see webapps in group_vars/all/main.yml for the fields). pwa: Chrome's own
 # installability check (2026-11-12, signed out) passed for YouTube, Teams,
-# Maps and Messages; X serves a valid manifest. WhatsApp and Photos show
-# only their sign-in pages signed out, so they stay Omarchy web apps until
-# Chrome offers to install them signed in.
+# Maps and Messages; X serves a valid manifest. WhatsApp's and Photos'
+# policy installs (2026-11-12, signed in) got their manifests and icons,
+# the real PWAs.
 webapps:
   - label: YouTube
     desktop_name: YouTube
     url: https://www.youtube.com
     pwa: true
+    # www.youtube.com redirects Chrome's installer to a sign-in prompt, which
+    # leaves only a placeholder; this is the page Chrome's own preinstalled
+    # YouTube app installs from.
+    pwa_install_url: https://www.youtube.com/s/notifications/manifest/cr_install.html
     container: Google
     keybind: "SUPER + SHIFT + Y"
   - label: WhatsApp
     desktop_name: WhatsApp Web
     url: https://web.whatsapp.com
-    pwa: false
+    pwa: true
     container: Facebook
     keybind: "SUPER + SHIFT + ALT + G"
   - label: Microsoft Teams
@@ -37,7 +41,7 @@ webapps:
   - label: Google Photos
     desktop_name: Google Photos
     url: https://photos.google.com
-    pwa: false
+    pwa: true
     container: Google
     keybind: "SUPER + SHIFT + P"
   - label: Google Messages

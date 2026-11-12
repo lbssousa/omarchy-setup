@@ -150,6 +150,11 @@ chromium_browsers:
 #                 (the install icon in the address bar, signed in): only those
 #                 become PWAs. Without it (default false) a PWA engine leaves
 #                 the site to Omarchy's launcher and keybind.
+#   pwa_install_url  what the browser's policy installs the PWA from, when
+#                 url redirects (default: url). A redirect leaves only a
+#                 placeholder app named after the page it landed on, with
+#                 no manifest; sites that Chrome preinstalls keep a page
+#                 that doesn't redirect for this.
 #
 # Under a PWA engine, Omarchy's own launchers for the PWA sites are removed;
 # Firefox moves them to webapps_backup_dir. They come back from

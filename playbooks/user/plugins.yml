@@ -781,7 +781,7 @@
       ansible.builtin.include_tasks: tasks/plugin-code-stamp.yml
       vars:
         plugin_stamp_id: "{{ security_key_plugin_id }}"
-        plugin_stamp_paths: ["{{ security_key_plugin_authfile_helper }}"]
+        plugin_stamp_paths: ["{{ security_key_plugin_authfile_helper }}", "{{ security_key_plugin_pam_helper }}"]
 
     - name: Keep the result under the name the tasks below use
       ansible.builtin.set_fact:

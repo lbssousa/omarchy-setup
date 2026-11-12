@@ -1084,25 +1084,32 @@ omarchy_plugins:
     packages:
       - jq
       - socat
-  # Printers (repo omarchy-printers) — CUPS printer settings, queue and jobs
-  # in a panel and a bar popup, plus a shared print dialog. MIT, listed in the
-  # Omarchy plugin marketplace. No tags yet: pinned to the commit the
-  # marketplace validated. Admin actions go through cups-pk-helper and the
-  # shell's polkit agent. Its "System integration" toggles (a
-  # system-config-printer launcher in ~/.local/bin, the print portal, Files)
-  # are opt-in from its popup, never run on install; choose "Restore
-  # defaults" there before removing it. Dependencies as its README lists.
-  - name: Printers
-    repo: https://github.com/segersb/omarchy-printers.git
-    id: segersb.omarchy-printers
-    ref: 14fef62b08bc4bf25afaf1239f90897dfb345b28
+  # Printer (repo omarchy-printer) — printer status, toner levels, the print
+  # queue and eSCL (AirScan) scanning in a bar panel, from CUPS, Avahi and a
+  # stdlib-only Python helper; no drivers, downloads nothing. MIT. No tags
+  # yet: pinned to the commit of main that is manifest version 1.1.5. Pausing
+  # a printer goes through pkexec and the shell's polkit agent. Its
+  # dependencies are what its README lists, minus the ones that come with
+  # Omarchy itself (uwsm) or any Arch base install (dbus); the optional ones
+  # are kept: system-config-printer for its Settings button, poppler to join
+  # a feeder stack into one PDF, xdg-user-dirs for the scans folder.
+  - name: Printer
+    repo: https://github.com/navjottomer/omarchy-printer.git
+    id: navjottomer.printer
+    ref: 402863cf09cee87b91a2134de467f49e3c5808e6
     section: right
     packages:
+      - avahi
       - cups
-      - cups-pk-helper
-      - python-dbus
-      - python-gobject
-      - python-pycups
+      - cups-filters
+      - libnotify
+      - nss-mdns
+      - polkit
+      - poppler
+      - python
+      - system-config-printer
+      - xdg-user-dirs
+      - xdg-utils
   # Agents (repo agents-omarchy) — our clone of Omarchy's built-in
   # omarchy.agents bar panel (AI agents' usage, limits and pace). MIT. Its
   # manifest declares clonedFrom omarchy.agents, so enabling it makes the

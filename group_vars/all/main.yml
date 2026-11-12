@@ -444,7 +444,7 @@ unprivileged_build: setpriv --inh-caps=-all --ambient-caps=-all --
 # release tag (the commit the marketplace approved).
 omapin_repo: https://github.com/lbssousa/omapin.git
 # Pinned to a release tag, never a branch. Bump this to deploy a new release.
-omapin_ref: v0.4.1
+omapin_ref: v0.4.3
 omapin_checkout_dir: "{{ target_home }}/src/omapin"
 # Tag GPG signature verification (git verify-tag) is off by default so a
 # default install doesn't require the Yubikey's OpenPGP key in your keyring
@@ -467,7 +467,7 @@ omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # to deploy a new release. It was called ssh-askpass-omarchy until 0.2.0; the
 # plays migrate an install of the old name (omaskpass_legacy_*).
 omaskpass_repo: https://github.com/lbssousa/omaskpass.git
-omaskpass_ref: v0.4.3
+omaskpass_ref: v0.4.4
 omaskpass_checkout_dir: "{{ target_home }}/src/omaskpass"
 omaskpass_verify_commit: false
 omaskpass_signing_keys: "{{ omapin_signing_keys }}"

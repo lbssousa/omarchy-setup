@@ -146,14 +146,25 @@ chromium_browsers:
 #                 the site to, or the extension reopens it in the main window)
 #   keybind       Hyprland key that opens it (optional)
 #   manifest_hint Name= the browser gives its shortcut, when it isn't desktop_name
+#   pwa           true when the site serves a web app manifest Chrome accepts
+#                 (the install icon in the address bar, signed in): only those
+#                 become PWAs. Without it (default false) a PWA engine leaves
+#                 the site to Omarchy's launcher and keybind.
 #
-# Omarchy's own launchers for the same sites are moved to
-# webapps_backup_dir, and moved back when the engine changes (or the
-# default browser has none: Brave Flatpak). Taskbar Tab windows and PWAs
-# open tiled fullscreen.
+# Under a PWA engine, Omarchy's own launchers for the PWA sites are removed;
+# Firefox moves them to webapps_backup_dir. They come back from
+# omarchy_applications_dir (or that backup) when the engine changes, or the
+# default browser has none (Brave Flatpak). Taskbar Tab windows and PWAs open
+# tiled fullscreen.
 webapps: []
 webapps_desktop_dir: "{{ target_home }}/.local/share/applications"
 webapps_backup_dir: "{{ target_home }}/.local/share/omarchy-setup/webapps-omarchy"
+# Where Omarchy keeps its launchers (omarchy-refresh-applications copies them
+# into ~/.local/share/applications).
+omarchy_applications_dir: /usr/share/omarchy/applications
+# Each PWA's app id and icon, label -> {engine, app_id, icon}: found once from
+# the browser's own shortcut, which the launcher replaces.
+webapps_pwa_state_file: "{{ target_home }}/.local/share/omarchy-setup/webapps-pwa.json"
 firefox_taskbar_app_launcher: "{{ target_home }}/.local/bin/omarchy-setup-launch-firefox-taskbar-app"
 # PWAs force-installed through each Chromium-family browser's machine
 # policy directory, the union of every user's webapps list.

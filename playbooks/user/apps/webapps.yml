@@ -10,17 +10,22 @@
 #                           Firefox has to be closed: it keeps the registry
 #                           in memory. While it is open this part is skipped
 #                           with a warning.
-#   Google Chrome,          PWAs force-installed by the browser's machine
-#   Brave Origin, Chromium  policy (system/apps/browser.yml), each launcher
-#                           pointed at its container (Brave). The browser
-#                           has to be open: it installs them live. While it
-#                           is closed this part is skipped with a warning.
+#   Google Chrome,          PWAs, only for the sites marked `pwa: true`
+#   Brave Origin, Chromium  (they serve a web app manifest), force-installed
+#                           by the browser's machine policy (system/apps/
+#                           browser.yml), each launcher pointed at its
+#                           container (Brave). Omarchy's launcher for the
+#                           site is removed. The browser has to be open: it
+#                           installs them live. While it is closed this part
+#                           is skipped with a warning. Sites without `pwa`
+#                           keep Omarchy's launcher and keybind.
 #   Brave (Flatpak)         none: Omarchy's own launchers stay.
 #
-# Omarchy's launcher for each site is set aside in webapps_backup_dir and
-# comes back when the engine changes. The keybinds in the list (Omarchy's
-# own SUPER+SHIFT+Y and friends, among others) are pointed at the new
-# launchers, and their windows open tiled fullscreen.
+# Omarchy's launchers come back from omarchy_applications_dir when the
+# engine changes (Firefox sets them aside in webapps_backup_dir itself).
+# The keybinds in the list (Omarchy's own SUPER+SHIFT+Y and friends, among
+# others) are pointed at the new launchers, and their windows open tiled
+# fullscreen.
 - name: Apps — Omarchy's web apps with the default browser
   hosts: localhost
   connection: local
@@ -34,6 +39,8 @@
          else (firefox_variants.keys() | list | intersect(apps.browser.installed) | first | default('')) }}
     firefox_variant: "{{ firefox_variants[firefox_variant_id] | default({}) }}"
     webapps_keybinds: "{{ webapps | selectattr('keybind', 'defined') | selectattr('keybind') | list }}"
+    webapps_pwa: "{{ webapps | selectattr('pwa', 'defined') | selectattr('pwa') | list }}"
+    webapps_not_pwa: "{{ webapps | rejectattr('label', 'in', webapps_pwa | map(attribute='label') | list) | list }}"
 
   tasks:
     - name: Create the web apps backup directory
@@ -72,6 +79,7 @@
       ansible.builtin.include_tasks: tasks/webapps-restore-omarchy.yml
       vars:
         webapps_restore: "{{ webapps_engine == 'none' }}"
+        webapps_restore_apps: "{{ webapps }}"
       when: webapps_engine in ['firefox', 'none']
 
     - name: Firefox Taskbar Tabs
@@ -120,8 +128,17 @@
               run `just user` again.
           when: webapps_firefox_result.rc == 3
 
+    # A site that isn't (or is no longer) marked pwa keeps Omarchy's
+    # launcher: a PWA launcher an earlier run wrote for it goes.
+    - name: Keep Omarchy's launchers for the sites without PWA support
+      ansible.builtin.include_tasks: tasks/webapps-restore-omarchy.yml
+      vars:
+        webapps_restore: true
+        webapps_restore_apps: "{{ webapps_not_pwa }}"
+      when: webapps_engine in webapps_pwa_engines and webapps_not_pwa | length > 0
+
     - name: PWAs (Google Chrome, Brave Origin, Chromium)
-      when: webapps_engine in webapps_pwa_engines and webapps | length > 0
+      when: webapps_engine in webapps_pwa_engines and webapps_pwa | length > 0
       vars:
         pwa_engine: "{{ webapps_pwa_engines[webapps_engine] }}"
         pwa_prefs_path: "{{ target_xdg_config_home }}/{{ pwa_engine.config_dir }}/{{ webapps_pwa_profile_directory }}/Preferences"
@@ -149,12 +166,28 @@
                      .get('brave', {}).get('containers', {}).get('list', [])
                      if pwa_engine.containers else [] }}
 
-            - name: Swap each web app for its PWA
+            - name: Read the app ids earlier runs found
+              ansible.builtin.slurp:
+                src: "{{ webapps_pwa_state_file }}"
+              register: pwa_state
+              failed_when: false
+
+            - name: Keep them at hand
+              ansible.builtin.set_fact:
+                pwa_known: "{{ (pwa_state.content | b64decode | from_json) if pwa_state.content is defined else {} }}"
+
+            - name: Replace each web app with its PWA
               ansible.builtin.include_tasks: tasks/webapps-pwa-swap.yml
-              loop: "{{ webapps }}"
+              loop: "{{ webapps_pwa }}"
               loop_control:
                 loop_var: webapp
                 label: "{{ webapp.label }}"
+
+            - name: Save the app ids (the launchers don't survive omarchy-refresh-applications)
+              ansible.builtin.copy:
+                dest: "{{ webapps_pwa_state_file }}"
+                content: "{{ pwa_known | combine(pwa_known_new | default({})) | to_nice_json(indent=2) }}\n"
+                mode: "0644"
 
     - name: Keybindings and tiled fullscreen windows
       ansible.builtin.include_tasks: tasks/hypr-user-block.yml

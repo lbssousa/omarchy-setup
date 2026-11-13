@@ -70,7 +70,7 @@
 - name: Column resize keys, vertical workspace switching, scale and text size, night light at sunset
   ansible.builtin.import_playbook: playbooks/user/desktop.yml
 
-- name: Compose off Caps Lock (for keyd)
+- name: Caps Lock = Esc, Shift+Caps Lock = Caps Lock
   ansible.builtin.import_playbook: playbooks/user/capslock.yml
 
 - name: "Themes: Omadwaita, Omaraptor, Osaka Jade, Piedmont Gold"

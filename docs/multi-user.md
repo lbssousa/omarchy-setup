@@ -165,7 +165,7 @@ notified only when one actually fails (log:
 
 | What | Why | Where |
 |---|---|---|
-| Packages, `/etc/locale.conf`, keyd, the printer queue, Plymouth, Limine | They belong to the machine | system phase |
+| Packages, `/etc/locale.conf`, the printer queue, Plymouth, Limine | They belong to the machine | system phase |
 | Homebrew | One prefix with one owner (`homebrew_owner`); others can run what it installed | `system/homebrew.yml` |
 | The greeter's colors | Style › Unlock recolors the login screen for everyone, so only administrators see it in the menu | omarchy-multiuser |
 | The browsers' theme color policy | Omarchy writes it to `/etc` on every theme change, and its sudoers rule is `%wheel`. The last administrator to change theme wins; for anyone else omarchy-multiuser's polkit rule refuses it without a prompt, so their theme changes leave it alone. | Omarchy, omarchy-multiuser |

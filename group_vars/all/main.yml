@@ -941,12 +941,11 @@ omarchy_gnome_font_sizes:
 # point from the 12pt Omarchy leaves behind.
 omarchy_system_ui_font_pt: 13
 
-# Caps Lock via keyd (playbooks/{system,user}/capslock.yml). Key that takes over Compose
-# from Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep
+# Caps Lock as Esc (playbooks/user/capslock.yml). Key that takes over Compose
+# from Shift+Caps Lock — must not be a hardware modifier (Ctrl/Alt/Win keep
 # acting as modifiers even after their symbol changes; "menu" doesn't have
 # that problem and is the natural Compose key already).
 capslock_compose_key: menu
-keyd_config_dest: /etc/keyd/default.conf
 
 # Night light synced to real sunrise/sunset (playbooks/{system,user}/desktop.yml).
 # hyprsunset only supports fixed HH:MM profile times, so a daily timer

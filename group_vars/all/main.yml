@@ -1132,12 +1132,13 @@ omarchy_plugins:
   # omarchy.agents bar panel (AI agents' usage, limits and pace). MIT. Its
   # manifest declares clonedFrom omarchy.agents, so enabling it makes the
   # shell disable the built-in (PluginRegistry.setEnabled): one Agents icon,
-  # in the built-in's section. No tags yet: pinned to a commit of main.
-  # Collectors are Python stdlib only.
+  # in the built-in's section. No tags yet: pinned to a commit of main
+  # (with the meters' time cursor and elapsed-time tooltips). Collectors
+  # are Python stdlib only.
   - name: Agents
     repo: https://github.com/lbssousa/agents-omarchy.git
     id: lbssousa.agents
-    ref: 5758af97e4615fe1677120fb1a5b29e15240ec59
+    ref: ae845098d0d404dad68ea1065aca399795643d18
     section: right
     packages:
       - python

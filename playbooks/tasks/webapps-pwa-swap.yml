@@ -8,7 +8,8 @@
 # <shortcut_prefix>-<app id>-<profile>.desktop. That id isn't predictable, so
 # it is read back from the launcher an earlier run wrote, from the state file
 # (that launcher may be gone: omarchy-refresh-applications copies Omarchy's
-# own over it on upgrades), or else from the browser's shortcut. Omarchy's
+# own over it on upgrades), or else from the browser's shortcut, which is
+# also where a changed install url (a new app) sends it. Omarchy's
 # launcher for the site is removed and the PWA's launcher, under the web
 # app's name, opens it in its container. Records the app in pwa_app_ids
 # (keybinds) and pwa_known_new (the state file).
@@ -31,15 +32,21 @@
   failed_when: false
 
 - name: "[{{ webapp.label }}] Reuse the app id an earlier run found"
+  vars:
+    pwa_install_url: "{{ webapp.pwa_install_url | default(webapp.url) }}"
   ansible.builtin.set_fact:
     pwa_app_id: >-
       {{ pwa_existing_exec.stdout | regex_replace('.*--app-id=([a-p]+).*', '\1')
          if (pwa_engine.binary in pwa_existing_exec.stdout and '--app-id=' in pwa_existing_exec.stdout)
          else pwa_known[webapp.label].app_id }}
     pwa_shortcut_icon: "{{ pwa_known[webapp.label].icon | default('') if webapp.label in pwa_known else '' }}"
-  when: >-
-    (pwa_engine.binary in pwa_existing_exec.stdout and '--app-id=' in pwa_existing_exec.stdout)
-    or (pwa_known[webapp.label] | default({})).get('engine') == webapps_engine
+  # Not when the app was installed from another url (a state file without
+  # one predates the field): the policy now installs a different app.
+  when:
+    - (pwa_known[webapp.label] | default({})).get('install_url', pwa_install_url) == pwa_install_url
+    - >-
+      (pwa_engine.binary in pwa_existing_exec.stdout and '--app-id=' in pwa_existing_exec.stdout)
+      or (pwa_known[webapp.label] | default({})).get('engine') == webapps_engine
 
 - name: "[{{ webapp.label }}] Find the app id from the browser's own shortcut"
   when: pwa_app_id | default('') | length == 0
@@ -140,6 +147,7 @@
         pwa_known_new: >-
           {{ pwa_known_new | default({}) | combine({webapp.label: {
                'engine': webapps_engine, 'app_id': pwa_app_id,
+               'install_url': webapp.pwa_install_url | default(webapp.url),
                'icon': pwa_shortcut_icon | default('', true) or (pwa_known[webapp.label].icon | default('') if webapp.label in pwa_known else '')}}) }}
 
 - name: "[{{ webapp.label }}] Forget this app's id before the next one"

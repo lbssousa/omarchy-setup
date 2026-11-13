@@ -28,7 +28,10 @@ webapps:
     keybind: "SUPER + SHIFT + ALT + G"
   - label: Microsoft Teams
     desktop_name: Microsoft Teams (PWA)
-    url: https://teams.microsoft.com
+    # Not teams.microsoft.com: signed in, it moves on to teams.cloud.microsoft,
+    # outside that PWA's scope (/v2/), and Chrome shows its out-of-scope bar.
+    # This manifest's scope covers both.
+    url: https://teams.cloud.microsoft
     pwa: true
     container: Microsoft
     keybind: "SUPER + SHIFT + ALT + T"

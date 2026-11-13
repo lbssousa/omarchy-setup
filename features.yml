@@ -510,6 +510,11 @@ apps:
       - { id: emacs, label: Emacs (AUCTeX, lsp-mode, classic theme), source: pacman, package: [omarchy-emacs, emacs-wayland], installed: true }
       - { id: zed, label: Zed (Omazed theme), source: pacman, package: [zed, omazed], installed: true }
 
+  - id: terminal
+    title: Terminal workspaces
+    options:
+      - { id: herdr-app, label: Herdr desktop app, source: pacman, package: herdr-app, installed: true, note: "pulls in herdr-core (the hc server); Omarchy's Herdr TUI (SUPER+CTRL+RETURN) stays as it is" }
+
   - id: file_manager
     title: File managers
     role: default file manager (inode/directory)

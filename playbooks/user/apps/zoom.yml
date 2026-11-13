@@ -1,0 +1,103 @@
+---
+# Zoom Workplace (apps: meetings), the native client in place of Omarchy's
+# Zoom web app. The package comes from the system phase (system/apps/
+# packages.yml); this sets it up per user:
+#
+#   - Omarchy's launcher (~/.local/share/applications/Zoom.desktop,
+#     Exec=omarchy-webapp-handler-zoom) goes. It opens zoommtg:// links in
+#     the browser, and under the AUR build's own desktop id it would shadow
+#     the native entry. omarchy-refresh-applications copies it back on some
+#     Omarchy upgrades: run `just user` again afterwards. With no Zoom
+#     installed, it comes back from omarchy_applications_dir.
+#   - zoommtg:// and zoomus:// links open in the native client
+#     (mimeapps.list). The AUR build wins when both are installed.
+#   - SUPER+SHIFT+ALT+Z launches it (Omarchy has no Zoom key; this mirrors
+#     Teams' SUPER+SHIFT+ALT+T). Launch only, no focus pattern: Zoom is
+#     single-instance and raises its own window, while omarchy-launch-or-
+#     focus would match its floating toolbars too (class zoom, every one).
+#   - A meeting's floating companions don't tile. Every Zoom window has
+#     class zoom; these are told apart by title, all found in the 7.2.5
+#     binaries (zoom, cpthost):
+#       as_toolbar                         screen-share control bar
+#       annotate_toolbar                   annotation tools while sharing
+#       zoom_linux_float_video_window      video thumbnails while sharing
+#       zoom_linux_float_message_reminder  chat message popups
+#       cpt_frame_xcb_window,              outline around the shared
+#       cpt_frame_window                   screen/window
+#       zoom, or no title                  menus, confirmations, notices
+#     The home window (Zoom Workplace), the meeting itself, chat,
+#     participants and settings keep tiling.
+- name: Apps — Zoom (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    zoom_installed: "{{ apps.meetings.installed | intersect(zoom_desktop_ids.keys() | list) }}"
+    zoom_on: "{{ zoom_installed | length > 0 }}"
+    # The AUR build first: the catalog lists it first.
+    zoom_desktop_id: "{{ zoom_desktop_ids[zoom_installed | first] if zoom_on | bool else '' }}"
+    zoom_launcher_path: "{{ webapps_desktop_dir }}/{{ zoom_omarchy_launcher }}"
+
+  tasks:
+    - name: Look for Omarchy's Zoom web app launcher
+      ansible.builtin.command:
+        argv: [grep, -q, "^Exec=omarchy-webapp-handler-zoom", "{{ zoom_launcher_path }}"]
+      register: zoom_omarchy_launcher_found
+      changed_when: false
+      failed_when: false
+
+    - name: Remove it (the native client takes its place)
+      ansible.builtin.file:
+        path: "{{ zoom_launcher_path }}"
+        state: absent
+      when: zoom_on | bool and zoom_omarchy_launcher_found.rc == 0
+      notify: refresh the applications database
+
+    - name: Put Omarchy's launcher back (no Zoom installed)
+      ansible.builtin.copy:
+        src: "{{ omarchy_applications_dir }}/{{ zoom_omarchy_launcher }}"
+        dest: "{{ zoom_launcher_path }}"
+        remote_src: true
+        force: false
+        mode: "0644"
+      when: not zoom_on | bool
+      notify: refresh the applications database
+
+    # Without Zoom the options go, and Omarchy's launcher (MimeType=) takes
+    # the links again.
+    - name: "{{ 'Open Zoom links in ' ~ zoom_desktop_id if zoom_on | bool else 'Forget the Zoom link handler' }}"
+      community.general.ini_file:
+        path: "{{ pdf_viewer_mimeapps_path }}"
+        section: Default Applications
+        option: "x-scheme-handler/{{ item }}"
+        value: "{{ zoom_desktop_id }}"
+        state: "{{ 'present' if zoom_on | bool else 'absent' }}"
+        no_extra_spaces: true
+        create: true
+        mode: "0644"
+      loop: "{{ zoom_url_schemes }}"
+
+    - name: Keybinding and floating meeting companions
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      loop:
+        - marker: Zoom — keybinding
+          block: |
+            o.bind("{{ zoom_keybind }}", "Zoom", { launch = "gtk-launch {{ zoom_desktop_id | regex_replace('\.desktop$', '') }}" })
+        - marker: Zoom — floating meeting companions
+          block: |
+            o.window({ class = "^zoom$", title = "^(as_toolbar|annotate_toolbar|zoom_linux_float_video_window|zoom_linux_float_message_reminder|cpt_frame_xcb_window|cpt_frame_window|zoom|)$" }, { float = true })
+            o.window({ class = "^zoom$", title = "^(as_toolbar|annotate_toolbar|zoom_linux_float_video_window|cpt_frame_xcb_window|cpt_frame_window)$" }, { pin = true })
+            o.window({ class = "^zoom$", title = "^(as_toolbar|zoom_linux_float_message_reminder)$" }, { no_initial_focus = true })
+            o.window({ class = "^zoom$", title = "^(cpt_frame_xcb_window|cpt_frame_window)$" }, { no_focus = true, border_size = 0, no_shadow = true })
+      loop_control:
+        label: "{{ item.marker }}"
+      vars:
+        hypr_file: bindings.lua
+        hypr_marker: "{{ item.marker }}"
+        hypr_block: "{{ item.block }}"
+        hypr_state: "{{ 'present' if zoom_on | bool else 'absent' }}"
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

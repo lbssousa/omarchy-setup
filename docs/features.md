@@ -187,6 +187,13 @@ Default app: default PDF viewer.
 | OBS Studio | pacman `obs-studio` |  |
 | ArtCraft: FilmCraft, EffectCraft | bundle `artcraft-launcher` | early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak) |
 
+### Video conferencing
+
+| Option | Source | Notes |
+|---|---|---|
+| Zoom Workplace ★ | aur `zoom` | replaces Omarchy's Zoom web app (launcher and zoommtg:// handler); SUPER+SHIFT+ALT+Z; its meeting's floating toolbars and popups don't tile |
+| Zoom Workplace | flatpak `us.zoom.Zoom` | same as the AUR build, sandboxed; the AUR build wins the keybind and links when both are installed |
+
 ### Notes and handwriting
 
 | Option | Source | Notes |

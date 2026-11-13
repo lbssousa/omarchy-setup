@@ -498,6 +498,12 @@ apps:
       - { id: obs, label: OBS Studio, source: pacman, package: obs-studio }
       - { id: artcraft, label: "ArtCraft: FilmCraft, EffectCraft", source: bundle, bundle: artcraft-launcher, note: "early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak)" }
 
+  - id: meetings
+    title: Video conferencing
+    options:
+      - { id: zoom, label: Zoom Workplace, source: aur, package: zoom, installed: true, note: "replaces Omarchy's Zoom web app (launcher and zoommtg:// handler); SUPER+SHIFT+ALT+Z; its meeting's floating toolbars and popups don't tile" }
+      - { id: zoom-flatpak, label: Zoom Workplace, source: flatpak, flatpak: us.zoom.Zoom, note: "same as the AUR build, sandboxed; the AUR build wins the keybind and links when both are installed" }
+
   - id: notes
     title: Notes and handwriting
     options:

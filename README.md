@@ -30,14 +30,15 @@ just configure   # gum menu: pick apps and features; offers to apply them
 ```
 
 - **Apps**, by category (web browsers, password managers, office suites,
-  graphics, PDF viewers, video, notes, editors, terminal workspaces, file
-  managers), each with its installation alternatives — native, AUR, Flathub
-  or a release bundle (e.g. Google Chrome, Firefox native or Flatpak, Brave
-  Origin or Brave Flatpak; ONLYOFFICE, LibreOffice or the ArtCraft suite
-  through its launcher). Several can be installed side by side; where a
-  category has a default app (browser, password manager, PDF viewer, file
-  manager) the menu asks for it. Apps are declarative: one left unchecked is
-  uninstalled, Omarchy's own included (after a confirmation).
+  graphics, PDF viewers, video, video conferencing, notes, editors, terminal
+  workspaces, file managers), each with its installation alternatives —
+  native, AUR, Flathub or a release bundle (e.g. Google Chrome, Firefox
+  native or Flatpak, Brave Origin or Brave Flatpak; ONLYOFFICE, LibreOffice
+  or the ArtCraft suite through its launcher). Several can be installed side
+  by side; where a category has a default app (browser, password manager,
+  PDF viewer, file manager) the menu asks for it. Apps are declarative: one
+  left unchecked is uninstalled, Omarchy's own included (after a
+  confirmation).
 - **Features**, by group: accounts and login, desktop tweaks, Omarchy shell
   plugins, development tools, Portuguese (Brazil), hardware, and opt-in
   ones (Secure Boot, Homebrew, the BGRT boot theme,
@@ -167,7 +168,7 @@ Boot has a walkthrough: [docs/secureboot.md](docs/secureboot.md).
 | `run-empowered.sh` | Runs ansible-playbook under `run0 --empower` (see *Privilege* above) |
 | `site.yml`, `system.yml`, `user.yml` | Both phases; the system phase's plays; the user phase's plays. Each play is tagged with its feature id (`apps` for the app plays) |
 | `playbooks/system/`, `playbooks/user/` | One file per feature (or a few closely related ones), in its phase |
-| `playbooks/{system,user}/apps/` | The app categories: packages installed or removed as chosen, then each category's extras (default apps, Firefox defaults, PWA policy, web apps, password manager keybind/autostart/SSH agent, Zathura, svg2tikz, Emacs, Zed) |
+| `playbooks/{system,user}/apps/` | The app categories: packages installed or removed as chosen, then each category's extras (default apps, Firefox defaults, PWA policy, web apps, password manager keybind/autostart/SSH agent, Zathura, svg2tikz, Emacs, Zed, Zoom) |
 | `playbooks/tasks/` | Shared tasks: app install/removal (`app-package.yml`, `aur-build.yml`, `artcraft-launcher.yml`), Hyprland blocks (`hypr-user-block.yml`), Flatpak overrides, signed-tag checkouts, web apps, handlers |
 | `playbooks/files/`, `playbooks/templates/` | Static files and Jinja2 templates |
 | `group_vars/all/main.yml` | Variables for every automation (machine defaults) |

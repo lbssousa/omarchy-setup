@@ -46,6 +46,9 @@
 - name: "Apps: Zed (Omazed, font sizes, Podman)"
   ansible.builtin.import_playbook: playbooks/user/apps/zed.yml
 
+- name: "Apps: Zoom (in place of Omarchy's web app; keybind, links, floating toolbars)"
+  ansible.builtin.import_playbook: playbooks/user/apps/zoom.yml
+
 - name: Flea file dialogs for non-GNOME apps
   ansible.builtin.import_playbook: playbooks/user/file-chooser.yml
 

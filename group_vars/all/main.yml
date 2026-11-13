@@ -665,6 +665,17 @@ pdf_viewer_zathurarc_paths:
 pdf_viewer_zathura_keybindings_guide: "{{ target_home }}/.local/bin/omarchy-setup-zathura-keybindings"
 pdf_viewer_keybindings_dispatcher: "{{ target_home }}/.local/bin/omarchy-setup-keybindings"
 
+# Zoom (apps: meetings, playbooks/user/apps/zoom.yml). The AUR build's
+# desktop id is Zoom.desktop, the same as Omarchy's web app launcher, whose
+# user copy would shadow it. Both builds handle zoommtg:// and zoomus://
+# links. Omarchy binds no key to its Zoom web app; this one mirrors Teams'.
+zoom_desktop_ids:
+  zoom: Zoom.desktop
+  zoom-flatpak: us.zoom.Zoom.desktop
+zoom_omarchy_launcher: Zoom.desktop
+zoom_url_schemes: [zoommtg, zoomus]
+zoom_keybind: "SUPER + SHIFT + ALT + Z"
+
 # File chooser dialogs (playbooks/{system,user}/file-chooser.yml) — the per-desktop
 # portals.conf that routes the FileChooser interface to Flea's picker
 # under XDG_CURRENT_DESKTOP=Hyprland. qt5ct/qt6ct are the Qt platform

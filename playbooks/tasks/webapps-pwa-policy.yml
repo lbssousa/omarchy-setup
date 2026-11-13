@@ -51,6 +51,11 @@
         mode: "0755"
       become: true
 
+    # default_launch_container only applies when the browser has no display
+    # mode of its own for the app yet. One it already has (set by the user,
+    # or synced from another device: YouTube's app id is the one Chrome
+    # preinstalls, "open in tab") wins, and --app-id= opens a tab. Set it
+    # once by hand: chrome://apps, right-click the app, Open as window.
     - name: "[{{ engine.key }}] Force-install every web app as a PWA"
       ansible.builtin.copy:
         dest: "{{ engine.value.policy_dir }}/{{ webapps_pwa_policy_file }}"

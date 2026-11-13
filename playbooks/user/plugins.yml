@@ -149,11 +149,19 @@
       # shell, the pinned ref is the record of what was reviewed. `omarchy
       # plugin update` fast-forwards a pinned clone off its tag (a detached
       # HEAD still takes the fast-forward) and the next run pins it back;
-      # bump `ref` to move forward on purpose.
+      # bump `ref` to move forward on purpose. A plugin directory that is a
+      # link is a working copy put there by hand (a plugin's own `just
+      # link`): it is left on whatever its developer checked out, since a
+      # checkout through the link would move their repository back to the
+      # pin.
       ansible.builtin.shell:
         cmd: |
           set -euo pipefail
           dir={{ (omarchy_plugins_dir ~ '/' ~ item.id) | quote }}
+          if [ -L "$dir" ]; then
+            echo "linked to $(readlink -f "$dir"), left as it is"
+            exit 0
+          fi
           if ! target=$(git -C "$dir" rev-parse --verify --quiet {{ item.ref | quote }}^{commit}); then
             git -C "$dir" fetch --quiet origin {{ item.ref | quote }}
             target=$(git -C "$dir" rev-parse --verify {{ item.ref | quote }}^{commit})

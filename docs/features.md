@@ -201,6 +201,12 @@ Default app: default PDF viewer.
 | Emacs (AUCTeX ★ | pacman `omarchy-emacs`, `emacs-wayland` |  |
 | Zed (Omazed theme) ★ | pacman `zed`, `omazed` |  |
 
+### Terminal workspaces
+
+| Option | Source | Notes |
+|---|---|---|
+| Herdr desktop app ★ | pacman `herdr-app` | pulls in herdr-core (the hc server); Omarchy's Herdr TUI (SUPER+CTRL+RETURN) stays as it is |
+
 ### File managers
 
 Default app: default file manager (inode/directory).

@@ -177,9 +177,9 @@ features:
 
   - id: capslock
     group: desktop
-    title: Caps Lock via keyd
-    effect: adds keyd (tap Esc, hold Ctrl, Shift+Caps Lock = Caps Lock); modifies Compose (Menu key instead of Shift+Caps Lock)
-    phases: [system, user]
+    title: Caps Lock as Esc
+    effect: modifies the keyboard options (Caps Lock = Esc, Shift+Caps Lock = Caps Lock, Compose on the Menu key instead of Shift+Caps Lock)
+    phases: [user]
     default: true
     revert: true
 

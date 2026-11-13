@@ -78,9 +78,6 @@
 - name: Login screen scale
   ansible.builtin.import_playbook: playbooks/system/desktop.yml
 
-- name: Caps Lock via keyd
-  ansible.builtin.import_playbook: playbooks/system/capslock.yml
-
 - name: openssh rebuilt with askpass touch notifications
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml
 

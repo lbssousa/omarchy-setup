@@ -1142,6 +1142,25 @@ omarchy_plugins:
     section: right
     packages:
       - python
+  # Dropbox (repo dropbox-omarchy) — our clone of Omarchy's built-in
+  # omarchy.dropbox bar panel that reads the account's real storage quota
+  # from the Dropbox API (users/get_space_usage) instead of the plan's base
+  # allocation (2 GB for every Basic account, bonus space ignored). MIT. Its
+  # manifest declares clonedFrom omarchy.dropbox, so enabling it disables
+  # the built-in: one Dropbox icon. No tags yet: pinned to a commit of main.
+  # The API side needs a Dropbox app of your own: its app key goes in the
+  # widget's `appKey` setting in shell.json (enabling keeps it) and the
+  # account is connected once from the panel — see the repo's README. The
+  # refresh token goes to the keyring through secret-tool (libsecret).
+  # Helpers are Python stdlib only.
+  - name: Dropbox
+    repo: https://github.com/lbssousa/dropbox-omarchy.git
+    id: lbssousa.dropbox
+    ref: b53a1158a4a30620f275fae383c1a6c3727b6aaa
+    section: right
+    packages:
+      - libsecret
+      - python
 omarchy_plugins_dir: "{{ target_home }}/.config/omarchy/plugins"
 # omacast's launcher key, bound in ~/.config/hypr/bindings.lua while the entry
 # above is in the list. Not ALT + SPACE, omacast's own default: Omarchy binds

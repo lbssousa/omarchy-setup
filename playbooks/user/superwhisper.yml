@@ -1,0 +1,38 @@
+---
+# Superwhisper's hold-to-talk key on the right Ctrl. Superwhisper's own
+# default is RightAlt, which on an ABNT2 keyboard is AltGr: the key that
+# types / ? ° and friends, so it can't also be push-to-talk. Set through
+# the superwhisper CLI (validated, revisioned, applied live), never by
+# editing ~/.config/superwhisper/preferences.json. Turning the feature off
+# clears the user's choice, giving Superwhisper's default back.
+#
+# Usage: just apply superwhisper-hold-key
+- name: Superwhisper hold-to-talk key (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [superwhisper-hold-key]
+
+  vars:
+    feature_on: "{{ features['superwhisper-hold-key'] | default(true) }}"
+    superwhisper_hold_wanted: "{{ superwhisper_hold_key if feature_on | bool else '' }}"
+
+  tasks:
+    - name: Check that Superwhisper is installed
+      ansible.builtin.shell: command -v superwhisper
+      register: superwhisper_cli
+      changed_when: false
+      failed_when: false
+
+    - name: Superwhisper's shortcuts
+      when: superwhisper_cli.rc == 0
+      block:
+        - name: Read the current shortcuts
+          ansible.builtin.command: superwhisper shortcuts show
+          register: superwhisper_shortcuts
+          changed_when: false
+
+        - name: "{{ 'Hold to talk on ' ~ superwhisper_hold_key if feature_on | bool else 'Give the hold key back to Superwhisper' }}"
+          ansible.builtin.command:
+            argv: [superwhisper, shortcuts, set, hold, "{{ superwhisper_hold_wanted if superwhisper_hold_wanted else 'none' }}"]
+          when: (superwhisper_shortcuts.stdout | from_json).shortcuts.hold != superwhisper_hold_wanted

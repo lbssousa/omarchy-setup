@@ -43,6 +43,7 @@ always applied.
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
 | Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock as Esc | `capslock` | modifies the keyboard options (Caps Lock = Esc, Shift+Caps Lock = Caps Lock, Compose on the Menu key instead of Shift+Caps Lock) | user | on | yes |
+| Superwhisper hold-to-talk on the right Ctrl | `superwhisper-hold-key` | modifies Superwhisper's hold-to-talk key (RightAlt, which is AltGr on ABNT2 keyboards) to the right Ctrl | user | on | yes |
 
 ## Themes
 

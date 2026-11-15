@@ -183,6 +183,14 @@ features:
     default: true
     revert: true
 
+  - id: superwhisper-hold-key
+    group: desktop
+    title: Superwhisper hold-to-talk on the right Ctrl
+    effect: modifies Superwhisper's hold-to-talk key (RightAlt, which is AltGr on ABNT2 keyboards) to the right Ctrl
+    phases: [user]
+    default: true
+    revert: true
+
   - id: omadwaita-themes
     group: themes
     title: Omadwaita themes

@@ -73,6 +73,9 @@
 - name: Caps Lock = Esc, Shift+Caps Lock = Caps Lock
   ansible.builtin.import_playbook: playbooks/user/capslock.yml
 
+- name: Superwhisper hold-to-talk on the right Ctrl
+  ansible.builtin.import_playbook: playbooks/user/superwhisper.yml
+
 - name: "Themes: Omadwaita, Omaraptor, Osaka Jade, Piedmont Gold"
   ansible.builtin.import_playbook: playbooks/user/extra-themes.yml
 

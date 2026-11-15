@@ -947,6 +947,11 @@ omarchy_system_ui_font_pt: 13
 # that problem and is the natural Compose key already).
 capslock_compose_key: menu
 
+# Superwhisper hold-to-talk key (playbooks/user/superwhisper.yml), in the
+# superwhisper CLI's notation. Superwhisper's default, RightAlt, is AltGr on
+# ABNT2 keyboards, which types / ? ° and can't double as push-to-talk.
+superwhisper_hold_key: RightControl
+
 # Night light synced to real sunrise/sunset (playbooks/{system,user}/desktop.yml).
 # hyprsunset only supports fixed HH:MM profile times, so a daily timer
 # recomputes them.

@@ -189,7 +189,7 @@
                 content: "{{ pwa_known | combine(pwa_known_new | default({})) | to_nice_json(indent=2) }}\n"
                 mode: "0644"
 
-    - name: Keybindings and tiled fullscreen windows
+    - name: Keybindings and tiled fullscreen windows (Taskbar Tabs only)
       ansible.builtin.include_tasks: tasks/hypr-user-block.yml
       loop:
         - marker: web apps — keybindings
@@ -203,12 +203,11 @@
             {% endif %}
             {% endfor %}
         - marker: web apps — tiled fullscreen
-          state: "{{ 'absent' if webapps_engine == 'none' else 'present' }}"
+          # PWAs open as ordinary tiled windows; only Taskbar Tabs go fullscreen.
+          state: "{{ 'present' if webapps_engine == 'firefox' else 'absent' }}"
           block: |
             {% if webapps_engine == 'firefox' %}
             o.window("^{{ firefox_variant.desktop_prefix | replace('.', '\\.') }}\\.webapp-.*$", { fullscreen_state = "0 2" })
-            {% else %}
-            o.window("^{{ webapps_pwa_engines[webapps_engine].shortcut_prefix | default('none') }}-[a-p]+-{{ webapps_pwa_profile_directory }}$", { fullscreen_state = "0 2" })
             {% endif %}
       loop_control:
         label: "{{ item.marker }}"

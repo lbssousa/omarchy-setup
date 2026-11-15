@@ -159,8 +159,8 @@ chromium_browsers:
 # Under a PWA engine, Omarchy's own launchers for the PWA sites are removed;
 # Firefox moves them to webapps_backup_dir. They come back from
 # omarchy_applications_dir (or that backup) when the engine changes, or the
-# default browser has none (Brave Flatpak). Taskbar Tab windows and PWAs open
-# tiled fullscreen.
+# default browser has none (Brave Flatpak). Taskbar Tab windows open tiled
+# fullscreen; PWAs open as ordinary tiled windows.
 webapps: []
 webapps_desktop_dir: "{{ target_home }}/.local/share/applications"
 webapps_backup_dir: "{{ target_home }}/.local/share/omarchy-setup/webapps-omarchy"

@@ -46,7 +46,8 @@ just configure   # gum menu: pick apps and features; offers to apply them
 fish is every account's login shell; that isn't a choice. Omarchy's web
 apps (YouTube, WhatsApp, ...) are kept native or rebuilt with an installed
 browser — the menu asks, offering Firefox Taskbar Tabs or Chrome/Brave/Chromium
-PWAs — and either way they open tiled fullscreen.
+PWAs. Taskbar Tabs open tiled fullscreen; PWAs open as ordinary tiled
+windows.
 
 Your choices are saved in `~/.config/omarchy-setup/features.yml`; anything
 you never chose takes the catalog's default. Each user runs the menu for

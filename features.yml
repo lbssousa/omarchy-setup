@@ -421,7 +421,7 @@ features:
   - id: gpg-yubikey
     group: security
     title: Yubikey GPG key
-    effect: adds the card's public key (ultimate trust) and git commit signing
+    effect: adds pcscd (scdaemon through it), the card's public key (ultimate trust) and git commit signing
     phases: [system, user]
     default: false
     revert: false

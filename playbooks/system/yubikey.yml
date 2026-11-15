@@ -1,0 +1,35 @@
+---
+# Yubikey smart card access through pcscd, the machine-wide half of the
+# opt-in gpg-yubikey feature (the keyring and git signing are
+# playbooks/user/yubikey.yml, which system.yml runs right after this).
+#
+# pcscd (pcsclite + the ccid driver) lets several programs share the
+# Yubikey's CCID interface — GnuPG, ykman, OpenSC, browsers — instead of
+# gpg's scdaemon grabbing the USB device with its built-in CCID driver.
+# Socket-activated, so it only runs while something uses a card.
+#
+# Once pcscd owns the device, scdaemon's built-in driver can't open it
+# anymore ("ccid open error: skip", gpg --card-status: "No such device");
+# the user phase writes disable-ccid + pcsc-shared to each user's
+# ~/.gnupg/scdaemon.conf so scdaemon goes through pcscd too.
+#
+# Usage: just apply gpg-yubikey
+- name: Yubikey smart card access (pcscd)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [gpg-yubikey]
+
+  tasks:
+    - name: Install pcsclite and the CCID driver
+      community.general.pacman:
+        name: "{{ yubikey_pcscd_packages }}"
+        state: present
+      become: true
+
+    - name: Enable pcscd's activation socket
+      ansible.builtin.systemd_service:
+        name: pcscd.socket
+        enabled: true
+        state: started
+      become: true

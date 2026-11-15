@@ -476,6 +476,11 @@ omapin_program: /usr/bin/omapin
 # first-party plugins by the shell's PluginRegistry).
 omapin_plugin_id: lbssousa.omapin
 omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
+# Yubikey through pcscd (playbooks/{system,user}/yubikey.yml, the opt-in
+# gpg-yubikey feature): pcscd shares the card, and scdaemon is told to use
+# it instead of its own CCID driver.
+yubikey_pcscd_packages: [pcsclite, ccid]
+yubikey_scdaemon_conf: "{{ target_home }}/.gnupg/scdaemon.conf"
 # omaskpass (playbooks/{system,user}/plugins.yml) — SSH prompts in the
 # polkit-style omarchy-shell dialog. Built as an Arch package from a release
 # tag of the repo's own packaging/PKGBUILD with rustup's cargo, like omapin

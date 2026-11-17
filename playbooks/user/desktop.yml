@@ -239,8 +239,14 @@
 # weather location if set, otherwise IP geolocation), queries Open-Meteo
 # for today's sunrise/sunset, and rewrites hyprsunset.conf with two
 # profiles: identity at sunrise, night temperature at sunset. A daily
-# systemd --user timer keeps it in sync, since the times shift every day.
-# Turning the feature off removes the script, timer and autostart (Omarchy's
+# systemd --user timer keeps it in sync, since the times shift every day
+# (retrying while the network is still down at boot). hyprsunset reads its
+# profiles only at startup, so the script restarts it as its own transient
+# unit, outside the oneshot service that would otherwise take it down too.
+# hyprsunset also switches profiles silently, so the script leaves two
+# transient timers (nightlight-solar-refresh-{sunrise,sunset}) that refresh
+# the shell's night light indicator just after each switch.
+# Turning the feature off removes the script, timers and autostart (Omarchy's
 # own hyprsunset.conf and night light toggle stay).
 - name: Night light synced to sunrise/sunset (hyprsunset + systemd --user timer)
   hosts: localhost
@@ -311,6 +317,17 @@
             scope: user
             enabled: false
             state: stopped
+          failed_when: false
+
+        - name: Stop the indicator refresh timers (transient, made by the script)
+          ansible.builtin.command:
+            argv:
+              - systemctl
+              - --user
+              - stop
+              - nightlight-solar-refresh-sunrise.timer
+              - nightlight-solar-refresh-sunset.timer
+          changed_when: false
           failed_when: false
 
         - name: Remove the script and units

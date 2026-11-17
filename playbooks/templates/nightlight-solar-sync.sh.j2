@@ -58,4 +58,29 @@ profile {
 }
 EOF
 
-omarchy restart hyprsunset
+# hyprsunset reads its profiles only at startup, so restart it. Not with
+# `omarchy restart hyprsunset`: that relaunches it in the background, and when
+# this script runs as the oneshot nightlight-solar-sync.service, systemd kills
+# the relaunch along with the service as soon as the script exits, leaving no
+# hyprsunset at all (and so no night light at sunset). A transient service
+# unit is started synchronously and lives outside this service.
+pkill -x hyprsunset || true
+uwsm app -t service -- hyprsunset
+
+# hyprsunset switches profiles on its own and tells nobody, so the shell's
+# night light indicator would keep showing the old state. Refresh it a few
+# seconds after each switch (daily, so it keeps working even on a day this
+# sync doesn't run), and right now for the profile just applied.
+for edge in sunrise sunset; do
+  systemctl --user stop "nightlight-solar-refresh-${edge}.timer" 2>/dev/null || true
+  systemctl --user reset-failed "nightlight-solar-refresh-${edge}.service" 2>/dev/null || true
+done
+systemd-run --user --quiet --collect --unit=nightlight-solar-refresh-sunrise \
+  --on-calendar="*-*-* ${sunrise}:05" --timer-property=AccuracySec=1s --timer-property=Persistent=true \
+  -- omarchy-shell -q nightlight refresh
+systemd-run --user --quiet --collect --unit=nightlight-solar-refresh-sunset \
+  --on-calendar="*-*-* ${sunset}:05" --timer-property=AccuracySec=1s --timer-property=Persistent=true \
+  -- omarchy-shell -q nightlight refresh
+
+sleep 2
+omarchy-shell -q nightlight refresh || true

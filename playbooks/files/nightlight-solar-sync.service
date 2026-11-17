@@ -1,6 +1,12 @@
 [Unit]
 Description=Sync hyprsunset profiles to today's sunrise/sunset times
+# At boot the network is often not up yet (curl can't resolve the location
+# or the forecast host); keep retrying instead of waiting for tomorrow.
+StartLimitIntervalSec=15min
+StartLimitBurst=10
 
 [Service]
 Type=oneshot
 ExecStart=%h/.local/bin/nightlight-solar-sync
+Restart=on-failure
+RestartSec=60s

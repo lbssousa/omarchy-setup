@@ -167,6 +167,14 @@ features:
     default: true
     revert: true
 
+  - id: screensaver-bar-guard
+    group: desktop
+    title: Bar stays hidden under the screensaver
+    effect: adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it
+    phases: [user]
+    default: true
+    revert: true
+
   - id: omafox
     group: desktop
     title: Firefox follows the Omarchy theme

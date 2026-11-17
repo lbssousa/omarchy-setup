@@ -5,10 +5,11 @@
 #   Vertical workspaces       tags: desktop, hypr-vertical-workspaces
 #   Screen scale + text size  tags: desktop, text-size (the login screen's is in system/desktop.yml)
 #   Night light (solar)       tags: desktop, nightlight-solar
+#   Screensaver bar guard     tags: desktop, screensaver-bar-guard
 #
 # hyprsunset and jq (night light) ship with Omarchy.
 #
-# Usage: just apply hypr-scrolling-resize | just apply hypr-vertical-workspaces | just apply text-size | just apply nightlight-solar
+# Usage: just apply hypr-scrolling-resize | just apply hypr-vertical-workspaces | just apply text-size | just apply nightlight-solar | just apply screensaver-bar-guard
 
 # Hyprland's "scrolling" layout has its own resize dispatcher,
 # hl.dsp.layout("colresize <±fraction>") — the generic window-resize
@@ -327,6 +328,65 @@
         hypr_state: "{{ 'present' if feature_on | bool else 'absent' }}"
         hypr_block: |
           o.launch_on_start("hyprsunset")
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml
+
+# Hyprland fades top-layer surfaces only when a window enters fullscreen. If
+# the bar's (or dock's) layer surface remaps while the screensaver is already
+# fullscreen on its special workspace -- a shell reload, a screen remap -- it
+# is drawn over the screensaver. A small watcher on Hyprland's event socket
+# (~/.local/bin/screensaver-bar-guard, autostarted with Hyprland) re-applies
+# the screensaver's fullscreen when that happens, which hides them again
+# without taking focus (omarchy-screensaver exits when it loses focus).
+- name: Keep the bar hidden under the screensaver
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [screensaver-bar-guard]
+
+  vars:
+    feature_on: "{{ features['screensaver-bar-guard'] | default(true) }}"
+    guard_path: "{{ target_home }}/.local/bin/screensaver-bar-guard"
+
+  tasks:
+    - name: Install the watcher
+      when: feature_on | bool
+      block:
+        - name: Create ~/.local/bin
+          ansible.builtin.file:
+            path: "{{ target_home }}/.local/bin"
+            state: directory
+            mode: "0755"
+
+        - name: Install the watcher script (screensaver-bar-guard)
+          ansible.builtin.copy:
+            src: screensaver-bar-guard.sh
+            dest: "{{ guard_path }}"
+            mode: "0755"
+
+    - name: "{{ 'Launch' if feature_on | bool else 'Stop launching' }} the watcher with Hyprland"
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        hypr_file: autostart.lua
+        hypr_marker: playbooks/user/desktop.yml — screensaver bar guard
+        hypr_state: "{{ 'present' if feature_on | bool else 'absent' }}"
+        hypr_block: |
+          o.launch_on_start("screensaver-bar-guard")
+
+    - name: Remove the watcher
+      when: not feature_on | bool
+      block:
+        - name: Stop the running watcher
+          ansible.builtin.command: pkill -f '/\.local/bin/screensaver-bar-guard$'
+          register: guard_kill
+          changed_when: guard_kill.rc == 0
+          failed_when: false
+
+        - name: Remove the watcher script
+          ansible.builtin.file:
+            path: "{{ guard_path }}"
+            state: absent
 
   handlers:
     - ansible.builtin.import_tasks: tasks/handlers-user.yml

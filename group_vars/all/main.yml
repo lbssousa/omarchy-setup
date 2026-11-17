@@ -434,7 +434,7 @@ gregorio_ref: bdb4eedbc2eb0521c3e040811f7d70a99b6fa639
 # with cargo. Pinned to a tag for reproducibility — bump when a newer
 # release is needed.
 gregorio_lsp_repo: https://github.com/aiscgre-br/gregorio-lsp.git
-gregorio_lsp_ref: v0.11.0
+gregorio_lsp_ref: v0.12.0
 gregorio_lsp_checkout_dir: "{{ target_home }}/src/gregorio-lsp"
 gregorio_lsp_cargo_bin_dir: "{{ target_home }}/.cargo/bin"
 gregorio_lsp_server_crate: crates/gregorio-server

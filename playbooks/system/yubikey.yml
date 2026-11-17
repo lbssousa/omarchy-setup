@@ -10,8 +10,9 @@
 #
 # Once pcscd owns the device, scdaemon's built-in driver can't open it
 # anymore ("ccid open error: skip", gpg --card-status: "No such device");
-# the user phase writes disable-ccid + pcsc-shared to each user's
-# ~/.gnupg/scdaemon.conf so scdaemon goes through pcscd too.
+# the user phase writes disable-ccid to each user's ~/.gnupg/scdaemon.conf
+# so scdaemon goes through pcscd too (exclusively, not pcsc-shared, so the
+# card keeps its verified PIN between signatures).
 #
 # Usage: just apply gpg-yubikey
 - name: Yubikey smart card access (pcscd)

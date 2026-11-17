@@ -23,9 +23,14 @@
 
   tasks:
     # pcscd (system/yubikey.yml) holds the Yubikey's CCID interface, so
-    # scdaemon's own CCID driver can't open it; go through pcscd, in shared
-    # mode so ykman & co. can use the card alongside gpg. Before the card
-    # check below, which would otherwise find no card.
+    # scdaemon's own CCID driver can't open it; go through pcscd. Before the
+    # card check below, which would otherwise find no card.
+    #
+    # Not in shared mode (pcsc-shared): another PC/SC client selecting a
+    # different applet (KeePassXC's challenge-response, ykman) drops the
+    # OpenPGP applet's verified PIN, so gpg asks for it again and again
+    # instead of once per insertion. scdaemon keeps the card exclusively
+    # while it runs; `gpgconf --kill scdaemon` frees it for ykman.
     - name: Create ~/.gnupg
       ansible.builtin.file:
         path: "{{ yubikey_scdaemon_conf | dirname }}"
@@ -39,12 +44,19 @@
         line: "{{ item }}"
         create: true
         mode: "0600"
-      loop: [disable-ccid, pcsc-shared]
       register: yubikey_scdaemon_conf_result
+      loop: [disable-ccid]
+
+    - name: "Drop pcsc-shared from {{ yubikey_scdaemon_conf }}"
+      ansible.builtin.lineinfile:
+        path: "{{ yubikey_scdaemon_conf }}"
+        regexp: '^\s*pcsc-shared\s*$'
+        state: absent
+      register: yubikey_scdaemon_shared_result
 
     - name: Restart scdaemon to read its new configuration
       ansible.builtin.command: gpgconf --kill scdaemon
-      when: yubikey_scdaemon_conf_result.changed
+      when: yubikey_scdaemon_conf_result.changed or yubikey_scdaemon_shared_result.changed
       changed_when: true
 
     - name: Import the Yubikey's GPG public key and assign it ultimate trust

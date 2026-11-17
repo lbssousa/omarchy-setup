@@ -477,8 +477,8 @@ omapin_program: /usr/bin/omapin
 omapin_plugin_id: lbssousa.omapin
 omapin_gpg_agent_conf: "{{ target_home }}/.gnupg/gpg-agent.conf"
 # Yubikey through pcscd (playbooks/{system,user}/yubikey.yml, the opt-in
-# gpg-yubikey feature): pcscd shares the card, and scdaemon is told to use
-# it instead of its own CCID driver.
+# gpg-yubikey feature): pcscd owns the card, and scdaemon is told to use
+# it instead of its own CCID driver (exclusively, without pcsc-shared).
 yubikey_pcscd_packages: [pcsclite, ccid]
 yubikey_scdaemon_conf: "{{ target_home }}/.gnupg/scdaemon.conf"
 # omaskpass (playbooks/{system,user}/plugins.yml) — SSH prompts in the

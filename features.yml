@@ -500,8 +500,8 @@ apps:
     role: default PDF viewer
     default: zathura-flatpak
     options:
-      - { id: evince, label: Evince, source: pacman, package: evince, stock: true, desktop: org.gnome.Evince.desktop }
-      - { id: papers, label: Papers, source: pacman, package: papers, installed: true, keep: true, desktop: org.gnome.Papers.desktop, note: Nautilus's previewer (sushi) depends on it }
+      - { id: evince, label: Evince, source: pacman, package: evince, desktop: org.gnome.Evince.desktop }
+      - { id: papers, label: Papers, source: pacman, package: papers, stock: true, installed: true, keep: true, desktop: org.gnome.Papers.desktop, note: "Omarchy's own document viewer, which replaced Evince" }
       - { id: zathura-flatpak, label: Zathura, source: flatpak, flatpak: org.pwmt.zathura, installed: true, desktop: org.pwmt.zathura.desktop }
       - { id: zathura, label: Zathura, source: pacman, package: [zathura, zathura-pdf-mupdf], desktop: org.pwmt.zathura.desktop }
 
@@ -536,5 +536,5 @@ apps:
     role: default file manager (inode/directory)
     default: flea
     options:
-      - { id: nautilus, label: Nautilus, source: pacman, package: nautilus, stock: true, installed: true, keep: true, desktop: org.gnome.Nautilus.desktop, note: Omarchy's own previews and scripts use it }
+      - { id: folio, label: Files (Folio), source: pacman, package: folio, stock: true, installed: true, keep: true, desktop: folio.desktop, note: "Omarchy's own file manager, which replaced Nautilus; Super+Shift+F always opens it" }
       - { id: flea, label: Flea, source: pacman, package: flea, installed: true, desktop: com.thisisgm.flea.desktop }

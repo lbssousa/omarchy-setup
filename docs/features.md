@@ -174,8 +174,8 @@ Default app: default PDF viewer.
 
 | Option | Source | Notes |
 |---|---|---|
-| Evince | pacman `evince` | stock |
-| Papers ★ | pacman `papers` | kept; Nautilus's previewer (sushi) depends on it |
+| Evince | pacman `evince` |  |
+| Papers ★ | pacman `papers` | stock; kept; Omarchy's own document viewer, which replaced Evince |
 | Zathura ★ (default) | flatpak `org.pwmt.zathura` |  |
 | Zathura | pacman `zathura`, `zathura-pdf-mupdf` |  |
 
@@ -215,5 +215,5 @@ Default app: default file manager (inode/directory).
 
 | Option | Source | Notes |
 |---|---|---|
-| Nautilus ★ | pacman `nautilus` | stock; kept; Omarchy's own previews and scripts use it |
+| Files (Folio) ★ | pacman `folio` | stock; kept; Omarchy's own file manager, which replaced Nautilus; Super+Shift+F always opens it |
 | Flea ★ (default) | pacman `flea` |  |

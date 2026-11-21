@@ -2,8 +2,9 @@
 # File managers, per user (apps: file_manager): the default handler for
 # directories (inode/directory). Flea takes it with `flea --default`, which
 # also makes it the FileManager1 service and the "File manager" keys;
-# Files (Folio), Omarchy's own, through xdg-mime (`flea --default off` first
-# when Flea had it). Either way the result is read back and checked.
+# Omarchy's own (Nautilus on 4.5.0, Files after it), through xdg-mime
+# (`flea --default off` first when Flea had it). Either way the result is
+# read back and checked.
 - name: Apps — file managers (user)
   hosts: localhost
   connection: local

@@ -150,15 +150,17 @@ git commits with it; import or make resident SSH keys, delete them, and set up
 their git hosts with connection reuse. Turning on `security-key-wizard` in
 `just configure` also asks every `just user` run.
 
+It replaces `just ssh-yubikey`: a `~/.ssh/config.d/github_com_*.conf` that
+script wrote (it says so at the top) can go once the wizard has set up
+github.com for the key (`~/.ssh/config.d/github.com.conf`, read first).
+
 `just check` syntax-checks everything, the boundary between the phases, the
 catalog against the plays' tags and that docs/features.md is current
 (`just docs` regenerates it). The playbooks are idempotent — rerunning is
 safe.
 
 Not Ansible, run on their own: `just typesetting` (TeX Live, LilyPond and
-Gregorio on the host — see local-typesetting/README.md), `just ssh-yubikey`
-/ `just ssh-yubikey-disable` (the Yubikey's resident SSH keys, prompts for
-the FIDO2 PIN) and
+Gregorio on the host — see local-typesetting/README.md) and
 `just efi-cleanup` / `just efi-cleanup-apply` (list, then remove, UEFI boot
 entries left over from earlier installs). Secure
 Boot has a walkthrough: [docs/secureboot.md](docs/secureboot.md).

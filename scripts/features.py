@@ -20,6 +20,8 @@ Choices live in $XDG_CONFIG_HOME/omarchy-setup/features.yml:
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -48,11 +50,36 @@ def as_list(value):
     return value if isinstance(value, list) else [value]
 
 
+def omarchy_managed(option):
+    """An app Omarchy installs and removes itself (`omarchy: true`): never
+    installed or removed here, and installed only where it is present."""
+    return bool(option.get("omarchy"))
+
+
+_present = {}
+
+
+def package_present(names):
+    """Whether pacman has every package installed. False without pacman (CI)."""
+    key = tuple(names)
+    if key not in _present:
+        override = os.environ.get("OMARCHY_SETUP_PRESENT")
+        if override is not None:
+            # Tests: a space-separated list of the packages to take as installed.
+            _present[key] = all(n in override.split() for n in names)
+        elif shutil.which("pacman"):
+            result = subprocess.run(["pacman", "-Q", *names], capture_output=True)
+            _present[key] = result.returncode == 0
+        else:
+            _present[key] = False
+    return _present[key]
+
+
 def option_label(option):
     source = {"pacman": "native", "aur": "AUR", "flatpak": "Flatpak", "bundle": "Launcher"}[option["source"]]
     extras = [source]
-    if option.get("stock"):
-        extras.append("stock")
+    if option.get("stock") or omarchy_managed(option):
+        extras.append("Omarchy's own" if omarchy_managed(option) else "stock")
     return f"{option['label']} ({' · '.join(extras)})"
 
 
@@ -72,7 +99,10 @@ def resolve(catalog, choices):
         installed = chosen.get("installed")
         if installed is None:
             installed = [o["id"] for o in category["options"] if o.get("installed")]
-        installed = [i for i in ids if i in installed]
+        # Omarchy's own apps are installed where Omarchy has them, whatever
+        # was chosen: Omarchy installs and removes them, never this repository.
+        managed = {o["id"]: package_present(as_list(o["package"])) for o in category["options"] if omarchy_managed(o)}
+        installed = [i for i in ids if (managed[i] if i in managed else i in installed)]
         # Options that can't be removed stay installed.
         installed += [o["id"] for o in category["options"] if o.get("keep") and o["id"] not in installed]
         entry = {"installed": [i for i in ids if i in installed]}
@@ -182,6 +212,8 @@ def package_states(catalog, apps):
     states = {}
     for category in catalog["apps"]:
         for o in category["options"]:
+            if omarchy_managed(o):
+                continue
             key = (o["source"], json.dumps(as_list(o.get("package") or o.get("flatpak") or o.get("bundle"))))
             wanted = o["id"] in apps[category["id"]]["installed"]
             prev = states.get(key)
@@ -285,6 +317,15 @@ def cmd_check():
                 problems.append(f"apps {category['id']}/{o['id']}: min_version_url without min_version")
             if "engine" in o and o["engine"] not in WEBAPPS_ENGINE_LABELS:
                 problems.append(f"apps {category['id']}/{o['id']}: unknown web apps engine {o['engine']}")
+            if omarchy_managed(o):
+                # Present or not depends on the machine's Omarchy, never on this catalog.
+                for key in ("installed", "keep", "stock", "min_version"):
+                    if key in o:
+                        problems.append(f"apps {category['id']}/{o['id']}: omarchy and {key} don't go together")
+                if o["source"] != "pacman":
+                    problems.append(f"apps {category['id']}/{o['id']}: omarchy needs source pacman")
+                if category.get("default") == o["id"]:
+                    problems.append(f"apps {category['id']}: default {o['id']} is Omarchy's, present only on some releases")
     tags = play_tags()
     for i in ids:
         if i not in tags:
@@ -331,8 +372,10 @@ def cmd_doc():
         "Each category lists its installation alternatives; several can be",
         "installed side by side. Options are declarative: one left out is",
         "uninstalled, Omarchy's own (**stock**) included, unless it is marked",
-        "as kept. ★ marks what is installed by default, and the default app",
-        "where the category has one.",
+        "as kept. **Omarchy's own** apps are the exception: Omarchy installs and",
+        "removes them as its releases change, never this repository, and they",
+        "can be the default app wherever they are installed. ★ marks what is",
+        "installed by default, and the default app where the category has one.",
         "",
     ]
     for category in catalog["apps"]:
@@ -347,6 +390,8 @@ def cmd_doc():
             notes = []
             if o.get("stock"):
                 notes.append("stock")
+            if omarchy_managed(o):
+                notes.append("Omarchy's own")
             if o.get("keep"):
                 notes.append("kept")
             if o.get("min_version"):
@@ -391,9 +436,15 @@ def menu(args):
     elif what == "options":
         category = next(c for c in catalog["apps"] if c["id"] == args[1])
         for o in category["options"]:
+            installed = o["id"] in apps[category["id"]]["installed"]
+            # Omarchy's own apps can't be installed or removed here: listed only
+            # where Omarchy has them, as kept, so they can still be the default.
+            if omarchy_managed(o) and not installed:
+                continue
+            keep = bool(o.get("keep")) or omarchy_managed(o)
             print(
-                f"{o['id']}\t{menu_label(option_label(o))}\t{int(o['id'] in apps[category['id']]['installed'])}"
-                f"\t{int(bool(o.get('keep')))}\t{int(bool(o.get('stock')))}\t{o.get('note', '')}"
+                f"{o['id']}\t{menu_label(option_label(o))}\t{int(installed)}"
+                f"\t{int(keep)}\t{int(bool(o.get('stock')))}\t{o.get('note', '')}"
             )
     elif what == "default":
         print(apps[args[1]].get("default") or "")

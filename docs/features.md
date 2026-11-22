@@ -117,8 +117,10 @@ always applied.
 Each category lists its installation alternatives; several can be
 installed side by side. Options are declarative: one left out is
 uninstalled, Omarchy's own (**stock**) included, unless it is marked
-as kept. ★ marks what is installed by default, and the default app
-where the category has one.
+as kept. **Omarchy's own** apps are the exception: Omarchy installs and
+removes them as its releases change, never this repository, and they
+can be the default app wherever they are installed. ★ marks what is
+installed by default, and the default app where the category has one.
 
 ### Web browsers
 
@@ -174,8 +176,8 @@ Default app: default PDF viewer.
 
 | Option | Source | Notes |
 |---|---|---|
-| Evince | pacman `evince` | stock |
-| Papers ★ | pacman `papers` | kept; Nautilus's previewer (sushi) depends on it |
+| Evince | pacman `evince` | stock; Omarchy 4.5.0's; later releases replace it with Papers |
+| Papers ★ | pacman `papers` | kept; Omarchy's document viewer after 4.5.0; on 4.5.0, Nautilus's previewer (sushi) depends on it |
 | Zathura ★ (default) | flatpak `org.pwmt.zathura` |  |
 | Zathura | pacman `zathura`, `zathura-pdf-mupdf` |  |
 
@@ -215,5 +217,6 @@ Default app: default file manager (inode/directory).
 
 | Option | Source | Notes |
 |---|---|---|
-| Nautilus ★ | pacman `nautilus` | stock; kept; Omarchy's own previews and scripts use it |
+| Files (Folio) | pacman `folio` | Omarchy's own; Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it |
+| Nautilus | pacman `nautilus` | Omarchy's own; Omarchy 4.5.0's file manager; later releases remove it |
 | Flea ★ (default) | pacman `flea` |  |

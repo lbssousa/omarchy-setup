@@ -24,7 +24,11 @@
 #   Options are always declarative: an option left out is uninstalled
 #   (including Omarchy's own, marked stock). Options with `keep: true`
 #   can't be removed (something else depends on them) but can still be
-#   the default.
+#   the default. Options with `omarchy: true` are apps Omarchy installs and
+#   removes itself as its releases change (Nautilus on 4.5.0, Files after
+#   it): never installed or removed here, installed wherever pacman has
+#   them, and the default app only there (a default that isn't falls back
+#   to the first installed option of the category).
 #     source    pacman | aur | flatpak (Flathub, system-wide) | bundle
 #               (a release's .flatpak, see the artcraft option)
 #     min_version      pacman, one package: the oldest version accepted, upgraded
@@ -500,8 +504,8 @@ apps:
     role: default PDF viewer
     default: zathura-flatpak
     options:
-      - { id: evince, label: Evince, source: pacman, package: evince, stock: true, desktop: org.gnome.Evince.desktop }
-      - { id: papers, label: Papers, source: pacman, package: papers, installed: true, keep: true, desktop: org.gnome.Papers.desktop, note: Nautilus's previewer (sushi) depends on it }
+      - { id: evince, label: Evince, source: pacman, package: evince, stock: true, desktop: org.gnome.Evince.desktop, note: "Omarchy 4.5.0's; later releases replace it with Papers" }
+      - { id: papers, label: Papers, source: pacman, package: papers, installed: true, keep: true, desktop: org.gnome.Papers.desktop, note: "Omarchy's document viewer after 4.5.0; on 4.5.0, Nautilus's previewer (sushi) depends on it" }
       - { id: zathura-flatpak, label: Zathura, source: flatpak, flatpak: org.pwmt.zathura, installed: true, desktop: org.pwmt.zathura.desktop }
       - { id: zathura, label: Zathura, source: pacman, package: [zathura, zathura-pdf-mupdf], desktop: org.pwmt.zathura.desktop }
 
@@ -536,5 +540,6 @@ apps:
     role: default file manager (inode/directory)
     default: flea
     options:
-      - { id: nautilus, label: Nautilus, source: pacman, package: nautilus, stock: true, installed: true, keep: true, desktop: org.gnome.Nautilus.desktop, note: Omarchy's own previews and scripts use it }
+      - { id: folio, label: Files (Folio), source: pacman, package: folio, omarchy: true, desktop: folio.desktop, note: "Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it" }
+      - { id: nautilus, label: Nautilus, source: pacman, package: nautilus, omarchy: true, desktop: org.gnome.Nautilus.desktop, note: "Omarchy 4.5.0's file manager; later releases remove it" }
       - { id: flea, label: Flea, source: pacman, package: flea, installed: true, desktop: com.thisisgm.flea.desktop }

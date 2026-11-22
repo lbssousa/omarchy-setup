@@ -511,7 +511,7 @@ omaskpass_legacy_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omas
 # Installed from a release tag of https://github.com/lbssousa/polkit-omarchy;
 # bump the ref to deploy a new release.
 polkit_agent_repo: https://github.com/lbssousa/polkit-omarchy.git
-polkit_agent_ref: v0.2.2
+polkit_agent_ref: v0.2.3
 polkit_agent_checkout_dir: "{{ target_home }}/src/polkit-omarchy"
 polkit_agent_verify_commit: false
 polkit_agent_signing_keys: "{{ omapin_signing_keys }}"
@@ -599,7 +599,7 @@ shared_checkout_dir: /opt/omarchy-setup
 # release. omarchy_multiuser_repo may also be a local checkout (with the tag in
 # it) before the repository is published.
 omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.12.1
+omarchy_multiuser_ref: v0.13.0
 omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
 omarchy_multiuser_verify_commit: false
 omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"
@@ -1157,7 +1157,7 @@ omarchy_plugins:
   # from the Dropbox API (users/get_space_usage) instead of the plan's base
   # allocation (2 GB for every Basic account, bonus space ignored). MIT. Its
   # manifest declares clonedFrom omarchy.dropbox, so enabling it disables
-  # the built-in: one Dropbox icon. No tags yet: pinned to a commit of main.
+  # the built-in: one Dropbox icon. Pinned to the commit of its v1.2.0 tag.
   # The API side needs a Dropbox app of your own: its app key goes in the
   # widget's `appKey` setting in shell.json (enabling keeps it) and the
   # account is connected once from the panel — see the repo's README. The
@@ -1166,7 +1166,7 @@ omarchy_plugins:
   - name: Dropbox
     repo: https://github.com/lbssousa/dropbox-omarchy.git
     id: lbssousa.dropbox
-    ref: b53a1158a4a30620f275fae383c1a6c3727b6aaa
+    ref: c8cc99b4b3eb1bc9496d47bc8a7a05e50e22d578
     section: right
     packages:
       - libsecret

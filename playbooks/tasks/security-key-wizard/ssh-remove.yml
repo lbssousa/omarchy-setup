@@ -1,0 +1,27 @@
+---
+# Removes a resident key's copy from ~/.ssh (ssh.remove), with its line in
+# its git host's drop-in. The key stays on the security key and can be
+# imported again.
+- name: Ask which copy to remove
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/pick.yml"
+  vars:
+    skw_header: Remove a copy from ~/.ssh
+    skw_question: Which key's copy?
+    skw_items: "{{ skw_state.sshKeys | map(attribute='name') | map('regex_replace', '^', '~/.ssh/') | list }}"
+
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Remove a copy from ~/.ssh
+    skw_question: >-
+      Remove ~/.ssh/{{ skw_state.sshKeys[skw_pick | int].name }} and its .pub?
+      The key stays on the security key, and importing brings it back
+    skw_default: n
+  when: skw_pick | int >= 0
+
+- name: Remove the copy
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Remove the copy
+    skw_command: {cmd: ssh.remove, name: "{{ skw_state.sshKeys[skw_pick | int].name }}"}
+  when: skw_pick | int >= 0 and skw_yes

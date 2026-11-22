@@ -1,0 +1,32 @@
+---
+# Has git sign commits and tags with the card's signature key, as the
+# gpg-yubikey feature does (playbooks/user/yubikey.yml), once gpg uses the
+# card. Not one of the overlay's options: the step that usually follows.
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Sign git commits and tags
+    skw_question: >-
+      Sign every git commit and tag with {{ skw_state.card.fingerprints | first }}
+      (git config --global user.signingkey, commit.gpgsign, tag.gpgsign)?{{
+      (' git signs with ' ~ skw_git_signingkey ~ ' now.') if skw_git_signingkey else '' }}
+    skw_default: y
+
+- name: Configure git to sign with the card's key
+  community.general.git_config:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    scope: global
+    state: present
+  loop:
+    - {name: user.signingkey, value: "{{ skw_state.card.fingerprints | first }}"}
+    - {name: commit.gpgsign, value: "true"}
+    - {name: tag.gpgsign, value: "true"}
+  loop_control:
+    label: "{{ item.name }}"
+  when: skw_yes
+
+- name: Keep the key git signs with now
+  ansible.builtin.set_fact:
+    skw_git_signingkey: "{{ skw_state.card.fingerprints | first | upper }}"
+  when: skw_yes

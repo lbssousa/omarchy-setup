@@ -80,6 +80,15 @@ apply +IDS: _ensure-collections
     fi
     scripts/run-phase.sh user user.yml --tags "$tags"
 
+# The security key wizard: what the security-key-omarchy overlay offers
+# (Setup › Security), asked for in this terminal — register the key plugged in
+# and a backup key for sudo and polkit and choose whether they ask for its PIN;
+# import, trust and sign git commits with its OpenPGP key; import or make
+# resident SSH keys and set up their git hosts. Your user phase only (polkit
+# asks when /etc changes); the security-key feature has to be applied first.
+security-key: _ensure-collections
+    OMARCHY_SETUP_ENABLE=security-key-wizard scripts/run-phase.sh user playbooks/user/security-key-wizard.yml --tags always,security-key-wizard
+
 # Update the accounts in omarchy_users (group_vars/all/users.yml) that exist on
 # this machine, or create specific accounts: `just users` updates existing
 # accounts without creating new ones automatically; `just users <name>...`

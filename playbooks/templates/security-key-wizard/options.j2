@@ -1,0 +1,47 @@
+{# The wizard's menu for the key's state (skw_state), as a YAML list: key (the
+   answer), section, file (the task file in tasks/security-key-wizard) and
+   label. Offers what the overlay shows for the same state. #}
+{% set s = skw_state %}
+{% set device = s.devices | first | default({}) %}
+{% set used = s.credentials | rejectattr('unused') | list %}
+{% set card_key = (s.card.fingerprints | first | default('')) if s.card else '' %}
+{% macro option(key, section, file, label) %}
+- {key: {{ key }}, section: {{ section }}, file: {{ file }}, label: {{ label | to_json }}}
+{% endmacro %}
+{% if device and s.target.kind in ['own', 'shared'] %}
+{{ option('r', 'fido', 'fido-register', 'Register another key' if used else 'Register this key for sudo and polkit') }}
+{% endif %}
+{% if s.credentials %}
+{{ option('x', 'fido', 'fido-remove', 'Remove a registered key') }}
+{% endif %}
+{% if s.pinMode and s.pinHelper %}
+{{ option('p', 'fido', 'fido-pin', 'Stop asking for the PIN (a touch alone)' if s.pinMode == 'on' else 'Ask for the PIN along with the touch') }}
+{% endif %}
+{% if s.card %}
+{{ option('i', 'gpg', 'gpg-import', {'ready': 'Update the public key', 'public': 'Link the public key to the card'}[s.keyState] | default('Import the public key and link it to the card')) }}
+{% endif %}
+{% if s.card and s.keyState in ['public', 'ready'] and not s.trusted %}
+{{ option('t', 'gpg', 'gpg-trust', 'Trust it ultimately (only your own key)') }}
+{% endif %}
+{% if s.card and s.keyState == 'ready' and card_key and not (skw_git_signingkey | regex_replace('!$', '') | length >= 16 and card_key.endswith(skw_git_signingkey | regex_replace('!$', ''))) %}
+{{ option('g', 'gpg', 'git-sign', 'Sign git commits and tags with it') }}
+{% endif %}
+{% if s.card and s.keyState in ['public', 'ready'] %}
+{{ option('d', 'gpg', 'gpg-remove', 'Remove it from the keyring') }}
+{% endif %}
+{% if device.rk | default(false) %}
+{{ option('s', 'ssh', 'ssh-import', 'Import the resident SSH keys into ~/.ssh') }}
+{{ option('n', 'ssh', 'ssh-create', 'Make a new resident SSH key') }}
+{% endif %}
+{% if s.sshKeys %}
+{{ option('c', 'ssh', 'ssh-remove', 'Remove a copy from ~/.ssh (the key stays on the security key)') }}
+{% endif %}
+{% if s.sshKeys and device %}
+{{ option('k', 'ssh', 'ssh-delete', 'Delete a key from the security key, for good') }}
+{% endif %}
+{% if s.sshKeys | selectattr('host') | selectattr('hostState', 'in', ['on', 'off']) | list %}
+{{ option('h', 'ssh', 'ssh-host', 'Use a key for its git host, or stop') }}
+{% endif %}
+{% if s.sshKeys | selectattr('hostState', 'equalto', 'on') | list %}
+{{ option('m', 'ssh', 'ssh-persist', 'How long to reuse connections to a git host') }}
+{% endif %}

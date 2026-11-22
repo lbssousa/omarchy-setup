@@ -103,6 +103,7 @@ always applied.
 |---|---|---|---|---|---|
 | Secure Boot (sbctl) | `secureboot` | adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) | system | off | no |
 | Yubikey GPG key | `gpg-yubikey` | adds pcscd (scdaemon through it), the card's public key (ultimate trust) and git commit signing | system, user | off | no |
+| Security key wizard (FIDO2, OpenPGP, SSH) | `security-key-wizard` | asks in the terminal what to do with the key plugged in, with the security-key-omarchy overlay's options - registers it and a backup key for sudo/polkit and sets whether they ask for its PIN; imports and trusts its OpenPGP key, signs git commits with it; imports or makes resident SSH keys and sets up their git hosts (`just security-key` runs it alone) | user | off | no |
 
 ## Extras (opt-in)
 

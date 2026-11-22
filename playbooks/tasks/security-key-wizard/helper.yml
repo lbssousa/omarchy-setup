@@ -1,0 +1,43 @@
+---
+# Runs one key-helper command (skw_command, a dict as the overlay sends it,
+# with "pin" when it needs one) and reports its outcome. Leaves skw_result
+# (the done/error/cancelled event, or none for a refresh), skw_state (the
+# key's state after it) and skw_git_signingkey (git's user.signingkey).
+#
+# skw_title names the task, printed before it runs: it tells the user what to
+# do while it runs (touch the key, authenticate in the polkit dialog).
+- name: "{{ skw_title | default('Look at the security key') }}"
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -I
+      - "{{ playbook_dir }}/files/security-key-wizard/helper-call.py"
+      - "{{ security_key_wizard_helper }}"
+    stdin: "{{ skw_command | to_json }}"
+  register: skw_call
+  changed_when: >-
+    skw_command.cmd != 'refresh'
+    and (skw_call.stdout | from_json).result.type | default('') == 'done'
+  # The command carries the PIN.
+  no_log: "{{ 'pin' in skw_command }}"
+
+- name: Keep the outcome and the key's state
+  ansible.builtin.set_fact:
+    skw_result: "{{ (skw_call.stdout | from_json).result or {} }}"
+    skw_state: "{{ (skw_call.stdout | from_json).state }}"
+
+- name: Read the key git signs with
+  ansible.builtin.command:
+    argv: [git, config, --global, --get, user.signingkey]
+  register: skw_git_signingkey_read
+  changed_when: false
+  failed_when: false
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_git_signingkey: "{{ skw_git_signingkey_read.stdout | trim | upper }}"
+
+- name: Report what happened
+  ansible.builtin.debug:
+    msg: "{{ lookup('template', 'security-key-wizard/result.j2') | trim }}"
+  when: skw_result.type is defined and not skw_quiet | default(false)

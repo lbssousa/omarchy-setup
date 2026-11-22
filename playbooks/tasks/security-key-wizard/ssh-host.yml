@@ -1,0 +1,46 @@
+---
+# Uses a resident key for the git host its application names, or stops
+# (ssh.host): its line in ~/.ssh/config.d/<host>.conf, which ssh reads
+# through an Include at the top of ~/.ssh/config, without the agent. Setting
+# a host up asks for the connection reuse too. Drop-ins changed by hand, or
+# not written by the overlay, are left alone (and not offered).
+- name: Work out the keys with a git host
+  ansible.builtin.set_fact:
+    skw_hosted: "{{ skw_state.sshKeys | selectattr('host') | selectattr('hostState', 'in', ['on', 'off']) | list }}"
+
+- name: Ask which key
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/pick.yml"
+  vars:
+    skw_header: Git host
+    skw_question: Which key?
+    skw_items: >-
+      {{ skw_hosted | map(attribute='name') | map('regex_replace', '^', '~/.ssh/')
+         | zip(skw_hosted | map(attribute='hostState')
+                 | map('regex_replace', '^on$', 'used for') | map('regex_replace', '^off$', 'not used for'),
+               skw_hosted | map(attribute='host'))
+         | map('join', '  ') | list }}
+
+- name: Set the host up
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ssh-host-offer.yml"
+  vars:
+    skw_key: "{{ skw_hosted[skw_pick | int].name }}"
+  when: skw_pick | int >= 0 and skw_hosted[skw_pick | int].hostState == 'off'
+
+- name: Stop using it
+  when: skw_pick | int >= 0 and skw_hosted[skw_pick | int].hostState == 'on'
+  block:
+    - name: Confirm
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: Git host
+        skw_question: >-
+          Stop using ~/.ssh/{{ skw_hosted[skw_pick | int].name }} for
+          {{ skw_hosted[skw_pick | int].host }}? The copy stays in ~/.ssh
+        skw_default: n
+
+    - name: Stop using it for the git host
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_title: "Stop using it for {{ skw_hosted[skw_pick | int].host }}"
+        skw_command: {cmd: ssh.host, name: "{{ skw_hosted[skw_pick | int].name }}", enable: false}
+      when: skw_yes

@@ -584,6 +584,12 @@ security_key_plugin_authfile_helper: /usr/bin/omarchy-security-key-authfile
 # Since 0.8.0: sets whether sudo and polkit ask for the key's PIN along with
 # the touch (pinverification= on their pam_u2f lines), from the overlay.
 security_key_plugin_pam_helper: /usr/bin/omarchy-security-key-pam
+# The security key wizard (playbooks/user/security-key-wizard.yml, `just
+# security-key`): the overlay's options in a terminal, through the key-helper
+# that the package above installs with its copy of the plugin.
+security_key_wizard_helper: /usr/share/security-key-omarchy/plugin/key-helper
+# Rounds of the menu in one run (each round is an include of the last).
+security_key_wizard_max_rounds: 60
 
 # Where `just publish` (playbooks/system/shared-checkout.yml) puts the copy
 # of this repository every user runs `omarchy-setup-user` from.

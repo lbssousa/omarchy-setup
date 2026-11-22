@@ -1,0 +1,23 @@
+---
+# Asks for how many minutes ssh reuses an authenticated connection to
+# skw_host (0 to 1440, skw_current suggested) and leaves it in skw_minutes, or
+# -1 for an answer out of range.
+- name: Ask for the minutes
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Connection reuse
+    skw_question: >-
+      Reuse connections to {{ skw_host }} for how many minutes? 0 authenticates
+      every new connection; up to 1440 (24 hours), new connections reuse an
+      open one without the PIN or a touch for that long, and removing the key
+      doesn't close it
+    skw_suggestion: "{{ skw_current | default(0) | string }}"
+
+- name: Keep them
+  ansible.builtin.set_fact:
+    skw_minutes: "{{ (skw_answer | int) if skw_answer is match('^[0-9]{1,4}$') and skw_answer | int <= 1440 else -1 }}"
+
+- name: Say the answer is out of range
+  ansible.builtin.debug:
+    msg: "{{ skw_answer }} isn't a number of minutes from 0 to 1440: nothing changed."
+  when: skw_minutes | int < 0

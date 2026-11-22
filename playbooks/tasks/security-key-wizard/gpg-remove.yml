@@ -1,0 +1,25 @@
+---
+# Takes the card's key out of the keyring (gpg.remove): the public key and the
+# stubs pointing at the card; the key stays on the card and can be imported
+# again. The helper refuses when gpg keeps a secret part of it on disk. A
+# typed confirmation first, as in omarchy-yubikey.
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Remove the OpenPGP key from the keyring
+    skw_question: >-
+      Remove {{ skw_state.card.fingerprints | first | default('the card\'s key') }}
+      from your keyring? gpg can't sign or decrypt with the card until it is
+      imported again. Type REMOVE to confirm
+
+- name: Remove it from the keyring
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Remove the key from the keyring
+    skw_command: {cmd: gpg.remove}
+  when: skw_answer == 'REMOVE'
+
+- name: Say it was cancelled
+  ansible.builtin.debug:
+    msg: Cancelled; nothing changed.
+  when: skw_answer != 'REMOVE'

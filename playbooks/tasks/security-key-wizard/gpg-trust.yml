@@ -1,0 +1,18 @@
+---
+# Marks the card's key as ultimately trusted (gpg.trust), after asking: only
+# right for your own key, as omarchy-yubikey's OpenPGP page warns.
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Trust the OpenPGP key
+    skw_question: >-
+      Trust {{ skw_state.card.fingerprints | first | default('the card\'s key') }}
+      ultimately? Only do this for your own key.
+    skw_default: n
+
+- name: Trust it ultimately
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Trust the key ultimately
+    skw_command: {cmd: gpg.trust}
+  when: skw_yes

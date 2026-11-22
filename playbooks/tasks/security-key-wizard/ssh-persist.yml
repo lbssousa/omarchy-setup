@@ -1,0 +1,32 @@
+---
+# How long ssh reuses an authenticated connection to a git host set up for a
+# resident key (ssh.persist): 0, the default, authenticates every new one.
+- name: Work out the git hosts set up
+  ansible.builtin.set_fact:
+    skw_hosted: "{{ skw_state.sshKeys | selectattr('hostState', 'equalto', 'on') | list }}"
+
+- name: Ask which host
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/pick.yml"
+  vars:
+    skw_header: Connection reuse
+    skw_question: Which key's git host?
+    skw_items: >-
+      {{ skw_hosted | map(attribute='host')
+         | zip(skw_hosted | map(attribute='name') | map('regex_replace', '^', '(~/.ssh/') | map('regex_replace', '$', ')'),
+               skw_hosted | map(attribute='persistMinutes') | map('string')
+                 | map('regex_replace', '^0$', 'no reuse') | map('regex_replace', '^([0-9]+)$', '\\1 min'))
+         | map('join', '  ') | list }}
+
+- name: Ask for the minutes
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/minutes.yml"
+  vars:
+    skw_host: "{{ skw_hosted[skw_pick | int].host }}"
+    skw_current: "{{ skw_hosted[skw_pick | int].persistMinutes }}"
+  when: skw_pick | int >= 0
+
+- name: Save them
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: "Reuse connections to {{ skw_hosted[skw_pick | int].host }}"
+    skw_command: {cmd: ssh.persist, name: "{{ skw_hosted[skw_pick | int].name }}", minutes: "{{ skw_minutes | int }}"}
+  when: skw_pick | int >= 0 and skw_minutes | int >= 0

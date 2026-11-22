@@ -141,6 +141,15 @@ owner) and apply their part, from a terminal in their session:
 omarchy-setup-user          # same as `just user`, from the shared copy
 ```
 
+Your security key, from the terminal (once the `security-key` feature is
+applied): `just security-key` asks what to do with the key plugged in, with
+the options of the security-key-omarchy overlay (Setup › Security) and
+through its helper — register it and a backup key for sudo and polkit and
+choose whether they ask for its PIN; import and trust its OpenPGP key and sign
+git commits with it; import or make resident SSH keys, delete them, and set up
+their git hosts with connection reuse. Turning on `security-key-wizard` in
+`just configure` also asks every `just user` run.
+
 `just check` syntax-checks everything, the boundary between the phases, the
 catalog against the plays' tags and that docs/features.md is current
 (`just docs` regenerates it). The playbooks are idempotent — rerunning is

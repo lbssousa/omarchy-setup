@@ -1,0 +1,178 @@
+---
+# Makes a new resident SSH key on the security key (ssh.create): the overlay's
+# form, one question at a time, with its suggestions (a random user ID, so
+# keys for the same application don't replace each other, and user@host as
+# the comment). As omarchy-yubikey's wizard does, shows the ssh-keygen command
+# and asks before running it. The helper checks the options before the key is
+# touched and copies the pair into ~/.ssh, never over a file already there.
+# A key with the same application and user ID on the security key is replaced
+# only after a second question.
+- name: Ask for the type
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: Type (ed25519-sk; ecdsa-sk for YubiKey firmware before 5.2.3)
+    skw_suggestion: ed25519-sk
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_new: {algorithm: "{{ skw_answer }}"}
+
+- name: Ask for the application
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: >-
+      Application: what the key is for, after "ssh:" (a git host such as
+      github.com sets ssh up for it; Enter for none)
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_new: "{{ skw_new | combine({'application': skw_answer}) }}"
+
+- name: Ask for the user ID
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: >-
+      User ID: tells apart keys for the same application; a new key with the
+      same application and user ID replaces the old one on the security key
+      (- for none)
+    skw_suggestion: "{{ skw_state.sshDefaults.user }}"
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_new: "{{ skw_new | combine({'user': '' if skw_answer == '-' else skw_answer}) }}"
+
+- name: Ask about the PIN
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: Ask for the key's PIN on every use?
+    skw_default: y
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_new: "{{ skw_new | combine({'verify': skw_yes | bool}) }}"
+
+- name: Ask about the touch
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: >-
+      Ask for a touch on every use? Without it, sshd refuses the key unless
+      authorized_keys allows no-touch-required
+    skw_default: y
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_new: "{{ skw_new | combine({'touch': skw_yes | bool}) }}"
+
+- name: Ask for the comment
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: Comment (plain ASCII, up to 128 characters)
+    skw_suggestion: "{{ skw_state.sshDefaults.comment }}"
+
+- name: Keep it
+  ansible.builtin.set_fact:
+    skw_new: "{{ skw_new | combine({'comment': skw_answer}) }}"
+
+- name: Show the command and confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: New resident SSH key
+    skw_question: >-
+      ssh-keygen -t {{ skw_new.algorithm }} -O resident
+      -O application=ssh:{{ skw_new.application }}{{
+      (' -O user=' ~ skw_new.user) if skw_new.user else '' }}{{
+      ' -O verify-required' if skw_new.verify else '' }}{{
+      '' if skw_new.touch else ' -O no-touch-required' }}
+      -C {{ skw_new.comment | quote }}.
+      Make the key on the security key?
+    skw_default: y
+
+# The questions below set skw_yes again.
+- name: Keep the answer
+  ansible.builtin.set_fact:
+    skw_make: "{{ skw_yes }}"
+    skw_go: false
+
+- name: Make it
+  when: skw_make
+  block:
+    - name: Forget any earlier answer
+      ansible.builtin.set_fact:
+        skw_answer: ""
+      no_log: true
+
+    - name: Ask for the key's PIN
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: New resident SSH key
+        skw_question: >-
+          PIN of {{ (skw_state.devices | first).name }} (it doesn't show; Enter
+          cancels). Touch the key when it blinks, right after
+        skw_secret: true
+      when: (skw_state.devices | first).clientPin
+
+    - name: Keep it for a second try
+      ansible.builtin.set_fact:
+        skw_pin: "{{ skw_answer }}"
+        skw_go: "{{ not (skw_state.devices | first).clientPin or skw_answer | length > 0 }}"
+      no_log: true
+
+    - name: Forget the answer
+      ansible.builtin.set_fact:
+        skw_answer: ""
+      no_log: true
+
+    - name: Make the key (touch it when it blinks)
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_title: Make the key (touch it when it blinks)
+        skw_command: {cmd: ssh.create, pin: "{{ skw_pin }}", options: "{{ skw_new }}"}
+      when: skw_go
+
+    - name: Ask whether to replace the key the security key holds
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: New resident SSH key
+        skw_question: >-
+          Replace it? That deletes the old key from the security key for good:
+          every server or git host that trusts it needs a new key
+        skw_default: n
+      when: skw_go and skw_result.code | default('') == 'ssh-exists'
+
+    - name: Replace it (touch the key when it blinks, maybe twice)
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_title: Replace it (touch the key when it blinks, maybe twice)
+        skw_command:
+          cmd: ssh.create
+          pin: "{{ skw_pin }}"
+          options: "{{ skw_new | combine({'replace': true}) }}"
+      when: skw_go and skw_result.code | default('') == 'ssh-exists' and skw_yes
+
+    - name: Say nothing was replaced
+      ansible.builtin.debug:
+        msg: Nothing was replaced; the key wasn't made.
+      when: skw_go and skw_result.code | default('') == 'ssh-exists' and not skw_yes
+
+  always:
+    - name: Forget the PIN
+      ansible.builtin.set_fact:
+        skw_pin: ""
+      no_log: true
+
+- name: Say it was cancelled
+  ansible.builtin.debug:
+    msg: Cancelled; the security key wasn't touched.
+  when: not skw_go
+
+- name: Offer the git host of the new key
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ssh-host-offer.yml"
+  vars:
+    skw_key: "{{ skw_result.name }}"
+  when: skw_result.type | default('') == 'done' and skw_result.op | default('') == 'ssh.create'

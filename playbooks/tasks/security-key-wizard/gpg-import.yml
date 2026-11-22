@@ -1,0 +1,16 @@
+---
+# Imports the card's public key (gpg.import): from the URL stored on the card,
+# else the keyservers, then reads the card so gpg links the key to it. With
+# the key already there, the same fetch updates it (a new expiry date, new
+# subkeys). A newly imported key isn't trusted yet: offers that next.
+- name: Fetch the public key from the card's URL or the keyservers
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Fetch the public key from the card's URL or the keyservers
+    skw_command: {cmd: gpg.import}
+
+- name: Offer ultimate trust
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/gpg-trust.yml"
+  when: >-
+    skw_result.type | default('') == 'done' and skw_result.op | default('') == 'gpg.import'
+    and not skw_state.trusted

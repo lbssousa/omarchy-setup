@@ -317,6 +317,8 @@ def cmd_check():
                 problems.append(f"apps {category['id']}/{o['id']}: min_version_url without min_version")
             if "engine" in o and o["engine"] not in WEBAPPS_ENGINE_LABELS:
                 problems.append(f"apps {category['id']}/{o['id']}: unknown web apps engine {o['engine']}")
+            if "chooser" in o and category["id"] != "file_manager":
+                problems.append(f"apps {category['id']}/{o['id']}: chooser is for file managers")
             if omarchy_managed(o):
                 # Present or not depends on the machine's Omarchy, never on this catalog.
                 for key in ("installed", "keep", "stock", "min_version"):

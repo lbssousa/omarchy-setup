@@ -51,7 +51,7 @@
 - name: "Apps: graphics (svg2tikz with the native Inkscape)"
   ansible.builtin.import_playbook: playbooks/system/apps/graphics.yml
 
-- name: "Flea file dialogs: qt5ct/qt6ct"
+- name: "File dialogs from the default file manager: qt5ct/qt6ct"
   ansible.builtin.import_playbook: playbooks/system/file-chooser.yml
 
 - name: "gregorio-lsp: clang"

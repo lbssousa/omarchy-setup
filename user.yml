@@ -46,7 +46,7 @@
 - name: "Apps: Zed (Omazed, font sizes, Podman)"
   ansible.builtin.import_playbook: playbooks/user/apps/zed.yml
 
-- name: Flea file dialogs for non-GNOME apps
+- name: File dialogs from the default file manager, for non-GNOME apps
   ansible.builtin.import_playbook: playbooks/user/file-chooser.yml
 
 - name: gregorio-lsp, grelint, grefmt

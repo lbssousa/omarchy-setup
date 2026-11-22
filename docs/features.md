@@ -36,7 +36,7 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Flea file dialogs | `file-chooser` | modifies the FileChooser portal (Flea) and the Qt platform theme (qt6ct); adds qt5ct/qt6ct | system, user | on | yes |
+| File dialogs from the default file manager | `file-chooser` | modifies the FileChooser portal (the default file manager's picker, Flea's or Files'; Omarchy's for one without) and the Qt platform theme (qt6ct); adds qt5ct/qt6ct | system, user | on | yes |
 | Column resize keys (scrolling layout) | `hypr-scrolling-resize` | adds SUPER+[ and SUPER+] to ~/.config/hypr/bindings.lua | user | on | yes |
 | Vertical workspace switch animation | `hypr-vertical-workspaces` | modifies ~/.config/hypr/looknfeel.lua (switching workspaces scrolls vertically, slidevert, instead of snapping) | user | on | yes |
 | Screen scale + text size | `text-size` | modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | system, user | on | no |
@@ -217,6 +217,6 @@ Default app: default file manager (inode/directory).
 
 | Option | Source | Notes |
 |---|---|---|
-| Files (Folio) | pacman `folio` | Omarchy's own; Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it |
-| Nautilus | pacman `nautilus` | Omarchy's own; Omarchy 4.5.0's file manager; later releases remove it |
+| Files (Folio) | pacman `folio` | Omarchy's own; Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it, and it is Omarchy's Open/Save dialog |
+| Nautilus | pacman `nautilus` | Omarchy's own; Omarchy 4.5.0's file manager; later releases remove it. No picker of its own: the dialogs stay Omarchy's (GTK on 4.5.0) |
 | Flea ★ (default) | pacman `flea` |  |

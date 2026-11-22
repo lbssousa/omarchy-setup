@@ -671,8 +671,8 @@ pdf_viewer_zathura_keybindings_guide: "{{ target_home }}/.local/bin/omarchy-setu
 pdf_viewer_keybindings_dispatcher: "{{ target_home }}/.local/bin/omarchy-setup-keybindings"
 
 # File chooser dialogs (playbooks/{system,user}/file-chooser.yml) — the per-desktop
-# portals.conf that routes the FileChooser interface to Flea's picker
-# under XDG_CURRENT_DESKTOP=Hyprland. qt5ct/qt6ct are the Qt platform
+# portals.conf that routes the FileChooser interface to the default file
+# manager's picker under XDG_CURRENT_DESKTOP=Hyprland. qt5ct/qt6ct are the Qt platform
 # themes that both ask that portal for dialogs and set the Qt UI font.
 file_chooser_qt_packages:
   - qt5ct

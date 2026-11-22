@@ -1,17 +1,26 @@
 ---
 # Makes the "Open file" / "Save file" dialogs of non-GNOME apps (Firefox,
-# Chromium, Electron, plain GTK apps, ...) Flea's file picker.
+# Chromium, Electron, plain GTK apps, ...) the default file manager's picker.
 #
 # Those dialogs come from xdg-desktop-portal, which hands the FileChooser
-# interface to a backend. Omarchy ships xdg-desktop-portal-gtk, whose
+# interface to a backend. Omarchy 4.5.0 ships xdg-desktop-portal-gtk, whose
 # dialog is GTK3, and Hyprland's own portal has no file chooser at all
-# (hyprland-portals.conf: default=hyprland;gtk). Flea
-# (apps: file_manager, which this feature requires installed)
-# ships its own FileChooser backend (flea.portal), named explicitly for
-# FileChooser in a per-desktop portals.conf, with gtk behind it in case
-# Flea is missing. Everything else (screencast, screenshot, ...) stays as
-# configured upstream. `flea --default` writes the same line into the same
-# file.
+# (hyprland-portals.conf: default=hyprland;gtk); later releases prefer
+# Files' picker there (FileChooser=folio;gtk, Omarchy PR #19035). Flea and
+# Files each ship a FileChooser backend (the file_manager options' `chooser`
+# in features.yml), named for FileChooser in a per-desktop portals.conf with
+# gtk behind it, in case the app is missing or too old to have one:
+#
+#   - Flea default: `flea --picker`, which writes that line and a window rule
+#     in ~/.config/hypr/bindings.lua that floats the picker (`flea --default`,
+#     in apps/file-manager.yml, does both too);
+#   - Files default: folio;gtk, whose float rule ships with Omarchy;
+#   - a file manager without a picker (Nautilus), or the feature off: what
+#     Omarchy's own copy of the file sets, or no line when it sets none.
+#     Flea's line goes with `flea --picker off`, which removes its window
+#     rule too.
+#
+# Everything else (screencast, screenshot, ...) stays as configured upstream.
 #
 # ~/.config/xdg-desktop-portal/hyprland-portals.conf replaces the packaged
 # /usr/share/xdg-desktop-portal/hyprland-portals.conf as a whole (the files
@@ -50,9 +59,20 @@
 
   vars:
     feature_on: "{{ features['file-chooser'] | default(true) }}"
+    file_chooser_backend: >-
+      {{ apps_catalog.file_manager[apps.file_manager.default].chooser | default('')
+         if (apps.file_manager.default | default('')) in apps_catalog.file_manager | default({}) else '' }}
+    # What Omarchy's own copy of the file routes FileChooser to ('' for none).
+    file_chooser_omarchy: >-
+      {{ lookup('ansible.builtin.ini', 'org.freedesktop.impl.portal.FileChooser', section='preferred',
+                file=file_chooser_portals_conf_seed, default='', case_sensitive=true)
+         if file_chooser_portals_conf_seed is file else '' }}
+    file_chooser_value: >-
+      {{ (file_chooser_backend ~ ';gtk') if (feature_on | bool and file_chooser_backend | length > 0)
+         else file_chooser_omarchy }}
 
   tasks:
-    - name: Flea file dialogs
+    - name: File dialogs from the default file manager
       when: feature_on | bool
       block:
         - name: Create ~/.config/xdg-desktop-portal
@@ -81,22 +101,11 @@
           loop: "{{ file_chooser_portals_defaults | dict2items }}"
           register: file_chooser_portals_defaults_result
 
-        - name: "Route the FileChooser portal to Flea ({{ file_chooser_portals_conf }})"
-          community.general.ini_file:
-            path: "{{ file_chooser_portals_conf }}"
-            section: preferred
-            option: org.freedesktop.impl.portal.FileChooser
-            value: flea;gtk
-            no_extra_spaces: true
-            mode: "0644"
-          register: file_chooser_portals_conf_result
-
         - name: Restart xdg-desktop-portal to pick up the change
           ansible.builtin.command: systemctl --user restart xdg-desktop-portal.service
           when: >-
             file_chooser_portals_seed_result.changed or
-            file_chooser_portals_defaults_result.changed or
-            file_chooser_portals_conf_result.changed
+            file_chooser_portals_defaults_result.changed
           changed_when: true
           failed_when: false
 
@@ -143,16 +152,66 @@
                   - { section: Fonts, option: general, value: '"{{ file_chooser_qt_ui_family }},{{ omarchy_system_ui_font_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
                   - { section: Fonts, option: fixed, value: '"{{ file_chooser_qt_mono_family }},{{ file_chooser_qt_mono_pt }},-1,5,400,0,0,0,0,0,0,0,0,0,0,1"' }
 
-    - name: Back to Omarchy's file dialogs
-      when: not feature_on | bool
-      block:
-        - name: Stop routing the FileChooser portal to Flea
-          community.general.ini_file:
-            path: "{{ file_chooser_portals_conf }}"
-            section: preferred
-            option: org.freedesktop.impl.portal.FileChooser
-            state: absent
-          notify: restart xdg-desktop-portal
+    # With the feature off and no file of the user's, Omarchy's packaged one
+    # already applies: nothing to route.
+    - name: Look for the user's portals config
+      ansible.builtin.stat:
+        path: "{{ file_chooser_portals_conf }}"
+      register: file_chooser_portals_stat
+
+    - name: Read where the FileChooser portal goes now
+      ansible.builtin.command:
+        argv: [sed, -n, 's/^org\.freedesktop\.impl\.portal\.FileChooser=//p', "{{ file_chooser_portals_conf }}"]
+      register: file_chooser_current
+      changed_when: false
+      failed_when: false
+
+    - name: Look for Flea's picker window rule
+      ansible.builtin.command:
+        argv: [grep, -qF, -e, "-- flea --picker: begin", "{{ target_home }}/.config/hypr/bindings.lua"]
+      register: file_chooser_flea_rule
+      changed_when: false
+      failed_when: false
+
+    - name: "Route the FileChooser portal to Flea, floating (flea --picker)"
+      ansible.builtin.command: flea --picker
+      when:
+        - file_chooser_value == 'flea;gtk'
+        - file_chooser_current.stdout | trim != 'flea;gtk' or file_chooser_flea_rule.rc != 0
+      notify: restart xdg-desktop-portal
+
+    - name: Take Flea's picker out (flea --picker off)
+      ansible.builtin.command: flea --picker off
+      when:
+        - file_chooser_value != 'flea;gtk'
+        - file_chooser_current.stdout | trim == 'flea;gtk' or file_chooser_flea_rule.rc == 0
+        - "'flea' in apps.file_manager.installed | default([])"
+      notify: restart xdg-desktop-portal
+
+    - name: "Route the FileChooser portal to {{ file_chooser_value }}"
+      community.general.ini_file:
+        path: "{{ file_chooser_portals_conf }}"
+        section: preferred
+        option: org.freedesktop.impl.portal.FileChooser
+        value: "{{ file_chooser_value }}"
+        no_extra_spaces: true
+        mode: "0644"
+      when:
+        - file_chooser_portals_stat.stat.exists
+        - file_chooser_value | length > 0
+        - file_chooser_value != 'flea;gtk'
+      notify: restart xdg-desktop-portal
+
+    - name: Leave the FileChooser portal to Omarchy's default (no line)
+      community.general.ini_file:
+        path: "{{ file_chooser_portals_conf }}"
+        section: preferred
+        option: org.freedesktop.impl.portal.FileChooser
+        state: absent
+      when:
+        - file_chooser_portals_stat.stat.exists
+        - file_chooser_value | length == 0
+      notify: restart xdg-desktop-portal
 
     - name: "{{ 'Make' if feature_on | bool else 'Stop making' }} GTK, Qt and Firefox apps ask the portal for file dialogs"
       ansible.builtin.include_tasks: tasks/hypr-user-block.yml
@@ -161,7 +220,7 @@
         hypr_marker: playbooks/user/file-chooser.yml — GTK4 file chooser
         hypr_state: "{{ 'present' if feature_on | bool else 'absent' }}"
         hypr_block: |
-          -- Ask xdg-desktop-portal (routed to Flea's picker by
+          -- Ask xdg-desktop-portal (routed to the file manager's picker by
           -- ~/.config/xdg-desktop-portal/hyprland-portals.conf) for
           -- open/save dialogs instead of drawing GTK3 ones in-process.
           hl.env("GTK_USE_PORTAL", "1")

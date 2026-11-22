@@ -254,9 +254,14 @@
           ansible.builtin.command: "plymouth-set-default-theme {{ bgrt_plymouth_theme_name }}"
           changed_when: true
 
-        - name: Rebuild the initramfs (limine-mkinitcpio if present, else mkinitcpio -P)
+        # omarchy-boot-rebuild (Omarchy's systemd-boot work, omacom/omarchy
+        # #19667) rebuilds the images of whichever loader boots the machine,
+        # Limine or systemd-boot; before it ships, Limine's own tool.
+        - name: Rebuild the boot images (omarchy-boot-rebuild, else limine-mkinitcpio, else mkinitcpio -P)
           ansible.builtin.shell: >-
-            if command -v limine-mkinitcpio >/dev/null 2>&1; then
+            if command -v omarchy-boot-rebuild >/dev/null 2>&1; then
+              omarchy-boot-rebuild
+            elif command -v limine-mkinitcpio >/dev/null 2>&1; then
               limine-mkinitcpio
             else
               mkinitcpio -P

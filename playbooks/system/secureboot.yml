@@ -1,19 +1,34 @@
 ---
-# Secure Boot (Limine + sbctl) — not part of site.yml/`just setup`,
-# deliberately: touches firmware/boot, so it only runs when called
-# explicitly (`just apply secureboot`).
+# Secure Boot with your own keys (sbctl), on Limine or systemd-boot — not
+# part of site.yml/`just setup`, deliberately: touches firmware/boot, so it
+# only runs when called explicitly (`just apply secureboot`).
 #
-# Limine's own limine-entry-tool already re-signs its binary
-# automatically whenever sbctl has keys configured (enroll_config()
-# calls sb_sign() unconditionally) — this playbook relies on that
-# instead of manually signing on every kernel update.
+# Which loader: omarchy-boot-backend --managed, once Omarchy ships its
+# systemd-boot work (omacom/omarchy#19667: `omarchy-boot-switch` moves an x86
+# install from Limine to systemd-boot, in stages). Both while a switch is on
+# trial, since either may start the machine; Limine alone before that.
+#
+#   Limine      limine-entry-tool re-signs its binary whenever sbctl has keys
+#               (enroll_config() calls sb_sign() unconditionally), and embeds
+#               and verifies a checksum of limine.conf.
+#   systemd-boot  Omarchy's omarchy-boot-sync builds one UKI per boot image
+#               with ukify, and signs it with systemd-sbsign when its boot
+#               store's state says signing=required, with the key in the
+#               store's keys/ (db.key, db.crt). This play links sbctl's db key
+#               there, requires signing and republishes the images. The loader
+#               itself is signed with sbctl, kept in sbctl's database so its
+#               pacman hook re-signs it: the copy on the ESP, the fallback
+#               BOOTX64.EFI once it is systemd-boot's, and the .signed copy
+#               next to systemd's own, which `bootctl update` installs.
+#
+# Omarchy's own Secure Boot (a Microsoft-signed shim, MOK) isn't needed with
+# your own keys enrolled, and isn't out yet anyway.
 #
 # Two-step flow (two reboots) — changing the firmware's Secure Boot
 # state requires going into the BIOS manually, nothing in Linux can do
 # that for you:
 #   1st run (Secure Boot off, not in Setup Mode): installs sbctl,
-#   creates keys, configures limine-entry-tool to embed and verify a
-#   checksum of limine.conf, and signs the Limine binary. Detects the
+#   creates keys, signs the loader and boot images as above. Detects the
 #   firmware isn't in Setup Mode and stops, with instructions to enter
 #   it (BIOS → Secure Boot → clear the existing keys).
 #   2nd run (after entering Setup Mode): enrolls the keys into the
@@ -21,34 +36,55 @@
 #   Secure Boot in the BIOS.
 #
 # Worth knowing before running:
-#   - hash_mismatch_panic=yes (enabled here) halts boot on a
+#   - Limine: hash_mismatch_panic=yes (enabled here) halts boot on a
 #     kernel/initrd checksum mismatch — real integrity protection, but
 #     it means editing boot files by hand without going through
 #     limine-entry-tool afterward breaks boot.
-#   - Plymouth ("splash" on the cmdline) is incompatible with Secure
-#     Boot in this setup — this playbook warns if found, but doesn't
-#     remove it.
-- name: Secure Boot (Limine + sbctl)
+#   - Limine: Plymouth ("splash" on the cmdline) is incompatible with
+#     Secure Boot in this setup — this playbook warns if found, but
+#     doesn't remove it.
+#   - systemd-boot: with Secure Boot on, systemd-stub ignores any command
+#     line from outside the image, so kernel parameters only change through
+#     /etc/cmdline.d and a rebuild (omarchy-boot-cmdline, omarchy-boot-rebuild).
+- name: Secure Boot (sbctl, Limine or systemd-boot)
   hosts: localhost
   connection: local
   gather_facts: false
   tags: [secureboot]
 
   pre_tasks:
-    - name: Check the bootloader is Limine with limine-entry-tool
+    - name: Ask Omarchy which loaders it keeps boot images for
+      ansible.builtin.command: omarchy-boot-backend --managed
+      register: secureboot_backend
+      changed_when: false
+      failed_when: false
+
+    - name: Check for Limine with limine-entry-tool
       ansible.builtin.command: pacman -Qi limine limine-mkinitcpio-hook
       register: secureboot_limine_check
       changed_when: false
       failed_when: false
 
-    - name: Fail if the bootloader isn't Limine + limine-entry-tool
+    # Without omarchy-boot-backend (an Omarchy before the systemd-boot work),
+    # Limine is the only loader.
+    - name: Work out the loaders to sign
+      ansible.builtin.set_fact:
+        secureboot_loaders: >-
+          {{ secureboot_backend.stdout_lines | select('in', ['limine', 'systemd-boot']) | list
+             if secureboot_backend.rc == 0
+             else (['limine'] if secureboot_limine_check.rc == 0 else []) }}
+
+    - name: Fail without a loader this playbook covers
       ansible.builtin.fail:
         msg: >-
-          This playbook only covers Limine + limine-entry-tool
-          (limine-mkinitcpio-hook) — its auto-signing mechanism
-          (enroll_config/sb_sign) is specific to that tool. Doesn't
-          apply to GRUB/systemd-boot.
-      when: secureboot_limine_check.rc != 0
+          This playbook covers Limine with limine-entry-tool
+          (limine-mkinitcpio-hook) and Omarchy's systemd-boot
+          (omarchy-boot-switch). Neither boots this machine.
+      when: secureboot_loaders | length == 0
+
+    - name: Say which loaders get signed
+      ansible.builtin.debug:
+        msg: "Signing for: {{ secureboot_loaders | join(', ') }}"
 
   tasks:
     - name: Install sbctl
@@ -56,21 +92,6 @@
         name: sbctl
         state: present
       become: true
-
-    - name: Check for "splash" on the kernel cmdline (incompatible here)
-      ansible.builtin.command: "grep -l splash {{ secureboot_default_limine_conf }} {{ secureboot_kernel_cmdline_file }}"
-      register: secureboot_splash_check
-      changed_when: false
-      failed_when: false
-
-    - name: Warn if "splash" is present
-      ansible.builtin.debug:
-        msg: >-
-          "splash" found in {{ secureboot_splash_check.stdout_lines }}.
-          Plymouth (splash) breaks boot with Secure Boot enabled in this
-          setup — consider removing it before enabling Secure Boot in
-          firmware. Not removed automatically.
-      when: secureboot_splash_check.rc == 0
 
     - name: Check whether sbctl already has keys configured
       ansible.builtin.command: sbctl status --json
@@ -83,30 +104,166 @@
       become: true
       when: "'\"installed\": true' not in secureboot_sbctl_state.stdout"
 
-    - name: Enable limine.conf checksum embedding and verification
-      ansible.builtin.lineinfile:
-        path: "{{ secureboot_default_limine_conf }}"
-        regexp: "^{{ item.key }}="
-        line: "{{ item.key }}={{ item.value }}"
-      loop:
-        - { key: ENABLE_ENROLL_LIMINE_CONFIG, value: "yes" }
-        - { key: ENABLE_VERIFICATION, value: "yes" }
+    - name: Limine
+      when: "'limine' in secureboot_loaders"
       become: true
-      register: secureboot_limine_default_conf
+      block:
+        - name: Check for "splash" on the kernel cmdline (incompatible here)
+          ansible.builtin.command: "grep -l splash {{ secureboot_default_limine_conf }} {{ secureboot_kernel_cmdline_file }}"
+          register: secureboot_splash_check
+          changed_when: false
+          failed_when: false
 
-    - name: Halt boot on a checksum mismatch (hash_mismatch_panic)
-      ansible.builtin.lineinfile:
-        path: "{{ secureboot_limine_conf }}"
-        regexp: "^hash_mismatch_panic:"
-        line: "hash_mismatch_panic: yes"
-      become: true
-      register: secureboot_limine_conf_edit
+        - name: Warn if "splash" is present
+          ansible.builtin.debug:
+            msg: >-
+              "splash" found in {{ secureboot_splash_check.stdout_lines }}.
+              Plymouth (splash) breaks boot with Secure Boot enabled in this
+              setup — consider removing it before enabling Secure Boot in
+              firmware. Not removed automatically.
+          when: secureboot_splash_check.rc == 0
 
-    - name: Apply (limine-update) — rebuilds and signs the Limine binary
-      ansible.builtin.command: limine-update
+        - name: Enable limine.conf checksum embedding and verification
+          ansible.builtin.lineinfile:
+            path: "{{ secureboot_default_limine_conf }}"
+            regexp: "^{{ item.key }}="
+            line: "{{ item.key }}={{ item.value }}"
+          loop:
+            - { key: ENABLE_ENROLL_LIMINE_CONFIG, value: "yes" }
+            - { key: ENABLE_VERIFICATION, value: "yes" }
+          register: secureboot_limine_default_conf
+
+        - name: Halt boot on a checksum mismatch (hash_mismatch_panic)
+          ansible.builtin.lineinfile:
+            path: "{{ secureboot_limine_conf }}"
+            regexp: "^hash_mismatch_panic:"
+            line: "hash_mismatch_panic: yes"
+          register: secureboot_limine_conf_edit
+
+        - name: Apply (limine-update) — rebuilds and signs the Limine binary
+          ansible.builtin.command: limine-update
+          changed_when: true
+          when: secureboot_limine_default_conf.changed or secureboot_limine_conf_edit.changed
+
+    - name: systemd-boot
+      when: "'systemd-boot' in secureboot_loaders"
       become: true
-      changed_when: true
-      when: secureboot_limine_default_conf.changed or secureboot_limine_conf_edit.changed
+      block:
+        - name: "Look for Omarchy's boot store ({{ secureboot_boot_store }})"
+          ansible.builtin.stat:
+            path: "{{ secureboot_boot_store }}/state"
+          register: secureboot_store_state
+
+        - name: Fail without the boot store
+          ansible.builtin.fail:
+            msg: >-
+              {{ secureboot_boot_store }}/state is missing: systemd-boot here
+              isn't Omarchy's (omarchy-boot-switch), so its images aren't
+              built by omarchy-boot-sync. Not covered.
+          when: not secureboot_store_state.stat.exists
+
+        - name: "Look for sbctl's db key ({{ secureboot_sbctl_db_dir }})"
+          ansible.builtin.stat:
+            path: "{{ secureboot_sbctl_db_dir }}/{{ item }}"
+          loop: [db.key, db.pem]
+          register: secureboot_sbctl_db
+
+        - name: Fail without sbctl's db key
+          ansible.builtin.fail:
+            msg: >-
+              sbctl's db key isn't in {{ secureboot_sbctl_db_dir }} (db.key,
+              db.pem): set secureboot_sbctl_db_dir to where this sbctl keeps it.
+          when: secureboot_sbctl_db.results | rejectattr('stat.exists') | list | length > 0
+
+        - name: Create the boot store's key folder
+          ansible.builtin.file:
+            path: "{{ secureboot_boot_store }}/keys"
+            state: directory
+            owner: root
+            group: root
+            mode: "0700"
+
+        # Links, so keys rotated with sbctl are the ones the images get.
+        - name: Give omarchy-boot-sync sbctl's db key
+          ansible.builtin.file:
+            src: "{{ secureboot_sbctl_db_dir }}/{{ item.src }}"
+            dest: "{{ secureboot_boot_store }}/keys/{{ item.dest }}"
+            state: link
+            force: true
+          loop:
+            - { src: db.key, dest: db.key }
+            - { src: db.pem, dest: db.crt }
+          register: secureboot_store_keys
+
+        # Read by omarchy-boot-sync, which then never publishes an unsigned
+        # image (a missing key or failed signature keeps the published ones).
+        - name: Require signed boot images (signing=required)
+          ansible.builtin.lineinfile:
+            path: "{{ secureboot_boot_store }}/state"
+            regexp: "^signing="
+            line: signing=required
+          register: secureboot_store_signing
+
+        - name: Find the ESP
+          ansible.builtin.command: bootctl --print-esp-path
+          register: secureboot_esp
+          changed_when: false
+
+        - name: Look for the systemd-boot copies to sign
+          ansible.builtin.stat:
+            path: "{{ item }}"
+          loop:
+            - "{{ secureboot_esp.stdout | trim }}/EFI/systemd/{{ secureboot_systemd_boot_efi | basename }}"
+            - "{{ secureboot_esp.stdout | trim }}/EFI/BOOT/{{ secureboot_fallback_efi }}"
+          register: secureboot_loader_files
+
+        - name: Check which of them is systemd-boot
+          ansible.builtin.command:
+            argv: [grep, -qa, "#### LoaderInfo: systemd-boot", "{{ item.item }}"]
+          loop: "{{ secureboot_loader_files.results | selectattr('stat.exists') | list }}"
+          loop_control:
+            label: "{{ item.item }}"
+          register: secureboot_loader_is_sdboot
+          changed_when: false
+          failed_when: false
+
+        - name: Read what sbctl signs already
+          ansible.builtin.command: sbctl list-files --json
+          register: secureboot_sbctl_files
+          changed_when: false
+
+        # -s keeps each in sbctl's database, so its pacman hook signs them
+        # again after an update. The .signed copy is what `bootctl update`
+        # (systemd-boot-update.service) installs.
+        - name: Sign the systemd-boot copies (and keep them in sbctl's database)
+          ansible.builtin.command:
+            argv: [sbctl, sign, -s, "{{ item.item.item }}"]
+          loop: "{{ secureboot_loader_is_sdboot.results | selectattr('rc', 'eq', 0) | list }}"
+          loop_control:
+            label: "{{ item.item.item }}"
+          when: item.item.item not in secureboot_sbctl_files.stdout
+          changed_when: true
+
+        - name: Sign systemd-boot for bootctl update (.signed)
+          ansible.builtin.command:
+            argv: [sbctl, sign, -s, -o, "{{ secureboot_systemd_boot_efi }}.signed", "{{ secureboot_systemd_boot_efi }}"]
+          when: (secureboot_systemd_boot_efi ~ '.signed') not in secureboot_sbctl_files.stdout
+          changed_when: true
+
+        - name: Rebuild and publish the boot images, signed
+          ansible.builtin.command: omarchy-boot-sync sync
+          when: secureboot_store_keys.changed or secureboot_store_signing.changed
+          changed_when: true
+
+        - name: Check the published boot images
+          ansible.builtin.command: omarchy-boot-sync verify
+          register: secureboot_boot_verify
+          changed_when: false
+          failed_when: false
+
+        - name: Show omarchy-boot-sync verify
+          ansible.builtin.debug:
+            var: secureboot_boot_verify.stdout_lines
 
     - name: Check the current sbctl state (keys, signed binaries)
       ansible.builtin.command: sbctl status
@@ -141,11 +298,11 @@
       ansible.builtin.debug:
         msg: >-
           Firmware is NOT in Setup Mode (SetupMode={{ secureboot_setup_mode_byte.stdout | default('?') }}) —
-          keys were created and the Limine binary is signed, but keys
-          can't be enrolled yet. Reboot, enter the BIOS/UEFI, go to
-          Secure Boot, clear the existing keys (this enables Setup
-          Mode), save and reboot again — then run this playbook once
-          more to enroll the keys.
+          keys were created and the loader is signed, but keys can't be
+          enrolled yet. Reboot, enter the BIOS/UEFI, go to Secure Boot,
+          clear the existing keys (this enables Setup Mode), save and
+          reboot again — then run this playbook once more to enroll the
+          keys.
       when: secureboot_setup_mode_byte.stdout != "1"
 
     - name: Enroll keys into firmware (only in Setup Mode)

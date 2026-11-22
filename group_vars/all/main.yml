@@ -810,12 +810,19 @@ libfprint_build_depends:
 libfprint_goodix_usb_vendor_id: "27c6"
 libfprint_goodix_usb_product_id: "538d"
 
-# Secure Boot (Limine + sbctl, playbooks/system/secureboot.yml — not part of
-# `just setup`, run explicitly).
+# Secure Boot (sbctl on Limine or systemd-boot, playbooks/system/secureboot.yml
+# — not part of `just setup`, run explicitly).
 secureboot_esp_path: /boot
 secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
 secureboot_kernel_cmdline_file: /etc/kernel/cmdline
+# systemd-boot (Omarchy's omarchy-boot-switch): the boot store omarchy-boot-sync
+# signs from, sbctl's db key (sbctl 0.14 and later keep it here), systemd's
+# loader and the firmware's fallback name for it.
+secureboot_boot_store: /var/lib/omarchy/boot
+secureboot_sbctl_db_dir: /var/lib/sbctl/keys/db
+secureboot_systemd_boot_efi: /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+secureboot_fallback_efi: BOOTX64.EFI
 
 # BGRT-derived boot theme (playbooks/{system,user}/bgrt-theme.yml — not part of
 # `just setup`, run explicitly). Builds an Omarchy desktop theme and a

@@ -19,7 +19,11 @@ current=$(plymouth-set-default-theme)
 echo "Plymouth default theme was reset to $current; restoring $theme"
 plymouth-set-default-theme "$theme"
 
-if command -v limine-mkinitcpio >/dev/null 2>&1; then
+# omarchy-boot-rebuild handles Limine and systemd-boot alike, once Omarchy
+# ships it.
+if command -v omarchy-boot-rebuild >/dev/null 2>&1; then
+  omarchy-boot-rebuild
+elif command -v limine-mkinitcpio >/dev/null 2>&1; then
   limine-mkinitcpio
 else
   mkinitcpio -P

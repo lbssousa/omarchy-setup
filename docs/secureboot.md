@@ -1,4 +1,4 @@
-# `just apply secureboot` — Secure Boot (Limine + sbctl)
+# `just apply secureboot` — Secure Boot (sbctl, Limine or systemd-boot)
 
 Usage guide for `playbooks/system/secureboot.yml`. Unlike the rest of this
 repo, **this playbook is not part of `just setup`** — it touches
@@ -8,10 +8,12 @@ playbooks/system/secureboot.yml`).
 
 ## Prerequisites
 
-- **Limine** bootloader with `limine-mkinitcpio-hook`
-  (`limine-entry-tool`) installed — the default on Omarchy. The
-  playbook fails early, without changing anything, on another
-  bootloader (GRUB, systemd-boot).
+- **Limine** with `limine-mkinitcpio-hook` (`limine-entry-tool`) — the
+  default on Omarchy — or **Omarchy's systemd-boot**, once a machine has
+  moved to it with `omarchy-boot-switch` (see
+  [systemd-boot](#systemd-boot) below). The playbook fails early, without
+  changing anything, on another bootloader (GRUB, a systemd-boot Omarchy
+  doesn't manage).
 - Physical access to enter the BIOS/UEFI twice during the process — not
   doable remotely over SSH.
 - `run0` with interactive authentication (fingerprint or password).
@@ -25,6 +27,45 @@ protected by a BLAKE2b checksum embedded in that same binary
 keys, any limine-entry-tool operation (including the pacman kernel
 update hook) already re-signs the Limine binary on its own — this
 playbook relies on that instead of a manual sign-and-enroll process.
+
+## systemd-boot
+
+Omarchy is moving x86 installs from Limine to systemd-boot
+([omacom/omarchy#19667](https://github.com/omacom/omarchy/pull/19667), not
+released yet): Secure Boot on stock hardware needs a Microsoft-signed shim,
+which only chains to GRUB or systemd-boot. `omarchy-boot-switch` makes the
+move in stages, offered during `omarchy update`, and `omarchy-boot-backend
+--managed` says which loaders Omarchy keeps boot images for — the playbook
+asks it, and signs for each (both while a switch is on trial; just Limine on
+an Omarchy without it).
+
+On systemd-boot every kernel build is a Unified Kernel Image (kernel,
+initramfs and command line, one profile per snapshot), built by
+`omarchy-boot-sync` with `ukify`, which signs it with `systemd-sbsign` when
+the boot store (`/var/lib/omarchy/boot`) says `signing=required` and has
+`keys/db.key` and `keys/db.crt`. Instead of the Limine steps, the playbook:
+
+1. Links sbctl's db key into the store (`keys/db.key` →
+   `/var/lib/sbctl/keys/db/db.key`, `keys/db.crt` → `db.pem`), so the images
+   are signed with the key you enroll.
+2. Sets `signing=required` in the store's `state`: from then on a missing key
+   or a failed signature keeps the published images instead of publishing
+   unsigned ones.
+3. Signs systemd-boot with `sbctl sign -s` — the copy on the ESP
+   (`EFI/systemd/systemd-bootx64.efi`), the fallback `EFI/BOOT/BOOTX64.EFI`
+   once it is systemd-boot's, and `systemd-bootx64.efi.signed` next to
+   systemd's own, which `bootctl update` installs. `-s` keeps them in sbctl's
+   database, so its pacman hook signs them again after updates.
+4. Runs `omarchy-boot-sync sync` to rebuild and publish the images signed,
+   and shows `omarchy-boot-sync verify`.
+
+The Setup Mode check and the key enrollment are the same for both loaders.
+Your own keys enrolled with sbctl don't need Omarchy's shim or MOK.
+
+With Secure Boot on, systemd-stub ignores any command line from outside the
+image: kernel parameters change only through `/etc/cmdline.d`
+(`omarchy-boot-cmdline`) and a rebuild (`omarchy-boot-rebuild`). The Limine
+notes below (`hash_mismatch_panic`, the `limine.conf` header) don't apply.
 
 ## Step by step
 
@@ -40,7 +81,9 @@ just apply secureboot
 
 With Secure Boot off, the playbook:
 
-1. Confirms the bootloader is Limine + limine-entry-tool.
+1. Confirms the bootloader is Limine + limine-entry-tool (for
+   systemd-boot, see [systemd-boot](#systemd-boot): steps 3, 5 and 6 are
+   replaced by its own).
 2. Installs `sbctl`.
 3. Warns (without removing anything) if `splash` is on the kernel
    cmdline — incompatible with Secure Boot here.
@@ -128,7 +171,8 @@ screen or a Limine panic) rather than booting halfway — there's no
 1. Reboot and enter the BIOS/UEFI.
 2. **Disable** Secure Boot again — this alone should restore boot.
 3. From Linux, run `sbctl verify` to see what's unsigned, and
-   `run0 limine-update` to force a re-sign.
+   `run0 limine-update` to force a re-sign (on systemd-boot,
+   `run0 omarchy-boot-sync verify` and `run0 omarchy-boot-sync sync`).
 4. Repeat the steps above from where you left off.
 
 No system files are deleted by this process — worst case is not being

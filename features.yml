@@ -427,7 +427,7 @@ features:
   - id: secureboot
     group: security
     title: Secure Boot (sbctl)
-    effect: adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic)
+    effect: adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) or, after Omarchy's switch to systemd-boot, signs its loader and has omarchy-boot-sync sign the boot images (signing=required)
     phases: [system]
     default: false
     revert: false

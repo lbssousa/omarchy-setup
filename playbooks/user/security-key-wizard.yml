@@ -1,0 +1,81 @@
+---
+# The security key wizard: what the security-key-omarchy overlay does
+# (Setup › Security), asked for in the terminal, one question at a time.
+# Opt-in (security-key-wizard) and interactive; `just security-key` runs it
+# alone, in the user phase.
+#
+#   FIDO2       register the key plugged in for sudo and polkit (in your line
+#               of /etc/fido2/fido2), then a backup key; remove one; whether
+#               sudo and polkit ask for the PIN along with the touch
+#   OpenPGP     import or update the card's public key and link it to the
+#               card; trust it ultimately; sign git commits and tags with it;
+#               take it out of the keyring
+#   SSH         import the resident keys into ~/.ssh; make a new one; remove
+#               a copy, or delete a key from the security key for good; use a
+#               key for its git host, and how long to reuse connections
+#
+# Every action goes through the overlay's own key-helper (installed by the
+# security-key-omarchy package), one command per task
+# (files/security-key-wizard/helper-call.py), so the wizard offers what the
+# overlay offers and refuses what it refuses: keys only where sudo and polkit
+# read them, the PIN only to the program that needs it, never over a file in
+# ~/.ssh. Changes to /etc go through pkexec, so the polkit agent asks.
+#
+# From omarchy-yubikey's install.sh and scripts: a recovery shell before PAM
+# changes, a backup key right after the first, a sudo test, the ssh-keygen
+# command shown before it runs, typed confirmations before deleting for good.
+#
+# Answers are read with pause, which needs a terminal: run-phase.sh sets
+# OMARCHY_SETUP_INTERACTIVE when it has one, and the play does nothing
+# without it. PINs are read without echo and never logged (no_log).
+#
+# Usage: just security-key
+- name: Security key wizard (FIDO2, OpenPGP and SSH)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [security-key-wizard]
+
+  vars:
+    skw_tasks: "{{ playbook_dir }}/tasks/security-key-wizard"
+    skw_rounds: 0
+    skw_next: ""
+
+  tasks:
+    - name: Note that the wizard needs a terminal (nothing done)
+      ansible.builtin.debug:
+        msg: >-
+          The security key wizard asks questions, and this run has no terminal
+          to ask them in: run `just security-key`.
+      when: lookup('env', 'OMARCHY_SETUP_INTERACTIVE') != '1'
+
+    - name: Stop here without a terminal
+      ansible.builtin.meta: end_play
+      when: lookup('env', 'OMARCHY_SETUP_INTERACTIVE') != '1'
+
+    - name: Look for the security-key-omarchy helper
+      ansible.builtin.stat:
+        path: "{{ security_key_wizard_helper }}"
+      register: skw_helper_stat
+
+    - name: Stop if the security-key-omarchy package isn't installed
+      ansible.builtin.fail:
+        msg: >-
+          {{ security_key_wizard_helper }} is missing: the wizard runs the
+          helper of the security-key-omarchy package. An administrator
+          installs it with `just apply security-key`.
+      when: not skw_helper_stat.stat.exists
+
+    - name: Look at the security key
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_command: {cmd: refresh}
+
+    - name: Ask what to do, until done
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/menu.yml"
+
+    - name: Say goodbye
+      ansible.builtin.debug:
+        msg: >-
+          Done. The overlay (Setup › Security) shows the same keys; `just
+          security-key` brings the wizard back.

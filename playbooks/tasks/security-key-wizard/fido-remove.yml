@@ -1,0 +1,32 @@
+---
+# Removes one of your registered keys (fido.remove): from your line of
+# /etc/fido2/fido2 through pkexec, or from ~/.config/Yubico/u2f_keys. The key
+# itself keeps its credential; it just no longer signs in. Like
+# omarchy-yubikey's manage-keys.py, warns before the last key goes.
+- name: Ask which key to remove
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/pick.yml"
+  vars:
+    skw_header: Remove a registered key
+    skw_question: Which key? (the first characters of its key handle)
+    skw_items: >-
+      {{ skw_state.credentials
+         | map(attribute='label') | map('regex_replace', '^', 'Key ') | list }}
+
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Remove a registered key
+    skw_question: >-
+      Remove key {{ skw_state.credentials[skw_pick | int].label }}?{{
+      ' It is the last key sudo and polkit accept for you: they will take only your password.'
+      if not skw_state.credentials[skw_pick | int].unused
+         and skw_state.credentials | rejectattr('unused') | list | length == 1 else '' }}
+    skw_default: n
+  when: skw_pick | int >= 0
+
+- name: Remove it (authenticate in the polkit dialog)
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Remove the key (authenticate in the polkit dialog)
+    skw_command: {cmd: fido.remove, index: "{{ skw_pick | int }}"}
+  when: skw_pick | int >= 0 and skw_yes

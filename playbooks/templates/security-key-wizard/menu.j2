@@ -1,0 +1,71 @@
+{# The wizard's menu: what the key plugged in holds (skw_state), then the
+   choices (skw_options). The prompt of a pause task. #}
+{% set s = skw_state %}
+{% set device = s.devices | first | default({}) %}
+{% set titles = {'fido': 'Sign in with the key (sudo and polkit)', 'gpg': 'OpenPGP key on the card', 'ssh': 'Resident SSH keys'} %}
+
+{% if not device %}
+No security key is plugged in: plug one in and press Enter.
+{% else %}
+Security key: {{ device.name }} ({{ device.path }}){{ ', with a PIN' if device.clientPin else ', without a PIN' }}
+{% if s.devices | length > 1 %}
+  {{ s.devices | length }} keys are plugged in: everything here uses the first one. Leave only the key to set up plugged in.
+{% endif %}
+{% endif %}
+
+== {{ titles.fido }}
+{% if s.target.kind == 'no-pam' %}
+  sudo and polkit don't ask for a security key yet: an administrator turns that on with `just apply security-key`.
+{% elif s.target.kind == 'no-helper' %}
+  sudo and polkit read keys from {{ s.target.path }}: registering keys there needs the security-key-omarchy package (`just apply security-key`).
+{% elif s.target.kind == 'other-file' %}
+  sudo and polkit read keys from {{ s.target.path }}, which the wizard can't save to: an administrator has to register them.
+{% elif s.target.kind == 'mixed' %}
+  sudo and polkit read keys from different files: an administrator has to point them at the same file.
+{% endif %}
+{% for c in s.credentials %}
+  {{ loop.index }}. Key {{ c.label }}{{ ' (not used by sudo or polkit)' if c.unused }}
+{% else %}
+  No key registered for you yet.
+{% endfor %}
+{% if s.pinMode == 'on' %}
+  sudo and polkit take the key only with its PIN and a touch.
+{% elif s.pinMode == 'off' %}
+  sudo and polkit take the key with a touch alone.
+{% elif s.pinMode == 'mixed' %}
+  Only one of sudo and polkit asks for the PIN; turning it on sets both.
+{% endif %}
+
+== {{ titles.gpg }}
+{% if not s.card %}
+  No OpenPGP card on the key.
+{% else %}
+  {{ s.card.holder or 'No holder' }} · card {{ s.card.serial }}
+{% if s.card.fingerprints %}
+  {{ s.card.fingerprints | first }}
+{% endif %}
+  {{ {'missing': 'Not in your keyring yet.', 'public': 'The public key is there, but not linked to the card yet.', 'ready': 'Ready: gpg uses the card.'}[s.keyState] | default('') }}{{ ' Ultimately trusted.' if s.trusted }}
+{% if s.keyState == 'ready' and skw_git_signingkey and (s.card.fingerprints | first | default('')).endswith(skw_git_signingkey | regex_replace('!$', '')) %}
+  git signs with it.
+{% endif %}
+{% endif %}
+
+== {{ titles.ssh }}
+{% for k in s.sshKeys %}
+  {{ loop.index }}. ~/.ssh/{{ k.name }}  {{ k.application }}{% if k.hostState == 'on' %}  · ssh uses it for {{ k.host }}{{ (', reusing connections for ' ~ k.persistMinutes ~ ' min') if k.persistMinutes else '' }}{% elif k.hostState in ['edited', 'foreign'] %}  · ~/.ssh/config.d/{{ k.host }}.conf is left alone{% endif %}
+
+{% else %}
+  No resident SSH keys in ~/.ssh.
+{% endfor %}
+{% if device and not device.rk | default(false) %}
+  This key can't keep resident SSH keys.
+{% endif %}
+
+{% for section in ['fido', 'gpg', 'ssh'] %}
+{% for o in skw_options | selectattr('section', 'equalto', section) %}
+  [{{ o.key }}] {{ o.label }}
+{% endfor %}
+{% endfor %}
+  [Enter] Look at the key again
+  [q] Quit
+Choice

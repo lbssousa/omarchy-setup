@@ -1,0 +1,46 @@
+---
+# One round of the security key wizard: shows the key, asks what to do, does
+# it, and includes itself again until the answer is q (or after
+# security_key_wizard_max_rounds rounds). An action can set skw_next to the
+# key of the action to run next without asking (a backup key, a PIN to type
+# again).
+- name: Work out what the key offers
+  ansible.builtin.set_fact:
+    skw_options: "{{ lookup('template', 'security-key-wizard/options.j2') | from_yaml or [] }}"
+    skw_rounds: "{{ skw_rounds | int + 1 }}"
+
+- name: Security key
+  ansible.builtin.pause:
+    prompt: "{{ lookup('template', 'security-key-wizard/menu.j2') }}"
+  register: skw_menu
+  when: not skw_next
+
+- name: Take the answer
+  ansible.builtin.set_fact:
+    skw_choice: "{{ skw_next or (skw_menu.user_input | default('') | trim | lower) }}"
+    skw_next: ""
+    # What the last action did; this round's sets it again.
+    skw_result: {}
+
+- name: Find the action
+  ansible.builtin.set_fact:
+    skw_action: "{{ (skw_options | selectattr('key', 'equalto', skw_choice) | first | default({})).file | default('') }}"
+
+- name: Say the answer isn't on the menu
+  ansible.builtin.debug:
+    msg: "{{ skw_choice }} isn't one of the choices."
+  when: skw_choice not in ['', 'q'] and not skw_action
+
+- name: Look at the key again
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_command: {cmd: refresh}
+  when: skw_choice == ''
+
+- name: Do it
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/{{ skw_action }}.yml"
+  when: skw_action | length > 0
+
+- name: Next round
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/menu.yml"
+  when: skw_choice != 'q' and skw_rounds | int < security_key_wizard_max_rounds

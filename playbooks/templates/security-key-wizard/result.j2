@@ -1,0 +1,68 @@
+{# What a key-helper command did (skw_result), in the overlay's words. #}
+{% set r = skw_result %}
+{% set d = r.detail | default('') %}
+{% if r.type == 'cancelled' %}
+Cancelled.
+{% elif r.type == 'done' %}
+{% if r.op == 'fido.register' %}
+Key registered: sudo and polkit accept it now.
+{% elif r.op == 'fido.remove' %}
+Key removed.
+{% elif r.op == 'fido.pin' %}
+Saved for sudo and polkit: {{ 'they take the key only with its PIN and a touch' if r.require else 'they take the key with a touch alone' }}.
+{% elif r.op == 'gpg.import' %}
+{{ 'Public key updated from the card\'s URL or the keyservers.' if r.updated else 'Public key imported and linked to the card.' }}
+{% elif r.op == 'gpg.trust' %}
+The key is now ultimately trusted.
+{% elif r.op == 'gpg.remove' %}
+Removed from the keyring; the key stays on the card.
+{% elif r.op == 'ssh.import' %}
+{% if r.imported %}Imported: {{ r.imported | join(', ') }}{% endif %}
+{% if r.skipped %}Already in ~/.ssh, left alone: {{ r.skipped | join(', ') }}{% endif %}
+{% elif r.op == 'ssh.create' %}
+Created ~/.ssh/{{ r.name }}. Its public key, for the server or git host:
+
+{{ r.publicKey }}
+{% elif r.op == 'ssh.remove' %}
+Removed from ~/.ssh: {{ r.name }} (the key stays on the security key and can be imported again).
+{% elif r.op == 'ssh.delete' %}
+Deleted from the security key, with its copy: {{ r.name }}
+{% elif r.op == 'ssh.host' %}
+{{ ('ssh now uses this key for ' if r.enabled else 'ssh no longer uses this key for ') ~ r.host }}.
+{% elif r.op == 'ssh.persist' %}
+{{ ('Connections to ' ~ r.host ~ ' are reused for ' ~ r.minutes ~ ' minutes.') if r.minutes else ('Each new connection to ' ~ r.host ~ ' authenticates again.') }}
+{% else %}
+Done.
+{% endif %}
+{% else %}
+{% set messages = {
+  'pin-required': 'This key needs its PIN.',
+  'pin-invalid': 'Wrong PIN.',
+  'pin-blocked': 'The PIN is blocked after too many wrong tries: unplug and reinsert the key, or reset it.',
+  'pin-unset': 'This key has no PIN: set one on it before sudo and polkit ask for it.',
+  'no-pin': 'sudo and polkit ask for this key\'s PIN, and it has none: set a PIN on the key before registering it.',
+  'timeout': 'The key wasn\'t touched in time.',
+  'no-device': 'The security key isn\'t connected.',
+  'no-card': 'No OpenPGP card was found on the key.',
+  'already-registered': 'This key is already registered.',
+  'not-authorized': 'The authentication was dismissed or refused: ' ~ d ~ ' wasn\'t changed.',
+  'pam-failed': 'Couldn\'t change what sudo and polkit ask for: ' ~ d,
+  'write-failed': 'Couldn\'t save ' ~ d ~ '.',
+  'import-failed': 'Couldn\'t find the public key at the card\'s URL or on the keyservers.',
+  'trust-failed': 'Couldn\'t change the key\'s trust.',
+  'remove-failed': 'Couldn\'t remove it: ' ~ d,
+  'secret-on-disk': 'gpg keeps a secret part of this key on disk, not only on the card: nothing was removed.',
+  'ssh-none': 'The security key holds no SSH keys.',
+  'ssh-invalid': 'That ' ~ d ~ ' can\'t be used: nothing was made.',
+  'ssh-exists': 'The security key already holds a key for ' ~ d ~ ' with this user ID.',
+  'ssh-file-exists': d ~ ' is already there: move it away, or choose another user ID.',
+  'ssh-not-on-key': 'This copy\'s key isn\'t on the security key plugged in (it was replaced, or made on another key): nothing was deleted.',
+  'ssh-encrypted': d ~ ' has a passphrase, so its key can\'t be found on the security key: nothing was deleted.',
+  'ssh-damaged': d ~ ' isn\'t a resident key copy the wizard can read: nothing was deleted.',
+  'ssh-config-link': d ~ ' is a symbolic link: it is left alone.',
+  'ssh-config-foreign': d ~ ' wasn\'t written by the overlay: it is left alone.',
+  'ssh-config-edited': d ~ ' was changed by hand: it is left alone.',
+  'ssh-config-conflict': 'Another key already sets up ' ~ d ~ ' with another login or port.',
+} %}
+{{ messages[r.code] | default('Something went wrong: ' ~ (d or r.code | default('?'))) }}
+{% endif %}

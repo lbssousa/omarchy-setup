@@ -1,0 +1,25 @@
+---
+# Asks for one of skw_items (labels, numbered from 1) and leaves its index in
+# skw_pick (from 0), or -1 when Enter is pressed or the answer isn't one of
+# them. A single item is picked without asking.
+- name: "{{ skw_header | default('Security key') }}"
+  ansible.builtin.pause:
+    prompt: |-
+      {{ skw_question }}
+      {% for item in skw_items %}
+        {{ loop.index }}. {{ item }}
+      {% endfor %}
+      Number (Enter cancels)
+  register: skw_picked
+  when: skw_items | length > 1
+
+- name: Keep the choice
+  ansible.builtin.set_fact:
+    skw_pick: >-
+      {%- set n = skw_picked.user_input | default('') | trim if skw_items | length > 1 else '1' -%}
+      {{ (n | int - 1) if n is match('^[0-9]+$') and 1 <= n | int <= skw_items | length else -1 }}
+
+- name: Say nothing was picked
+  ansible.builtin.debug:
+    msg: Cancelled.
+  when: skw_pick | int < 0

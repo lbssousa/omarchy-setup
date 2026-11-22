@@ -1,0 +1,68 @@
+---
+# Deletes a resident key from the security key, for good (ssh.delete): only
+# the exact credential behind the copy in ~/.ssh, by its key handle, then the
+# copy and its drop-in line. As in omarchy-yubikey, the warning comes first
+# and the confirmation is typed: DELETE and the key's application.
+- name: Ask which key to delete
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/pick.yml"
+  vars:
+    skw_header: Delete a key from the security key
+    skw_question: Which key? It is found on the security key through its copy in ~/.ssh
+    skw_items: >-
+      {{ skw_state.sshKeys | map(attribute='name') | map('regex_replace', '^', '~/.ssh/')
+         | zip(skw_state.sshKeys | map(attribute='application')) | map('join', '  ') | list }}
+
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Delete a key from the security key
+    skw_question: >-
+      This deletes the key of ~/.ssh/{{ skw_state.sshKeys[skw_pick | int].name }}
+      from the security key itself: it can't be recovered or imported again,
+      and every server or git host that trusts it needs a new key. Type
+      DELETE {{ skw_state.sshKeys[skw_pick | int].application }} to confirm
+  when: skw_pick | int >= 0
+
+- name: Check the confirmation
+  ansible.builtin.set_fact:
+    skw_go: >-
+      {{ skw_pick | int >= 0
+         and skw_answer == 'DELETE ' ~ skw_state.sshKeys[skw_pick | int].application }}
+
+- name: Say it was cancelled
+  ansible.builtin.debug:
+    msg: Cancelled; nothing was deleted.
+  when: skw_pick | int >= 0 and not skw_go
+
+- name: Delete it
+  when: skw_go
+  block:
+    - name: Forget any earlier answer
+      ansible.builtin.set_fact:
+        skw_answer: ""
+      no_log: true
+
+    - name: Ask for the key's PIN
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: Delete a key from the security key
+        skw_question: PIN of {{ (skw_state.devices | first).name }} (it doesn't show; Enter cancels)
+        skw_secret: true
+
+    - name: Delete the key from the security key
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_title: Delete the key from the security key
+        skw_command: {cmd: ssh.delete, name: "{{ skw_state.sshKeys[skw_pick | int].name }}", pin: "{{ skw_answer }}"}
+      when: skw_answer | length > 0
+
+    - name: Say it was cancelled
+      ansible.builtin.debug:
+        msg: Cancelled; nothing was deleted.
+      when: skw_answer | length == 0
+
+  always:
+    - name: Forget the PIN
+      ansible.builtin.set_fact:
+        skw_answer: ""
+      no_log: true

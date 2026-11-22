@@ -1,0 +1,46 @@
+---
+# Copies the resident SSH keys into ~/.ssh (ssh.import): ssh-keygen -K in a
+# private folder, then each pair, never over a file already there. Then offers
+# each new key's git host.
+- name: Forget any earlier answer
+  ansible.builtin.set_fact:
+    skw_answer: ""
+  no_log: true
+
+- name: Ask for the key's PIN
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Import the resident SSH keys
+    skw_question: >-
+      PIN of {{ (skw_state.devices | first).name }} (it doesn't show; Enter
+      cancels). Touch the key when it blinks, right after
+    skw_secret: true
+  when: (skw_state.devices | first).clientPin
+
+- name: Import the resident SSH keys (touch the key when it blinks)
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Import the resident SSH keys (touch the key when it blinks)
+    skw_command: {cmd: ssh.import, pin: "{{ skw_answer }}"}
+  when: not (skw_state.devices | first).clientPin or skw_answer | length > 0
+
+- name: Say it was cancelled
+  ansible.builtin.debug:
+    msg: Cancelled.
+  when: (skw_state.devices | first).clientPin and skw_answer | length == 0
+
+- name: Forget the PIN
+  ansible.builtin.set_fact:
+    skw_answer: ""
+  no_log: true
+
+- name: Ask for the PIN again after a wrong one
+  ansible.builtin.set_fact:
+    skw_next: s
+  when: skw_result.code | default('') == 'pin-invalid'
+
+- name: Offer the git host of each new key
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ssh-host-offer.yml"
+  loop: "{{ skw_result.imported | default([]) if skw_result.op | default('') == 'ssh.import' else [] }}"
+  loop_control:
+    loop_var: skw_key

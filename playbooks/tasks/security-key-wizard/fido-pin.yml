@@ -1,0 +1,31 @@
+---
+# Whether sudo and polkit ask for the key's PIN along with the touch
+# (fido.pin): pinverification= on their pam_u2f.so lines, through `pkexec
+# omarchy-security-key-pam`, whose polkit action asks for an administrator.
+# It changes how everyone signs in, so, as omarchy-yubikey's installer does,
+# it says to keep a root shell open until the new setting is tested, and
+# warns about a touch alone. The helper won't turn the PIN on while the key
+# plugged in has none.
+- name: Work out the change
+  ansible.builtin.set_fact:
+    skw_pin_on: "{{ skw_state.pinMode != 'on' }}"
+
+- name: Confirm
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: PIN for sudo and polkit
+    skw_question: >-
+      {{ 'sudo and polkit will take the key only with its PIN and a touch.'
+         if skw_pin_on else
+         'sudo and polkit will take the key with a touch alone: anyone holding it could then authenticate as you.' }}
+      This changes /etc/pam.d/sudo and /etc/pam.d/polkit-1 for every account:
+      keep a second terminal with `sudo -s` open until you've tested `sudo -k;
+      sudo true`. Go ahead?
+    skw_default: "{{ 'y' if skw_pin_on else 'n' }}"
+
+- name: Change it (an administrator authenticates in the polkit dialog)
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Change it (an administrator authenticates in the polkit dialog)
+    skw_command: {cmd: fido.pin, require: "{{ skw_pin_on | bool }}"}
+  when: skw_yes

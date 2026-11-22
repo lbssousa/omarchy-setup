@@ -1,0 +1,83 @@
+---
+# Registers the key plugged in for sudo and polkit (fido.register): pamu2fcfg
+# with the key's PIN and a touch, saved to your line of /etc/fido2/fido2
+# through pkexec (or ~/.config/Yubico/u2f_keys, when that is what PAM reads).
+# The helper refuses a key registered already, and one without a PIN while
+# sudo and polkit ask for it. Then, as omarchy-yubikey's installer does, says
+# how to test it and offers to register a backup key.
+- name: Forget any earlier answer
+  ansible.builtin.set_fact:
+    skw_answer: ""
+  no_log: true
+
+- name: Ask for the key's PIN
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+  vars:
+    skw_header: Register the key
+    skw_question: >-
+      PIN of {{ (skw_state.devices | first).name }} (it doesn't show; Enter
+      cancels). Touch the key when it blinks, right after
+    skw_secret: true
+  when: (skw_state.devices | first).clientPin
+
+- name: Register the key (touch it when it blinks, then authenticate in the polkit dialog)
+  ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+  vars:
+    skw_title: Register the key (touch it when it blinks, then authenticate in the polkit dialog)
+    skw_command: {cmd: fido.register, pin: "{{ skw_answer }}"}
+  when: not (skw_state.devices | first).clientPin or skw_answer | length > 0
+
+- name: Say it was cancelled
+  ansible.builtin.debug:
+    msg: Cancelled.
+  when: (skw_state.devices | first).clientPin and skw_answer | length == 0
+
+- name: Forget the PIN
+  ansible.builtin.set_fact:
+    skw_answer: ""
+  no_log: true
+
+- name: Ask for the PIN again after a wrong one
+  ansible.builtin.set_fact:
+    skw_next: r
+  when: skw_result.code | default('') == 'pin-invalid'
+
+- name: After a registration
+  when: skw_result.type | default('') == 'done' and skw_result.op | default('') == 'fido.register'
+  block:
+    - name: Say how to test it
+      ansible.builtin.debug:
+        msg: >-
+          Test it in another terminal: `sudo -k; sudo true` asks for the key
+          (its PIN and a touch, or a touch alone). Unplugged, sudo still takes
+          your password.
+
+    - name: Offer a backup key
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: Backup key
+        skw_question: Register a backup key too, in case this one is lost?
+        skw_default: n
+
+    - name: Keep the answer
+      ansible.builtin.set_fact:
+        skw_backup: "{{ skw_yes }}"
+
+    - name: Wait for the backup key
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: Backup key
+        skw_question: Unplug this key and plug in only the backup key, then press Enter
+      when: skw_backup
+
+    # Before the refresh, which replaces skw_result (and so ends the block).
+    - name: Register the backup key next
+      ansible.builtin.set_fact:
+        skw_next: r
+      when: skw_backup
+
+    - name: Look at the backup key
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_command: {cmd: refresh}
+      when: skw_backup

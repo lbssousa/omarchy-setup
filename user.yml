@@ -103,6 +103,9 @@
 - name: Yubikey GPG key and git signing (opt-in)
   ansible.builtin.import_playbook: playbooks/user/yubikey.yml
 
+- name: Security key wizard, interactive (opt-in)
+  ansible.builtin.import_playbook: playbooks/user/security-key-wizard.yml
+
 - name: omarchy-multiuser menu sync (opt-in)
   ansible.builtin.import_playbook: playbooks/user/omarchy-multiuser.yml
 

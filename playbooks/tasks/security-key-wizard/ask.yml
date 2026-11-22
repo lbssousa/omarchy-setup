@@ -1,0 +1,22 @@
+---
+# Asks one question (skw_question) and leaves the answer in skw_answer
+# (trimmed; skw_suggestion when Enter is pressed) and, for a yes/no question
+# (skw_default: y or n, shown as [Y/n] or [y/N]), skw_yes. skw_secret reads
+# it without echo (a PIN): the answer is then never shown or logged.
+- name: "{{ skw_header | default('Security key') }}"
+  ansible.builtin.pause:
+    prompt: >-
+      {{ skw_question }}{{
+      (' [Y/n]' if skw_default == 'y' else ' [y/N]') if skw_default | default('') in ['y', 'n']
+      else ((' [' ~ skw_suggestion ~ ']') if skw_suggestion | default('') | length > 0 else '') }}
+    echo: "{{ not skw_secret | default(false) }}"
+  register: skw_asked
+  no_log: "{{ skw_secret | default(false) }}"
+
+- name: Keep the answer
+  ansible.builtin.set_fact:
+    skw_answer: "{{ (skw_asked.user_input | default('') | trim) or skw_suggestion | default('') }}"
+    skw_yes: >-
+      {{ (skw_asked.user_input | default('') | trim | lower or skw_default | default('n'))
+         in ['y', 'yes', 's', 'sim'] }}
+  no_log: "{{ skw_secret | default(false) }}"

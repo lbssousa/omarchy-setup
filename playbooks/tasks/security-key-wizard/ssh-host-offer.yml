@@ -1,0 +1,38 @@
+---
+# Offers to use the key skw_key (one of skw_state.sshKeys) for the git host its
+# application names, when ssh doesn't yet, and asks how long to reuse
+# connections, as the overlay and omarchy-yubikey do when they set a host up.
+- name: Find the key
+  ansible.builtin.set_fact:
+    skw_offer: "{{ skw_state.sshKeys | selectattr('name', 'equalto', skw_key) | first | default({}) }}"
+
+- name: Set its git host up
+  when: skw_offer.host | default('') | length > 0 and skw_offer.hostState == 'off'
+  block:
+    - name: Offer the git host
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/ask.yml"
+      vars:
+        skw_header: Git host
+        skw_question: >-
+          Use ~/.ssh/{{ skw_offer.name }} for {{ skw_offer.host }}? ssh then
+          offers it there, without the agent (~/.ssh/config.d/{{ skw_offer.host }}.conf)
+        skw_default: y
+
+    # The questions below set skw_yes again.
+    - name: Keep the answer
+      ansible.builtin.set_fact:
+        skw_use: "{{ skw_yes }}"
+
+    - name: Ask how long to reuse connections
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/minutes.yml"
+      vars:
+        skw_host: "{{ skw_offer.host }}"
+        skw_current: "{{ skw_offer.persistMinutes }}"
+      when: skw_use
+
+    - name: Use it for the git host
+      ansible.builtin.include_tasks: "{{ skw_tasks }}/helper.yml"
+      vars:
+        skw_title: "Use it for {{ skw_offer.host }}"
+        skw_command: {cmd: ssh.host, name: "{{ skw_offer.name }}", enable: true, minutes: "{{ skw_minutes | int }}"}
+      when: skw_use and skw_minutes | int >= 0

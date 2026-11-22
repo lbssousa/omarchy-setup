@@ -42,6 +42,14 @@ for arg in "$@"; do
 done
 $caller_tags || extra+=(--tags "$tags")
 
+# Plays that ask questions (playbooks/user/security-key-wizard.yml) only run
+# when there is a terminal to ask them in.
+if [[ -t 0 && -t 1 ]]; then
+    export OMARCHY_SETUP_INTERACTIVE=1
+else
+    unset OMARCHY_SETUP_INTERACTIVE
+fi
+
 case $phase in
     system)
         if ! id -nG | tr ' ' '\n' | grep -qx wheel; then

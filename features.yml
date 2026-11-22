@@ -441,6 +441,15 @@ features:
     default: false
     revert: false
 
+  - id: security-key-wizard
+    group: security
+    title: Security key wizard (FIDO2, OpenPGP, SSH)
+    effect: asks in the terminal what to do with the key plugged in, with the security-key-omarchy overlay's options - registers it and a backup key for sudo/polkit and sets whether they ask for its PIN; imports and trusts its OpenPGP key, signs git commits with it; imports or makes resident SSH keys and sets up their git hosts (`just security-key` runs it alone)
+    phases: [user]
+    default: false
+    revert: false
+    requires: [security-key]
+
   - id: bgrt-theme
     group: extras
     title: BGRT boot theme

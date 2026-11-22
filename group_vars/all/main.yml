@@ -488,7 +488,7 @@ yubikey_scdaemon_conf: "{{ target_home }}/.gnupg/scdaemon.conf"
 # to deploy a new release. It was called ssh-askpass-omarchy until 0.2.0; the
 # plays migrate an install of the old name (omaskpass_legacy_*).
 omaskpass_repo: https://github.com/lbssousa/omaskpass.git
-omaskpass_ref: v0.4.4
+omaskpass_ref: v0.4.5
 omaskpass_checkout_dir: "{{ target_home }}/src/omaskpass"
 omaskpass_verify_commit: false
 omaskpass_signing_keys: "{{ omapin_signing_keys }}"
@@ -554,12 +554,12 @@ clipboard_portal_interfaces:
 # fingerprint-omarchy (playbooks/{system,user}/plugins.yml) — an overlay to
 # enroll, test and delete fingerprints (fprintd), opened by omarchy-multiuser's
 # Setup > Security > Fingerprint. Installed per user from the Omarchy plugin
-# marketplace, pinned to the release tag it approved; bump the ref (to a
-# release the marketplace has verified) to deploy a new one. The system
-# phase installs what its helper runs and removes the package earlier runs
-# built.
+# marketplace's listing, pinned to one of its release tags (which may be
+# ahead of the snapshot the marketplace has verified); bump the ref to deploy
+# a new one. The system phase installs what its helper runs and removes the
+# package earlier runs built.
 fingerprint_plugin_repo: https://github.com/lbssousa/fingerprint-omarchy.git
-fingerprint_plugin_ref: v0.2.0
+fingerprint_plugin_ref: v0.3.0
 fingerprint_plugin_runtime_packages: [fprintd, python, python-gobject]
 fingerprint_plugin_package: fingerprint-omarchy
 fingerprint_plugin_id: lbssousa.fingerprint
@@ -572,7 +572,7 @@ fingerprint_plugin_id: lbssousa.fingerprint
 # from the Omarchy plugin marketplace at the same tag; bump the ref to deploy
 # a new release.
 security_key_plugin_repo: https://github.com/lbssousa/security-key-omarchy.git
-security_key_plugin_ref: v0.8.0
+security_key_plugin_ref: v0.8.1
 security_key_plugin_checkout_dir: "{{ target_home }}/src/security-key-omarchy"
 security_key_plugin_verify_commit: false
 security_key_plugin_signing_keys: "{{ omapin_signing_keys }}"

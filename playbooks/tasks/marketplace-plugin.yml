@@ -2,9 +2,10 @@
 # Puts one of our marketplace-listed shell plugins into the user's shell:
 # `omarchy plugin add` clones it into ~/.config/omarchy/plugins/<id>, as
 # the Omarchy plugin marketplace installs it, and the clone is then pinned
-# to the release tag the marketplace approved (it clones the mutable
-# upstream HEAD otherwise). The tag's GPG signature isn't checked: the
-# pinned ref is the record of the release the marketplace reviewed.
+# to one of our release tags (it clones the mutable upstream HEAD
+# otherwise), which may be ahead of the snapshot the marketplace has
+# verified. The tag's GPG signature isn't checked: the pinned ref is the
+# record of the release deployed.
 #
 # The link an older run made to the packaged copy in /usr/share (same id)
 # is taken out first, or add would refuse the id as already installed.

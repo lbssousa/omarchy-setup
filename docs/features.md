@@ -182,6 +182,15 @@ Default app: default PDF viewer.
 | Zathura ★ (default) | flatpak `org.pwmt.zathura` |  |
 | Zathura | pacman `zathura`, `zathura-pdf-mupdf` |  |
 
+### Torrent clients
+
+Default app: default handler for magnet links (x-scheme-handler/magnet).
+
+| Option | Source | Notes |
+|---|---|---|
+| qBittorrent ★ (default) | flatpak `org.qbittorrent.qBittorrent` |  |
+| qBittorrent | pacman `qbittorrent` |  |
+
 ### Video and streaming
 
 | Option | Source | Notes |

@@ -521,6 +521,14 @@ apps:
       - { id: zathura-flatpak, label: Zathura, source: flatpak, flatpak: org.pwmt.zathura, installed: true, desktop: org.pwmt.zathura.desktop }
       - { id: zathura, label: Zathura, source: pacman, package: [zathura, zathura-pdf-mupdf], desktop: org.pwmt.zathura.desktop }
 
+  - id: torrent
+    title: Torrent clients
+    role: default handler for magnet links (x-scheme-handler/magnet)
+    default: qbittorrent-flatpak
+    options:
+      - { id: qbittorrent-flatpak, label: qBittorrent, source: flatpak, flatpak: org.qbittorrent.qBittorrent, installed: true, desktop: org.qbittorrent.qBittorrent.desktop }
+      - { id: qbittorrent, label: qBittorrent, source: pacman, package: qbittorrent, desktop: org.qbittorrent.qBittorrent.desktop }
+
   - id: video
     title: Video and streaming
     options:

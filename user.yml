@@ -37,6 +37,9 @@
 - name: "Apps: the default PDF viewer, Zathura's tweaks"
   ansible.builtin.import_playbook: playbooks/user/apps/pdf.yml
 
+- name: "Apps: the default torrent client (magnet links)"
+  ansible.builtin.import_playbook: playbooks/user/apps/torrent.yml
+
 - name: "Apps: the default file manager"
   ansible.builtin.import_playbook: playbooks/user/apps/file-manager.yml
 

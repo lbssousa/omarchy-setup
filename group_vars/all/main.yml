@@ -820,7 +820,6 @@ libfprint_goodix_usb_product_id: "538d"
 secureboot_esp_path: /boot
 secureboot_limine_conf: "{{ secureboot_esp_path }}/limine.conf"
 secureboot_default_limine_conf: /etc/default/limine
-secureboot_kernel_cmdline_file: /etc/kernel/cmdline
 # systemd-boot (Omarchy's omarchy-boot-switch): the boot store omarchy-boot-sync
 # signs from, sbctl's db key (sbctl 0.14 and later keep it here), systemd's
 # loader and the firmware's fallback name for it.

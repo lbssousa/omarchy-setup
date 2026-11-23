@@ -82,19 +82,17 @@ just apply secureboot
 With Secure Boot off, the playbook:
 
 1. Confirms the bootloader is Limine + limine-entry-tool (for
-   systemd-boot, see [systemd-boot](#systemd-boot): steps 3, 5 and 6 are
+   systemd-boot, see [systemd-boot](#systemd-boot): steps 4 and 5 are
    replaced by its own).
 2. Installs `sbctl`.
-3. Warns (without removing anything) if `splash` is on the kernel
-   cmdline — incompatible with Secure Boot here.
-4. Creates `sbctl` keys, if missing.
-5. Sets `ENABLE_ENROLL_LIMINE_CONFIG=yes` and `ENABLE_VERIFICATION=yes`
+3. Creates `sbctl` keys, if missing.
+4. Sets `ENABLE_ENROLL_LIMINE_CONFIG=yes` and `ENABLE_VERIFICATION=yes`
    in `/etc/default/limine`, and `hash_mismatch_panic: yes` in
    `/boot/limine.conf`.
-6. Runs `limine-update`, which signs the Limine binary with the new
+5. Runs `limine-update`, which signs the Limine binary with the new
    keys.
-7. Shows `sbctl status` and `sbctl verify`.
-8. Detects the firmware is **not in Setup Mode** and stops, with
+6. Shows `sbctl status` and `sbctl verify`.
+7. Detects the firmware is **not in Setup Mode** and stops, with
    instructions.
 
 ### BIOS trip #1 — enter Setup Mode
@@ -137,10 +135,6 @@ If the machine doesn't boot with Secure Boot on, see
 
 ## Important notes
 
-- **`splash` (Plymouth) on the kernel cmdline** breaks boot with
-  Secure Boot enabled here. The playbook warns but doesn't remove it —
-  edit `/etc/default/limine` yourself and afterward
-  execute `run0 limine-update` if needed.
 - **`hash_mismatch_panic: yes`** (enabled by this playbook) halts boot
   on a kernel/initrd checksum mismatch. Real integrity protection, but
   it means editing boot files by hand without going through

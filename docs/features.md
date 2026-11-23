@@ -55,7 +55,7 @@ always applied.
 | Omaraptor themes | `omaraptor-themes` | adds three Omarchy themes on the GNOME palette with Bluefin wallpapers; modifies the Flatpak global override (GTK config read-only) | user | on | no |
 | Omaraptor day/night switching | `omaraptor-theme-auto` | adds a timer switching the Omaraptor theme at sunrise/sunset | user | on | yes |
 | Osaka Jade theme | `osaka-jade-theme` | adds the Osaka Jade theme (git, omacom/omarchy-osaka-jade-theme), over Omarchy's bundled copy | user | off | no |
-| Piedmont Gold theme | `piedmont-gold-theme` | adds the Piedmont Gold theme (git, wesleygrimes/omarchy-piedmont-gold-theme) | user | off | no |
+| Piedmont Gold themes | `piedmont-gold-theme` | adds the Piedmont Gold and Piedmont Gold Light themes (git, wesleygrimes/omarchy-piedmont-gold-theme and -light-theme) | user | off | no |
 
 ## Omarchy shell plugins and prompts
 

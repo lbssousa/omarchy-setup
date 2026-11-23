@@ -1243,6 +1243,10 @@ extra_themes:
     name: piedmont-gold
     repo: https://github.com/wesleygrimes/omarchy-piedmont-gold-theme.git
     ref: 749c66322de701ac061c5c40683e81acde9f85ad
+  - feature: piedmont-gold-theme
+    name: piedmont-gold-light
+    repo: https://github.com/wesleygrimes/omarchy-piedmont-gold-light-theme.git
+    ref: a08c19382c1c1b036c77960e25e0b2c7ef74a05c
 
 # Omaraptor day/night theme switching (playbooks/user/omaraptor-theme-auto.yml).
 # Themes applied after sunrise / after sunset (names as omarchy-theme-set

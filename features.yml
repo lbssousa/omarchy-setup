@@ -249,8 +249,8 @@ features:
 
   - id: piedmont-gold-theme
     group: themes
-    title: Piedmont Gold theme
-    effect: adds the Piedmont Gold theme (git, wesleygrimes/omarchy-piedmont-gold-theme)
+    title: Piedmont Gold themes
+    effect: adds the Piedmont Gold and Piedmont Gold Light themes (git, wesleygrimes/omarchy-piedmont-gold-theme and -light-theme)
     phases: [user]
     default: false
     revert: false

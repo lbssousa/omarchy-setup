@@ -6,7 +6,7 @@
 #   omadwaita-themes     Omadwaita, Omadwaita Light, Omadwaita Dark (built here)
 #   omaraptor-themes     Omaraptor, Omaraptor Light, Omaraptor Dark (built here)
 #   osaka-jade-theme     Osaka Jade (git, extra_themes)
-#   piedmont-gold-theme  Piedmont Gold (git, extra_themes)
+#   piedmont-gold-theme  Piedmont Gold, Piedmont Gold Light (git, extra_themes)
 #
 # Installing never switches the current theme; apply one with
 # `omarchy-theme-set <name>` (or Style > Theme). Turning a feature off

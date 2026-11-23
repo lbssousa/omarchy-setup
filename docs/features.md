@@ -24,6 +24,7 @@ always applied.
 |---|---|---|---|---|---|
 | Flatpak + Flathub + Bazaar | `flatpak` | adds Flatpak, the Flathub remote, Bazaar and the installation's languages; required by every Flatpak app option | system, user | on | no |
 | git identity | `git-identity` | modifies ~/.gitconfig (user.name, user.email from the untracked local.yml) | user | on | no |
+| git identity by folder | `git-dir-identity` | asks in the terminal for an e-mail and folders; adds ~/.config/git/identities/<e-mail> (user.email, and user.signingkey from the GPG key with that e-mail) and an includeIf per folder to ~/.gitconfig, so repositories there commit and sign with it (`just git-dir-identity` runs it alone) | user | off | no |
 
 ## Shell and prompt
 

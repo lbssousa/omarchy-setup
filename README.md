@@ -150,6 +150,13 @@ git commits with it; import or make resident SSH keys, delete them, and set up
 their git hosts with connection reuse. Turning on `security-key-wizard` in
 `just configure` also asks every `just user` run.
 
+A different git identity for some folders (work repositories, say):
+`just git-dir-identity` asks for the e-mail and the folders, then every
+repository below them commits with that e-mail and signs with the GPG key
+that has it, while your global identity stays as it is elsewhere. The e-mail
+is typed each time, never stored in the repository. Turning on
+`git-dir-identity` in `just configure` also asks every `just user` run.
+
 It replaces `just ssh-yubikey`: a `~/.ssh/config.d/github_com_*.conf` that
 script wrote (it says so at the top) can go once the wizard has set up
 github.com for the key (`~/.ssh/config.d/github.com.conf`, read first).

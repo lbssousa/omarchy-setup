@@ -22,6 +22,9 @@
 - name: git identity (from the untracked local.yml)
   ansible.builtin.import_playbook: playbooks/user/git-identity.yml
 
+- name: git identity by folder, interactive (opt-in)
+  ansible.builtin.import_playbook: playbooks/user/git-dir-identity.yml
+
 - name: Flatpak apps in the session (XDG_DATA_DIRS, Bazaar's D-Bus mask)
   ansible.builtin.import_playbook: playbooks/user/flatpak.yml
 

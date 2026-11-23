@@ -1174,7 +1174,7 @@ omarchy_plugins:
   # from the Dropbox API (users/get_space_usage) instead of the plan's base
   # allocation (2 GB for every Basic account, bonus space ignored). MIT. Its
   # manifest declares clonedFrom omarchy.dropbox, so enabling it disables
-  # the built-in: one Dropbox icon. Pinned to the commit of its v1.2.0 tag.
+  # the built-in: one Dropbox icon. Pinned to the commit of its v1.2.1 tag.
   # The API side needs a Dropbox app of your own: its app key goes in the
   # widget's `appKey` setting in shell.json (enabling keeps it) and the
   # account is connected once from the panel — see the repo's README. The
@@ -1183,7 +1183,7 @@ omarchy_plugins:
   - name: Dropbox
     repo: https://github.com/lbssousa/dropbox-omarchy.git
     id: lbssousa.dropbox
-    ref: c8cc99b4b3eb1bc9496d47bc8a7a05e50e22d578
+    ref: e673ba5cd202b9dd2f389e3ecfe747049ae313b0
     section: right
     packages:
       - libsecret

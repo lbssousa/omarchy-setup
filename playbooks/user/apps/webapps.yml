@@ -8,8 +8,9 @@
 #                           firefox-taskbar-apps.py straight into the
 #                           profile (no DynamicLauncher dialog per site).
 #                           Firefox has to be closed: it keeps the registry
-#                           in memory. While it is open this part is skipped
-#                           with a warning.
+#                           in memory. Checked first; with a terminal the
+#                           run asks to close it, otherwise (or while it
+#                           stays open) this part is skipped with a warning.
 #   Google Chrome,          PWAs, only for the sites marked `pwa: true`
 #   Brave Origin, Chromium  (they serve a web app manifest), force-installed
 #                           by the browser's machine policy (system/apps/
@@ -41,6 +42,11 @@
     webapps_keybinds: "{{ webapps | selectattr('keybind', 'defined') | selectattr('keybind') | list }}"
     webapps_pwa: "{{ webapps | selectattr('pwa', 'defined') | selectattr('pwa') | list }}"
     webapps_not_pwa: "{{ webapps | rejectattr('label', 'in', webapps_pwa | map(attribute='label') | list) | list }}"
+    # Succeeds while this Firefox build runs for this user (the same test as
+    # firefox-taskbar-apps.py's firefox_running).
+    webapps_firefox_running_cmd: >-
+      {% if firefox_variant.flatpak_id | default('') %}flatpak ps --columns=application | grep -qxF {{ firefox_variant.flatpak_id | quote }}
+      {%- else %}pgrep -u {{ target_user | quote }} -x firefox >/dev/null{% endif %}
 
   tasks:
     - name: Create the web apps backup directory
@@ -97,7 +103,41 @@
             dest: "{{ firefox_taskbar_app_launcher }}"
             mode: "0755"
 
+        # Firefox keeps the Taskbar Tabs registry in memory and would overwrite
+        # what the script writes, so it has to be closed first. Checked before
+        # the script's icon downloads; with a terminal, the run waits for it to
+        # be closed instead of skipping. The script checks again after the
+        # downloads, for one started meanwhile.
+        - name: Check that Firefox is closed
+          ansible.builtin.shell: "{{ webapps_firefox_running_cmd }}"
+          register: webapps_firefox_open
+          changed_when: false
+          failed_when: false
+
+        - name: Ask to close Firefox
+          ansible.builtin.pause:
+            prompt: >-
+              Firefox is open, and the Taskbar Tabs can only be written with it
+              closed. Close it completely (every window), then press Enter
+          when:
+            - webapps_firefox_open.rc == 0
+            - lookup('env', 'OMARCHY_SETUP_INTERACTIVE') == '1'
+
+        # Its own register: a skipped task still overwrites the one it names.
+        - name: Check again that Firefox is closed
+          ansible.builtin.shell: "{{ webapps_firefox_running_cmd }}"
+          register: webapps_firefox_recheck
+          changed_when: false
+          failed_when: false
+          when: webapps_firefox_open.rc == 0
+
+        - name: Note whether Firefox is still open
+          ansible.builtin.set_fact:
+            webapps_firefox_still_open: >-
+              {{ webapps_firefox_open.rc == 0 and webapps_firefox_recheck.rc | default(1) == 0 }}
+
         - name: Create the Taskbar Tabs and set Omarchy's launchers aside
+          when: not webapps_firefox_still_open | bool
           ansible.builtin.script:
             cmd: >-
               firefox-taskbar-apps.py {{ {
@@ -125,8 +165,8 @@
             msg: >-
               SKIPPED the Firefox Taskbar Tabs: Firefox is running and keeps
               their registry in memory, overwriting any change. Close it and
-              run `just user` again.
-          when: webapps_firefox_result.rc == 3
+              run `just apply apps` again.
+          when: webapps_firefox_still_open | bool or webapps_firefox_result.rc | default(0) == 3
 
     # A site that isn't (or is no longer) marked pwa keeps Omarchy's
     # launcher: a PWA launcher an earlier run wrote for it goes.

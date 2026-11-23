@@ -33,7 +33,7 @@
     insertbefore: '^\s*auth\s'
     firstmatch: true
     line: "auth      sufficient pam_fprintd.so max-tries={{ pam_auth_order_fprintd_max_tries }} timeout={{ pam_auth_order_fprintd_timeout }}"
-    backup: true
+    backup: false
   become: true
 
 - name: "Make sure the clamshell gate precedes pam_fprintd in {{ pam_file }}"
@@ -73,7 +73,7 @@
         path: "{{ pam_file }}"
         regexp: '^\s*auth\s.*pam_u2f\.so'
         state: absent
-        backup: true
+        backup: false
 
     - name: "Re-add it right after pam_fprintd in {{ pam_file }}"
       ansible.builtin.lineinfile:

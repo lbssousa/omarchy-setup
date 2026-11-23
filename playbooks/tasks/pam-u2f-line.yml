@@ -52,7 +52,7 @@
     insertafter: "{{ '^\\s*auth\\s.*pam_fprintd\\.so' if pam_u2f_has_fprintd else omit }}"
     insertbefore: "{{ omit if pam_u2f_has_fprintd else '^\\s*auth\\s' }}"
     firstmatch: true
-    backup: true
+    backup: false
   vars:
     pam_u2f_has_fprintd: "{{ pam_u2f_auth_lines | select('search', 'pam_fprintd\\.so') | list | length > 0 }}"
   become: true
@@ -64,7 +64,7 @@
     path: "{{ pam_file }}"
     regexp: '^(\s*auth\s.*pam_u2f\.so.*?)[ \t]+openasuser\b(.*)$'
     replace: '\1\2'
-    backup: true
+    backup: false
   become: true
 
 - name: "Point pam_u2f at {{ security_key_plugin_authfile }} in {{ pam_file }}"
@@ -72,7 +72,7 @@
     path: "{{ pam_file }}"
     regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!authfile=).)*)$'
     replace: '\1 authfile={{ security_key_plugin_authfile }}'
-    backup: true
+    backup: false
   become: true
 
 - name: "Drop any other userpresence setting from pam_u2f in {{ pam_file }}"
@@ -80,7 +80,7 @@
     path: "{{ pam_file }}"
     regexp: '^(\s*auth\s.*pam_u2f\.so.*?)[ \t]+userpresence=(?!1(?:\s|$))\S*(.*)$'
     replace: '\1\2'
-    backup: true
+    backup: false
   become: true
 
 - name: "Require userpresence=1 from pam_u2f in {{ pam_file }}"
@@ -88,5 +88,5 @@
     path: "{{ pam_file }}"
     regexp: '^(\s*auth\s.*pam_u2f\.so(?:(?!userpresence).)*)$'
     replace: '\1 userpresence=1'
-    backup: true
+    backup: false
   become: true

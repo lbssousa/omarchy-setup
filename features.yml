@@ -117,6 +117,14 @@ features:
     default: true
     revert: false
 
+  - id: git-dir-identity
+    group: base
+    title: git identity by folder
+    effect: asks in the terminal for an e-mail and folders; adds ~/.config/git/identities/<e-mail> (user.email, and user.signingkey from the GPG key with that e-mail) and an includeIf per folder to ~/.gitconfig, so repositories there commit and sign with it (`just git-dir-identity` runs it alone)
+    phases: [user]
+    default: false
+    revert: false
+
   - id: starship
     group: shell
     title: Starship extras

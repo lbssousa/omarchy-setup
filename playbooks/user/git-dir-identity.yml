@@ -1,0 +1,159 @@
+---
+# git identity by folder: every repository under the folders you name
+# commits with the e-mail you type, and signs with the GPG key that has
+# that e-mail among its identities (when you have one). Your global
+# user.email stays as it is everywhere else.
+#
+# Asks in the terminal, so the e-mail never goes into the repository or
+# local.yml:
+#
+#   e-mail     e.g. jane@work.example
+#   folders    comma-separated, e.g. ~/Documents/Work, ~/Projects/Work
+#   GPG key    found by the e-mail (gpg --list-secret-keys '<e-mail>');
+#              asked only when more than one key has it
+#
+# Writes $XDG_CONFIG_HOME/git/identities/<e-mail> (user.email, user.signingkey)
+# and one [includeIf "gitdir:<folder>/"] per folder pointing at it in your
+# global git config. Run it again to add folders or another e-mail; a
+# folder already given to another e-mail moves to the new one.
+#
+# Answers are read with pause, which needs a terminal: run-phase.sh sets
+# OMARCHY_SETUP_INTERACTIVE when it has one, and the play does nothing
+# without it.
+#
+# Usage: just git-dir-identity
+- name: git identity by folder
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [git-dir-identity]
+
+  vars:
+    gdi_xdg: "{{ lookup('env', 'XDG_CONFIG_HOME') or lookup('env', 'HOME') ~ '/.config' }}"
+    gdi_dir: "{{ gdi_xdg }}/git/identities"
+
+  tasks:
+    - name: Note that this play needs a terminal (nothing done)
+      ansible.builtin.debug:
+        msg: >-
+          git identity by folder asks for the e-mail and the folders, and
+          this run has no terminal to ask them in: run `just git-dir-identity`.
+      when: lookup('env', 'OMARCHY_SETUP_INTERACTIVE') != '1'
+
+    - name: Stop here without a terminal
+      ansible.builtin.meta: end_play
+      when: lookup('env', 'OMARCHY_SETUP_INTERACTIVE') != '1'
+
+    - name: Ask for the e-mail
+      ansible.builtin.pause:
+        prompt: E-mail for commits in those folders
+      register: gdi_email_asked
+
+    - name: Ask for the folders
+      ansible.builtin.pause:
+        prompt: Folders that use it (comma-separated, e.g. ~/Documents/Work, ~/Projects/Work)
+      register: gdi_dirs_asked
+
+    - name: Keep the answers
+      ansible.builtin.set_fact:
+        gdi_email: "{{ gdi_email_asked.user_input | trim }}"
+        # gitdir: patterns ending in / match every repository below them.
+        gdi_dirs: >-
+          {%- set dirs = [] -%}
+          {%- for d in gdi_dirs_asked.user_input.split(',') | map('trim') | select -%}
+            {%- set _ = dirs.append(d.rstrip('/') ~ '/') -%}
+          {%- endfor -%}
+          {{ dirs | unique | list }}
+
+    - name: Stop on an answer that isn't an e-mail or no folder
+      ansible.builtin.fail:
+        msg: >-
+          Needs an e-mail (got '{{ gdi_email }}') and at least one folder
+          (got {{ gdi_dirs | length }}). Nothing changed.
+      when: gdi_email is not match('^[^@\s<>/]+@[^@\s<>/]+\.[^@\s<>/]+$') or gdi_dirs | length == 0
+
+    - name: Look for GPG secret keys with that e-mail
+      ansible.builtin.command:
+        argv: [gpg, --batch, --list-secret-keys, --with-colons, "<{{ gdi_email }}>"]
+      register: gdi_gpg
+      changed_when: false
+      failed_when: false
+
+    - name: Keep their fingerprints and primary identities
+      ansible.builtin.set_fact:
+        # A sec line, then its fpr, then its uids: take the fpr right after each sec.
+        gdi_keys: >-
+          {%- set keys = [] -%}
+          {%- set ns = namespace(sec=false, fpr='') -%}
+          {%- for line in gdi_gpg.stdout_lines | default([]) -%}
+            {%- set f = line.split(':') -%}
+            {%- if f[0] == 'sec' -%}{%- set ns.sec = true -%}
+            {%- elif f[0] == 'fpr' and ns.sec -%}{%- set ns.sec = false -%}{%- set ns.fpr = f[9] -%}
+            {%- elif f[0] == 'uid' and ns.fpr -%}
+              {%- set _ = keys.append({'fpr': ns.fpr, 'uid': f[9]}) -%}{%- set ns.fpr = '' -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ keys }}
+
+    - name: Ask which key signs, when several have that e-mail
+      ansible.builtin.pause:
+        prompt: |-
+          These GPG keys have {{ gdi_email }}:
+          {% for k in gdi_keys %}
+            {{ loop.index }}) {{ k.fpr }}  {{ k.uid }}
+          {% endfor %}
+          Which one signs commits in those folders? [1]
+      register: gdi_key_asked
+      when: gdi_keys | length > 1
+
+    - name: Keep the signing key
+      ansible.builtin.set_fact:
+        gdi_signingkey: >-
+          {{ '' if gdi_keys | length == 0 else
+             gdi_keys[(gdi_key_asked.user_input | default('') | trim | int(default=1) or 1) - 1].fpr
+             if gdi_keys | length > 1 else gdi_keys[0].fpr }}
+
+    # Where `git config --global` writes: ~/.gitconfig when there is one,
+    # else $XDG_CONFIG_HOME/git/config (Omarchy's). Resolved here, from the
+    # environment as git does, rather than with the module's scope: global,
+    # which reads the home from passwd.
+    - name: Look for ~/.gitconfig
+      ansible.builtin.stat:
+        path: "{{ lookup('env', 'HOME') }}/.gitconfig"
+      register: gdi_dot_gitconfig
+
+    - name: Make ~/.config/git/identities
+      ansible.builtin.file:
+        path: "{{ gdi_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Write the identity file
+      community.general.git_config:
+        file: "{{ gdi_dir }}/{{ gdi_email }}"
+        scope: file
+        name: "{{ item.name }}"
+        value: "{{ item.value or omit }}"
+        state: "{{ 'present' if item.value else 'absent' }}"
+      loop:
+        - {name: user.email, value: "{{ gdi_email }}"}
+        - {name: user.signingkey, value: "{{ gdi_signingkey }}"}
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Include it for each folder
+      community.general.git_config:
+        name: "includeIf.gitdir:{{ item }}.path"
+        value: "{{ gdi_dir }}/{{ gdi_email }}"
+        scope: file
+        file: >-
+          {{ gdi_dot_gitconfig.stat.path if gdi_dot_gitconfig.stat.exists else
+             gdi_xdg ~ '/git/config' }}
+      loop: "{{ gdi_dirs }}"
+
+    - name: Say what changed
+      ansible.builtin.debug:
+        msg: >-
+          Repositories under {{ gdi_dirs | join(', ') }} commit as {{ gdi_email }}
+          {{- (', signed with ' ~ gdi_signingkey) if gdi_signingkey else
+              '; no GPG secret key has that e-mail, so commits there keep your global signing key' }}.

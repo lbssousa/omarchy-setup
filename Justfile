@@ -89,6 +89,13 @@ apply +IDS: _ensure-collections
 security-key: _ensure-collections
     OMARCHY_SETUP_ENABLE=security-key-wizard scripts/run-phase.sh user playbooks/user/security-key-wizard.yml --tags always,security-key-wizard
 
+# git identity by folder: asks for an e-mail and the folders whose
+# repositories use it (e.g. ~/Documents/Work), then commits there go out with
+# that e-mail, signed with the GPG key that has it. Your global identity stays
+# as it is elsewhere. Your user phase only; run it again for another e-mail.
+git-dir-identity: _ensure-collections
+    OMARCHY_SETUP_ENABLE=git-dir-identity scripts/run-phase.sh user playbooks/user/git-dir-identity.yml --tags always,git-dir-identity
+
 # Update the accounts in omarchy_users (group_vars/all/users.yml) that exist on
 # this machine, or create specific accounts: `just users` updates existing
 # accounts without creating new ones automatically; `just users <name>...`

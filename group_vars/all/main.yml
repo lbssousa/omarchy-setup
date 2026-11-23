@@ -1160,12 +1160,13 @@ omarchy_plugins:
   # manifest declares clonedFrom omarchy.agents, so enabling it makes the
   # shell disable the built-in (PluginRegistry.setEnabled): one Agents icon,
   # in the built-in's section. No tags yet: pinned to a commit of main
-  # (with the meters' time cursor and elapsed-time tooltips). Collectors
+  # (with the meters' time cursor and elapsed-time tooltips, and idle
+  # windows shown as idle instead of losing their countdown). Collectors
   # are Python stdlib only.
   - name: Agents
     repo: https://github.com/lbssousa/agents-omarchy.git
     id: lbssousa.agents
-    ref: ae845098d0d404dad68ea1065aca399795643d18
+    ref: 145a4b9a8d2054303d974c008a8271322ba9f8be
     section: right
     packages:
       - python

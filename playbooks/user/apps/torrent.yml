@@ -1,0 +1,42 @@
+---
+# Torrent clients, per user (apps: torrent): the default handler for magnet
+# links (x-scheme-handler/magnet) in ~/.config/mimeapps.list. The qBittorrent
+# Flatpak and package ship the same desktop id; the play checks that the
+# default's entry is there (the Flatpak's export or the package's) before
+# pointing magnet links at it.
+- name: Apps — torrent clients (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    torrent_default: "{{ apps_catalog.torrent[apps.torrent.default] }}"
+    torrent_entry_dir: >-
+      {{ flatpak_system_exports_dir ~ '/applications'
+         if torrent_default.source == 'flatpak' else '/usr/share/applications' }}
+
+  tasks:
+    - name: Look for the default's installed desktop entry
+      ansible.builtin.stat:
+        path: "{{ torrent_entry_dir }}/{{ torrent_default.desktop }}"
+      register: torrent_entry
+
+    - name: Expect it to still ship the desktop id the default points at
+      ansible.builtin.assert:
+        that: torrent_entry.stat.exists
+        fail_msg: >-
+          {{ torrent_entry_dir }}/{{ torrent_default.desktop }} is missing,
+          so magnet links would open nothing. Fix its desktop field in
+          features.yml.
+        quiet: true
+
+    - name: "Make {{ torrent_default.label }} the default for magnet links"
+      community.general.ini_file:
+        path: "{{ torrent_mimeapps_path }}"
+        section: Default Applications
+        option: x-scheme-handler/magnet
+        value: "{{ torrent_default.desktop }}"
+        no_extra_spaces: true
+        create: true
+        mode: "0644"

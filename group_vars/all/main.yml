@@ -648,6 +648,11 @@ lazyvim_latex_extra: lazyvim.plugins.extras.lang.tex
 gregorio_nvim_repo: AISCGre-BR/gregorio.nvim
 gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
 
+# Torrent clients (apps: torrent, playbooks/user/apps/torrent.yml): the
+# default handler for magnet links, in the same mimeapps.list. Both builds
+# ship the same desktop id.
+torrent_mimeapps_path: "{{ target_home }}/.config/mimeapps.list"
+
 # PDF viewers (apps: pdf, playbooks/{system,user}/apps/pdf.yml). Zathura's
 # desktop id is the same in both builds. The Flatpak gets a user-level copy
 # of its exported entry, same id so it shadows the export (~/.local/share

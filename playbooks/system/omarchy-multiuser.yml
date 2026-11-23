@@ -90,10 +90,14 @@
           # run0/run-empowered sets SUDO_USER, which makes fakeroot in check()
           # think omarchy-mu-fido2-authfile was called through sudo as root,
           # clearing OMU_ROOT. Clear SUDO_* so check() can test against a fake tree.
+          # menu-sync's tests pin the language where it matters, but some assume
+          # the default (English) and would read this user's real
+          # ~/.config/omarchy/language otherwise, failing on a localized machine.
           environment:
             SUDO_USER: ""
             SUDO_UID: ""
             SUDO_GID: ""
+            OMARCHY_LANGUAGE_FILE: /dev/null
           changed_when: true
 
         - name: Locate the built package

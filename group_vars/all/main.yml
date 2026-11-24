@@ -299,6 +299,32 @@ bitwarden_autostart_desktop: "{{ target_home }}/.config/autostart/com.bitwarden.
 bitwarden_firefox_flatpak_nmh_dir: "{{ firefox_app_dir }}/.mozilla/native-messaging-hosts"
 bitwarden_firefox_flatpak_xdg_nmh_dir: "{{ firefox_app_dir }}/config/mozilla/native-messaging-hosts"
 bitwarden_browser_manifest_name: com.8bit.bitwarden.json
+# Browser integration between the Bitwarden Flatpak and the Brave Flatpak
+# (synchronized unlock in the extension). Bitwarden only sets up the Flatpak
+# browsers it knows (Firefox, Chrome, Chromium and Edge: FLATPAK_PATHS in
+# desktop_native/core/src/ipc/mod.rs), so for Brave this does it:
+#   - the manifest in Brave's native messaging host directory, with the
+#     extension ids Bitwarden itself allows on Chromium browsers. It runs
+#     desktop_proxy straight from Bitwarden's deploy (current/active follows
+#     its updates), which Brave gets to read;
+#   - desktop_proxy takes the first socket that exists, and the first it looks
+#     for is s.bw in its own cache directory, Brave's inside the sandbox. That
+#     directory is a link to Bitwarden's, which Brave gets access to.
+brave_flatpak_id: com.brave.Browser
+bitwarden_brave_flatpak_app_dir: "{{ target_home }}/.var/app/{{ brave_flatpak_id }}"
+bitwarden_brave_flatpak_nmh_dir: "{{ bitwarden_brave_flatpak_app_dir }}/config/BraveSoftware/Brave-Browser/NativeMessagingHosts"
+bitwarden_brave_flatpak_socket_link: "{{ bitwarden_brave_flatpak_app_dir }}/cache/{{ bitwarden_flatpak_id }}"
+bitwarden_flatpak_socket_dir: "{{ target_home }}/.var/app/{{ bitwarden_flatpak_id }}/cache/{{ bitwarden_flatpak_id }}"
+bitwarden_flatpak_proxy: "/var/lib/flatpak/app/{{ bitwarden_flatpak_id }}/current/active/files/Bitwarden/desktop_proxy"
+# As `flatpak override` writes them (~ for the home directory).
+bitwarden_brave_flatpak_filesystems:
+  - "/var/lib/flatpak/app/{{ bitwarden_flatpak_id }}:ro"
+  - "~/.var/app/{{ bitwarden_flatpak_id }}/cache/{{ bitwarden_flatpak_id }}"
+bitwarden_chromium_extension_origins:
+  - chrome-extension://nngceckbapebfimnlniiiahkandclblb/
+  - chrome-extension://hccnnhgbibccigepcmlgppchkpfdophk/
+  - chrome-extension://jbkfoedolllekgbhcbcoahefnbanhhlh/
+  - chrome-extension://ccnckbpmaceehanjmeomladnmlffdjgn/
 
 # KeePassXC (Flatpak or native). The Flatpak's manifest already grants the
 # SSH agent socket (sockets=ssh-auth, SSH_AUTH_SOCK passed through), so as

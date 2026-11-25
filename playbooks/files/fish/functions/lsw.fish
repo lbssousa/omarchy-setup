@@ -4,10 +4,16 @@
 # List the rsync-on-change watchers started by rsw
 function lsw --description 'List rsw watchers'
     set -l found 0
-    for line in (pgrep -af 'rsw-watch ')
-        set -l pid (string split -m1 ' ' -- $line)[1]
-        set -l rest (string replace -r '.*rsw-watch ' '' -- $line)
-        echo "$pid: "(string replace -r ' [^ ]*$' '' -- $rest)" -> "(string replace -r '.* ' '' -- $rest)
+    # The arguments come from /proc/<pid>/cmdline, NUL-separated, so a path
+    # with spaces stays one argument.
+    for pid in (pgrep -f 'rsw-watch ')
+        test -r /proc/$pid/cmdline; or continue
+        set -l args (string split0 < /proc/$pid/cmdline)
+        set -l i (contains -i -- rsw-watch $args); or continue
+        set -l src (math $i + 1)
+        set -l dest (math $i + 2)
+        test (count $args) -ge $dest; or continue
+        echo "$pid: $args[$src] -> $args[$dest]"
         set found 1
     end
     test $found -eq 1; or echo "No active watches"

@@ -192,7 +192,7 @@ features:
   - id: screensaver-bar-guard
     group: desktop
     title: Bar stays hidden under the screensaver
-    effect: adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it
+    effect: adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it (Omarchy 4.5; 4.6's native screensaver doesn't need it, and the watcher is removed there)
     phases: [user]
     default: true
     revert: true

@@ -102,6 +102,9 @@
 - name: BGRT boot theme (opt-in)
   ansible.builtin.import_playbook: playbooks/system/bgrt-theme.yml
 
+- name: Boot loader (opt-in), before Secure Boot signs it
+  ansible.builtin.import_playbook: playbooks/system/bootloader.yml
+
 - name: Secure Boot (opt-in)
   ansible.builtin.import_playbook: playbooks/system/secureboot.yml
 

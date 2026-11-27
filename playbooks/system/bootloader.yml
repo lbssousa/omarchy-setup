@@ -1,0 +1,170 @@
+---
+# The boot loader chosen in `just configure` (boot_loader: features.yml,
+# boot.loaders), applied with Omarchy's own omarchy-boot-switch. Runs before
+# the Secure Boot play (system/secureboot.yml), which signs for the loader
+# this one leaves the machine on.
+#
+#   systemd-boot  omarchy-boot-switch --apply stages systemd-boot next to
+#                 Limine and has the firmware start it once (BootNext). The
+#                 first reboot is the trial (one that fails comes back up on
+#                 Limine); omarchy-boot-confirm.service then puts it first in
+#                 the boot order, and at the second reboot it finishes the
+#                 switch and removes Limine. Its --check comes first: nothing
+#                 is touched on a machine that can't move.
+#   limine        Omarchy's default. Chosen in `just configure`
+#                 (boot_loader_chosen), it reverts a switch that hasn't
+#                 finished (omarchy-boot-switch revert); after that Limine is
+#                 gone and only a warning is left. The catalog's default never
+#                 reverts a switch started by hand.
+#
+# With Secure Boot already enforcing, apply this together with secureboot
+# (`just apply bootloader secureboot`, or both on in `just setup`): the trial
+# boot then starts a signed systemd-boot. Alone, an unsigned trial is refused
+# by the firmware and the machine comes back up on Limine.
+#
+# Usage: just apply bootloader
+- name: Boot loader (Limine or systemd-boot, omarchy-boot-switch)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [bootloader]
+
+  tasks:
+    - name: Check for Omarchy's switch to systemd-boot (omarchy-boot-switch)
+      ansible.builtin.command: omarchy-cmd-present omarchy-boot-switch
+      register: bootloader_switch_present
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: Fail when systemd-boot is chosen on an Omarchy without the switch
+      ansible.builtin.fail:
+        msg: >-
+          systemd-boot is the boot loader chosen in `just configure`, but this
+          Omarchy has no omarchy-boot-switch to move the machine there. Run
+          omarchy update, or choose Limine.
+      when:
+        - boot_loader == 'systemd-boot'
+        - bootloader_switch_present.rc != 0
+
+    # The store's state is world-readable (omarchy-boot-switch writes 0644);
+    # no state means no switch was ever started.
+    - name: Read where the switch to systemd-boot stands
+      ansible.builtin.shell: |
+        set -o pipefail
+        state={{ boot_store | quote }}/state
+        [ -f "$state" ] || exit 0
+        printf 'phase=%s\nfinal_step=%s\n' \
+          "$(sed -n 's/^phase=//p' "$state" | tail -1)" \
+          "$(sed -n 's/^final_step=//p' "$state" | tail -1)"
+      args:
+        executable: /bin/bash
+      register: bootloader_switch_state
+      changed_when: false
+      check_mode: false
+      when: bootloader_switch_present.rc == 0
+
+    - name: Keep where the switch stands
+      ansible.builtin.set_fact:
+        bootloader_switch_phase: "{{ bootloader_switch_state.stdout | default('') | regex_search('(?m)^phase=(.*)$', '\\1') | default([''], true) | first }}"
+        bootloader_switch_finishing: "{{ (bootloader_switch_state.stdout | default('') | regex_search('(?m)^final_step=(.+)$')) is not none }}"
+
+    # --apply fetches it first (pacman -Sw, from the sync databases as they
+    # are) and installs it when the switch finishes; its --check doesn't look.
+    # Omarchy 4.6.0rc1 ships the switch but not this package, and --apply would
+    # leave an empty boot store behind before failing. Without it the machine
+    # stays on Limine, with a warning instead of stopping the whole system
+    # phase; the first run after an omarchy update that brings it switches.
+    - name: Check that Omarchy's repository has omarchy-boot-systemd
+      ansible.builtin.command: pacman -Si omarchy-boot-systemd
+      register: bootloader_systemd_package
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when:
+        - boot_loader == 'systemd-boot'
+        - bootloader_switch_phase in ['', 'staged']
+
+    - name: Warn and stay on Limine while Omarchy hasn't published it
+      ansible.builtin.debug:
+        msg: >-
+          systemd-boot is the boot loader chosen in `just configure`, but
+          omarchy-boot-systemd isn't in the configured repositories, and
+          omarchy-boot-switch needs it to replace Limine at the end of the
+          switch. Omarchy hasn't published it yet: the machine stays on Limine,
+          and a run after an omarchy update that brings it makes the switch.
+      when:
+        - boot_loader == 'systemd-boot'
+        - bootloader_switch_phase in ['', 'staged']
+        - bootloader_systemd_package.rc != 0
+
+    - name: Move to systemd-boot
+      when:
+        - boot_loader == 'systemd-boot'
+        - bootloader_switch_phase in ['', 'staged']
+        - bootloader_systemd_package.rc == 0
+      become: true
+      block:
+        - name: Check that this machine can move to systemd-boot (omarchy-boot-switch --check)
+          ansible.builtin.command: omarchy-boot-switch --check
+          register: bootloader_switch_check
+          changed_when: false
+          check_mode: false
+          failed_when: false
+
+        - name: Stop when it can't
+          ansible.builtin.fail:
+            msg: "{{ bootloader_switch_check.stdout_lines + bootloader_switch_check.stderr_lines }}"
+          when: bootloader_switch_check.rc != 0
+
+        # Limine stays first in the boot order until the trial boot comes up.
+        - name: Stage systemd-boot for its trial boot (omarchy-boot-switch --apply)
+          ansible.builtin.command: omarchy-boot-switch --apply
+          changed_when: true
+
+        - name: Keep the switch's new phase
+          ansible.builtin.set_fact:
+            bootloader_switch_phase: trial
+
+    - name: Say what the switch to systemd-boot waits for
+      ansible.builtin.debug:
+        msg: "{{ bootloader_waiting[bootloader_switch_phase] }}"
+      vars:
+        bootloader_waiting:
+          trial: >-
+            systemd-boot is staged for a trial boot: reboot once to start it
+            (if it doesn't come up, a reset brings Limine back), then once more
+            to finish the switch, which removes Limine.
+          promoted: >-
+            systemd-boot came up on its trial and is first in the boot order:
+            reboot once more to finish the switch, which removes Limine.
+          trial-failed: >-
+            The trial boot of systemd-boot didn't come up and Limine started
+            the machine. See omarchy-boot-switch status; run omarchy-boot-switch
+            to try again, or choose Limine to revert it.
+      when:
+        - boot_loader == 'systemd-boot'
+        - bootloader_switch_phase in ['trial', 'promoted', 'trial-failed']
+
+    - name: Revert an unfinished switch to systemd-boot (Limine chosen)
+      ansible.builtin.command: omarchy-boot-switch revert
+      become: true
+      changed_when: true
+      when:
+        - boot_loader == 'limine'
+        - boot_loader_chosen | bool
+        - bootloader_switch_phase in ['staged', 'trial', 'trial-failed', 'promoted']
+        - not bootloader_switch_finishing | bool
+
+    - name: Warn that a finished switch can't go back to Limine
+      ansible.builtin.debug:
+        msg: >-
+          Limine is the boot loader chosen in `just configure`, but this
+          machine has already moved to systemd-boot{{ ' (finishing at the next
+          boot)' if bootloader_switch_finishing | bool else '' }}, and
+          omarchy-boot-switch can't bring Limine back. Choose systemd-boot to
+          stop this warning.
+      when:
+        - boot_loader == 'limine'
+        - boot_loader_chosen | bool
+        - bootloader_switch_phase == 'active' or bootloader_switch_finishing | bool

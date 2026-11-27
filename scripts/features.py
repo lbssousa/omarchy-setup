@@ -17,6 +17,7 @@ Choices live in $XDG_CONFIG_HOME/omarchy-setup/features.yml:
   apps: {<category>: {installed: [<option id>, ...], default: <option id>}}
   webapps: {engine: none|firefox|chrome|brave}
   cursor: {theme: <a theme id from the catalog's cursor.themes>}
+  boot: {loader: <a loader id from the catalog's boot.loaders>}
 """
 import json
 import os
@@ -203,6 +204,24 @@ def cursor_errors(catalog, choices):
     return []
 
 
+def boot_loaders(catalog):
+    """The boot loaders the bootloader feature offers, as (id, label)."""
+    return [(b["id"], b["label"]) for b in (catalog.get("boot") or {}).get("loaders", [])]
+
+
+def resolve_boot_loader(catalog, choices):
+    """The chosen boot loader, or the catalog's default when unchosen."""
+    chosen = (choices.get("boot") or {}).get("loader")
+    return chosen if chosen is not None else (catalog.get("boot") or {}).get("default", "")
+
+
+def boot_errors(catalog, choices):
+    loader = resolve_boot_loader(catalog, choices)
+    if loader not in [i for i, _ in boot_loaders(catalog)]:
+        return [f"boot loader {loader} isn't one of the catalog's (features.yml, boot.loaders)"]
+    return []
+
+
 def merged_choices(choices, new):
     """The choices file with what the menu asked about (stdin JSON) laid over it."""
     merged = {
@@ -210,13 +229,16 @@ def merged_choices(choices, new):
         "apps": dict(choices.get("apps") or {}),
         "webapps": dict(choices.get("webapps") or {}),
         "cursor": dict(choices.get("cursor") or {}),
+        "boot": dict(choices.get("boot") or {}),
     }
     merged["features"].update(new.get("features", {}))
     merged["apps"].update(new.get("apps", {}))
     merged["webapps"].update(new.get("webapps") or {})
     merged["cursor"].update(new.get("cursor") or {})
-    if not merged["cursor"]:
-        del merged["cursor"]
+    merged["boot"].update(new.get("boot") or {})
+    for key in ("cursor", "boot"):
+        if not merged[key]:
+            del merged[key]
     return merged
 
 
@@ -280,6 +302,7 @@ def cmd_resolve(phase, out):
         requirement_errors(catalog, features, apps)
         + webapps_engine_errors(catalog, apps, choices)
         + cursor_errors(catalog, choices)
+        + boot_errors(catalog, choices)
     )
     if errors:
         sys.exit("Feature choices don't fit together:\n  " + "\n  ".join(errors) + "\nRun `just configure` to fix them.")
@@ -291,6 +314,10 @@ def cmd_resolve(phase, out):
         "webapps_engine": resolve_webapps_engine(catalog, apps, choices),
         "cursor_theme": resolve_cursor_theme(catalog, choices),
         "cursor_package": (catalog.get("cursor") or {}).get("package", ""),
+        "boot_loader": resolve_boot_loader(catalog, choices),
+        # Only a loader chosen in `just configure` reverts a switch started by
+        # hand: the catalog's default never does.
+        "boot_loader_chosen": bool((choices.get("boot") or {}).get("loader")),
         "apps_installed": installed,
         "apps_packages": package_states(catalog, apps),
         # Each category's options by id, for what the plays need to know
@@ -387,11 +414,20 @@ def cmd_check():
             problems.append("cursor: no themes")
     if len(theme_ids) != len(set(theme_ids)):
         problems.append("cursor: duplicate theme ids")
+    loader_ids = [i for i, _ in boot_loaders(catalog)]
+    if "bootloader" in ids and not loader_ids:
+        problems.append("boot: no loaders")
+    if len(loader_ids) != len(set(loader_ids)):
+        problems.append("boot: duplicate loader ids")
+    if not set(loader_ids) <= {"limine", "systemd-boot"}:
+        problems.append("boot: loaders other than limine and systemd-boot aren't handled by bootloader.yml")
     features, apps = resolve(catalog, {})
     problems += [f"defaults: {e}" for e in requirement_errors(catalog, features, apps)]
     problems += [f"defaults: {e}" for e in webapps_engine_errors(catalog, apps, {})]
     if cursor:
         problems += [f"defaults: {e}" for e in cursor_errors(catalog, {})]
+    if catalog.get("boot"):
+        problems += [f"defaults: {e}" for e in boot_errors(catalog, {})]
     if problems:
         sys.exit("features.yml:\n  " + "\n  ".join(problems))
     print("Feature catalog OK.")
@@ -472,6 +508,24 @@ def cmd_doc():
             look = label.split(" — ", 1)[1] if " — " in label else ""
             out.append(f"| `{theme_id}`{star} | {look} |")
         out.append("")
+    boot = catalog.get("boot") or {}
+    if boot.get("loaders"):
+        out += [
+            "## Boot loader",
+            "",
+            "The boot loaders the `bootloader` feature offers; `just configure` asks",
+            "which one when the feature is on, and `secureboot` signs for it. ★ marks",
+            "the default. systemd-boot moves the machine there with `omarchy-boot-switch`",
+            "(see docs/secureboot.md).",
+            "",
+            "| Loader | Notes |",
+            "|---|---|",
+        ]
+        for loader_id, label in boot_loaders(catalog):
+            star = " ★" if loader_id == boot.get("default") else ""
+            notes = label.split(" — ", 1)[1] if " — " in label else ""
+            out.append(f"| `{loader_id}`{star} | {notes} |")
+        out.append("")
     print("\n".join(out).rstrip() + "\n", end="")
 
 
@@ -538,16 +592,22 @@ def menu(args):
             print(f"{theme_id}\t{menu_label(label)}")
     elif what == "cursor-theme":
         print(resolve_cursor_theme(catalog, choices))
+    elif what == "boot-loaders":
+        for loader_id, label in boot_loaders(catalog):
+            print(f"{loader_id}\t{menu_label(label)}")
+    elif what == "boot-loader":
+        print(resolve_boot_loader(catalog, choices))
     elif what == "save":
         # stdin: JSON {"features": {...}, "apps": {...}, "webapps": {...},
-        # "cursor": {...}} (only what the menu asked about); merged into the
-        # choices file.
+        # "cursor": {...}, "boot": {...}} (only what the menu asked about);
+        # merged into the choices file.
         merged = merged_choices(choices, json.load(sys.stdin))
         f2, a2 = resolve(catalog, merged)
         errors = (
             requirement_errors(catalog, f2, a2)
             + webapps_engine_errors(catalog, a2, merged)
             + cursor_errors(catalog, merged)
+            + boot_errors(catalog, merged)
         )
         if errors:
             print("\n".join(errors), file=sys.stderr)
@@ -584,6 +644,11 @@ def menu(args):
         if f2.get("bibata-cursor") and (cursor_after != cursor_before or not features.get("bibata-cursor")):
             labels = dict(cursor_themes(catalog))
             print(f"- mouse cursor: {labels.get(cursor_after, cursor_after)}")
+        boot_before = resolve_boot_loader(catalog, choices)
+        boot_after = resolve_boot_loader(catalog, merged)
+        if f2.get("bootloader") and (boot_after != boot_before or not features.get("bootloader")):
+            labels = dict(boot_loaders(catalog))
+            print(f"- boot loader: {labels.get(boot_after, boot_after)}")
     else:
         sys.exit(f"unknown menu query: {what}")
 

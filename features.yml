@@ -53,6 +53,15 @@
 #   file; unchosen, `default` applies.
 #     package   the AUR package that installs them all (system phase)
 #     themes    id (the theme's folder in /usr/share/icons) and menu label
+#
+# boot: the boot loaders the bootloader feature offers; secureboot signs for
+#   the one chosen. `just configure` asks which one when the feature is on
+#   and saves it as boot.loader in the choices file; unchosen, `default`
+#   applies. systemd-boot moves the machine there with Omarchy's
+#   omarchy-boot-switch (staged, a trial boot, then Limine removed at the
+#   second boot); choosing Limine again only reverts a switch that hasn't
+#   finished (omarchy-boot-switch can't bring Limine back after that).
+#     loaders   id (omarchy-boot-backend's name for it) and menu label
 
 groups:
   accounts: Accounts and login
@@ -439,10 +448,18 @@ features:
     default: true
     revert: false
 
+  - id: bootloader
+    group: security
+    title: Boot loader (Limine or systemd-boot)
+    effect: modifies the boot loader to the one chosen in `just configure` - systemd-boot through Omarchy's omarchy-boot-switch (a trial boot, then Limine removed at the second reboot); choosing Limine again reverts a switch that hasn't finished
+    phases: [system]
+    default: false
+    revert: false
+
   - id: secureboot
     group: security
     title: Secure Boot (sbctl)
-    effect: adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) or, after Omarchy's switch to systemd-boot, signs its loader and has omarchy-boot-sync sign the boot images (signing=required)
+    effect: adds sbctl keys; signs for the boot loader the bootloader feature chose (or Omarchy's, without it) - modifies Limine (checksums, hash_mismatch_panic) or signs systemd-boot and has omarchy-boot-sync sign the boot images (signing=required)
     phases: [system]
     default: false
     revert: false
@@ -582,3 +599,9 @@ cursor:
     - { id: Bibata-Original-Classic-Right, label: "Bibata Original Classic Right — black · sharp · pointing right (left-handed)" }
     - { id: Bibata-Original-Ice-Right, label: "Bibata Original Ice Right — white · sharp · pointing right (left-handed)" }
     - { id: Bibata-Original-Amber-Right, label: "Bibata Original Amber Right — amber · sharp · pointing right (left-handed)" }
+
+boot:
+  default: limine
+  loaders:
+    - { id: limine, label: "Limine — Omarchy's loader (checksummed limine.conf)" }
+    - { id: systemd-boot, label: "systemd-boot — signed boot images (omarchy-boot-switch, two reboots)" }

@@ -20,16 +20,19 @@ if test "$OMARCHY_PATH" != /usr/share/omarchy; and not contains -- $omarchy_bin 
     set -gx PATH $omarchy_bin $PATH
 end
 
-# mise's command wrappers must precede real tool directories inherited from a
-# parent shell, so scripts follow account switches.
-set -l omarchy_wrapper_dir $HOME/.local/share/mise
+# The subscription account dispatchers for claude, codex and grok must precede
+# real tool directories inherited from a parent shell, so scripts follow account
+# switches. mise's command wrappers did this once; that directory is dropped
+# wherever an older session left it.
+set -l omarchy_wrapper_dir $HOME/.local/share/omarchy/agent-accounts/bin
+set -l omarchy_old_wrapper_dir $HOME/.local/share/mise
 if test -n "$MISE_DATA_DIR"
-    set omarchy_wrapper_dir $MISE_DATA_DIR
+    set omarchy_old_wrapper_dir $MISE_DATA_DIR
 else if test -n "$XDG_DATA_HOME"
-    set omarchy_wrapper_dir $XDG_DATA_HOME/mise
+    set omarchy_old_wrapper_dir $XDG_DATA_HOME/mise
 end
-set omarchy_wrapper_dir $omarchy_wrapper_dir/command-wrappers/bin
-set -gx PATH $omarchy_wrapper_dir (string match -v -- $omarchy_wrapper_dir $PATH)
+set omarchy_old_wrapper_dir $omarchy_old_wrapper_dir/command-wrappers/bin
+set -gx PATH $omarchy_wrapper_dir (string match -v -- $omarchy_wrapper_dir $PATH | string match -v -- $omarchy_old_wrapper_dir)
 
 if not contains $HOME/.local/share/mise/shims $PATH
     set -gx PATH $PATH $HOME/.local/share/mise/shims

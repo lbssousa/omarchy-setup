@@ -4,19 +4,21 @@
 # Remove worktree and branch from within active worktree directory.
 function gd --description 'Remove the current git worktree and its branch'
     if gum confirm "Remove worktree and branch?"
-        set -l cwd (pwd)
+        set -l cwd $PWD
         set -l worktree (path basename -- $cwd)
 
         # split on first `--`
-        set -l parts (string split -m1 -- -- $worktree)
-        set -l root $parts[1]
-        set -l branch $parts[-1]
+        set -l root (string split -m1 -- -- $worktree)[1]
 
         # Protect against accidentally nuking a non-worktree directory
         if test "$root" != "$worktree"
-            cd ../$root
+            # The directory name has "/" turned into "-" (ga), so ask git.
+            set -l branch (git branch --show-current 2>/dev/null)
+            cd ../$root; or return 1
             git worktree remove $cwd --force; or return 1
-            git branch -D $branch
+            if test -n "$branch"
+                git branch -D $branch
+            end
         end
     end
 end

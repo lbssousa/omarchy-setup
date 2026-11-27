@@ -13,8 +13,15 @@
   - The bar's screensaver guard steps aside on 4.6, whose screensaver is
     drawn natively and is no longer a window: the watcher isn't installed
     there, and one already installed is removed.
-  - The fish port still follows Omarchy 4.5's bash files; on 4.6 the fish
-    play warns that several of them changed.
+  - The fish port follows Omarchy 4.6.0rc1's bash files: the `ca` alias
+    (Antigravity), `eff` passing further arguments to the editor, `tsl` and
+    `hsl` checking the pane count and taking the command as several
+    arguments, herdr panes picking up the desktop's `WAYLAND_DISPLAY`, and
+    the agent account dispatchers kept first in PATH after mise changes it.
+    On Omarchy 4.5 the fish play now warns that the bash files differ from
+    the ones it follows; nothing breaks.
+  - `tdlm` no longer trips on an argument starting with `-`, which fish's
+    `string join` took for one of its own options.
 
 ## 0.1.0 (2026-11-27)
 

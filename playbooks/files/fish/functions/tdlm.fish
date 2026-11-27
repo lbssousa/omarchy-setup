@@ -19,7 +19,7 @@ function tdlm --description 'One tdl window per subdirectory'
     # The command typed into each pane, quoted for the fish running there.
     # (The bash original pastes the arguments unquoted and the directory
     # between single quotes, which breaks on names holding a quote.)
-    set -l tdl_command (string join ' ' tdl (string escape -- $argv[1..2]))
+    set -l tdl_command (string join -- ' ' tdl (string escape -- $argv[1..2]))
 
     # Rename the session to the current directory name (replace dots/colons which tmux disallows)
     tmux rename-session "$(path basename -- $base_dir | string replace -a -r '[.:]' -)"

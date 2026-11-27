@@ -34,6 +34,16 @@ end
 set omarchy_old_wrapper_dir $omarchy_old_wrapper_dir/command-wrappers/bin
 set -gx PATH $omarchy_wrapper_dir (string match -v -- $omarchy_wrapper_dir $PATH | string match -v -- $omarchy_old_wrapper_dir)
 
+# mise's hook rewrites PATH at every prompt and directory change and can put a
+# tool's own bin ahead of the dispatchers again. Omarchy's init re-runs this
+# after each `mise hook-env` (4.6); here it follows every change of PATH,
+# whoever makes it, and does nothing once the dispatchers are first.
+function __omarchy_prioritize_agent_accounts_path --on-variable PATH
+    set -l dir $HOME/.local/share/omarchy/agent-accounts/bin
+    test "$PATH[1]" = "$dir"; and return
+    set -gx PATH $dir (string match -v -- $dir $PATH)
+end
+
 if not contains $HOME/.local/share/mise/shims $PATH
     set -gx PATH $PATH $HOME/.local/share/mise/shims
 end
@@ -56,6 +66,19 @@ set -gx MANPAGER "sh -c 'col -bx | bat -l man -p'"
 
 if not set -q LANG
     set -gx LANG C.UTF-8
+end
+
+# A herdr server started over SSH has no WAYLAND_DISPLAY, so its panes can't
+# read the desktop clipboard once you attach locally. Inside herdr panes, take
+# the live graphical session's display, without exporting it to plain SSH
+# sessions (where omarchy-launch-editor falls back to vi).
+if test "$HERDR_ENV" = 1; and test -z "$WAYLAND_DISPLAY"
+    set -l omarchy_wayland (systemctl --user show-environment 2>/dev/null | string replace -rf '^WAYLAND_DISPLAY=' '')
+    set -l omarchy_runtime $XDG_RUNTIME_DIR
+    test -n "$omarchy_runtime"; or set omarchy_runtime /run/user/(id -u)
+    if test -n "$omarchy_wayland"; and test -S $omarchy_runtime/$omarchy_wayland
+        set -gx WAYLAND_DISPLAY $omarchy_wayland
+    end
 end
 
 # Bash starts without a banner; so does fish.
@@ -99,6 +122,7 @@ __omarchy_alias a 'omarchy-agent --inline'
 __omarchy_alias c 'opencode --auto'
 __omarchy_alias cx 'printf "\033[2J\033[3J\033[H" && claude --permission-mode auto'
 __omarchy_alias cy 'codex --approve-for-me'
+__omarchy_alias ca 'agy --dangerously-skip-permissions'
 __omarchy_alias d docker
 __omarchy_alias r rails
 __omarchy_alias t 'tmux attach || tmux new -s Work'

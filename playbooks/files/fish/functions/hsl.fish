@@ -4,7 +4,9 @@
 # Create a multi-pane swarm layout with the same command started in each pane (great for AI)
 # Usage: hsl <pane_count> <command>
 function hsl --description 'Herdr swarm: the same command in an N-pane grid'
-    if test -z "$argv[1]"; or test -z "$argv[2]"
+    # A positive count, then the command: one argument run as it is, or
+    # several, each quoted, as Omarchy's hsl takes them since 4.6.
+    if not string match -qr '^[1-9][0-9]*$' -- "$argv[1]"; or test -z "$argv[2]"
         echo "Usage: hsl <pane_count> <command>"
         return 1
     end
@@ -15,6 +17,9 @@ function hsl --description 'Herdr swarm: the same command in an N-pane grid'
 
     set -l count $argv[1]
     set -l cmd $argv[2]
+    if test (count $argv) -gt 2
+        set cmd (string join -- ' ' (string escape -- $argv[2..]))
+    end
     set -l current_dir $PWD
 
     herdr tab rename $HERDR_TAB_ID "$(path basename -- $current_dir)" >/dev/null

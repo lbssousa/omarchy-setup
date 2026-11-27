@@ -102,7 +102,8 @@ always applied.
 
 | Feature | Tag | Effect | Phases | Default | Revert |
 |---|---|---|---|---|---|
-| Secure Boot (sbctl) | `secureboot` | adds sbctl keys; modifies Limine (checksums, hash_mismatch_panic) or, after Omarchy's switch to systemd-boot, signs its loader and has omarchy-boot-sync sign the boot images (signing=required) | system | off | no |
+| Boot loader (Limine or systemd-boot) | `bootloader` | modifies the boot loader to the one chosen in `just configure` - systemd-boot through Omarchy's omarchy-boot-switch (a trial boot, then Limine removed at the second reboot); choosing Limine again reverts a switch that hasn't finished | system | off | no |
+| Secure Boot (sbctl) | `secureboot` | adds sbctl keys; signs for the boot loader the bootloader feature chose (or Omarchy's, without it) - modifies Limine (checksums, hash_mismatch_panic) or signs systemd-boot and has omarchy-boot-sync sign the boot images (signing=required) | system | off | no |
 | Yubikey GPG key | `gpg-yubikey` | adds pcscd (scdaemon through it), the card's public key (ultimate trust) and git commit signing | system, user | off | no |
 | Security key wizard (FIDO2, OpenPGP, SSH) | `security-key-wizard` | asks in the terminal what to do with the key plugged in, with the security-key-omarchy overlay's options - registers it and a backup key for sudo/polkit and sets whether they ask for its PIN; imports and trusts its OpenPGP key, signs git commits with it; imports or makes resident SSH keys and sets up their git hosts (`just security-key` runs it alone) | user | off | no |
 
@@ -237,3 +238,15 @@ The cursor themes the `bibata-cursor` feature offers (AUR `bibata-cursor-theme-b
 | `Bibata-Original-Classic-Right` | black · sharp · pointing right (left-handed) |
 | `Bibata-Original-Ice-Right` | white · sharp · pointing right (left-handed) |
 | `Bibata-Original-Amber-Right` | amber · sharp · pointing right (left-handed) |
+
+## Boot loader
+
+The boot loaders the `bootloader` feature offers; `just configure` asks
+which one when the feature is on, and `secureboot` signs for it. ★ marks
+the default. systemd-boot moves the machine there with `omarchy-boot-switch`
+(see docs/secureboot.md).
+
+| Loader | Notes |
+|---|---|
+| `limine` ★ | Omarchy's loader (checksummed limine.conf) |
+| `systemd-boot` | signed boot images (omarchy-boot-switch, two reboots) |

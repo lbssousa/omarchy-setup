@@ -169,6 +169,27 @@ if [[ ${feature_on[bibata-cursor]:-} == true ]]; then
     [[ -n $cursor_theme ]] || cursor_theme=$current_cursor
 fi
 
+# --- Boot loader -----------------------------------------------------------
+# The loader the bootloader feature applies (and secureboot signs for), asked
+# only with the feature on (administrators only: it's a system feature).
+# Choosing systemd-boot moves the machine there with omarchy-boot-switch on
+# the next system run.
+boot_loader=""
+if [[ ${feature_on[bootloader]:-} == true ]]; then
+    current_loader=$(menu boot-loader)
+    loader_options=() selected_loader=""
+    mapfile -t loader_lines < <(menu boot-loaders)
+    for loader_line in "${loader_lines[@]}"; do
+        IFS=$'\t' read -r loader_id loader_label <<<"$loader_line"
+        loader_options+=("$loader_label|$loader_id")
+        [[ $loader_id == "$current_loader" ]] && selected_loader=$loader_label
+    done
+    picked=$(gum choose --header="Boot loader — which one?" \
+        --label-delimiter='|' --selected="$selected_loader" "${loader_options[@]}") || true
+    boot_loader=${picked##*|}
+    [[ -n $boot_loader ]] || boot_loader=$current_loader
+fi
+
 # --- Save ------------------------------------------------------------------
 json=$(
     {
@@ -176,9 +197,10 @@ json=$(
         for cat in "${!app_installed[@]}"; do printf 'a\t%s\t%s\t%s\n' "$cat" "${app_installed[$cat]}" "${app_default[$cat]:-}"; done
         printf 'w\t%s\n' "$webapps_engine"
         [[ -z $cursor_theme ]] || printf 'c\t%s\n' "$cursor_theme"
+        [[ -z $boot_loader ]] || printf 'b\t%s\n' "$boot_loader"
     } | python3 -c '
 import json, sys
-out = {"features": {}, "apps": {}, "webapps": {}, "cursor": {}}
+out = {"features": {}, "apps": {}, "webapps": {}, "cursor": {}, "boot": {}}
 for line in sys.stdin.read().splitlines():
     kind, key, *rest = line.split("\t")
     if kind == "f":
@@ -187,6 +209,8 @@ for line in sys.stdin.read().splitlines():
         out["webapps"]["engine"] = key
     elif kind == "c":
         out["cursor"]["theme"] = key
+    elif kind == "b":
+        out["boot"]["loader"] = key
     else:
         installed, default = rest[0], rest[1] if len(rest) > 1 else ""
         entry = {"installed": [i for i in installed.split(",") if i]}

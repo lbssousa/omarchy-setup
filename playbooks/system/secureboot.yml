@@ -21,6 +21,15 @@
 #               BOOTX64.EFI once it is systemd-boot's, and the .signed copy
 #               next to systemd's own, which `bootctl update` installs.
 #
+# The loader chosen with the bootloader feature (boot_loader, applied by
+# system/bootloader.yml, which runs first) is what ends up signed: during the
+# switch's trial both are, so either can start the machine with Secure Boot
+# on. With systemd-boot chosen but not staged (Omarchy hasn't published
+# omarchy-boot-systemd, or the switch couldn't start), Limine still boots the
+# machine and is signed, with a warning; the first run after the switch signs
+# systemd-boot. Without the bootloader feature, whatever Omarchy manages is
+# signed, as before.
+#
 # Omarchy's own Secure Boot (a Microsoft-signed shim, MOK) isn't needed with
 # your own keys enrolled, and isn't out yet anyway.
 #
@@ -70,6 +79,18 @@
           {{ secureboot_backend.stdout_lines | select('in', ['limine', 'systemd-boot']) | list
              if secureboot_backend.rc == 0
              else (['limine'] if secureboot_limine_check.rc == 0 else []) }}
+
+    - name: Warn when the chosen boot loader isn't the one Omarchy manages yet
+      ansible.builtin.debug:
+        msg: >-
+          systemd-boot is the boot loader chosen in `just configure`, but this
+          machine still boots only Limine, so Limine is what gets signed. Run
+          this again once the switch is staged (`just apply bootloader
+          secureboot` does both, in that order) to sign systemd-boot.
+      when:
+        - features.bootloader | default(false) | bool
+        - boot_loader == 'systemd-boot'
+        - "'systemd-boot' not in secureboot_loaders"
 
     - name: Fail without a loader this playbook covers
       ansible.builtin.fail:

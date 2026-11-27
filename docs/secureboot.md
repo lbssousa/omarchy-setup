@@ -59,6 +59,34 @@ the boot store (`/var/lib/omarchy/boot`) says `signing=required` and has
 4. Runs `omarchy-boot-sync sync` to rebuild and publish the images signed,
    and shows `omarchy-boot-sync verify`.
 
+### Choosing the loader
+
+The loader is a choice of its own, above Secure Boot: the `bootloader`
+feature (`playbooks/system/bootloader.yml`), where `just configure` asks for
+Limine or systemd-boot. It runs before this playbook, which signs for the
+loader it leaves the machine on:
+
+- **systemd-boot**: needs `omarchy-boot-systemd` in Omarchy's repository,
+  which replaces Limine's packages at the end of the switch. Omarchy
+  4.6.0rc1 ships `omarchy-boot-switch` but not that package (in no channel,
+  as of 2026-11-27), so the play warns and leaves the machine on Limine,
+  before touching anything; the first run after an `omarchy update` that
+  brings it makes the switch.
+  Then `omarchy-boot-switch --check`, and `--apply`, which
+  stages systemd-boot next to Limine for a trial boot (BootNext). Reboot once
+  for the trial (one that fails comes back up on Limine), once more to finish
+  the switch, which removes Limine. Run with this playbook in the same pass
+  (`just apply bootloader secureboot`), both loaders are signed while the
+  trial lasts. With systemd-boot chosen but not staged, this playbook signs
+  the Limine that still boots, with a warning; run it again after the switch.
+- **Limine**: chosen again, it reverts a switch that hasn't finished
+  (`omarchy-boot-switch revert`). Once the switch is finished Limine is gone
+  and the play only warns.
+
+Better switched before Secure Boot is turned on in the firmware: a key
+problem on the trial boot then shows up as a fallback to Limine, not as a
+refused boot.
+
 The Setup Mode check and the key enrollment are the same for both loaders.
 Your own keys enrolled with sbctl don't need Omarchy's shim or MOK.
 

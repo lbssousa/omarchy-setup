@@ -829,6 +829,16 @@ libfprint_build_depends:
 libfprint_goodix_usb_vendor_id: "27c6"
 libfprint_goodix_usb_product_id: "538d"
 
+# Boot loader (playbooks/system/bootloader.yml, the bootloader feature): the
+# one chosen in `just configure` (features.yml, boot.loaders; resolved by
+# scripts/features.py), applied with Omarchy's omarchy-boot-switch.
+# boot_loader_chosen: chosen there, not the catalog's default — only then
+# does Limine revert an unfinished switch. boot_store: Omarchy's boot store,
+# where the switch keeps its state and omarchy-boot-sync its images.
+boot_loader: limine
+boot_loader_chosen: false
+boot_store: /var/lib/omarchy/boot
+
 # Secure Boot (sbctl on Limine or systemd-boot, playbooks/system/secureboot.yml
 # — not part of `just setup`, run explicitly).
 secureboot_esp_path: /boot
@@ -837,7 +847,7 @@ secureboot_default_limine_conf: /etc/default/limine
 # systemd-boot (Omarchy's omarchy-boot-switch): the boot store omarchy-boot-sync
 # signs from, sbctl's db key (sbctl 0.14 and later keep it here), systemd's
 # loader and the firmware's fallback name for it.
-secureboot_boot_store: /var/lib/omarchy/boot
+secureboot_boot_store: "{{ boot_store }}"
 secureboot_sbctl_db_dir: /var/lib/sbctl/keys/db
 secureboot_systemd_boot_efi: /usr/lib/systemd/boot/efi/systemd-bootx64.efi
 secureboot_fallback_efi: BOOTX64.EFI

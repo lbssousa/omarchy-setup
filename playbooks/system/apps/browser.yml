@@ -19,13 +19,12 @@
 #                      looks for before writing color.json) and, for Brave
 #                      Origin, the /opt/WidevineCdm/chromium link.
 #   Google Chrome,     the PWAs that rebuild Omarchy's web apps
-#   Brave Origin,      (user/apps/webapps.yml), force-installed through the
-#   Chromium           browser's machine policy (WebAppInstallForceList),
+#   Brave Origin       (user/apps/webapps.yml), force-installed through the
+#                      browser's machine policy (WebAppInstallForceList),
 #                      for the sites marked pwa in the union of every
-#                      user's webapps list — only for
-#                      the engine chosen in `just configure`, so a browser
-#                      that merely stays installed (Omarchy's Chromium) gets
-#                      no PWAs.
+#                      user's webapps list — only for the engine chosen in
+#                      `just configure`, so a browser that merely stays
+#                      installed gets no PWAs.
 - name: Apps — web browsers
   hosts: localhost
   connection: local

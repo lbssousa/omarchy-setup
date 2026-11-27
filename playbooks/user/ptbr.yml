@@ -13,7 +13,7 @@
   gather_facts: false
 
   tasks:
-    # Omarchy 4.5's Setup > Language: writes ~/.config/omarchy/language and
+    # Omarchy's Setup > Language: writes ~/.config/omarchy/language and
     # LANG to ~/.config/uwsm/env.d/50-omarchy-language (which wins over
     # /etc/locale.conf for the session) and generates the locale if needed.
     - name: Omarchy language (omarchy-language {{ ptbr_omarchy_language }})

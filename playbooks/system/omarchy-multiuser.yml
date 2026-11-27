@@ -38,7 +38,7 @@
   tags: [omarchy-multiuser]
 
   tasks:
-    - name: Install nodejs (the build needs it; the rest ships with Omarchy 4.5)
+    - name: Install nodejs (the build needs it; the rest ships with Omarchy)
       community.general.pacman:
         name: nodejs
         state: present

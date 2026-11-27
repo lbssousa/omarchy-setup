@@ -20,7 +20,7 @@
     path: "{{ pam_file }}"
   register: pam_u2f_file_stat
 
-# Omarchy 4.5 ships polkit-1 only in /usr/lib/pam.d; see
+# Omarchy ships polkit-1 only in /usr/lib/pam.d; see
 # tasks/pam-auth-order-file.yml.
 - name: "Seed {{ pam_file }} from the vendor copy in /usr/lib/pam.d"
   ansible.builtin.copy:

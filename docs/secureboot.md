@@ -140,7 +140,7 @@ If the machine doesn't boot with Secure Boot on, see
   it means editing boot files by hand without going through
   limine-entry-tool afterward breaks boot.
 
-- **Silent boot** is Omarchy's own since 4.5: `timeout: 1` and `quiet: yes`
+- **Silent boot** is Omarchy's own: `timeout: 1` and `quiet: yes`
   in the `limine.conf` header (template and migration `1791898365`). That
   migration edits the file with `sed` and doesn't run `limine-update`, so
   with `ENABLE_ENROLL_LIMINE_CONFIG=yes` any header change it makes leaves

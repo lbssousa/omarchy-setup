@@ -1,7 +1,7 @@
 # omarchy-setup
 
 Ansible automation for setting up a freshly installed
-[Omarchy](https://omarchy.org/) desktop (4.5), with a menu to choose what
+[Omarchy](https://omarchy.org/) desktop (4.6), with a menu to choose what
 to apply.
 
 Each automation is split into a **system phase** (packages, `/etc`, PAM,
@@ -30,10 +30,10 @@ just configure   # gum menu: pick apps and features; offers to apply them
 ```
 
 - **Apps**, by category (web browsers, password managers, office suites,
-  graphics, PDF viewers, video, notes, editors, terminal workspaces, file
+  graphics, PDF viewers, video, editors, terminal workspaces, file
   managers), each with its installation alternatives — native, AUR, Flathub
-  or a release bundle (e.g. Google Chrome, Firefox native or Flatpak, Brave
-  Origin or Brave Flatpak; ONLYOFFICE, LibreOffice or the ArtCraft suite
+  or a release bundle (e.g. Firefox native or Flatpak, Brave Origin or Brave
+  Flatpak alongside Omarchy's Google Chrome; ONLYOFFICE, LibreOffice or the ArtCraft suite
   through its launcher). Several can be installed side by side; where a
   category has a default app (browser, password manager, PDF viewer, file
   manager) the menu asks for it. Apps are declarative: one left unchecked is
@@ -45,9 +45,10 @@ just configure   # gum menu: pick apps and features; offers to apply them
 
 fish is every account's login shell; that isn't a choice. Omarchy's web
 apps (YouTube, WhatsApp, ...) are kept native or rebuilt with an installed
-browser — the menu asks, offering Firefox Taskbar Tabs or Chrome/Brave/Chromium
-PWAs. Taskbar Tabs open tiled fullscreen; PWAs open as ordinary tiled
-windows. With the Bibata mouse cursor on (Themes), the menu also asks which
+browser — the menu asks, offering Google Chrome PWAs (Chrome is Omarchy's
+default browser, so this is the default), Brave PWAs or Firefox Taskbar
+Tabs. PWAs open as ordinary tiled windows; Taskbar Tabs open tiled
+fullscreen. With the Bibata mouse cursor on (Themes), the menu also asks which
 of the [Bibata](https://github.com/ful1e5/Bibata_Cursor) themes is yours:
 Modern (rounded) or Original (sharp), in Classic (black), Ice (white) or
 Amber, each also pointing right for left-handed use.
@@ -58,14 +59,15 @@ their own user phase; the system phase follows the administrator's.
 
 ## Prerequisites
 
-- An Omarchy 4.5 desktop, or 4.6 from its first release candidate: the plays
-  rely on its packages and commands.
+- An Omarchy 4.6 desktop (from its first release candidate on): the plays
+  rely on its packages and commands. Omarchy 4.5 is no longer supported.
 - `run0` (part of systemd, so already there on Arch) and, for the system
   phase, a user in the `wheel` group. Other users need not be: their part is
   the user phase only.
 - The libfprint playbook builds with `makepkg` on the host (no container);
   it replaces the official `libfprint`/`libfprint-git` via `pacman -U`.
-- The Secure Boot playbook only covers Limine + limine-entry-tool.
+- The Secure Boot playbook covers Limine + limine-entry-tool and Omarchy's
+  systemd-boot.
 
 Neither `just` nor `ansible` need to be pre-installed: `./bootstrap.sh`
 installs `just`; `just setup` then installs `ansible` and the

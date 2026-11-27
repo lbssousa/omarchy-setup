@@ -5,7 +5,7 @@
 # the module reports "unavailable", `sufficient` ignores it and the stack
 # goes on to the key and the password. Omarchy's own scripts find the line
 # and leave it alone.
-# Omarchy 4.5 ships polkit-1 only as the vendor file /usr/lib/pam.d/polkit-1
+# Omarchy ships polkit-1 only as the vendor file /usr/lib/pam.d/polkit-1
 # (pambase/polkit no longer put a copy in /etc). PAM prefers /etc/pam.d over
 # /usr/lib/pam.d, so seeding /etc from the vendor file changes nothing until
 # the lines below are added to it.

@@ -11,9 +11,9 @@
 #                           in memory. Checked first; with a terminal the
 #                           run asks to close it, otherwise (or while it
 #                           stays open) this part is skipped with a warning.
-#   Google Chrome,          PWAs, only for the sites marked `pwa: true`
-#   Brave Origin, Chromium  (they serve a web app manifest), force-installed
-#                           by the browser's machine policy (system/apps/
+#   Google Chrome           PWAs, only for the sites marked `pwa: true`
+#   (Omarchy's default),    (they serve a web app manifest), force-installed
+#   Brave Origin            by the browser's machine policy (system/apps/
 #                           browser.yml), each launcher pointed at its
 #                           container (Brave). Omarchy's launcher for the
 #                           site is removed. The browser has to be open: it
@@ -177,7 +177,7 @@
         webapps_restore_apps: "{{ webapps_not_pwa }}"
       when: webapps_engine in webapps_pwa_engines and webapps_not_pwa | length > 0
 
-    - name: PWAs (Google Chrome, Brave Origin, Chromium)
+    - name: PWAs (Google Chrome, Brave Origin)
       when: webapps_engine in webapps_pwa_engines and webapps_pwa | length > 0
       vars:
         pwa_engine: "{{ webapps_pwa_engines[webapps_engine] }}"

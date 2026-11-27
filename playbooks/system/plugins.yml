@@ -23,7 +23,7 @@
 # or opt-in with `just apply gpg-yubikey`). Installing or linking and enabling
 # the plugins in each user's shell, and their per-user configuration, happen in
 # user/plugins.yml, which explains the plugin list. What the builds need
-# (base-devel, git) ships with Omarchy 4.5; only Rust is added here.
+# (base-devel, git) ships with Omarchy; only Rust is added here.
 #
 # Usage: just apply plugins (or just apply pinentry / ssh-askpass / polkit-agent /
 # clipboard-portal / fingerprint / security-key)

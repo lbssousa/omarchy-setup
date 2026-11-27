@@ -2,8 +2,8 @@
 # abutre's own settings, loaded by scripts/run-phase.sh (-e @users/abutre.yml)
 # in both phases. Extra vars: these win over group_vars/all/*.
 
-# Omarchy's web apps, rebuilt with the default browser (Firefox Taskbar Tabs
-# or Chrome/Brave/Chromium PWAs), each in its own container where supported
+# Omarchy's web apps, rebuilt with the default browser (Google Chrome PWAs,
+# or Brave PWAs or Firefox Taskbar Tabs), each in its own container where supported
 # (see webapps in group_vars/all/main.yml for the fields). pwa: Chrome's own
 # installability check (2026-11-12, signed out) passed for YouTube, Teams,
 # Maps and Messages; X serves a valid manifest. WhatsApp's and Photos'

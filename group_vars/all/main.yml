@@ -97,10 +97,11 @@ firefox_taskbar_tabs_pref_file: omarchy-setup.js
 firefox_font_size_pref_file: omarchy-setup-font.js
 firefox_default_font_size_px: 17
 
-# Non-stock Chromium-family browsers (apps: browser, playbooks/{system,user}/
+# Chromium-family browsers (apps: browser, playbooks/{system,user}/
 # apps/browser.yml), set up and removed the way Omarchy's own
-# omarchy-install-browser and omarchy-remove-browser do it (Chromium itself
-# comes pre-installed and configured by Omarchy). Their packages come from
+# omarchy-install-browser and omarchy-remove-browser do it (Google Chrome
+# comes pre-installed and configured by Omarchy; this sets it up again when
+# it is reinstalled after being left out). Their packages come from
 # system/apps/packages.yml, before user/apps/browser.yml runs
 # omarchy-default-browser (which only calls omarchy-install-browser when the
 # binary is missing, and whose sudo calls can't prompt under Ansible anyway),
@@ -134,7 +135,8 @@ chromium_browsers:
 
 # Omarchy's web apps, kept native or rebuilt with the browser chosen in
 # `just configure` (playbooks/user/apps/webapps.yml): Firefox Taskbar Tabs,
-# or PWAs for Google Chrome, Brave Origin and Chromium. The choice defaults
+# or PWAs for Google Chrome (Omarchy's default browser) and Brave Origin.
+# The choice defaults
 # to the default browser's own solution. Each user lists theirs in users/<name>.yml:
 #
 #   label         what the keybind is called (and Omarchy's launcher Name=,
@@ -188,13 +190,6 @@ webapps_pwa_engines:
     shortcut_prefix: brave
     binary: /opt/brave-origin-bin/brave
     containers: true
-  chromium:
-    label: Chromium
-    policy_dir: /etc/chromium/policies/managed
-    config_dir: chromium
-    shortcut_prefix: chrome
-    binary: /usr/lib/chromium/chromium
-    containers: false
 webapps_pwa_profile_directory: Default
 webapps_pwa_policy_file: omarchy-setup-webapps.json
 
@@ -366,12 +361,6 @@ keepassxc_browser_hosts:
     path: "{{ target_home }}/.mozilla/native-messaging-hosts/{{ keepassxc_firefox_relay_name }}"
     relay: true
     template: keepassxc-browser-firefox.json.j2
-  chromium:
-    dirs:
-      - "{{ target_home }}/.config/chromium/NativeMessagingHosts"
-    path: "{{ target_home }}/.config/chromium/NativeMessagingHosts/{{ keepassxc_firefox_relay_name }}"
-    relay: true
-    template: keepassxc-browser-chromium.json.j2
   google-chrome:
     dirs:
       - "{{ target_home }}/.config/google-chrome/NativeMessagingHosts"
@@ -716,7 +705,7 @@ file_chooser_qt_packages:
   - qt6ct
 file_chooser_portals_conf: "{{ target_home }}/.config/xdg-desktop-portal/hyprland-portals.conf"
 file_chooser_portals_conf_seed: /usr/share/omarchy/config/xdg-desktop-portal/hyprland-portals.conf
-# What Omarchy 4.5's own copy of that file sets; re-added to a file an
+# What Omarchy's own copy of that file sets; re-added to a file an
 # earlier run of this play wrote whole without them.
 file_chooser_portals_defaults:
   default: hyprland;gtk
@@ -760,7 +749,6 @@ ptbr_chromium_accept_languages: "pt-BR,pt,en-US,en"
 # relative to $HOME (~/.config/<dir>). Opera and Helium are excluded:
 # unconfirmed profile layout on this machine.
 ptbr_chromium_family_config_dirs:
-  - .config/chromium
   - .config/google-chrome
   - .config/BraveSoftware/Brave-Origin
   - .config/microsoft-edge

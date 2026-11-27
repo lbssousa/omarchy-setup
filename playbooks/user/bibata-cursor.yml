@@ -5,8 +5,7 @@
 # bibata-cursor.yml); until an administrator has run it, this only says so.
 #
 # Omarchy sets no cursor theme of its own: Hyprland takes XCURSOR_THEME from
-# the environment it starts with (on 4.5, default/hypr/startup-cursor.lua
-# restores it after the blank startup cursor), and with none uses the
+# the environment it starts with, and with none uses the
 # "default" alias (Adwaita). So the theme goes where that environment comes
 # from, ~/.config/environment.d (uwsm hands it to Hyprland and the apps at
 # login), and to the GNOME cursor-theme setting GTK apps read. Bibata ships

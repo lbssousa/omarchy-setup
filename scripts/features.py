@@ -15,7 +15,7 @@ Choices live in $XDG_CONFIG_HOME/omarchy-setup/features.yml:
 
   features: {<id>: true|false, ...}
   apps: {<category>: {installed: [<option id>, ...], default: <option id>}}
-  webapps: {engine: none|firefox|chrome|chromium|brave}
+  webapps: {engine: none|firefox|chrome|brave}
   cursor: {theme: <a theme id from the catalog's cursor.themes>}
 """
 import json
@@ -128,7 +128,6 @@ WEBAPPS_ENGINE_LABELS = {
     "none": "Keep Omarchy's native web apps",
     "firefox": "Firefox Taskbar Tabs",
     "chrome": "Google Chrome PWAs",
-    "chromium": "Chromium PWAs",
     "brave": "Brave PWAs",
 }
 
@@ -161,7 +160,9 @@ def pick_webapps_engine(catalog, installed_ids, default_id, choices):
     """The chosen engine, or the default browser's own when unchosen."""
     available = webapps_engines(catalog, installed_ids)
     chosen = (choices.get("webapps") or {}).get("engine")
-    if chosen is not None:
+    # An engine the catalog no longer has (Chromium's, before Omarchy 4.6)
+    # counts as unchosen.
+    if chosen in WEBAPPS_ENGINE_LABELS:
         return chosen
     engine = browser_engine(catalog, default_id)
     return engine if engine in available else "none"
@@ -403,7 +404,7 @@ def cmd_doc():
         "",
         "<!-- Generated from features.yml by `just docs`. Don't edit by hand. -->",
         "",
-        "What each automation does to a stock Omarchy 4.5, and whether it is on",
+        "What each automation does to a stock Omarchy 4.6, and whether it is on",
         "until you choose otherwise with `just configure`. **Revert**: turning it",
         "off undoes it on the next run; otherwise turning it off only stops",
         "managing it. fish as every account's login shell isn't a feature: it is",

@@ -132,7 +132,7 @@
           # sensor's MCU after a verify cancel, leaving fprintd failing
           # every verify instantly: restart it the moment that shows up.
           # The lock screen's retry storm it used to catch too is handled
-          # by Omarchy 4.5 (backoff + fprintd-resume sleep hook).
+          # by Omarchy (backoff + fprintd-resume sleep hook).
           ansible.builtin.copy:
             src: fprintd-desync-watchdog.sh
             dest: /usr/local/bin/fprintd-desync-watchdog

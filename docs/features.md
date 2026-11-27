@@ -2,7 +2,7 @@
 
 <!-- Generated from features.yml by `just docs`. Don't edit by hand. -->
 
-What each automation does to a stock Omarchy 4.5, and whether it is on
+What each automation does to a stock Omarchy 4.6, and whether it is on
 until you choose otherwise with `just configure`. **Revert**: turning it
 off undoes it on the next run; otherwise turning it off only stops
 managing it. fish as every account's login shell isn't a feature: it is
@@ -42,7 +42,6 @@ always applied.
 | Vertical workspace switch animation | `hypr-vertical-workspaces` | modifies ~/.config/hypr/looknfeel.lua (switching workspaces scrolls vertically, slidevert, instead of snapping) | user | on | yes |
 | Screen scale + text size | `text-size` | modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | system, user | on | no |
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
-| Bar stays hidden under the screensaver | `screensaver-bar-guard` | adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it (Omarchy 4.5; 4.6's native screensaver doesn't need it, and the watcher is removed there) | user | on | yes |
 | Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock as Esc | `capslock` | modifies the keyboard options (Caps Lock = Esc, Shift+Caps Lock = Caps Lock, Compose on the Menu key instead of Shift+Caps Lock) | user | on | yes |
 | Superwhisper hold-to-talk on the right Ctrl | `superwhisper-hold-key` | modifies Superwhisper's hold-to-talk key (RightAlt, which is AltGr on ABNT2 keyboards) to the right Ctrl | user | on | yes |
@@ -131,8 +130,7 @@ Default app: default browser (omarchy-default-browser); the menu also asks wheth
 
 | Option | Source | Notes |
 |---|---|---|
-| Chromium ★ | pacman `chromium` | stock |
-| Google Chrome ★ (default) | aur `google-chrome` |  |
+| Google Chrome ★ (default) | pacman `google-chrome` | stock |
 | Firefox | pacman `firefox` |  |
 | Firefox | flatpak `org.mozilla.firefox` |  |
 | Brave Origin | aur `brave-origin-bin` |  |
@@ -179,8 +177,7 @@ Default app: default PDF viewer.
 
 | Option | Source | Notes |
 |---|---|---|
-| Evince | pacman `evince` | stock; Omarchy 4.5.0's; later releases replace it with Papers |
-| Papers ★ | pacman `papers` | kept; Omarchy's document viewer after 4.5.0; on 4.5.0, Nautilus's previewer (sushi) depends on it |
+| Papers ★ | pacman `papers` | stock |
 | Zathura ★ (default) | flatpak `org.pwmt.zathura` |  |
 | Zathura | pacman `zathura`, `zathura-pdf-mupdf` |  |
 
@@ -193,22 +190,11 @@ Default app: default handler for magnet links (x-scheme-handler/magnet).
 | qBittorrent ★ (default) | flatpak `org.qbittorrent.qBittorrent` |  |
 | qBittorrent | pacman `qbittorrent` |  |
 
-### Video and streaming
+### Video
 
 | Option | Source | Notes |
 |---|---|---|
-| Kdenlive ★ | flatpak `org.kde.kdenlive` |  |
-| Kdenlive | pacman `kdenlive` |  |
-| OBS Studio ★ | flatpak `com.obsproject.Studio` |  |
-| OBS Studio | pacman `obs-studio` |  |
 | ArtCraft: FilmCraft, EffectCraft | bundle `artcraft-launcher` | early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak) |
-
-### Notes and handwriting
-
-| Option | Source | Notes |
-|---|---|---|
-| Xournal++ ★ | flatpak `com.github.xournalpp.xournalpp` |  |
-| Xournal++ | pacman `xournalpp` |  |
 
 ### Editors
 
@@ -229,8 +215,7 @@ Default app: default file manager (inode/directory).
 
 | Option | Source | Notes |
 |---|---|---|
-| Files (Folio) | pacman `folio` | Omarchy's own; Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it, and it is Omarchy's Open/Save dialog |
-| Nautilus | pacman `nautilus` | Omarchy's own; Omarchy 4.5.0's file manager; later releases remove it. No picker of its own: the dialogs stay Omarchy's (GTK on 4.5.0) |
+| Files (Folio) | pacman `folio` | Omarchy's own; Omarchy's file manager; Super+Shift+F opens it, and it is Omarchy's Open/Save dialog |
 | Flea ★ (default) | pacman `flea` |  |
 
 ## Mouse cursor

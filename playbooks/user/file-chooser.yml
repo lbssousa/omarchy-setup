@@ -1,12 +1,12 @@
 ---
 # Makes the "Open file" / "Save file" dialogs of non-GNOME apps (Firefox,
-# Chromium, Electron, plain GTK apps, ...) the default file manager's picker.
+# Chrome, Electron, plain GTK apps, ...) the default file manager's picker.
 #
 # Those dialogs come from xdg-desktop-portal, which hands the FileChooser
-# interface to a backend. Omarchy 4.5.0 ships xdg-desktop-portal-gtk, whose
-# dialog is GTK3, and Hyprland's own portal has no file chooser at all
-# (hyprland-portals.conf: default=hyprland;gtk); later releases prefer
-# Files' picker there (FileChooser=folio;gtk, Omarchy PR #19035). Flea and
+# interface to a backend. Hyprland's own portal has no file chooser at all
+# (hyprland-portals.conf: default=hyprland;gtk), and Omarchy prefers Files'
+# picker there (FileChooser=folio;gtk), with xdg-desktop-portal-gtk's GTK3
+# dialog behind it. Flea and
 # Files each ship a FileChooser backend (the file_manager options' `chooser`
 # in features.yml), named for FileChooser in a per-desktop portals.conf with
 # gtk behind it, in case the app is missing or too old to have one:
@@ -15,7 +15,7 @@
 #     in ~/.config/hypr/bindings.lua that floats the picker (`flea --default`,
 #     in apps/file-manager.yml, does both too);
 #   - Files default: folio;gtk, whose float rule ships with Omarchy;
-#   - a file manager without a picker (Nautilus), or the feature off: what
+#   - a file manager without a picker, or the feature off: what
 #     Omarchy's own copy of the file sets, or no line when it sets none.
 #     Flea's line goes with `flea --picker off`, which removes its window
 #     rule too.
@@ -24,7 +24,7 @@
 #
 # ~/.config/xdg-desktop-portal/hyprland-portals.conf replaces the packaged
 # /usr/share/xdg-desktop-portal/hyprland-portals.conf as a whole (the files
-# aren't merged). Omarchy 4.5 ships its own copy of that user file
+# aren't merged). Omarchy ships its own copy of that user file
 # (config/xdg-desktop-portal/hyprland-portals.conf), with the Secret portal
 # on gnome-keyring, which sandboxed apps need for their keyring: the file is
 # seeded from it when missing, and only the FileChooser line is managed.

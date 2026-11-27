@@ -1,6 +1,6 @@
 ---
 # The feature catalog: every automation this repository can apply, what it
-# does to a stock Omarchy 4.5 and whether it is on by default. The single
+# does to a stock Omarchy 4.6 and whether it is on by default. The single
 # source of truth for `just configure` (scripts/configure.sh, the gum menu),
 # scripts/run-phase.sh (which plays run, which revert), `just check` and
 # docs/features.md (generated from this file: `just docs`).
@@ -25,10 +25,10 @@
 #   (including Omarchy's own, marked stock). Options with `keep: true`
 #   can't be removed (something else depends on them) but can still be
 #   the default. Options with `omarchy: true` are apps Omarchy installs and
-#   removes itself as its releases change (Nautilus on 4.5.0, Files after
-#   it): never installed or removed here, installed wherever pacman has
-#   them, and the default app only there (a default that isn't falls back
-#   to the first installed option of the category).
+#   removes itself as its releases change (Files): never installed or
+#   removed here, installed wherever pacman has them, and the default app
+#   only there (a default that isn't falls back to the first installed
+#   option of the category).
 #     source    pacman | aur | flatpak (Flathub, system-wide) | bundle
 #               (a release's .flatpak, see the artcraft option)
 #     min_version      pacman, one package: the oldest version accepted, upgraded
@@ -42,7 +42,7 @@
 #               without a chooser leaves them to Omarchy's portal config
 #     browser   omarchy-default-browser's name for it (browsers)
 #     engine    how Omarchy's web apps are rebuilt when it is the default:
-#               firefox (Taskbar Tabs), chrome, brave or chromium (PWAs), none.
+#               firefox (Taskbar Tabs), chrome or brave (PWAs), none.
 #               `just configure` asks for the web apps engine separately and
 #               saves it as webapps.engine in the choices file; unchosen, the
 #               default browser's engine applies.
@@ -185,14 +185,6 @@ features:
     group: desktop
     title: Night light at sunset/sunrise
     effect: adds a timer that follows the real sunset/sunrise with hyprsunset
-    phases: [user]
-    default: true
-    revert: true
-
-  - id: screensaver-bar-guard
-    group: desktop
-    title: Bar stays hidden under the screensaver
-    effect: adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it (Omarchy 4.5; 4.6's native screensaver doesn't need it, and the watcher is removed there)
     phases: [user]
     default: true
     revert: true
@@ -495,8 +487,7 @@ apps:
     role: default browser (omarchy-default-browser); the menu also asks whether to keep Omarchy's native web apps or rebuild them with an installed browser
     default: google-chrome
     options:
-      - { id: chromium, label: Chromium, source: pacman, package: chromium, stock: true, installed: true, engine: chromium, browser: chromium }
-      - { id: google-chrome, label: Google Chrome, source: aur, package: google-chrome, installed: true, engine: chrome, browser: chrome, desktop: google-chrome.desktop }
+      - { id: google-chrome, label: Google Chrome, source: pacman, package: google-chrome, stock: true, installed: true, engine: chrome, browser: chrome, desktop: google-chrome.desktop }
       - { id: firefox, label: Firefox, source: pacman, package: firefox, engine: firefox, browser: firefox }
       - { id: firefox-flatpak, label: Firefox, source: flatpak, flatpak: org.mozilla.firefox, engine: firefox, browser: firefox }
       - { id: brave-origin, label: Brave Origin, source: aur, package: brave-origin-bin, engine: brave, browser: brave-origin }
@@ -539,8 +530,7 @@ apps:
     role: default PDF viewer
     default: zathura-flatpak
     options:
-      - { id: evince, label: Evince, source: pacman, package: evince, stock: true, desktop: org.gnome.Evince.desktop, note: "Omarchy 4.5.0's; later releases replace it with Papers" }
-      - { id: papers, label: Papers, source: pacman, package: papers, installed: true, keep: true, desktop: org.gnome.Papers.desktop, note: "Omarchy's document viewer after 4.5.0; on 4.5.0, Nautilus's previewer (sushi) depends on it" }
+      - { id: papers, label: Papers, source: pacman, package: papers, stock: true, installed: true, desktop: org.gnome.Papers.desktop }
       - { id: zathura-flatpak, label: Zathura, source: flatpak, flatpak: org.pwmt.zathura, installed: true, desktop: org.pwmt.zathura.desktop }
       - { id: zathura, label: Zathura, source: pacman, package: [zathura, zathura-pdf-mupdf], desktop: org.pwmt.zathura.desktop }
 
@@ -553,19 +543,9 @@ apps:
       - { id: qbittorrent, label: qBittorrent, source: pacman, package: qbittorrent, desktop: org.qbittorrent.qBittorrent.desktop }
 
   - id: video
-    title: Video and streaming
+    title: Video
     options:
-      - { id: kdenlive-flatpak, label: Kdenlive, source: flatpak, flatpak: org.kde.kdenlive, installed: true }
-      - { id: kdenlive, label: Kdenlive, source: pacman, package: kdenlive }
-      - { id: obs-flatpak, label: OBS Studio, source: flatpak, flatpak: com.obsproject.Studio, installed: true }
-      - { id: obs, label: OBS Studio, source: pacman, package: obs-studio }
       - { id: artcraft, label: "ArtCraft: FilmCraft, EffectCraft", source: bundle, bundle: artcraft-launcher, note: "early alpha; the apps are picked in the ArtCraft Launcher, which installs them as host Flatpaks (its sandbox may talk to org.freedesktop.Flatpak)" }
-
-  - id: notes
-    title: Notes and handwriting
-    options:
-      - { id: xournalpp-flatpak, label: Xournal++, source: flatpak, flatpak: com.github.xournalpp.xournalpp, installed: true }
-      - { id: xournalpp, label: Xournal++, source: pacman, package: xournalpp }
 
   - id: editor
     title: Editors
@@ -583,8 +563,7 @@ apps:
     role: default file manager (inode/directory)
     default: flea
     options:
-      - { id: folio, label: Files (Folio), source: pacman, package: folio, omarchy: true, desktop: folio.desktop, chooser: folio, note: "Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it, and it is Omarchy's Open/Save dialog" }
-      - { id: nautilus, label: Nautilus, source: pacman, package: nautilus, omarchy: true, desktop: org.gnome.Nautilus.desktop, note: "Omarchy 4.5.0's file manager; later releases remove it. No picker of its own: the dialogs stay Omarchy's (GTK on 4.5.0)" }
+      - { id: folio, label: Files (Folio), source: pacman, package: folio, omarchy: true, desktop: folio.desktop, chooser: folio, note: "Omarchy's file manager; Super+Shift+F opens it, and it is Omarchy's Open/Save dialog" }
       - { id: flea, label: Flea, source: pacman, package: flea, installed: true, desktop: com.thisisgm.flea.desktop, chooser: flea }
 
 cursor:

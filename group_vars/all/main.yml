@@ -537,7 +537,7 @@ omaskpass_legacy_plugin_link: "{{ target_home }}/.config/omarchy/plugins/{{ omas
 # Installed from a release tag of https://github.com/lbssousa/polkit-omarchy;
 # bump the ref to deploy a new release.
 polkit_agent_repo: https://github.com/lbssousa/polkit-omarchy.git
-polkit_agent_ref: v0.3.0
+polkit_agent_ref: v0.4.0
 polkit_agent_checkout_dir: "{{ target_home }}/src/polkit-omarchy"
 polkit_agent_verify_commit: false
 polkit_agent_signing_keys: "{{ omapin_signing_keys }}"
@@ -631,7 +631,7 @@ shared_checkout_dir: /opt/omarchy-setup
 # release. omarchy_multiuser_repo may also be a local checkout (with the tag in
 # it) before the repository is published.
 omarchy_multiuser_repo: https://github.com/lbssousa/omarchy-multiuser.git
-omarchy_multiuser_ref: v0.14.2
+omarchy_multiuser_ref: v0.15.0
 omarchy_multiuser_checkout_dir: "{{ target_home }}/src/omarchy-multiuser"
 omarchy_multiuser_verify_commit: false
 omarchy_multiuser_signing_keys: "{{ omapin_signing_keys }}"

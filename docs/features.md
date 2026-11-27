@@ -42,7 +42,7 @@ always applied.
 | Vertical workspace switch animation | `hypr-vertical-workspaces` | modifies ~/.config/hypr/looknfeel.lua (switching workspaces scrolls vertically, slidevert, instead of snapping) | user | on | yes |
 | Screen scale + text size | `text-size` | modifies the monitor scale (100%, the login screen's too), GDK_SCALE, the shell/terminal text size and the GNOME font sizes | system, user | on | no |
 | Night light at sunset/sunrise | `nightlight-solar` | adds a timer that follows the real sunset/sunrise with hyprsunset | user | on | yes |
-| Bar stays hidden under the screensaver | `screensaver-bar-guard` | adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it | user | on | yes |
+| Bar stays hidden under the screensaver | `screensaver-bar-guard` | adds a watcher to ~/.config/hypr/autostart.lua that re-applies the screensaver's fullscreen when the bar or dock remaps, so they don't show over it (Omarchy 4.5; 4.6's native screensaver doesn't need it, and the watcher is removed there) | user | on | yes |
 | Firefox follows the Omarchy theme | `omafox` | adds the Omafox add-on to Firefox's policies, its native messaging host and a theme-set hook; the add-on stays in the profile when reverted | system, user | on | yes |
 | Caps Lock as Esc | `capslock` | modifies the keyboard options (Caps Lock = Esc, Shift+Caps Lock = Caps Lock, Compose on the Menu key instead of Shift+Caps Lock) | user | on | yes |
 | Superwhisper hold-to-talk on the right Ctrl | `superwhisper-hold-key` | modifies Superwhisper's hold-to-talk key (RightAlt, which is AltGr on ABNT2 keyboards) to the right Ctrl | user | on | yes |

@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Ready for Omarchy 4.6.0rc1.**
+  - polkit-omarchy 0.4.0 (was 0.3.0): 4.6 asks for encrypted drives'
+    passwords through the polkit agent (`omarchy.polkit unlockDrive`), which
+    0.3.0 lacks, so with it no encrypted drive unlocked. Its prompts also
+    follow 4.6's agent.
+  - omarchy-multiuser 0.15.0 (was 0.14.2): on 4.6, Update > Password stays
+    per person, and Factory Reset, Hostname and Snapshots are for
+    administrators.
+  - The bar's screensaver guard steps aside on 4.6, whose screensaver is
+    drawn natively and is no longer a window: the watcher isn't installed
+    there, and one already installed is removed.
+  - The fish port still follows Omarchy 4.5's bash files; on 4.6 the fish
+    play warns that several of them changed.
+
 ## 0.1.0 (2026-11-27)
 
 The first release: Ansible automation that sets up a freshly installed

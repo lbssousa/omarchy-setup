@@ -1183,14 +1183,16 @@ omarchy_plugins:
   # omarchy.agents bar panel (AI agents' usage, limits and pace). MIT. Its
   # manifest declares clonedFrom omarchy.agents, so enabling it makes the
   # shell disable the built-in (PluginRegistry.setEnabled): one Agents icon,
-  # in the built-in's section. No tags yet: pinned to a commit of main
-  # (with the meters' time cursor and elapsed-time tooltips, and idle
-  # windows shown as idle instead of losing their countdown). Collectors
-  # are Python stdlib only.
+  # in the built-in's section. No tags yet: pinned to a commit of main,
+  # which is Omarchy 4.6's built-in verbatim plus two additions: the pace
+  # marker of omacom/omarchy#13870 (elapsed band, accent cursor, tooltip
+  # translated through the plugin's own i18n/ catalogs) and Gemini's weekly
+  # limit, read from AICode's quota summary because Cloud Code's leaves it
+  # out for AICode-routed accounts (omacom/omarchy#16906). Python stdlib only.
   - name: Agents
     repo: https://github.com/lbssousa/agents-omarchy.git
     id: lbssousa.agents
-    ref: 145a4b9a8d2054303d974c008a8271322ba9f8be
+    ref: 506a620f6b9bca7c37a118277da4f02d7f9af198
     section: right
     packages:
       - python

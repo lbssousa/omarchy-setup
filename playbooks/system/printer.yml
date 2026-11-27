@@ -6,8 +6,11 @@
 #
 # The mDNS lookup is retried for about half a minute: an L4160 in sleep
 # mode takes a while to answer, and a single `getent` used to give up on
-# it, skipping the queue on every run. If the printer still doesn't
-# answer (most likely just powered off), the queue setup is skipped
+# it, skipping the queue on every run. Its IPP service wakes up later
+# than its mDNS name, so lpadmin (which asks it for its attributes to
+# build the driverless PPD: "Unable to create PPD: No IPP attributes")
+# is retried too. If the printer still doesn't answer (most likely just
+# powered off), the queue setup is skipped
 # with a warning instead of failing the play — a hard failure here would abort the whole `site.yml` run,
 # breaking `just setup` for every other playbook over something as
 # routine as the L4160 being off.
@@ -63,17 +66,33 @@
             -L "{{ printer_l4160_location }}"
             -D "{{ printer_l4160_description }}"
             -o printer-error-policy={{ printer_l4160_error_policy }}
-          changed_when: printer_l4160_device_uri not in l4160_current.stdout
+          register: l4160_lpadmin
+          until: l4160_lpadmin.rc == 0
+          retries: 6
+          delay: 10
+          changed_when: l4160_lpadmin.rc == 0 and printer_l4160_device_uri not in l4160_current.stdout
+          failed_when: false
+
+        - name: Warn and skip if the printer didn't answer over IPP
+          ansible.builtin.debug:
+            msg: >-
+              {{ printer_l4160_name }} answered via mDNS but not over IPP
+              ({{ l4160_lpadmin.stderr | default('') | trim }}), so the queue
+              wasn't set up. It is most likely still waking up or going to
+              sleep: rerun `just apply printer` in a minute.
+          when: l4160_lpadmin.rc != 0
 
         - name: Check the current system default printer
           ansible.builtin.command: lpstat -d
           register: default_printer_current
           changed_when: false
           failed_when: false
+          when: l4160_lpadmin.rc == 0
 
         - name: Set the L4160 as the system default printer
           ansible.builtin.command: "lpadmin -d {{ printer_l4160_name }}"
           changed_when: true
           when:
+            - l4160_lpadmin.rc == 0
             - printer_l4160_set_default
             - printer_l4160_name not in default_printer_current.stdout

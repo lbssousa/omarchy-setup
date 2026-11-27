@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-27)
 
 - **Ready for Omarchy 4.6.0rc1.**
   - polkit-omarchy 0.4.0 (was 0.3.0): 4.6 asks for encrypted drives'

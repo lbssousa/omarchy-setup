@@ -179,3 +179,9 @@ typesetting:
 # after reviewing a change the fish play warned about.
 fish-upstream-hash:
     cd /usr/share/omarchy/default/bash && sha256sum rc shell aliases functions init envs env-bootstrap completions inputrc fns/* > "{{justfile_directory()}}/playbooks/files/fish/UPSTREAM.sha256"
+
+# Run once the release's CHANGELOG entry is on main, then push the tag with
+# `git push origin v<VERSION>`.
+# Tag a release signed with the Yubikey's key: `just release 0.1.0`.
+release VERSION: check
+    git tag -s "v{{VERSION}}" -u BAC0B1B569777A733E37447FB10712C404063D38 -m "omarchy-setup {{VERSION}}"

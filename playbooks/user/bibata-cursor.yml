@@ -1,0 +1,123 @@
+---
+# Bibata mouse cursor, per user: the theme chosen in `just configure`
+# (cursor_theme, one of features.yml's cursor.themes) as your mouse cursor.
+# The themes themselves are the system phase's (playbooks/system/
+# bibata-cursor.yml); until an administrator has run it, this only says so.
+#
+# Omarchy sets no cursor theme of its own: Hyprland takes XCURSOR_THEME from
+# the environment it starts with (on 4.5, default/hypr/startup-cursor.lua
+# restores it after the blank startup cursor), and with none uses the
+# "default" alias (Adwaita). So the theme goes where that environment comes
+# from, ~/.config/environment.d (uwsm hands it to Hyprland and the apps at
+# login), and to the GNOME cursor-theme setting GTK apps read. Bibata ships
+# XCursor themes only, so there is no HYPRCURSOR_THEME to set: Hyprland
+# draws them through its XCursor fallback. The running session follows at
+# once (hyprctl setcursor, and the systemd user environment that apps
+# launched from now on get).
+#
+# Turned off, the environment.d file goes, and the GNOME setting is reset
+# if it still names a Bibata theme: Omarchy's cursor comes back.
+#
+# Usage: just apply bibata-cursor
+- name: Bibata mouse cursor
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [bibata-cursor]
+
+  vars:
+    feature_on: "{{ features['bibata-cursor'] | default(false) }}"
+    cursor_env_path: "{{ target_home }}/.config/environment.d/{{ cursor_env_file }}"
+
+  tasks:
+    - name: Check that {{ cursor_theme }} is installed
+      ansible.builtin.stat:
+        path: "{{ cursor_themes_dir }}/{{ cursor_theme }}/cursors"
+      register: cursor_theme_dir
+      when: feature_on | bool
+
+    - name: Say the theme still needs the system phase
+      ansible.builtin.debug:
+        msg: >-
+          {{ cursor_theme }} isn't installed yet: an administrator has to run
+          `just system` (or `just apply bibata-cursor`) first. Your cursor is
+          left as it is.
+      when:
+        - feature_on | bool
+        - not cursor_theme_dir.stat.exists
+
+    - name: Set the cursor theme
+      when:
+        - feature_on | bool
+        - cursor_theme_dir.stat.exists
+      block:
+        - name: Create ~/.config/environment.d
+          ansible.builtin.file:
+            path: "{{ target_home }}/.config/environment.d"
+            state: directory
+            mode: "0755"
+
+        - name: Give the session {{ cursor_theme }} as its cursor theme (XCURSOR_THEME)
+          ansible.builtin.copy:
+            content: |
+              # Written by omarchy-setup (playbooks/user/bibata-cursor.yml).
+              XCURSOR_THEME={{ cursor_theme }}
+            dest: "{{ cursor_env_path }}"
+            mode: "0644"
+          register: cursor_env
+
+        - name: Read the GNOME cursor theme
+          ansible.builtin.command: gsettings get org.gnome.desktop.interface cursor-theme
+          register: cursor_gsettings
+          changed_when: false
+          failed_when: false
+
+        - name: Set the GNOME cursor theme (GTK apps) to {{ cursor_theme }}
+          ansible.builtin.command:
+            argv: [gsettings, set, org.gnome.desktop.interface, cursor-theme, "{{ cursor_theme }}"]
+          when:
+            - cursor_gsettings.rc == 0
+            - cursor_gsettings.stdout | trim | trim("'") != cursor_theme
+
+        - name: Hand XCURSOR_THEME to the apps started from now on
+          ansible.builtin.command:
+            argv: [systemctl, --user, set-environment, "XCURSOR_THEME={{ cursor_theme }}"]
+          changed_when: false
+          failed_when: false
+
+        # Only inside a running Hyprland; the next login picks the theme up
+        # from environment.d either way.
+        - name: Switch Hyprland's cursor to {{ cursor_theme }} now
+          ansible.builtin.shell: hyprctl setcursor {{ cursor_theme | quote }} "${XCURSOR_SIZE:-24}"
+          changed_when: false
+          failed_when: false
+          when: cursor_env.changed
+
+    - name: Give Omarchy its cursor back
+      when: not feature_on | bool
+      block:
+        - name: Remove the cursor theme from the session environment
+          ansible.builtin.file:
+            path: "{{ cursor_env_path }}"
+            state: absent
+          register: cursor_env_removed
+
+        - name: Read the GNOME cursor theme
+          ansible.builtin.command: gsettings get org.gnome.desktop.interface cursor-theme
+          register: cursor_gsettings
+          changed_when: false
+          failed_when: false
+
+        - name: Reset the GNOME cursor theme (it named a Bibata theme)
+          ansible.builtin.command: gsettings reset org.gnome.desktop.interface cursor-theme
+          when:
+            - cursor_gsettings.rc == 0
+            - cursor_gsettings.stdout | trim | trim("'") is match('Bibata-')
+
+        - name: Stop handing XCURSOR_THEME to new apps, and switch Hyprland back
+          ansible.builtin.shell: |
+            systemctl --user unset-environment XCURSOR_THEME
+            hyprctl setcursor default "${XCURSOR_SIZE:-24}"
+          changed_when: false
+          failed_when: false
+          when: cursor_env_removed.changed

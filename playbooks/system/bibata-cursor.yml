@@ -1,0 +1,48 @@
+---
+# Bibata mouse cursor, system phase: installs the Bibata cursor themes
+# (ful1e5/Bibata_Cursor, every theme of the release in /usr/share/icons)
+# from the AUR, cursor_package (features.yml, cursor.package): the prebuilt
+# -bin package, as the source one needs python-clickgen to build. Each user
+# picks the theme in `just configure`, and their user phase sets it
+# (playbooks/user/bibata-cursor.yml).
+#
+# A machine that already has the themes from another package (the source
+# bibata-cursor-theme, which the -bin one conflicts with) keeps it. Turned
+# off, the package stays: the themes are the machine's, and another account
+# may still use one.
+#
+# Usage: just apply bibata-cursor
+- name: Bibata cursor themes
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [bibata-cursor]
+
+  vars:
+    feature_on: "{{ features['bibata-cursor'] | default(false) }}"
+
+  tasks:
+    - name: Find which package has the Bibata themes, if any
+      ansible.builtin.command: pacman -Qqo {{ (cursor_themes_dir ~ '/' ~ cursor_theme) | quote }}
+      register: cursor_owner
+      changed_when: false
+      failed_when: false
+      when: feature_on | bool
+
+    - name: Install or update the Bibata cursor themes from the AUR
+      ansible.builtin.include_tasks: tasks/aur-build.yml
+      vars:
+        aur_package: "{{ cursor_package }}"
+      when:
+        - feature_on | bool
+        - cursor_owner.rc != 0 or cursor_owner.stdout | trim == cursor_package
+
+    - name: Keep the Bibata themes another package installed
+      ansible.builtin.debug:
+        msg: >-
+          {{ cursor_theme }} comes from {{ cursor_owner.stdout | trim }}, which
+          {{ cursor_package }} would replace; left as it is.
+      when:
+        - feature_on | bool
+        - cursor_owner.rc == 0
+        - cursor_owner.stdout | trim != cursor_package

@@ -78,6 +78,9 @@
 - name: Login screen scale
   ansible.builtin.import_playbook: playbooks/system/desktop.yml
 
+- name: Bibata cursor themes
+  ansible.builtin.import_playbook: playbooks/system/bibata-cursor.yml
+
 - name: openssh rebuilt with askpass touch notifications
   ansible.builtin.import_playbook: playbooks/system/openssh-askpass.yml
 

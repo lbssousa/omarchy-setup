@@ -88,6 +88,9 @@
 - name: Omaraptor day/night switching
   ansible.builtin.import_playbook: playbooks/user/omaraptor-theme-auto.yml
 
+- name: Bibata mouse cursor
+  ansible.builtin.import_playbook: playbooks/user/bibata-cursor.yml
+
 - name: "Omafox: Firefox follows the Omarchy theme"
   ansible.builtin.import_playbook: playbooks/user/omafox.yml
 

@@ -1284,3 +1284,12 @@ omaraptor_auto_fallback_sunrise: "06:00"
 omaraptor_auto_fallback_sunset: "18:00"
 # How often the timer checks whether the period changed (systemd timespan).
 omaraptor_auto_interval: 5min
+
+# Bibata mouse cursor (playbooks/{system,user}/bibata-cursor.yml). The theme
+# and the AUR package come from the feature selection (cursor_theme,
+# cursor_package: features.yml's cursor section and `just configure`); the
+# session gets the theme as XCURSOR_THEME from this environment.d file.
+cursor_theme: ""
+cursor_package: ""
+cursor_env_file: 44-cursor.conf
+cursor_themes_dir: /usr/share/icons

@@ -16,6 +16,7 @@ Choices live in $XDG_CONFIG_HOME/omarchy-setup/features.yml:
   features: {<id>: true|false, ...}
   apps: {<category>: {installed: [<option id>, ...], default: <option id>}}
   webapps: {engine: none|firefox|chrome|chromium|brave}
+  cursor: {theme: <a theme id from the catalog's cursor.themes>}
 """
 import json
 import os
@@ -183,6 +184,41 @@ def webapps_engine_errors(catalog, apps, choices):
     return []
 
 
+def cursor_themes(catalog):
+    """The cursor themes the bibata-cursor feature offers, as (id, label)."""
+    return [(t["id"], t["label"]) for t in (catalog.get("cursor") or {}).get("themes", [])]
+
+
+def resolve_cursor_theme(catalog, choices):
+    """The chosen cursor theme, or the catalog's default when unchosen."""
+    chosen = (choices.get("cursor") or {}).get("theme")
+    return chosen if chosen is not None else (catalog.get("cursor") or {}).get("default", "")
+
+
+def cursor_errors(catalog, choices):
+    theme = resolve_cursor_theme(catalog, choices)
+    if theme not in [i for i, _ in cursor_themes(catalog)]:
+        return [f"cursor theme {theme} isn't one of the catalog's (features.yml, cursor.themes)"]
+    return []
+
+
+def merged_choices(choices, new):
+    """The choices file with what the menu asked about (stdin JSON) laid over it."""
+    merged = {
+        "features": dict(choices.get("features") or {}),
+        "apps": dict(choices.get("apps") or {}),
+        "webapps": dict(choices.get("webapps") or {}),
+        "cursor": dict(choices.get("cursor") or {}),
+    }
+    merged["features"].update(new.get("features", {}))
+    merged["apps"].update(new.get("apps", {}))
+    merged["webapps"].update(new.get("webapps") or {})
+    merged["cursor"].update(new.get("cursor") or {})
+    if not merged["cursor"]:
+        del merged["cursor"]
+    return merged
+
+
 def requirement_errors(catalog, features, apps):
     errors = []
     for f in catalog["features"]:
@@ -239,7 +275,11 @@ def cmd_resolve(phase, out):
         choices = dict(choices)
         choices["features"] = {**(choices.get("features") or {}), **{i: True for i in forced if i != "apps"}}
     features, apps = resolve(catalog, choices)
-    errors = requirement_errors(catalog, features, apps) + webapps_engine_errors(catalog, apps, choices)
+    errors = (
+        requirement_errors(catalog, features, apps)
+        + webapps_engine_errors(catalog, apps, choices)
+        + cursor_errors(catalog, choices)
+    )
     if errors:
         sys.exit("Feature choices don't fit together:\n  " + "\n  ".join(errors) + "\nRun `just configure` to fix them.")
     installed = sorted({i for entry in apps.values() for i in entry["installed"]})
@@ -248,6 +288,8 @@ def cmd_resolve(phase, out):
         "features": features,
         "apps": apps,
         "webapps_engine": resolve_webapps_engine(catalog, apps, choices),
+        "cursor_theme": resolve_cursor_theme(catalog, choices),
+        "cursor_package": (catalog.get("cursor") or {}).get("package", ""),
         "apps_installed": installed,
         "apps_packages": package_states(catalog, apps),
         # Each category's options by id, for what the plays need to know
@@ -335,9 +377,20 @@ def cmd_check():
     for tag, where in sorted(tags.items()):
         if tag not in ids and tag not in STRUCTURAL_TAGS:
             problems.append(f"tag {tag} ({', '.join(sorted(where))}) isn't a feature in features.yml")
+    cursor = catalog.get("cursor") or {}
+    theme_ids = [i for i, _ in cursor_themes(catalog)]
+    if "bibata-cursor" in ids:
+        if not cursor.get("package"):
+            problems.append("cursor: missing package")
+        if not theme_ids:
+            problems.append("cursor: no themes")
+    if len(theme_ids) != len(set(theme_ids)):
+        problems.append("cursor: duplicate theme ids")
     features, apps = resolve(catalog, {})
     problems += [f"defaults: {e}" for e in requirement_errors(catalog, features, apps)]
     problems += [f"defaults: {e}" for e in webapps_engine_errors(catalog, apps, {})]
+    if cursor:
+        problems += [f"defaults: {e}" for e in cursor_errors(catalog, {})]
     if problems:
         sys.exit("features.yml:\n  " + "\n  ".join(problems))
     print("Feature catalog OK.")
@@ -402,6 +455,22 @@ def cmd_doc():
                 notes.append(o["note"])
             out.append(f"| {o['label']}{star}{default} | {o['source']} {name} | {'; '.join(notes)} |")
         out.append("")
+    cursor = catalog.get("cursor") or {}
+    if cursor.get("themes"):
+        out += [
+            "## Mouse cursor",
+            "",
+            f"The cursor themes the `bibata-cursor` feature offers (AUR `{cursor['package']}`);",
+            "`just configure` asks which one when the feature is on. ★ marks the default.",
+            "",
+            "| Theme | Look |",
+            "|---|---|",
+        ]
+        for theme_id, label in cursor_themes(catalog):
+            star = " ★" if theme_id == cursor.get("default") else ""
+            look = label.split(" — ", 1)[1] if " — " in label else ""
+            out.append(f"| `{theme_id}`{star} | {look} |")
+        out.append("")
     print("\n".join(out).rstrip() + "\n", end="")
 
 
@@ -463,20 +532,22 @@ def menu(args):
             print(pick_webapps_engine(catalog, args[2].split(","), args[1], choices))
         else:
             print(resolve_webapps_engine(catalog, apps, choices))
+    elif what == "cursor-themes":
+        for theme_id, label in cursor_themes(catalog):
+            print(f"{theme_id}\t{menu_label(label)}")
+    elif what == "cursor-theme":
+        print(resolve_cursor_theme(catalog, choices))
     elif what == "save":
-        # stdin: JSON {"features": {...}, "apps": {...}, "webapps": {...}}
-        # (only what the menu asked about); merged into the choices file.
-        new = json.load(sys.stdin)
-        merged = {
-            "features": dict(choices.get("features") or {}),
-            "apps": dict(choices.get("apps") or {}),
-            "webapps": dict(choices.get("webapps") or {}),
-        }
-        merged["features"].update(new.get("features", {}))
-        merged["apps"].update(new.get("apps", {}))
-        merged["webapps"].update(new.get("webapps") or {})
+        # stdin: JSON {"features": {...}, "apps": {...}, "webapps": {...},
+        # "cursor": {...}} (only what the menu asked about); merged into the
+        # choices file.
+        merged = merged_choices(choices, json.load(sys.stdin))
         f2, a2 = resolve(catalog, merged)
-        errors = requirement_errors(catalog, f2, a2) + webapps_engine_errors(catalog, a2, merged)
+        errors = (
+            requirement_errors(catalog, f2, a2)
+            + webapps_engine_errors(catalog, a2, merged)
+            + cursor_errors(catalog, merged)
+        )
         if errors:
             print("\n".join(errors), file=sys.stderr)
             sys.exit(3)
@@ -487,15 +558,7 @@ def menu(args):
     elif what == "summary":
         # stdin: same JSON as save; prints what changes against the current
         # resolved selection.
-        new = json.load(sys.stdin)
-        merged = {
-            "features": dict(choices.get("features") or {}),
-            "apps": dict(choices.get("apps") or {}),
-            "webapps": dict(choices.get("webapps") or {}),
-        }
-        merged["features"].update(new.get("features", {}))
-        merged["apps"].update(new.get("apps", {}))
-        merged["webapps"].update(new.get("webapps") or {})
+        merged = merged_choices(choices, json.load(sys.stdin))
         f2, a2 = resolve(catalog, merged)
         titles = {f["id"]: f for f in catalog["features"]}
         for fid, on in f2.items():
@@ -515,6 +578,11 @@ def menu(args):
         engine_after = resolve_webapps_engine(catalog, a2, merged)
         if engine_after != engine_before:
             print(f"- web apps: {WEBAPPS_ENGINE_LABELS[engine_after]}")
+        cursor_before = resolve_cursor_theme(catalog, choices)
+        cursor_after = resolve_cursor_theme(catalog, merged)
+        if f2.get("bibata-cursor") and (cursor_after != cursor_before or not features.get("bibata-cursor")):
+            labels = dict(cursor_themes(catalog))
+            print(f"- mouse cursor: {labels.get(cursor_after, cursor_after)}")
     else:
         sys.exit(f"unknown menu query: {what}")
 

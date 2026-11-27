@@ -56,6 +56,7 @@ always applied.
 | Omaraptor day/night switching | `omaraptor-theme-auto` | adds a timer switching the Omaraptor theme at sunrise/sunset | user | on | yes |
 | Osaka Jade theme | `osaka-jade-theme` | adds the Osaka Jade theme (git, omacom/omarchy-osaka-jade-theme), over Omarchy's bundled copy | user | off | no |
 | Piedmont Gold themes | `piedmont-gold-theme` | adds the Piedmont Gold and Piedmont Gold Light themes (git, wesleygrimes/omarchy-piedmont-gold-theme and -light-theme) | user | off | no |
+| Bibata mouse cursor | `bibata-cursor` | adds the Bibata cursor themes (AUR bibata-cursor-theme-bin); modifies your mouse cursor to the one chosen in `just configure` (XCURSOR_THEME in ~/.config/environment.d, the GNOME cursor-theme setting, Hyprland's cursor). Turned off, Omarchy's cursor comes back; the package stays, for other accounts | system, user | off | yes |
 
 ## Omarchy shell plugins and prompts
 
@@ -231,3 +232,23 @@ Default app: default file manager (inode/directory).
 | Files (Folio) | pacman `folio` | Omarchy's own; Omarchy's file manager after 4.5.0, which replaces Nautilus; Super+Shift+F opens it, and it is Omarchy's Open/Save dialog |
 | Nautilus | pacman `nautilus` | Omarchy's own; Omarchy 4.5.0's file manager; later releases remove it. No picker of its own: the dialogs stay Omarchy's (GTK on 4.5.0) |
 | Flea ★ (default) | pacman `flea` |  |
+
+## Mouse cursor
+
+The cursor themes the `bibata-cursor` feature offers (AUR `bibata-cursor-theme-bin`);
+`just configure` asks which one when the feature is on. ★ marks the default.
+
+| Theme | Look |
+|---|---|
+| `Bibata-Modern-Classic` ★ | black · rounded |
+| `Bibata-Modern-Ice` | white · rounded |
+| `Bibata-Modern-Amber` | amber · rounded |
+| `Bibata-Original-Classic` | black · sharp |
+| `Bibata-Original-Ice` | white · sharp |
+| `Bibata-Original-Amber` | amber · sharp |
+| `Bibata-Modern-Classic-Right` | black · rounded · pointing right (left-handed) |
+| `Bibata-Modern-Ice-Right` | white · rounded · pointing right (left-handed) |
+| `Bibata-Modern-Amber-Right` | amber · rounded · pointing right (left-handed) |
+| `Bibata-Original-Classic-Right` | black · sharp · pointing right (left-handed) |
+| `Bibata-Original-Ice-Right` | white · sharp · pointing right (left-handed) |
+| `Bibata-Original-Amber-Right` | amber · sharp · pointing right (left-handed) |

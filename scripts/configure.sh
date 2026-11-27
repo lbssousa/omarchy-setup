@@ -150,21 +150,43 @@ for group_line in "${groups[@]}"; do
     done
 done
 
+# --- Mouse cursor ----------------------------------------------------------
+# The Bibata theme the bibata-cursor feature sets, asked only with the
+# feature on; the current one (or the catalog's default) is preselected.
+cursor_theme=""
+if [[ ${feature_on[bibata-cursor]:-} == true ]]; then
+    current_cursor=$(menu cursor-theme)
+    cursor_options=() selected_cursor=""
+    mapfile -t cursor_lines < <(menu cursor-themes)
+    for cursor_line in "${cursor_lines[@]}"; do
+        IFS=$'\t' read -r theme_id theme_label <<<"$cursor_line"
+        cursor_options+=("$theme_label|$theme_id")
+        [[ $theme_id == "$current_cursor" ]] && selected_cursor=$theme_label
+    done
+    picked=$(gum choose --height=15 --header="Mouse cursor — which Bibata theme?" \
+        --label-delimiter='|' --selected="$selected_cursor" "${cursor_options[@]}") || true
+    cursor_theme=${picked##*|}
+    [[ -n $cursor_theme ]] || cursor_theme=$current_cursor
+fi
+
 # --- Save ------------------------------------------------------------------
 json=$(
     {
         for id in "${!feature_on[@]}"; do printf 'f\t%s\t%s\n' "$id" "${feature_on[$id]}"; done
         for cat in "${!app_installed[@]}"; do printf 'a\t%s\t%s\t%s\n' "$cat" "${app_installed[$cat]}" "${app_default[$cat]:-}"; done
         printf 'w\t%s\n' "$webapps_engine"
+        [[ -z $cursor_theme ]] || printf 'c\t%s\n' "$cursor_theme"
     } | python3 -c '
 import json, sys
-out = {"features": {}, "apps": {}, "webapps": {}}
+out = {"features": {}, "apps": {}, "webapps": {}, "cursor": {}}
 for line in sys.stdin.read().splitlines():
     kind, key, *rest = line.split("\t")
     if kind == "f":
         out["features"][key] = rest[0] == "true"
     elif kind == "w":
         out["webapps"]["engine"] = key
+    elif kind == "c":
+        out["cursor"]["theme"] = key
     else:
         installed, default = rest[0], rest[1] if len(rest) > 1 else ""
         entry = {"installed": [i for i in installed.split(",") if i]}

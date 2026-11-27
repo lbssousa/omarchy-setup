@@ -47,7 +47,10 @@ fish is every account's login shell; that isn't a choice. Omarchy's web
 apps (YouTube, WhatsApp, ...) are kept native or rebuilt with an installed
 browser — the menu asks, offering Firefox Taskbar Tabs or Chrome/Brave/Chromium
 PWAs. Taskbar Tabs open tiled fullscreen; PWAs open as ordinary tiled
-windows.
+windows. With the Bibata mouse cursor on (Themes), the menu also asks which
+of the [Bibata](https://github.com/ful1e5/Bibata_Cursor) themes is yours:
+Modern (rounded) or Original (sharp), in Classic (black), Ice (white) or
+Amber, each also pointing right for left-handed use.
 
 Your choices are saved in `~/.config/omarchy-setup/features.yml`; anything
 you never chose takes the catalog's default. Each user runs the menu for

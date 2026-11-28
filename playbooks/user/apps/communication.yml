@@ -1,0 +1,76 @@
+---
+# Chat and video call apps, per user (apps: communication): each native app
+# (communication_apps in group_vars/all/main.yml) takes the place of
+# Omarchy's web app for the same service. While one of its options is
+# installed, Omarchy's launcher is removed and the service's keybind opens
+# the app, or focuses its window; with none installed, Omarchy's launcher
+# comes back from omarchy_applications_dir (keybind-less, as stock).
+- name: Apps — chat and video calls (user)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [apps]
+
+  vars:
+    # Service -> the first installed option's launch command and class.
+    communication_installed: >-
+      {%- set out = {} -%}
+      {%- for id, svc in communication_apps.items() -%}
+        {%- set opts = svc.options.keys() | list | intersect(apps.communication.installed) -%}
+        {%- if opts -%}{%- set _ = out.update({id: svc.options[opts | first]}) -%}{%- endif -%}
+      {%- endfor -%}
+      {{ out }}
+
+  tasks:
+    - name: Look for Omarchy's web app launchers of the installed apps
+      ansible.builtin.command:
+        argv:
+          - grep
+          - -lE
+          - "^Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)"
+          - "{{ webapps_desktop_dir }}/{{ communication_apps[item].omarchy_webapp }}.desktop"
+      loop: "{{ communication_installed.keys() | list }}"
+      register: communication_omarchy_launchers
+      changed_when: false
+      failed_when: false
+
+    - name: Remove them
+      ansible.builtin.file:
+        path: "{{ item.stdout }}"
+        state: absent
+      loop: "{{ communication_omarchy_launchers.results | selectattr('rc', 'eq', 0) | list }}"
+      loop_control:
+        label: "{{ item.stdout | basename }}"
+      notify: refresh the applications database
+
+    - name: Look for Omarchy's launchers of the services with no app installed
+      ansible.builtin.stat:
+        path: "{{ omarchy_applications_dir }}/{{ communication_apps[item].omarchy_webapp }}.desktop"
+      loop: "{{ communication_apps.keys() | reject('in', communication_installed.keys() | list) | list }}"
+      register: communication_omarchy_sources
+
+    - name: Put them back
+      ansible.builtin.copy:
+        src: "{{ item.stat.path }}"
+        dest: "{{ webapps_desktop_dir }}/"
+        remote_src: true
+        force: false
+        mode: "0644"
+      loop: "{{ communication_omarchy_sources.results | selectattr('stat.exists') | list }}"
+      loop_control:
+        label: "{{ item.stat.path | basename }}"
+      notify: refresh the applications database
+
+    - name: Keybindings
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        hypr_file: bindings.lua
+        hypr_marker: chat and video calls — keybindings
+        hypr_state: "{{ 'present' if communication_installed else 'absent' }}"
+        hypr_block: |
+          {% for id, app in communication_installed.items() %}
+          o.rebind("{{ communication_apps[id].keybind }}", "{{ communication_apps[id].label }}", { launch = "{{ app.launch }}", focus = "{{ app.focus }}" })
+          {% endfor %}
+
+  handlers:
+    - ansible.builtin.import_tasks: tasks/handlers-user.yml

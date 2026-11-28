@@ -191,6 +191,15 @@ Default app: default handler for magnet links (x-scheme-handler/magnet).
 | qBittorrent ★ (default) | flatpak `org.qbittorrent.qBittorrent` |  |
 | qBittorrent | pacman `qbittorrent` |  |
 
+### Chat and video calls
+
+| Option | Source | Notes |
+|---|---|---|
+| Discord ★ | pacman `discord` | replaces Omarchy's Discord web app; SUPER+SHIFT+D opens it |
+| Discord | flatpak `com.discordapp.Discord` | replaces Omarchy's Discord web app; SUPER+SHIFT+D opens it |
+| Zoom ★ | aur `zoom` | replaces Omarchy's Zoom web app; SUPER+SHIFT+Z opens it |
+| Zoom | flatpak `us.zoom.Zoom` | replaces Omarchy's Zoom web app; SUPER+SHIFT+Z opens it |
+
 ### Video
 
 | Option | Source | Notes |

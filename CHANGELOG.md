@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Chat and video calls** (apps: communication): native Discord (pacman or
+  Flathub) and Zoom (AUR or Flathub) in place of Omarchy's web apps. While
+  one is installed, Omarchy's launcher goes and SUPER+SHIFT+D / SUPER+SHIFT+Z
+  open it or focus its window; uninstalled, Omarchy's launcher comes back.
+- **Removing Omarchy's web apps**: `webapps_omarchy_removed` in
+  users/<name>.yml lists web apps to drop whatever the engine, with the
+  keybinds to unbind (abutre: Basecamp, HEY, X). The X PWA is gone from
+  abutre's list.
+- The PWA swap now finds a browser shortcut named after the url with a
+  trailing slash (Chrome names Google Photos' `https://photos.google.com/`).
+
 ## 0.2.0 (2026-11-27)
 
 - **Ready for Omarchy 4.6.0rc1.**

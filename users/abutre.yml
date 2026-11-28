@@ -6,7 +6,7 @@
 # or Brave PWAs or Firefox Taskbar Tabs), each in its own container where supported
 # (see webapps in group_vars/all/main.yml for the fields). pwa: Chrome's own
 # installability check (2026-11-12, signed out) passed for YouTube, Teams,
-# Maps and Messages; X serves a valid manifest. WhatsApp's and Photos'
+# Maps and Messages. WhatsApp's and Photos'
 # policy installs (2026-11-12, signed in) got their manifests and icons,
 # the real PWAs.
 webapps:
@@ -53,8 +53,13 @@ webapps:
     pwa: true
     container: Google
     keybind: "SUPER + SHIFT + CTRL + G"
-  - label: X
-    desktop_name: X
-    url: https://x.com
-    pwa: true
-    keybind: "SUPER + SHIFT + X"
+
+# Omarchy's web apps not wanted at all (fields in group_vars/all/main.yml).
+# Discord and Zoom aren't here: the native apps (apps: communication) take
+# their place.
+webapps_omarchy_removed:
+  - name: Basecamp
+  - name: HEY
+    unbind: ["SUPER + SHIFT + E", "SUPER + SHIFT + ALT + E", "SUPER + SHIFT + C"]
+  - name: X
+    unbind: ["SUPER + SHIFT + X", "SUPER + SHIFT + ALT + X"]

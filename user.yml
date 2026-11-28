@@ -40,6 +40,9 @@
 - name: "Apps: the default PDF viewer, Zathura's tweaks"
   ansible.builtin.import_playbook: playbooks/user/apps/pdf.yml
 
+- name: "Apps: Discord and Zoom in place of Omarchy's web apps (keybinds)"
+  ansible.builtin.import_playbook: playbooks/user/apps/communication.yml
+
 - name: "Apps: the default torrent client (magnet links)"
   ansible.builtin.import_playbook: playbooks/user/apps/torrent.yml
 

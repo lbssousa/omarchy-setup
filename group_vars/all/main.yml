@@ -164,6 +164,17 @@ chromium_browsers:
 # default browser has none (Brave Flatpak). Taskbar Tab windows open tiled
 # fullscreen; PWAs open as ordinary tiled windows.
 webapps: []
+# Omarchy's web apps a user doesn't want at all (users/<name>.yml), removed
+# whatever the web apps engine (playbooks/user/apps/webapps.yml):
+#
+#   name    Omarchy's launcher, <omarchy_applications_dir>/<name>.desktop
+#   unbind  Omarchy's keybinds for it, unbound (optional)
+#
+# Only a launcher of Omarchy's own (Exec=omarchy-launch-webapp or a
+# handler) goes. Taking an entry off the list doesn't bring it back:
+# omarchy-refresh-applications (or Omarchy's next upgrade) does, and the
+# next run removes whatever is still listed.
+webapps_omarchy_removed: []
 webapps_desktop_dir: "{{ target_home }}/.local/share/applications"
 webapps_backup_dir: "{{ target_home }}/.local/share/omarchy-setup/webapps-omarchy"
 # Where Omarchy keeps its launchers (omarchy-refresh-applications copies them
@@ -667,6 +678,31 @@ gregorio_nvim_plugin_file: "{{ lazyvim_plugins_dir }}/gregorio.lua"
 # default handler for magnet links, in the same mimeapps.list. Both builds
 # ship the same desktop id.
 torrent_mimeapps_path: "{{ target_home }}/.config/mimeapps.list"
+
+# Chat and video call apps (apps: communication, playbooks/user/apps/
+# communication.yml). Each native app replaces Omarchy's web app for the same
+# service: while one of its options is installed, Omarchy's launcher goes and
+# the keybind opens (or focuses) the app; with none installed, Omarchy's
+# launcher comes back from omarchy_applications_dir, keybind-less as stock.
+#   omarchy_webapp  Omarchy's launcher name for the service
+#   keybind         Hyprland key that opens it
+#   options         option id (features.yml) -> launch command and window class
+#                   (the first installed option wins)
+communication_apps:
+  discord:
+    label: Discord
+    omarchy_webapp: Discord
+    keybind: "SUPER + SHIFT + D"
+    options:
+      discord: { launch: discord, focus: "^discord$" }
+      discord-flatpak: { launch: flatpak run com.discordapp.Discord, focus: "^discord$" }
+  zoom:
+    label: Zoom
+    omarchy_webapp: Zoom
+    keybind: "SUPER + SHIFT + Z"
+    options:
+      zoom: { launch: zoom, focus: "^zoom$" }
+      zoom-flatpak: { launch: flatpak run us.zoom.Zoom, focus: "^zoom$" }
 
 # PDF viewers (apps: pdf, playbooks/{system,user}/apps/pdf.yml). Zathura's
 # desktop id is the same in both builds. The Flatpak gets a user-level copy

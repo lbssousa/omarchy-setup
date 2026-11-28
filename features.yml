@@ -559,6 +559,14 @@ apps:
       - { id: qbittorrent-flatpak, label: qBittorrent, source: flatpak, flatpak: org.qbittorrent.qBittorrent, installed: true, desktop: org.qbittorrent.qBittorrent.desktop }
       - { id: qbittorrent, label: qBittorrent, source: pacman, package: qbittorrent, desktop: org.qbittorrent.qBittorrent.desktop }
 
+  - id: communication
+    title: Chat and video calls
+    options:
+      - { id: discord, label: Discord, source: pacman, package: discord, installed: true, note: "replaces Omarchy's Discord web app; SUPER+SHIFT+D opens it" }
+      - { id: discord-flatpak, label: Discord, source: flatpak, flatpak: com.discordapp.Discord, note: "replaces Omarchy's Discord web app; SUPER+SHIFT+D opens it" }
+      - { id: zoom, label: Zoom, source: aur, package: zoom, installed: true, note: "replaces Omarchy's Zoom web app; SUPER+SHIFT+Z opens it" }
+      - { id: zoom-flatpak, label: Zoom, source: flatpak, flatpak: us.zoom.Zoom, note: "replaces Omarchy's Zoom web app; SUPER+SHIFT+Z opens it" }
+
   - id: video
     title: Video
     options:

@@ -260,5 +260,38 @@
       # run wrote rather than dropping them.
       when: not (webapps_engine in webapps_pwa_engines and pwa_browser_running.rc | default(0) != 0)
 
+    # Omarchy's web apps this user doesn't want at all, whatever the engine
+    # (webapps_omarchy_removed): their launchers and keybinds go.
+    - name: Look for Omarchy's launchers of the removed web apps
+      ansible.builtin.command:
+        argv: [grep, -lE, "^Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)", "{{ webapps_desktop_dir }}/{{ item.name }}.desktop"]
+      loop: "{{ webapps_omarchy_removed }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: webapps_removed_launchers
+      changed_when: false
+      failed_when: false
+
+    - name: Remove them
+      ansible.builtin.file:
+        path: "{{ item.stdout }}"
+        state: absent
+      loop: "{{ webapps_removed_launchers.results | selectattr('rc', 'eq', 0) | list }}"
+      loop_control:
+        label: "{{ item.stdout | basename }}"
+      notify: refresh the applications database
+
+    - name: Unbind their keybinds
+      ansible.builtin.include_tasks: tasks/hypr-user-block.yml
+      vars:
+        webapps_unbind: "{{ webapps_omarchy_removed | selectattr('unbind', 'defined') | map(attribute='unbind') | flatten }}"
+        hypr_file: bindings.lua
+        hypr_marker: web apps — removed
+        hypr_state: "{{ 'present' if webapps_unbind | length > 0 else 'absent' }}"
+        hypr_block: |
+          {% for keys in webapps_unbind %}
+          hl.unbind("{{ keys }}")
+          {% endfor %}
+
   handlers:
     - ansible.builtin.import_tasks: tasks/handlers-user.yml

@@ -54,7 +54,7 @@
     - name: "[{{ webapp.label }}] Wait for the browser to install {{ webapp.url }}"
       ansible.builtin.shell: |
         set -o pipefail
-        grep -il "^Name=\({{ webapp.manifest_hint | default(webapp.desktop_name | default(webapp.label)) }}\|{{ webapp.url }}\)$" \
+        grep -il "^Name=\({{ webapp.manifest_hint | default(webapp.desktop_name | default(webapp.label)) }}\|{{ webapp.url }}/\?\)$" \
           {{ webapps_desktop_dir | quote }}/{{ pwa_engine.shortcut_prefix }}-*-{{ webapps_pwa_profile_directory }}.desktop 2>/dev/null | head -1
       args:
         executable: /bin/bash
